@@ -1,0 +1,41 @@
+# Android and Gradle local state
+.gradle/
+.kotlin/
+**/build/
+local.properties
+.idea/
+*.iml
+.cxx/
+.externalNativeBuild/
+captures/
+
+# Device, account, signing, and local configuration
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p12
+*.mobileprovision
+*.pem
+google-services.json
+credentials.json
+service-account*.json
+
+# Local diagnostics and operating-system state
+*.hprof
+*.log
+logcat*.txt
+local-evidence/
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Optional local documentation tooling
+node_modules/
+
+# Local owner planning and evidence (never committed)
+.local-planning/
+
+# Local AI instructions
+AGENTS.md
