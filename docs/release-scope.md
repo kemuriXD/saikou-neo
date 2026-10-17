@@ -5,6 +5,15 @@ resolving Q-001). Full feature parity with the previous SaikouTV is not a
 requirement for this release. Android TV comes first; Apple TV discovery and
 Vega OS implementation remain deferred.
 
+## Standalone app identity
+
+The owner confirmed on 2026-10-17 that Saikou Neo is a completely new app
+(D-010). It has its own application identity, local storage and release
+lifecycle, and works without SaikouTV installed. It is not an in-place update
+of the old app. Choose Neo's exact permanent application ID before creating
+the Android project. Any optional explicit legacy-data import is a separate
+scope decision; it is not implied by installing Neo.
+
 ## Required journeys
 
 These are acceptance criteria to implement and verify, not passed test results.
@@ -20,6 +29,7 @@ validate the selected live integrations separately once they are agreed.
 | TV-005 | Resume | Save progress and offer a sensible continuation after leaving playback and reopening the app. Persistence, completion rules, and any account sync need explicit contracts. |
 | TV-006 | Personal library | Without signing in, add and remove a title, find it again, and open its details using the remote. The local library persists across app restarts. |
 | TV-007 | Optional AniList sync | The core journey works without sign-in. A user may connect AniList for sync; failure or cancellation of that optional connection leaves the local experience usable. Define sync fields, conflict rules, and disconnect behaviour before implementation. |
+| TV-008 | Independent installation | Install and launch Neo with its own application ID and local storage on a device without SaikouTV. The core local journey works without the old app; installation does not replace other apps or their data. |
 
 ## Account boundary
 
@@ -35,7 +45,7 @@ semantics remain part of Q-004; no authentication mechanism is selected yet.
 - Catalogue integration, playback sources, authentication/sync contracts, media
   and subtitle formats.
 - Supported Android versions and physical TV/Fire TV models.
-- Permanent app identity/installation policy, migration, licence, distribution, signing, and final artwork.
+- Exact permanent application ID, optional legacy-data import, licence, distribution, signing, and final artwork.
 - Quantitative performance budgets and release thresholds after the initial
   device baseline and playback proof provide measurements.
 
