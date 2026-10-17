@@ -21,6 +21,7 @@ validate documentation; they do not demonstrate that an app builds or works.
 
 - [Roadmap and stage gates](docs/roadmap.md)
 - [Open decisions](docs/decisions.md)
+- [First release scope](docs/release-scope.md)
 - [Development environment](docs/environment.md)
 - [Contribution process](CONTRIBUTING.md)
 - [Testing and release evidence](docs/testing.md)
