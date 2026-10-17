@@ -1,8 +1,9 @@
 # Saikou Neo
 
-Saikou Neo is a fresh, TV-first rebuild of SaikouTV, developed in small,
-verified stages. The private development repository and local checkout remain
-named `SaikouTV2`.
+Saikou Neo is a new, standalone TV app built from the ground up, using
+SaikouTV as reference. It has its own application identity, local storage and
+release lifecycle. Development proceeds in small, verified stages. The private
+development repository and local checkout remain named `SaikouTV2`.
 
 **Current stage: repository foundation and scope decisions.** This repository
 does not contain an Android application yet. Its automated checks currently
