@@ -3,7 +3,7 @@
 ## Bootstrap
 
 The private repository is `kemuriXD/SaikouTV2`, with `main` as its default branch.
-The initial local checkout is `C:\Dev\SaikouTV2`.
+The local checkout is `C:\Documents\SaikouTV2`.
 
 Included in the foundation change:
 

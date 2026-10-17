@@ -12,7 +12,7 @@
 6. Verify ADB discovery, remote input, screenshots, and log capture before
    relying on emulator-driven application tests.
 
-Use a normal local checkout, such as `C:\Dev\SaikouTV2`, outside synced reference
+Use a normal local checkout, such as `C:\Documents\SaikouTV2`, outside synced reference
 folders. Local SDK paths belong in ignored local configuration. Project build
 versions and portable commands will be committed during the Android foundation.
 
