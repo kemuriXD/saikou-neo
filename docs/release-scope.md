@@ -35,7 +35,7 @@ semantics remain part of Q-004; no authentication mechanism is selected yet.
 - Catalogue integration, playback sources, authentication/sync contracts, media
   and subtitle formats.
 - Supported Android versions and physical TV/Fire TV models.
-- App name/identity, migration, licence, distribution, signing, and final artwork.
+- Permanent app identity/installation policy, migration, licence, distribution, signing, and final artwork.
 - Quantitative performance budgets and release thresholds after the initial
   device baseline and playback proof provide measurements.
 

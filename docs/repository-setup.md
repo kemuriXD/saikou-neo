@@ -2,8 +2,9 @@
 
 ## Bootstrap
 
-The private repository is `kemuriXD/SaikouTV2`, with `main` as its default branch.
-The local checkout is `C:\Users\Windows\Documents\SaikouTV2`.
+The app's public name is **Saikou Neo** (D-009). The private repository remains
+`kemuriXD/SaikouTV2`, with `main` as its default branch. The local checkout remains
+`C:\Users\Windows\Documents\SaikouTV2`.
 
 Included in the foundation change:
 
