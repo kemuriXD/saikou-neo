@@ -10,12 +10,17 @@ outside the application checkout. Concept previews, editable masters, and
 production exports must be identified separately. A selected concept and a
 completed handoff are still pending.
 
+The owner chose **Saikou Neo** as the user-facing name on 2026-10-17 (D-009).
+Wordmarks and TV banners must use that spelling and spacing. Refresh any
+earlier concept text before handoff acceptance; the working-folder and chat
+names still refer to SaikouTV2. Naming does not select a visual concept.
+
 ## Files to request
 
 - Editable source with named layers, plus SVG masters for vector artwork and
   transparent PNG exports. Avoid flattening the only copy of the design.
-- Separate symbol, wordmark, and combined logo; keep app-name text editable
-  until the visible brand name is agreed.
+- Separate symbol, Saikou Neo wordmark, and combined logo; keep app-name text
+  editable in the masters for future revisions and platform exports.
 - Separate foreground and opaque background layers for the adaptive icon.
 - A 16:9 TV launcher banner with the app name, plus editable adaptive layers.
 - Colour, single-colour, and reversed logo variants for light and dark surfaces.
