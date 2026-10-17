@@ -1,0 +1,28 @@
+# Decision register
+
+## Accepted direction
+
+| ID | Decision | Evidence |
+| --- | --- | --- |
+| D-001 | Fresh private repository: SaikouTV2 | Owner's rebuild and repository setup requests |
+| D-002 | Android TV first; verify Android-based Fire TV on hardware | Owner's platform priority |
+| D-003 | Defer Apple TV discovery and Vega OS implementation | Owner's sequencing and Firestick investigation |
+| D-004 | Finish each stage with test evidence and resolved blockers | Owner's step-by-step and market-readiness requirements |
+| D-005 | Create new artwork separately and integrate after handoff review | Owner's OpenDesign work in progress |
+
+## Gate 0 decisions still open
+
+| ID | Decision needed | Why it must be settled |
+| --- | --- | --- |
+| Q-001 | First release user journeys and explicit exclusions | Defines the first acceptance suite and prevents scope drift |
+| Q-002 | Supported Android versions and representative TV/Fire TV models | Sets minimum SDK, fixtures, and test matrix |
+| Q-003 | User-facing app name and permanent application ID | Affects installation identity, upgrades, accounts, and signing |
+| Q-004 | Content/provider sources, authentication, and supported media formats | Determines data contracts, playback proof, and distribution feasibility |
+| Q-005 | Need for migration from old installs, accounts, settings, or watch progress | Determines storage schema and import boundaries |
+| Q-006 | Licence for new code and rules for upstream reuse | Must precede external contributions and copied implementation |
+| Q-007 | Initial distribution route and owner of signing credentials | Defines release and upgrade acceptance criteria |
+| Q-008 | Accepted artwork and brand rules | Enables consistent assets and accessible focus states |
+
+Record the owner's decisions here and create an ADR when the reasoning affects
+architecture or long-term maintenance. Do not infer final product scope from
+the old app's entire feature set.
