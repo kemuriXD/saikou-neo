@@ -11,6 +11,7 @@
 | D-005 | Create new artwork separately and integrate after handoff review | Owner's OpenDesign work in progress |
 | D-006 | First public release focuses on the core TV watching experience: browse/search, details, playback, subtitles, resume, and a personal library | Owner selected core watching experience on 2026-10-17; see [release scope](release-scope.md) |
 | D-007 | Support use without sign-in, a local personal library, and optional AniList sync | Owner selected local use plus optional AniList sync on 2026-10-17 |
+| D-008 | Research scraped anime streaming entries from Wotaku and EverythingMoe for native playback; create a dedicated source research chat and target about ten qualified candidates | Owner's 2026-10-17 request; provider selection and checker architecture remain open |
 
 ## Gate 0 decisions still open
 
@@ -30,3 +31,8 @@ the old app's entire feature set.
 
 Q-001 is resolved by D-006. Provider/account boundaries and the other open
 decisions must still be settled before gate 0 can close.
+
+The [source research and health proposal](sources.md) records the handoff,
+legacy observations, proposed contracts and acceptance cases. The checker,
+hosting, probe cadence, update model and provider shortlist remain proposals
+pending evidence and agreement.

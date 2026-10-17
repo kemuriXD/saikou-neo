@@ -44,6 +44,10 @@ Create the detailed case register from accepted gate 0 journeys before feature
 implementation. Cover happy paths, failure/recovery paths, accessibility, and
 platform/lifecycle changes. Add a case for each confirmed product regression.
 
+Source-specific cases SRC-001 through SRC-010 are proposed in
+[playback sources](sources.md). Keep deterministic parser/contract checks
+separate from live provider probes and actual native-player/device evidence.
+
 Run impacted cases for each change, the complete critical journey suite before
 beta builds, and the full supported-device release suite on the exact release
 candidate. Re-run affected evidence when the candidate changes. Track the last
