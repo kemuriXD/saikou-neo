@@ -28,3 +28,7 @@ not establish feature parity or remove migration and licensing decisions.
 Application identity, content scope, supported devices, licence, and distribution
 remain gate 0 decisions. Shared-code technology will be chosen when evidence
 from a second platform makes its costs and benefits concrete.
+
+Follow-up on 2026-10-17: D-011 resolves the legacy-data decision. Every user
+starts fresh in Neo; legacy application data migration and imports are excluded.
+Neo's own future upgrades and explicit AniList sync remain separate concerns.

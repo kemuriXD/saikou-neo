@@ -14,6 +14,7 @@
 | D-008 | Research scraped anime streaming entries from Wotaku and EverythingMoe for native playback; create a dedicated source research chat and target about ten qualified candidates | Owner's 2026-10-17 request; provider selection and checker architecture remain open |
 | D-009 | User-facing app name: Saikou Neo. Keep the repository and checkout named SaikouTV2; application identity is recorded separately | Owner chose Saikou Neo on 2026-10-17 |
 | D-010 | Saikou Neo is a standalone new app with its own application identity, local storage and release lifecycle; it does not depend on an old SaikouTV installation or install as its in-place upgrade | Owner clarified on 2026-10-17 that this is a completely new app; exact application ID remains to be chosen |
+| D-011 | Every user starts with fresh Neo local data; no legacy application data migration or imports | Owner explicitly excluded all legacy-data migration and imports on 2026-10-17; optional AniList connection remains D-007 |
 
 ## Gate 0 decisions still open
 
@@ -22,7 +23,6 @@
 | Q-002 | Supported Android versions and representative TV/Fire TV models | Sets minimum SDK, fixtures, and test matrix |
 | Q-003 | Exact permanent Android application ID; D-009 settles the name and D-010 settles standalone installation | Affects Neo's installation identity, future upgrades, accounts, and signing |
 | Q-004 | Playback sources, AniList authentication/sync contracts, and supported media formats | Determines data contracts, playback proof, and distribution feasibility; D-007 settles the account requirement only |
-| Q-005 | Whether an optional explicit legacy-data import is needed | Separate from standalone installation; determines any import boundaries without assuming access to the old app's storage |
 | Q-006 | Licence for new code and rules for upstream reuse | Must precede external contributions and copied implementation |
 | Q-007 | Initial distribution route and owner of signing credentials | Defines release and upgrade acceptance criteria |
 | Q-008 | Accepted artwork and brand rules | Enables consistent assets and accessible focus states |
@@ -31,8 +31,9 @@ Record the owner's decisions here and create an ADR when the reasoning affects
 architecture or long-term maintenance. Do not infer final product scope from
 the old app's entire feature set.
 
-Q-001 is resolved by D-006. Provider/account boundaries and the other open
-decisions must still be settled before gate 0 can close.
+Q-001 is resolved by D-006; Q-005 is resolved by D-011. Provider/account
+boundaries and the other open decisions must still be settled before gate 0
+can close.
 
 The [source research and health proposal](sources.md) records the handoff,
 legacy observations, proposed contracts and acceptance cases. The checker,

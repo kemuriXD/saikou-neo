@@ -18,6 +18,12 @@ end-to-end test result.
 | Physical-device tests | Codecs, audio/video sync, real remotes, standby/wake, memory pressure, and Fire TV differences | Hardware validation and beta |
 | Release regression | Upgrade, signing, install/uninstall, data preservation, performance, and distribution | Release candidate |
 
+Legacy application data migration and imports are excluded by D-011.
+TV-009 verifies fresh local state on first launch and the absence of legacy
+import behaviour. Release upgrade/data-preservation tests still cover Neo's
+own later versions and storage schema changes; they do not migrate SaikouTV
+data. Optional AniList connection and sync remain separately specified cases.
+
 ## Evidence template
 
 ```text

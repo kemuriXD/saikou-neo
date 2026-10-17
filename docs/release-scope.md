@@ -11,8 +11,9 @@ The owner confirmed on 2026-10-17 that Saikou Neo is a completely new app
 (D-010). It has its own application identity, local storage and release
 lifecycle, and works without SaikouTV installed. It is not an in-place update
 of the old app. Choose Neo's exact permanent application ID before creating
-the Android project. Any optional explicit legacy-data import is a separate
-scope decision; it is not implied by installing Neo.
+the Android project. Every user starts with fresh Neo local data (D-011).
+Legacy application data migration and imports are excluded: no automatic
+transfer, import wizard, or legacy backup/database/settings/progress importer.
 
 ## Required journeys
 
@@ -30,6 +31,7 @@ validate the selected live integrations separately once they are agreed.
 | TV-006 | Personal library | Without signing in, add and remove a title, find it again, and open its details using the remote. The local library persists across app restarts. |
 | TV-007 | Optional AniList sync | The core journey works without sign-in. A user may connect AniList for sync; failure or cancellation of that optional connection leaves the local experience usable. Define sync fields, conflict rules, and disconnect behaviour before implementation. |
 | TV-008 | Independent installation | Install and launch Neo with its own application ID and local storage on a device without SaikouTV. The core local journey works without the old app; installation does not replace other apps or their data. |
+| TV-009 | Fresh local state | First launch starts with Neo defaults and an empty local library/history before any explicit account connection, even when legacy apps or their export files exist. No legacy migration/import flow is offered and no legacy app data is read or modified. |
 
 ## Account boundary
 
@@ -40,12 +42,18 @@ Catalogue availability and playback still depend on the selected integrations.
 AniList authentication, sync fields, conflict resolution, and account disconnect
 semantics remain part of Q-004; no authentication mechanism is selected yet.
 
+D-011 excludes legacy application data import. The explicitly chosen AniList
+connection in D-007 remains a separate opt-in integration; its sync contract
+still needs agreement. Future updates of Neo must preserve Neo's own user data
+through supported schema changes. A fresh first launch does not mean resetting
+user data on later Neo upgrades.
+
 ## Boundaries still to agree
 
 - Catalogue integration, playback sources, authentication/sync contracts, media
   and subtitle formats.
 - Supported Android versions and physical TV/Fire TV models.
-- Exact permanent application ID, optional legacy-data import, licence, distribution, signing, and final artwork.
+- Exact permanent application ID, licence, distribution, signing, and final artwork.
 - Quantitative performance budgets and release thresholds after the initial
   device baseline and playback proof provide measurements.
 

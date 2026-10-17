@@ -12,6 +12,7 @@ validate documentation; they do not demonstrate that an app builds or works.
 ## Direction
 
 - Android TV is the first implementation target.
+- Every user starts with fresh Neo data; legacy data migration and imports are excluded.
 - Android-based Fire TV compatibility will be verified on physical hardware.
 - The owner's Fire TV model and operating system are still to be confirmed.
 - Apple TV research and Vega OS implementation are deferred.
