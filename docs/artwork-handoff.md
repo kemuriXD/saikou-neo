@@ -1,7 +1,14 @@
 # Artwork handoff
 
-OpenDesign is producing the new brand assets separately. Integration begins
+Brand assets are being produced in the separate "Design SaikouTV2 artwork" chat
+under Saikou TV Revival. The owner requested direct generation here after the
+OpenDesign Cloud image attempts failed to deliver artwork. Integration begins
 after the owner selects a direction and the handoff is complete.
+
+Working artwork belongs in `C:\Users\Windows\Documents\SaikouTV2-artwork`,
+outside the application checkout. Concept previews, editable masters, and
+production exports must be identified separately. A selected concept and a
+completed handoff are still pending.
 
 ## Files to request
 
