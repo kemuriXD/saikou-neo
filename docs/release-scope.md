@@ -18,11 +18,22 @@ validate the selected live integrations separately once they are agreed.
 | TV-003 | Watch | Start the chosen item; pause, resume, seek, and exit using the remote. Loading, playback failure, and recovery do not trap focus or leave an unusable screen. |
 | TV-004 | Subtitles | Select available subtitles and turn them off; the displayed selection matches playback and remains readable. Required formats and styling options depend on the media decision. |
 | TV-005 | Resume | Save progress and offer a sensible continuation after leaving playback and reopening the app. Persistence, completion rules, and any account sync need explicit contracts. |
-| TV-006 | Personal library | Add and remove a title, find it again, and open its details using the remote. Decide local storage versus account-backed behaviour with Q-004. |
+| TV-006 | Personal library | Without signing in, add and remove a title, find it again, and open its details using the remote. The local library persists across app restarts. |
+| TV-007 | Optional AniList sync | The core journey works without sign-in. A user may connect AniList for sync; failure or cancellation of that optional connection leaves the local experience usable. Define sync fields, conflict rules, and disconnect behaviour before implementation. |
+
+## Account boundary
+
+The owner accepted local use plus optional AniList sync on 2026-10-17 (D-007).
+An account must not be required to enter the app or use the core local journey.
+This does not promise a complete offline catalogue or offline video playback.
+Catalogue availability and playback still depend on the selected integrations.
+AniList authentication, sync fields, conflict resolution, and account disconnect
+semantics remain part of Q-004; no authentication mechanism is selected yet.
 
 ## Boundaries still to agree
 
-- Catalogue, playback sources, authentication, media and subtitle formats.
+- Catalogue integration, playback sources, authentication/sync contracts, media
+  and subtitle formats.
 - Supported Android versions and physical TV/Fire TV models.
 - App name/identity, migration, licence, distribution, signing, and final artwork.
 - Quantitative performance budgets and release thresholds after the initial
