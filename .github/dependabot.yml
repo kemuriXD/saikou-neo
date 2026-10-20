@@ -10,6 +10,9 @@ updates:
     open-pull-requests-limit: 3
     labels:
       - dependencies
+    commit-message:
+      prefix: build
+      include: scope
     groups:
       actions-compatible-updates:
         update-types:

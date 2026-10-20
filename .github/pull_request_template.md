@@ -12,5 +12,7 @@ Describe the problem and resulting behaviour. Link an issue when relevant.
 
 - [ ] Changed behaviour and confirmed regressions have appropriate coverage.
 - [ ] Shared setup/usage documentation is updated where needed.
+- [ ] Existing helpers/libraries are reused where appropriate; comments explain non-obvious decisions.
+- [ ] Relevant lifecycle, TV focus and accessibility behaviour has been checked.
 - [ ] No credentials, signing material or personal diagnostics are included.
 - [ ] Reused code/assets have provenance and licence review, if applicable.
