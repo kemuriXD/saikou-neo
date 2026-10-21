@@ -59,8 +59,7 @@ on the roadmap. Designs may evolve as we test them on real devices.
 
 Watch the repository for updates, explore the **[roadmap](https://github.com/users/kemuriXD/projects/1)**,
 or check **[existing issues](https://github.com/kemuriXD/saikou-neo/issues)** before
-reporting an important bug or blocker. Contribution guidance is in
-**[CONTRIBUTING.md](CONTRIBUTING.md)**.
+reporting an important bug or blocker.
 
 ---
 
