@@ -65,6 +65,6 @@ reporting an important bug or blocker.
 
 <div align="center">
   <p><strong>Thanks for stopping by!</strong></p>
-  <img src="https://count.getloli.com/@kemurixd-saikou-neo?theme=miku&amp;padding=6&amp;scale=0.6&amp;darkmode=0" alt="Approximate README visits, displayed with Miku-themed digits" width="360">
+  <img src="https://count.getloli.com/@kemurixd-saikou-neo?theme=booru-lewd&amp;padding=6&amp;scale=0.6&amp;darkmode=0" alt="Approximate README visits, displayed with pixel-art anime characters" width="360">
   <p><sub>Approximate visits · <a href="https://github.com/journey-ad/Moe-Counter">Moe Counter</a></sub></p>
 </div>
