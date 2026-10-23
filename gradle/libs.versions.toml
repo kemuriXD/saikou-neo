@@ -6,6 +6,9 @@ activity = "1.13.0"
 tv-material = "1.1.0"
 apollo = "5.2.0"
 coroutines = "1.11.0"
+robolectric = "4.17"
+junit = "4.13.2"
+espresso = "3.7.0"
 spotless = "8.10.4"
 ktlint = "1.8.0"
 
@@ -22,6 +25,11 @@ compose-material3 = { module = "androidx.compose.material3:material3" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
 tv-material = { module = "androidx.tv:tv-material", version.ref = "tv-material" }
 apollo-runtime = { module = "com.apollographql.apollo:apollo-runtime", version.ref = "apollo" }
+compose-ui-test-junit4 = { module = "androidx.compose.ui:ui-test-junit4" }
+compose-ui-test-manifest = { module = "androidx.compose.ui:ui-test-manifest" }
+robolectric = { module = "org.robolectric:robolectric", version.ref = "robolectric" }
+junit = { module = "junit:junit", version.ref = "junit" }
+espresso-core = { module = "androidx.test.espresso:espresso-core", version.ref = "espresso" }
 kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 
 # Plugins used by build-logic.

@@ -7,6 +7,8 @@ android {
     defaultConfig {
         applicationId = "ani.saikou.neo"
     }
+    // Robolectric needs the merged resources, fonts included.
+    testOptions { unitTests.isIncludeAndroidResources = true }
 }
 
 dependencies {
@@ -16,4 +18,13 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.tv.material)
     implementation(libs.activity.compose)
+
+    testImplementation(platform(libs.compose.bom))
+    testImplementation(libs.compose.ui.test.junit4)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.junit)
+    // Compose's test rule brings Espresso 3.5, which breaks on the Android 17 Robolectric image.
+    testImplementation(libs.espresso.core)
+    debugImplementation(platform(libs.compose.bom))
+    debugImplementation(libs.compose.ui.test.manifest)
 }

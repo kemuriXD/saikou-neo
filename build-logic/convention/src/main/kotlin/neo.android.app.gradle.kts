@@ -36,6 +36,13 @@ android {
 
     buildFeatures { compose = true }
 
+    testOptions {
+        unitTests.all {
+            // Robolectric's Android 17 image reaches into jdk.internal.access.
+            it.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
