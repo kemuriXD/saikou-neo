@@ -14,15 +14,15 @@ Uninstalling the app, or clearing its data, removes all of this.
 
 ## What leaves your device
 
-- **AniList and MyAnimeList.** The app fetches anime information from them and,
+- The app fetches anime information from them and,
   when you're signed in, updates your list. They receive your requests and your
   token, under their own privacy policies:
   [AniList](https://anilist.co/terms) and
   [MyAnimeList](https://myanimelist.net/about/privacy_policy).
-- **Pairing.** When you sign in on the TV with the companion app, your account
+- When you sign in on the TV with the companion app, your account
   is sent from the phone to the TV over your local network, encrypted. It
   doesn't go through the internet or any server of ours.
-- **Extensions.** Extensions you install make their own network requests to
+- Extensions you install make their own network requests to
   the sources they use. Saikou Neo doesn't see or control what those sources
   collect.
 
