@@ -19,4 +19,9 @@ class ChannelTest {
     fun isLabelledSaikouNeo() {
         assertEquals("Saikou Neo", app.getString(R.string.app_name))
     }
+
+    @Test
+    fun drawsTheSymbolInPink() {
+        assertEquals(0xFFFF4F91.toInt(), app.getColor(R.color.saikou_neo_symbol))
+    }
 }

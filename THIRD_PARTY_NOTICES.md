@@ -34,7 +34,7 @@ added for it.
 ## Artwork
 
 The Signal icon and TV banner are original Saikou Neo artwork. They are covered
-by the project licence. No anime artwork, third-party logos or stock images are
+by the project licence. Preview builds use the same artwork in green. No anime artwork, third-party logos or stock images are
 used.
 
 ## Build tools
