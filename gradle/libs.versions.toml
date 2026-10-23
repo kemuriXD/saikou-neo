@@ -4,6 +4,8 @@ agp = "9.4.1"
 compose-bom = "2026.09.00"
 activity = "1.13.0"
 tv-material = "1.1.0"
+spotless = "8.10.4"
+ktlint = "1.8.0"
 
 # Android SDK levels, read by the convention plugins in build-logic.
 android-compileSdk = "37"
@@ -22,3 +24,6 @@ tv-material = { module = "androidx.tv:tv-material", version.ref = "tv-material" 
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
+
+[plugins]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }

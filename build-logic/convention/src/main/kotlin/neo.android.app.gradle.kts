@@ -9,7 +9,12 @@ plugins {
 
 val libs = the<VersionCatalogsExtension>().named("libs")
 
-fun sdkLevel(name: String): Int = libs.findVersion(name).get().requiredVersion.toInt()
+fun sdkLevel(name: String): Int =
+    libs
+        .findVersion(name)
+        .get()
+        .requiredVersion
+        .toInt()
 
 android {
     compileSdk = sdkLevel("android-compileSdk")
@@ -39,6 +44,8 @@ android {
     lint {
         abortOnError = true
         warningsAsErrors = true
+        // New releases would fail unchanged code; Dependabot handles updates.
+        disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
     }
 }
 

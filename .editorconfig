@@ -8,6 +8,11 @@ indent_style = space
 indent_size = 4
 trim_trailing_whitespace = true
 
+[*.{kt,kts}]
+ktlint_code_style = ktlint_official
+# Composables are named like types.
+ktlint_function_naming_ignore_when_annotated_with = Composable
+
 [*.{yml,yaml,json,jsonc,md}]
 indent_size = 2
 
