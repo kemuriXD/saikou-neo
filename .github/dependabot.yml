@@ -18,3 +18,26 @@ updates:
         update-types:
           - minor
           - patch
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Europe/London
+    open-pull-requests-limit: 5
+    labels:
+      - dependencies
+    commit-message:
+      prefix: build
+      include: scope
+    ignore:
+      # Kotlin 2.4.2x supports Gradle up to 9.7.x. Move to a newer Gradle on purpose.
+      - dependency-name: gradle-wrapper
+        update-types:
+          - version-update:semver-major
+          - version-update:semver-minor
+    groups:
+      gradle-patch-updates:
+        update-types:
+          - patch
