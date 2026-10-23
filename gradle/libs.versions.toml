@@ -1,0 +1,24 @@
+[versions]
+kotlin = "2.4.21"
+agp = "9.4.1"
+compose-bom = "2026.09.00"
+activity = "1.13.0"
+tv-material = "1.1.0"
+
+# Android SDK levels, read by the convention plugins in build-logic.
+android-compileSdk = "37"
+android-targetSdk = "37"
+android-minSdk = "24"
+
+[libraries]
+compose-bom = { module = "androidx.compose:compose-bom", version.ref = "compose-bom" }
+compose-ui = { module = "androidx.compose.ui:ui" }
+compose-foundation = { module = "androidx.compose.foundation:foundation" }
+compose-material3 = { module = "androidx.compose.material3:material3" }
+activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
+tv-material = { module = "androidx.tv:tv-material", version.ref = "tv-material" }
+
+# Plugins used by build-logic.
+android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
+kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
+compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
