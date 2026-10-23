@@ -1,0 +1,26 @@
+name: Feature
+description: Something new a person can do in the app.
+labels: [feature]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: What someone can do when this is finished
+      description: One or two sentences, from the viewer's side.
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Done when
+      description: Two to five checks that can be ticked off.
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Designs, related issues or anything it depends on.

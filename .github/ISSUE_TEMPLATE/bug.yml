@@ -1,0 +1,34 @@
+name: Bug
+description: Something in the app is broken.
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Start from opening the app. Include remote button presses on TV.
+      placeholder: |
+        1. Open Home
+        2. Press Down twice, then OK
+        3. ...
+    validations:
+      required: true
+  - type: input
+    id: build
+    attributes:
+      label: Build and device
+      description: App version or PR number, channel, and device (for example Fire TV Stick 4K Max).
+    validations:
+      required: true
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: Screenshots, logs or how often it happens. Remove account details first.
