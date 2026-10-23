@@ -56,6 +56,44 @@ android {
     }
 }
 
+// Both APKs carry the licence, the extension permission and the third-party
+// notices as assets under legal/.
+abstract class CollectLegalFiles : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val legalFiles: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Inject
+    abstract val fileSystem: FileSystemOperations
+
+    @TaskAction
+    fun collect() {
+        fileSystem.sync {
+            from(legalFiles)
+            into(outputDir.dir("legal"))
+        }
+    }
+}
+
+val collectLegalFiles =
+    tasks.register<CollectLegalFiles>("collectLegalFiles") {
+        legalFiles.from(
+            rootProject.fileTree(rootDir) {
+                include("LICENSE", "EXTENSION-LINKING-PERMISSION.md", "THIRD_PARTY_NOTICES.md", "licenses/**")
+            },
+        )
+        outputDir.set(layout.buildDirectory.dir("generated/legal"))
+    }
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(collectLegalFiles, CollectLegalFiles::outputDir)
+    }
+}
+
 kotlin {
     compilerOptions {
         allWarningsAsErrors.set(true)

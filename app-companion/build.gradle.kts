@@ -7,6 +7,8 @@ android {
     defaultConfig {
         applicationId = "ani.saikou.neo.companion"
     }
+    // Robolectric needs the merged resources and assets.
+    testOptions { unitTests.isIncludeAndroidResources = true }
 }
 
 dependencies {
@@ -16,4 +18,7 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.compose.material3)
     implementation(libs.activity.compose)
+
+    testImplementation(libs.robolectric)
+    testImplementation(libs.junit)
 }

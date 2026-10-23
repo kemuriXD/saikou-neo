@@ -42,8 +42,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licence
 
-GPL-3.0-only, with an additional permission for linking extensions. See
-[LICENSE](LICENSE) once it's carried over in #59.
+[GPL-3.0-only](LICENSE), with the
+[Saikou Neo Extension Linking Permission](EXTENSION-LINKING-PERMISSION.md).
+Libraries, fonts and other third-party material keep their own licences; see
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ---
 
