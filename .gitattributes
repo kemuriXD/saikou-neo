@@ -13,3 +13,6 @@
 *.jar binary
 *.pdf binary
 *.docx binary
+
+# Downloaded from AniList; refresh with :shared:downloadAnilistApolloSchemaFromIntrospection.
+shared/src/commonMain/graphql/schema.graphqls linguist-generated

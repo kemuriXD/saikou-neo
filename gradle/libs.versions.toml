@@ -4,6 +4,8 @@ agp = "9.4.1"
 compose-bom = "2026.09.00"
 activity = "1.13.0"
 tv-material = "1.1.0"
+apollo = "5.2.0"
+coroutines = "1.11.0"
 spotless = "8.10.4"
 ktlint = "1.8.0"
 
@@ -19,11 +21,14 @@ compose-foundation = { module = "androidx.compose.foundation:foundation" }
 compose-material3 = { module = "androidx.compose.material3:material3" }
 activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activity" }
 tv-material = { module = "androidx.tv:tv-material", version.ref = "tv-material" }
+apollo-runtime = { module = "com.apollographql.apollo:apollo-runtime", version.ref = "apollo" }
+kotlinx-coroutines-test = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-test", version.ref = "coroutines" }
 
 # Plugins used by build-logic.
 android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "agp" }
 kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", version.ref = "kotlin" }
 compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
+apollo-gradle-plugin = { module = "com.apollographql.apollo:apollo-gradle-plugin", version.ref = "apollo" }
 
 [plugins]
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
