@@ -33,6 +33,7 @@ import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Text
 import ani.saikou.neo.tv.R
+import ani.saikou.neo.tv.theme.KeylineScrolling
 import ani.saikou.neo.tv.theme.NeoTheme
 
 internal fun sampleCardTag(index: Int) = "sample-card-$index"
@@ -48,6 +49,9 @@ private val sampleArt =
         Color(0xFF3A1F3A) to Color(0xFFE58FB0),
     )
 
+// Enough cards to scroll well past the keyline.
+private const val SAMPLE_CARD_COUNT = 12
+
 /** A row of wide cards that shows the design system's focus style on a real TV. */
 @Composable
 fun SampleRow(modifier: Modifier = Modifier) {
@@ -62,18 +66,20 @@ fun SampleRow(modifier: Modifier = Modifier) {
             color = NeoTheme.colors.paper,
             modifier = Modifier.padding(start = dimensions.safeX),
         )
-        LazyRow(
-            contentPadding = PaddingValues(horizontal = dimensions.safeX, vertical = dimensions.space4),
-            horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
-        ) {
-            items(sampleArt.size) { index ->
-                SampleCard(
-                    index = index,
-                    modifier =
-                        Modifier
-                            .testTag(sampleCardTag(index))
-                            .then(if (index == 0) Modifier.focusRequester(firstCard) else Modifier),
-                )
+        KeylineScrolling {
+            LazyRow(
+                contentPadding = PaddingValues(horizontal = dimensions.safeX, vertical = dimensions.space4),
+                horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
+            ) {
+                items(SAMPLE_CARD_COUNT) { index ->
+                    SampleCard(
+                        index = index,
+                        modifier =
+                            Modifier
+                                .testTag(sampleCardTag(index))
+                                .then(if (index == 0) Modifier.focusRequester(firstCard) else Modifier),
+                    )
+                }
             }
         }
     }
@@ -87,8 +93,8 @@ private fun SampleCard(
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
     val shape = RoundedCornerShape(dimensions.radiusMd)
-    val (from, to) = sampleArt[index]
-    val progress = (index + 1) / (sampleArt.size + 1f)
+    val (from, to) = sampleArt[index % sampleArt.size]
+    val progress = (index % sampleArt.size + 1) / (sampleArt.size + 1f)
 
     Card(
         onClick = {},
@@ -122,7 +128,7 @@ private fun SampleCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    text = stringResource(R.string.sample_card_meta, index + 2, 24 - index * 3),
+                    text = stringResource(R.string.sample_card_meta, index + 2, 24 - index % sampleArt.size * 3),
                     style = NeoTheme.typography.caption,
                     color = colors.textMuted,
                 )
