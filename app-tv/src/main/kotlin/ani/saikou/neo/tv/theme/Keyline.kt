@@ -29,7 +29,7 @@ private class KeylineBringIntoViewSpec(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun KeylineScrolling(
-    keyline: Dp = NeoTheme.dimensions.safeX,
+    keyline: Dp = NeoTheme.dimensions.gridMargin,
     content: @Composable () -> Unit,
 ) {
     val keylinePx = with(LocalDensity.current) { keyline.toPx() }

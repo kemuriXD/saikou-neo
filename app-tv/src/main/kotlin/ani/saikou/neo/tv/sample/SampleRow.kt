@@ -64,12 +64,12 @@ fun SampleRow(modifier: Modifier = Modifier) {
             text = stringResource(R.string.sample_row_title),
             style = NeoTheme.typography.rowTitle,
             color = NeoTheme.colors.paper,
-            modifier = Modifier.padding(start = dimensions.safeX),
+            modifier = Modifier.padding(start = dimensions.gridMargin),
         )
         KeylineScrolling {
             LazyRow(
-                contentPadding = PaddingValues(horizontal = dimensions.safeX, vertical = dimensions.space4),
-                horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
+                contentPadding = PaddingValues(horizontal = dimensions.gridMargin, vertical = dimensions.space4),
+                horizontalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
             ) {
                 items(SAMPLE_CARD_COUNT) { index ->
                     SampleCard(
@@ -98,7 +98,7 @@ private fun SampleCard(
 
     Card(
         onClick = {},
-        modifier = modifier.size(width = 208.dp, height = 117.dp),
+        modifier = modifier.size(width = dimensions.cardWideWidth, height = dimensions.cardWideHeight),
         shape = CardDefaults.shape(shape),
         scale = CardDefaults.scale(focusedScale = dimensions.focusScale),
         border =

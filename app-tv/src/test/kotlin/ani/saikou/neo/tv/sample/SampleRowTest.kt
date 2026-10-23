@@ -2,8 +2,10 @@ package ani.saikou.neo.tv.sample
 
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
@@ -57,9 +59,20 @@ class SampleRowTest {
             pressKey(Key.DirectionRight)
         }
 
-        // Card 2 starts at the 48 dp safe margin, so card 1 ends one 16 dp gap before it.
+        // Card 2 starts at the 58 dp grid margin, so card 1 (196 dp wide) ends one 20 dp gutter before it.
         // Card 1 is unfocused, so its bounds aren't scaled.
         compose.onNodeWithTag(sampleCardTag(2)).assertIsFocused()
-        compose.onNodeWithTag(sampleCardTag(1)).assertLeftPositionInRootIsEqualTo((48 - 16 - 208).dp)
+        compose.onNodeWithTag(sampleCardTag(1)).assertLeftPositionInRootIsEqualTo((58 - 20 - 196).dp)
+    }
+
+    @Test
+    fun cardsAreThreeGridColumnsWide() {
+        // 3 × 52 dp columns + 2 × 20 dp gutters, at 16:9.
+        compose.onNodeWithTag(sampleCardTag(0)).assertWidthIsEqualTo(196.dp).assertHeightIsEqualTo(110.dp)
+    }
+
+    @Test
+    fun theFirstCardStartsAtTheGridMargin() {
+        compose.onNodeWithTag(sampleCardTag(0)).assertLeftPositionInRootIsEqualTo(58.dp)
     }
 }
