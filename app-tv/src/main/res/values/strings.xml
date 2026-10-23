@@ -2,7 +2,7 @@
 <resources>
     <string name="app_name" translatable="false">Saikou Neo</string>
     <!-- Sample row for checking focus on a TV, until Home arrives in #66. -->
-    <string name="sample_row_title">Continue Watching</string>
+    <string name="sample_row_title">Continue watching</string>
     <string name="sample_card_title">Sample show %1$d</string>
     <string name="sample_card_meta">E%1$d · %2$d min left</string>
 </resources>
