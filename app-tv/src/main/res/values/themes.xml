@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Ink matches NeoColors.ink, so there's no grey flash before Compose draws. -->
+    <color name="ink">#FF11121C</color>
+
+    <style name="Theme.SaikouNeo" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@color/ink</item>
+        <item name="android:colorBackground">@color/ink</item>
+    </style>
+</resources>
