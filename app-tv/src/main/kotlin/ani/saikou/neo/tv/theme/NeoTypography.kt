@@ -58,7 +58,7 @@ data class NeoTypography(
     val bodyLarge: TextStyle = text(15, 22, FontWeight.Normal),
     val body: TextStyle = text(14, 20, FontWeight.Normal),
     val labelLarge: TextStyle = text(16, 22, FontWeight.Medium),
-    val label: TextStyle = text(13, 18, FontWeight.Medium),
+    val label: TextStyle = text(14, 20, FontWeight.Medium),
     val caption: TextStyle = text(12, 16, FontWeight.Normal),
     val overline: TextStyle = text(12, 16, FontWeight.Medium, 0.6f),
     // Tabular figures so the player clock doesn't jitter.
