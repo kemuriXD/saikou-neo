@@ -1,4 +1,29 @@
 // Android and Kotlin plugins come in through the convention plugins in build-logic.
+plugins {
+    // Gives the root project a check task, so `./gradlew build` runs spotlessCheck.
+    base
+    alias(libs.plugins.spotless)
+}
+
+spotless {
+    val ktlintVersion = libs.versions.ktlint.get()
+
+    // Excluded folders are skipped entirely, so Spotless never walks into
+    // build output that other tasks are writing at the same time.
+    fun sources(pattern: String) =
+        fileTree(rootDir) {
+            include(pattern)
+            exclude("**/build/**", "**/.gradle/**", "**/.kotlin/**", "tmp/**")
+        }
+    kotlin {
+        target(sources("**/*.kt"))
+        ktlint(ktlintVersion)
+    }
+    kotlinGradle {
+        target(sources("**/*.gradle.kts"))
+        ktlint(ktlintVersion)
+    }
+}
 
 allprojects {
     configurations.configureEach {
