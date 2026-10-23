@@ -1,0 +1,97 @@
+package ani.saikou.neo.shared.catalogue
+
+import kotlinx.coroutines.test.runTest
+import kotlin.test.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertIs
+import kotlin.test.assertTrue
+
+class AniListClientTest {
+    @Test
+    fun trendingMapsTheRecordedPage() =
+        runTest {
+            val engine = RecordedEngine("browse-trending")
+
+            val page = clientFor(engine).trending(page = 1, perPage = 2).success()
+
+            assertTrue(page.hasNextPage)
+            assertEquals(2, page.items.size)
+            assertEquals(
+                AnimeCard(
+                    id = 195516,
+                    title =
+                        AnimeTitle(
+                            romaji = "Kusuriya no Hitorigoto 3rd Season",
+                            english = "The Apothecary Diaries Season 3",
+                            native = "薬屋のひとりごと 第3期",
+                        ),
+                    coverImageUrl = "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195516-MJpUZlOberqH.jpg",
+                    coverColor = "#e4a128",
+                    format = "TV",
+                    episodes = 12,
+                    averageScore = 85,
+                    season = AnimeSeason.FALL,
+                    seasonYear = 2026,
+                ),
+                page.items.first(),
+            )
+            assertTrue("\"sort\":[\"TRENDING_DESC\"]" in engine.requestBodies.single())
+        }
+
+    @Test
+    fun popularSortsByPopularityAcrossAllSeasons() =
+        runTest {
+            val engine = RecordedEngine("browse-trending")
+
+            clientFor(engine).popular().success()
+
+            val body = engine.requestBodies.single()
+            assertTrue("\"sort\":[\"POPULARITY_DESC\"]" in body)
+            assertFalse("\"season\"" in body)
+        }
+
+    @Test
+    fun seasonAsksForThatSeasonAndYear() =
+        runTest {
+            val engine = RecordedEngine("browse-trending")
+
+            clientFor(engine).season(AnimeSeason.FALL, 2026).success()
+
+            val body = engine.requestBodies.single()
+            assertTrue("\"sort\":[\"POPULARITY_DESC\"]" in body)
+            assertTrue("\"season\":\"FALL\"" in body)
+            assertTrue("\"seasonYear\":2026" in body)
+        }
+
+    @Test
+    fun searchSendsTheTextAndMapsMatches() =
+        runTest {
+            val engine = RecordedEngine("search")
+
+            val page = clientFor(engine).search("frieren", perPage = 2).success()
+
+            assertEquals(listOf(154587, 209939), page.items.map { it.id })
+            assertTrue("\"search\":\"frieren\"" in engine.requestBodies.single())
+        }
+
+    @Test
+    fun detailsMapsTheRecordedAnime() =
+        runTest {
+            val details = clientFor(RecordedEngine("details")).details(195516).success()
+
+            assertEquals(195516, details.card.id)
+            assertEquals("RELEASING", details.status)
+            assertEquals(24, details.episodeMinutes)
+            assertEquals(listOf("Drama", "Mystery"), details.genres)
+            assertEquals(listOf("OLM"), details.studios)
+            assertEquals(NextEpisode(number = 5, airingAtEpochSeconds = 1793368800), details.nextEpisode)
+            assertEquals(
+                "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
+                details.bannerImageUrl,
+            )
+            assertTrue(details.description.orEmpty().isNotBlank())
+        }
+}
+
+internal fun <T> AniListResult<T>.success(): T = assertIs<AniListResult.Success<T>>(this).value

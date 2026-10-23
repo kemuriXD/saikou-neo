@@ -1,0 +1,47 @@
+{
+  "data": {
+    "Page": {
+      "pageInfo": {
+        "hasNextPage": true
+      },
+      "media": [
+        {
+          "__typename": "Media",
+          "id": 154587,
+          "title": {
+            "romaji": "Sousou no Frieren",
+            "english": "Frieren: Beyond Journey’s End",
+            "native": "葬送のフリーレン"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-qQTzQnEJJ3oB.jpg",
+            "color": "#bbf1a1"
+          },
+          "format": "TV",
+          "episodes": 28,
+          "averageScore": 91,
+          "season": "FALL",
+          "seasonYear": 2023
+        },
+        {
+          "__typename": "Media",
+          "id": 209939,
+          "title": {
+            "romaji": "Sousou no Frieren 3rd Season",
+            "english": null,
+            "native": "葬送のフリーレン 第3期"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx209939-g2Njkml1rheG.jpg",
+            "color": "#f1e4c9"
+          },
+          "format": "TV",
+          "episodes": null,
+          "averageScore": null,
+          "season": "FALL",
+          "seasonYear": 2027
+        }
+      ]
+    }
+  }
+}

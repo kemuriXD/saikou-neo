@@ -1,0 +1,61 @@
+# Adult titles are left out of every catalogue query for now.
+
+fragment AnimeCardFields on Media {
+  id
+  title {
+    romaji
+    english
+    native
+  }
+  coverImage {
+    extraLarge
+    color
+  }
+  format
+  episodes
+  averageScore
+  season
+  seasonYear
+}
+
+query BrowseAnime($page: Int!, $perPage: Int!, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      hasNextPage
+    }
+    media(type: ANIME, isAdult: false, sort: $sort, season: $season, seasonYear: $seasonYear) {
+      ...AnimeCardFields
+    }
+  }
+}
+
+query SearchAnime($page: Int!, $perPage: Int!, $search: String!) {
+  Page(page: $page, perPage: $perPage) {
+    pageInfo {
+      hasNextPage
+    }
+    media(type: ANIME, isAdult: false, search: $search, sort: [SEARCH_MATCH]) {
+      ...AnimeCardFields
+    }
+  }
+}
+
+query AnimeDetails($id: Int!) {
+  Media(id: $id, type: ANIME) {
+    ...AnimeCardFields
+    description(asHtml: false)
+    bannerImage
+    status
+    duration
+    genres
+    studios(isMain: true) {
+      nodes {
+        name
+      }
+    }
+    nextAiringEpisode {
+      episode
+      airingAt
+    }
+  }
+}
