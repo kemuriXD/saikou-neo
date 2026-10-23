@@ -34,6 +34,32 @@ android {
         }
     }
 
+    // Release channels (ADR 0005). Alpha and beta share the .preview ID, so a
+    // preview build installs next to stable instead of replacing it.
+    flavorDimensions += "channel"
+    productFlavors {
+        create("alpha") {
+            dimension = "channel"
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-alpha"
+        }
+        create("beta") {
+            dimension = "channel"
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-beta"
+        }
+        create("stable") {
+            dimension = "channel"
+        }
+    }
+    // Preview resources (the app name) and tests are shared by alpha and beta.
+    listOf("alpha", "beta").forEach { channel ->
+        sourceSets.named(channel) { res.srcDir("src/preview/res") }
+        sourceSets.named("test${channel.replaceFirstChar(Char::uppercase)}") {
+            kotlin.srcDir("src/testPreview/kotlin")
+        }
+    }
+
     buildFeatures { compose = true }
 
     testOptions {
