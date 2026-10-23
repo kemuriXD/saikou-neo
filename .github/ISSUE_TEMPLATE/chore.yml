@@ -1,0 +1,17 @@
+name: Chore, docs or design
+description: Build, CI, tooling, documentation or design work.
+body:
+  - type: textarea
+    id: why
+    attributes:
+      label: What and why
+    validations:
+      required: true
+  - type: textarea
+    id: checks
+    attributes:
+      label: Done when
+      value: |
+        - [ ]
+    validations:
+      required: true

@@ -31,11 +31,17 @@ local-evidence/
 Thumbs.db
 Desktop.ini
 
+# Scratch space for a single task; delete when done
+tmp/
+
 # Optional local documentation tooling
 node_modules/
 
 # Local owner planning and evidence (never committed)
 .local-planning/
 
-# Local AI instructions
+# Local AI and development notes (kept outside the repo for now)
 AGENTS.md
+CLAUDE.md
+CLAUDE.local.md
+docs/dev/
