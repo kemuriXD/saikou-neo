@@ -20,8 +20,8 @@ The same rules apply to anyone who joins later.
    on the PR with what you saw.
 7. Once checks pass, the PR is squash-merged.
 
-By contributing, you agree that your work is licensed under GPL-3.0-only with
-the [Saikou Neo Extension Linking Permission](EXTENSION-LINKING-PERMISSION.md).
+By contributing, you agree that your work is licensed under
+[GPL-3.0-only](LICENSE).
 
 ## Labels
 

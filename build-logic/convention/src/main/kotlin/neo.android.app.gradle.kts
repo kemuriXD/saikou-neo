@@ -82,8 +82,8 @@ android {
     }
 }
 
-// Both APKs carry the licence, the extension permission and the third-party
-// notices as assets under legal/.
+// Both APKs carry the licence, the disclaimer, the privacy policy and the
+// third-party notices as assets under legal/.
 abstract class CollectLegalFiles : DefaultTask() {
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.RELATIVE)
@@ -108,7 +108,7 @@ val collectLegalFiles =
     tasks.register<CollectLegalFiles>("collectLegalFiles") {
         legalFiles.from(
             rootProject.fileTree(rootDir) {
-                include("LICENSE", "EXTENSION-LINKING-PERMISSION.md", "THIRD_PARTY_NOTICES.md", "licenses/**")
+                include("LICENSE", "DISCLAIMER.md", "PRIVACY.md", "THIRD_PARTY_NOTICES.md", "licenses/**")
             },
         )
         outputDir.set(layout.buildDirectory.dir("generated/legal"))

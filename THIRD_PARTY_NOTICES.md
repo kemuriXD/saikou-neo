@@ -1,9 +1,7 @@
 # Third-party notices
 
-Saikou Neo is licensed under [GPL-3.0-only](LICENSE), with the
-[Saikou Neo Extension Linking Permission](EXTENSION-LINKING-PERMISSION.md).
-That permission covers Saikou Neo's own code only. Everything listed here keeps
-its own licence.
+Saikou Neo's own code is licensed under [GPL-3.0-only](LICENSE). Everything
+listed here keeps its own licence.
 
 Both apps carry these files, and the full licence texts under `licenses/`, in
 their APK assets under `legal/`.

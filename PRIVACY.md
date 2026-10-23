@@ -1,0 +1,47 @@
+# Privacy policy
+
+Last updated: 23 October 2026
+
+Saikou Neo doesn't run any servers and doesn't collect data about you.
+
+## What stays on your device
+
+- Your AniList or MyAnimeList sign-in token. It's only sent to the service it
+  belongs to.
+- Your settings, watch progress and installed extensions.
+
+Uninstalling the app, or clearing its data, removes all of this.
+
+## What leaves your device
+
+- **AniList and MyAnimeList.** The app fetches anime information from them and,
+  when you're signed in, updates your list. They receive your requests and your
+  token, under their own privacy policies:
+  [AniList](https://anilist.co/terms) and
+  [MyAnimeList](https://myanimelist.net/about/privacy_policy).
+- **Pairing.** When you sign in on the TV with the companion app, your account
+  is sent from the phone to the TV over your local network, encrypted. It
+  doesn't go through the internet or any server of ours.
+- **Extensions.** Extensions you install make their own network requests to
+  the sources they use. Saikou Neo doesn't see or control what those sources
+  collect.
+
+## What we don't do
+
+- No analytics, crash reporting or advertising.
+- No accounts with us. Saikou Neo has no server to store them.
+- Nothing is sold or shared, because nothing is collected.
+
+## Children
+
+Saikou Neo isn't aimed at children under 13.
+
+## Changes
+
+This policy may change. Changes are made in this file, and the date at the top
+shows when it last changed.
+
+## Contact
+
+Questions go to the project's
+[GitHub issues](https://github.com/kemuriXD/saikou-neo/issues).

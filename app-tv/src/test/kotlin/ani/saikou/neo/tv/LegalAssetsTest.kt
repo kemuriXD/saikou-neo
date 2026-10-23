@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv
 
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -23,8 +24,24 @@ class LegalAssetsTest {
     }
 
     @Test
-    fun shipsTheExtensionLinkingPermission() {
-        assertTrue(asset("EXTENSION-LINKING-PERMISSION.md").contains("section 7"))
+    fun shipsTheDisclaimer() {
+        assertTrue(asset("DISCLAIMER.md").contains("does not host"))
+    }
+
+    @Test
+    fun shipsThePrivacyPolicy() {
+        assertTrue(asset("PRIVACY.md").contains("# Privacy policy"))
+    }
+
+    @Test
+    fun hasNoExtensionLinkingPermission() {
+        assertFalse(
+            RuntimeEnvironment
+                .getApplication()
+                .assets
+                .list("legal")!!
+                .contains("EXTENSION-LINKING-PERMISSION.md"),
+        )
     }
 
     @Test
