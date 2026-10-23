@@ -14,8 +14,8 @@ Uninstalling the app, or clearing its data, removes all of this.
 
 ## What leaves your device
 
-- The app fetches anime information from them and,
-  when you're signed in, updates your list. They receive your requests and your
+- The app fetches anime information from AniList and MyAnimeList and, when
+  you're signed in, updates your list there. They receive your requests and your
   token, under their own privacy policies:
   [AniList](https://anilist.co/terms) and
   [MyAnimeList](https://myanimelist.net/about/privacy_policy).
