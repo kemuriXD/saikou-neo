@@ -9,6 +9,9 @@ android {
     }
     // Robolectric needs the merged resources, fonts included.
     testOptions { unitTests.isIncludeAndroidResources = true }
+    // The PNG icons are for TVs on Android 7 (Fire OS 6), where a square TV
+    // icon is expected. Phone launcher shapes don't apply.
+    lint { disable += "IconLauncherShape" }
 }
 
 dependencies {

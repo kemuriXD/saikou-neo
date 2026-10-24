@@ -13,10 +13,15 @@ The same rules apply to anyone who joins later.
 4. Open a pull request titled in Conventional Commits form, such as
    `fix(tv): make Retry reload the row`, with `Closes #71` in the body.
 5. CI builds both apps and runs lint and tests. It also attaches debug APKs you
-   can install.
+   can install, one per release channel: `stable`, plus `alpha` and `beta`.
+   Alpha and beta are preview builds with the `.preview` app ID, so they install
+   next to stable.
 6. If the issue is labelled `needs-tv-test`, install the APK on a TV and comment
    on the PR with what you saw.
 7. Once checks pass, the PR is squash-merged.
+
+By contributing, you agree that your work is licensed under
+[GPL-3.0-only](LICENSE).
 
 ## Labels
 

@@ -34,6 +34,32 @@ android {
         }
     }
 
+    // Release channels (ADR 0005). Alpha and beta share the .preview ID, so a
+    // preview build installs next to stable instead of replacing it.
+    flavorDimensions += "channel"
+    productFlavors {
+        create("alpha") {
+            dimension = "channel"
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-alpha"
+        }
+        create("beta") {
+            dimension = "channel"
+            applicationIdSuffix = ".preview"
+            versionNameSuffix = "-beta"
+        }
+        create("stable") {
+            dimension = "channel"
+        }
+    }
+    // Preview resources (the app name) and tests are shared by alpha and beta.
+    listOf("alpha", "beta").forEach { channel ->
+        sourceSets.named(channel) { res.srcDir("src/preview/res") }
+        sourceSets.named("test${channel.replaceFirstChar(Char::uppercase)}") {
+            kotlin.srcDir("src/testPreview/kotlin")
+        }
+    }
+
     buildFeatures { compose = true }
 
     testOptions {
@@ -53,6 +79,44 @@ android {
         warningsAsErrors = true
         // New releases would fail unchanged code; Dependabot handles updates.
         disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
+    }
+}
+
+// Both APKs carry the licence, the disclaimer, the privacy policy and the
+// third-party notices as assets under legal/.
+abstract class CollectLegalFiles : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val legalFiles: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @get:Inject
+    abstract val fileSystem: FileSystemOperations
+
+    @TaskAction
+    fun collect() {
+        fileSystem.sync {
+            from(legalFiles)
+            into(outputDir.dir("legal"))
+        }
+    }
+}
+
+val collectLegalFiles =
+    tasks.register<CollectLegalFiles>("collectLegalFiles") {
+        legalFiles.from(
+            rootProject.fileTree(rootDir) {
+                include("LICENSE", "DISCLAIMER.md", "PRIVACY.md", "THIRD_PARTY_NOTICES.md", "licenses/**")
+            },
+        )
+        outputDir.set(layout.buildDirectory.dir("generated/legal"))
+    }
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.assets?.addGeneratedSourceDirectory(collectLegalFiles, CollectLegalFiles::outputDir)
     }
 }
 

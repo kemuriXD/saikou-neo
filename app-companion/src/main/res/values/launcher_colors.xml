@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Signal symbol in the launcher icon. Preview builds override it with green. -->
+    <color name="saikou_neo_symbol">#FFFF4F91</color>
+</resources>

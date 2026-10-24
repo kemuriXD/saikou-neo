@@ -17,6 +17,13 @@ watch.
 It ships with no video sources. Playback comes from extensions you install
 separately.
 
+> [!IMPORTANT]
+> Saikou Neo does not host or distribute any video or other media, and it ships
+> with no extensions. Its developers don't make or endorse extensions that give
+> access to content without the rights holder's permission, and aren't liable
+> for how the app or any extension is used. You're responsible for what you
+> install and watch. Read the full [disclaimer and terms of use](DISCLAIMER.md).
+
 ## Status
 
 The app is being rebuilt from scratch, and there's no release yet. Progress is
@@ -42,8 +49,11 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licence
 
-GPL-3.0-only, with an additional permission for linking extensions. See
-[LICENSE](LICENSE) once it's carried over in #59.
+[GPL-3.0-only](LICENSE). Libraries, fonts and other third-party material keep
+their own licences; see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Using the app means agreeing to the [disclaimer and terms of use](DISCLAIMER.md).
+See also the [privacy policy](PRIVACY.md).
 
 ---
 

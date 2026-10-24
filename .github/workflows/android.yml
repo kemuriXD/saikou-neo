@@ -47,18 +47,18 @@ jobs:
           path: "**/build/reports/"
           retention-days: 14
 
-      - name: Upload TV debug APK
+      - name: Upload TV debug APKs
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: saikou-neo-tv-debug
-          path: app-tv/build/outputs/apk/debug/*.apk
+          path: app-tv/build/outputs/apk/*/debug/*.apk
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload companion debug APK
+      - name: Upload companion debug APKs
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: saikou-neo-companion-debug
-          path: app-companion/build/outputs/apk/debug/*.apk
+          path: app-companion/build/outputs/apk/*/debug/*.apk
           if-no-files-found: error
           retention-days: 14
