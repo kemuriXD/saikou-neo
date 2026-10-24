@@ -35,21 +35,41 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      # Runs lint and the JVM tests, builds the debug APKs for testing, and
-      # builds one shrunk release APK for the size check below. `build` would
-      # assemble every channel and build type, which takes several times longer.
+      # The active release channel comes from the CHANNEL repository variable
+      # (ADR 0008). Changing it moves CI to another channel.
+      - name: Pick release channel
+        env:
+          CHANNEL: ${{ vars.CHANNEL || 'alpha' }}
+        run: |
+          case "$CHANNEL" in
+            alpha | beta | stable) ;;
+            *) echo "::error::CHANNEL must be alpha, beta or stable, not '$CHANNEL'."; exit 1 ;;
+          esac
+          echo "CHANNEL=$CHANNEL" >> "$GITHUB_ENV"
+          echo "VARIANT=${CHANNEL^}" >> "$GITHUB_ENV"
+          echo "Release channel: $CHANNEL" | tee -a "$GITHUB_STEP_SUMMARY"
+
+      # Runs spotless, lint and the JVM tests, builds the debug APKs for
+      # testing, and builds one shrunk release APK for the size check below,
+      # all for the active channel only. `check` and `assembleDebug` would
+      # cover every channel and take much longer.
       - name: Build
-        run: ./gradlew check :app-tv:assembleDebug :app-companion:assembleDebug :app-tv:assembleAlphaRelease
+        run: >-
+          ./gradlew spotlessCheck :shared:check :extension-api:check
+          :app-tv:lint${VARIANT}Debug :app-tv:test${VARIANT}DebugUnitTest
+          :app-tv:assemble${VARIANT}Debug :app-tv:assemble${VARIANT}Release
+          :app-companion:lint${VARIANT}Debug :app-companion:test${VARIANT}DebugUnitTest
+          :app-companion:assemble${VARIANT}Debug
 
       # Fails when the shrunk TV release grows past its budget. If a change
       # needs more room, raise the budget in that PR and say why.
       - name: Check TV APK size
         env:
           BUDGET_BYTES: "2200000"
-          APK: app-tv/build/outputs/apk/alpha/release/app-tv-alpha-release-unsigned.apk
         run: |
-          size=$(stat -c %s "$APK")
-          echo "TV release APK: $size bytes, budget $BUDGET_BYTES bytes" | tee -a "$GITHUB_STEP_SUMMARY"
+          apk="app-tv/build/outputs/apk/$CHANNEL/release/app-tv-$CHANNEL-release-unsigned.apk"
+          size=$(stat -c %s "$apk")
+          echo "TV $CHANNEL release APK: $size bytes, budget $BUDGET_BYTES bytes" | tee -a "$GITHUB_STEP_SUMMARY"
           if [ "$size" -gt "$BUDGET_BYTES" ]; then
             echo "::error::The TV release APK is $size bytes, over its budget of $BUDGET_BYTES bytes."
             exit 1
@@ -63,18 +83,18 @@ jobs:
           path: "**/build/reports/"
           retention-days: 14
 
-      - name: Upload TV debug APKs
+      - name: Upload TV debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: saikou-neo-tv-debug
-          path: app-tv/build/outputs/apk/*/debug/*.apk
+          name: saikou-neo-tv-${{ env.CHANNEL }}-debug
+          path: app-tv/build/outputs/apk/${{ env.CHANNEL }}/debug/*.apk
           if-no-files-found: error
           retention-days: 14
 
-      - name: Upload companion debug APKs
+      - name: Upload companion debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: saikou-neo-companion-debug
-          path: app-companion/build/outputs/apk/*/debug/*.apk
+          name: saikou-neo-companion-${{ env.CHANNEL }}-debug
+          path: app-companion/build/outputs/apk/${{ env.CHANNEL }}/debug/*.apk
           if-no-files-found: error
           retention-days: 14
