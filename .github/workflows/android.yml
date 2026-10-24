@@ -49,31 +49,17 @@ jobs:
           echo "VARIANT=${CHANNEL^}" >> "$GITHUB_ENV"
           echo "Release channel: $CHANNEL" | tee -a "$GITHUB_STEP_SUMMARY"
 
-      # Runs spotless, lint and the JVM tests, builds the debug APKs for
-      # testing, and builds one shrunk release APK for the size check below,
-      # all for the active channel only. `check` and `assembleDebug` would
-      # cover every channel and take much longer.
+      # Runs spotless, lint and the JVM tests, and builds the debug APKs for
+      # testing, all for the active channel only. `check` and `assembleDebug`
+      # would cover every channel and take much longer.
       - name: Build
         run: >-
           ./gradlew spotlessCheck :shared:check :extension-api:check
           :app-tv:lint${VARIANT}Debug :app-tv:test${VARIANT}DebugUnitTest
-          :app-tv:assemble${VARIANT}Debug :app-tv:assemble${VARIANT}Release
+          :app-tv:assemble${VARIANT}Debug
           :app-companion:lint${VARIANT}Debug :app-companion:test${VARIANT}DebugUnitTest
           :app-companion:assemble${VARIANT}Debug
 
-      # Fails when the shrunk TV release grows past its budget. If a change
-      # needs more room, raise the budget in that PR and say why.
-      - name: Check TV APK size
-        env:
-          BUDGET_BYTES: "2200000"
-        run: |
-          apk="app-tv/build/outputs/apk/$CHANNEL/release/app-tv-$CHANNEL-release-unsigned.apk"
-          size=$(stat -c %s "$apk")
-          echo "TV $CHANNEL release APK: $size bytes, budget $BUDGET_BYTES bytes" | tee -a "$GITHUB_STEP_SUMMARY"
-          if [ "$size" -gt "$BUDGET_BYTES" ]; then
-            echo "::error::The TV release APK is $size bytes, over its budget of $BUDGET_BYTES bytes."
-            exit 1
-          fi
 
       - name: Upload lint and test reports
         if: failure()

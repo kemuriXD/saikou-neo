@@ -7,5 +7,4 @@ dependencies {
     implementation(libs.kotlin.gradle.plugin)
     implementation(libs.compose.compiler.gradle.plugin)
     implementation(libs.apollo.gradle.plugin)
-    implementation(libs.baselineprofile.gradle.plugin)
 }
