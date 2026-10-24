@@ -26,6 +26,7 @@ import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.details.Synopsis
@@ -37,6 +38,9 @@ internal const val DETAILS_READER_TAG = "details-reader"
 
 private val ReaderTop = 54.dp
 private val ReaderWidth = 640.dp
+
+// Whole lines, so the gap under the note's label is the gap you see.
+private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
 
 // One press moves about four lines, keeping some of the last screen in view.
 private val ScrollStep = 88.dp
@@ -82,9 +86,13 @@ internal fun SynopsisReader(
             Text(text = it, style = NeoTheme.typography.bodyLarge, color = colors.paper, modifier = Modifier.width(ReaderWidth))
         }
         for (note in synopsis.notes) {
-            Column(Modifier.width(ReaderWidth)) {
-                Text(text = stringResource(R.string.details_note).uppercase(), style = NeoTheme.typography.overline, color = colors.pink)
-                Text(text = note, style = NeoTheme.typography.body, color = colors.textMuted)
+            Column(Modifier.width(ReaderWidth), verticalArrangement = Arrangement.spacedBy(dimensions.space1)) {
+                Text(
+                    text = stringResource(R.string.details_note).uppercase(),
+                    style = NeoTheme.typography.overline.copy(lineHeightStyle = FullLine),
+                    color = colors.pink,
+                )
+                Text(text = note, style = NeoTheme.typography.body.copy(lineHeightStyle = FullLine), color = colors.textMuted)
             }
         }
         synopsis.source?.let {

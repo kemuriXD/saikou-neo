@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
@@ -22,6 +23,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.test.espresso.Espresso
 import ani.saikou.neo.shared.catalogue.AnimeDetails
@@ -34,6 +36,7 @@ import ani.saikou.neo.tv.home.loaded
 import ani.saikou.neo.tv.theme.NeoColors
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -126,6 +129,28 @@ class DetailsScreenTest {
     }
 
     @Test
+    fun theFocusedSynopsisGlowsAroundItsBorderButNotInsideIt() {
+        show(DetailsState.Loaded(details))
+        press(Key.DirectionDown)
+
+        // Robolectric doesn't always redraw the window on its own before a capture.
+        compose.runOnUiThread {
+            compose.activity.window.decorView
+                .invalidate()
+        }
+        compose.waitForIdle()
+        val screen = compose.onRoot().captureToImage().toPixelMap()
+        val box = compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).getUnclippedBoundsInRoot()
+        val density = compose.density.density
+
+        fun brightness(y: Dp) = screen[(300 * density).toInt(), (y.value * density).toInt()].red
+        // The page's shading only changes from left to right, so these are all over the same page colour.
+        val page = brightness(box.top - 40.dp)
+        assertEquals("inside, in the padding above the text", page, brightness(box.top + 7.dp), 0.01f)
+        assertTrue("just outside the border", brightness(box.top - 6.dp) > page + 0.03f)
+    }
+
+    @Test
     fun selectingTheSynopsisOpensTheWholeOfIt() {
         show(DetailsState.Loaded(details))
 
@@ -141,6 +166,20 @@ class DetailsScreenTest {
             ).assertExists()
         compose.onNodeWithText("Streamed early.").assertExists()
         compose.onNodeWithText("Source: Crunchyroll").assertExists()
+    }
+
+    @Test
+    fun theNoteLabelSitsAGapAboveTheNote() {
+        show(DetailsState.Loaded(details))
+
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+
+        val label = compose.onNodeWithText("NOTE").getUnclippedBoundsInRoot()
+        val note = compose.onNodeWithText("Streamed early.").getUnclippedBoundsInRoot()
+        assertEquals(4.dp, note.top - label.bottom)
+        assertEquals(16.dp, label.bottom - label.top)
     }
 
     @Test
