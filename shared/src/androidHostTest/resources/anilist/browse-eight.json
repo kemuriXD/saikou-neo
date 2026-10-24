@@ -1,0 +1,163 @@
+{
+  "data": {
+    "Page": {
+      "pageInfo": {
+        "hasNextPage": true
+      },
+      "media": [
+        {
+          "__typename": "Media",
+          "id": 1000,
+          "title": {
+            "romaji": "Kusuriya no Hitorigoto 3rd Season",
+            "english": "The Apothecary Diaries Season 3",
+            "native": "薬屋のひとりごと 第3期"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195516-MJpUZlOberqH.jpg",
+            "color": "#e4a128"
+          },
+          "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
+          "format": "TV",
+          "episodes": 12,
+          "averageScore": 85,
+          "season": "FALL",
+          "seasonYear": 2026
+        },
+        {
+          "__typename": "Media",
+          "id": 1001,
+          "title": {
+            "romaji": "Cyberpunk: Edgerunners 2",
+            "english": "Cyberpunk: Edgerunners 2",
+            "native": "サイバーパンク: エッジランナーズ2"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195539-4LdfmKIHzuxr.png",
+            "color": "#fe286b"
+          },
+          "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195539-lO5SUdp4SOrq.jpg",
+          "format": "ONA",
+          "episodes": 10,
+          "averageScore": 84,
+          "season": "FALL",
+          "seasonYear": 2026
+        },
+        {
+          "__typename": "Media",
+          "id": 1002,
+          "title": {
+            "romaji": "Kusuriya no Hitorigoto 3rd Season",
+            "english": "The Apothecary Diaries Season 3",
+            "native": "薬屋のひとりごと 第3期"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195516-MJpUZlOberqH.jpg",
+            "color": "#e4a128"
+          },
+          "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
+          "format": "TV",
+          "episodes": 12,
+          "averageScore": 85,
+          "season": "FALL",
+          "seasonYear": 2026
+        },
+        {
+          "__typename": "Media",
+          "id": 1003,
+          "title": {
+            "romaji": "Cyberpunk: Edgerunners 2",
+            "english": "Cyberpunk: Edgerunners 2",
+            "native": "サイバーパンク: エッジランナーズ2"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195539-4LdfmKIHzuxr.png",
+            "color": "#fe286b"
+          },
+          "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195539-lO5SUdp4SOrq.jpg",
+          "format": "ONA",
+          "episodes": 10,
+          "averageScore": 84,
+          "season": "FALL",
+          "seasonYear": 2026
+        },
+        {
+          "__typename": "Media",
+          "id": 1004,
+          "title": {
+            "romaji": "Kusuriya no Hitorigoto 3rd Season",
+            "english": "The Apothecary Diaries Season 3",
+            "native": "薬屋のひとりごと 第3期"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195516-MJpUZlOberqH.jpg",
+            "color": "#e4a128"
+          },
+          "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
+          "format": "TV",
+          "episodes": 12,
+          "averageScore": 85,
+          "season": "FALL",
+          "seasonYear": 2026
+        },
+        {
+          "__typename": "Media",
+          "id": 1005,
+          "title": {
+            "romaji": "Cyberpunk: Edgerunners 2",
+            "english": "Cyberpunk: Edgerunners 2",
+            "native": "サイバーパンク: エッジランナーズ2"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195539-4LdfmKIHzuxr.png",
+            "color": "#fe286b"
+          },
+          "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195539-lO5SUdp4SOrq.jpg",
+          "format": "ONA",
+          "episodes": 10,
+          "averageScore": 84,
+          "season": "FALL",
+          "seasonYear": 2026
+        },
+        {
+          "__typename": "Media",
+          "id": 1006,
+          "title": {
+            "romaji": "Kusuriya no Hitorigoto 3rd Season",
+            "english": "The Apothecary Diaries Season 3",
+            "native": "薬屋のひとりごと 第3期"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195516-MJpUZlOberqH.jpg",
+            "color": "#e4a128"
+          },
+          "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
+          "format": "TV",
+          "episodes": 12,
+          "averageScore": 85,
+          "season": "FALL",
+          "seasonYear": 2026
+        },
+        {
+          "__typename": "Media",
+          "id": 1007,
+          "title": {
+            "romaji": "Cyberpunk: Edgerunners 2",
+            "english": "Cyberpunk: Edgerunners 2",
+            "native": "サイバーパンク: エッジランナーズ2"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195539-4LdfmKIHzuxr.png",
+            "color": "#fe286b"
+          },
+          "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195539-lO5SUdp4SOrq.jpg",
+          "format": "ONA",
+          "episodes": 10,
+          "averageScore": 84,
+          "season": "FALL",
+          "seasonYear": 2026
+        }
+      ]
+    }
+  }
+}

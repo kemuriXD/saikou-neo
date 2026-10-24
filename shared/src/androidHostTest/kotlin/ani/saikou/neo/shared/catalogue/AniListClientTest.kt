@@ -77,6 +77,18 @@ class AniListClientTest {
         }
 
     @Test
+    fun synopsesAskForTheIdsAndMapEachDescription() =
+        runTest {
+            val engine = RecordedEngine("synopses")
+
+            val synopses = clientFor(engine).synopses(listOf(195516, 195539)).success()
+
+            assertEquals(setOf(195516, 195539), synopses.keys)
+            assertTrue(synopses.getValue(195516)!!.startsWith("In the aftermath of the Shi Clan"))
+            assertTrue("\"ids\":[195516,195539]" in engine.requestBodies.single())
+        }
+
+    @Test
     fun detailsMapsTheRecordedAnime() =
         runTest {
             val details = clientFor(RecordedEngine("details")).details(195516).success()
