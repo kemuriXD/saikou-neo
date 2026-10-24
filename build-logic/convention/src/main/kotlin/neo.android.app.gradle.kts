@@ -1,5 +1,6 @@
 // Shared setup for the TV and companion apps: SDK levels, ABIs, Compose,
 // and warnings as errors for both Kotlin and lint.
+import com.android.build.api.variant.HostTestBuilder
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -31,6 +32,11 @@ android {
             // Many TV sticks are still 32-bit ARM. Debug builds keep every ABI
             // so they also install on 32-bit x86 emulators.
             ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64") }
+            // R8 drops unused library code and resources, which matters on
+            // TV sticks with little storage and slow flash.
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
     }
 
@@ -115,6 +121,13 @@ val collectLegalFiles =
     }
 
 androidComponents {
+    // JVM tests run on debug builds only. Beta shares alpha's code and
+    // resources, so testing it again adds time and finds nothing new.
+    beforeVariants { variant ->
+        if (variant.buildType != "debug" || variant.flavorName == "beta") {
+            variant.hostTests[HostTestBuilder.UNIT_TEST_TYPE]?.enable = false
+        }
+    }
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(collectLegalFiles, CollectLegalFiles::outputDir)
     }

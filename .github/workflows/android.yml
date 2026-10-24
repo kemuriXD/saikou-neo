@@ -35,9 +35,25 @@ jobs:
           java-version: "21"
           cache: gradle
 
-      # Compiles both apps, runs Android lint and the JVM tests.
+      # Runs lint and the JVM tests, builds the debug APKs for testing, and
+      # builds one shrunk release APK for the size check below. `build` would
+      # assemble every channel and build type, which takes several times longer.
       - name: Build
-        run: ./gradlew build
+        run: ./gradlew check :app-tv:assembleDebug :app-companion:assembleDebug :app-tv:assembleAlphaRelease
+
+      # Fails when the shrunk TV release grows past its budget. If a change
+      # needs more room, raise the budget in that PR and say why.
+      - name: Check TV APK size
+        env:
+          BUDGET_BYTES: "2200000"
+          APK: app-tv/build/outputs/apk/alpha/release/app-tv-alpha-release-unsigned.apk
+        run: |
+          size=$(stat -c %s "$APK")
+          echo "TV release APK: $size bytes, budget $BUDGET_BYTES bytes" | tee -a "$GITHUB_STEP_SUMMARY"
+          if [ "$size" -gt "$BUDGET_BYTES" ]; then
+            echo "::error::The TV release APK is $size bytes, over its budget of $BUDGET_BYTES bytes."
+            exit 1
+          fi
 
       - name: Upload lint and test reports
         if: failure()
