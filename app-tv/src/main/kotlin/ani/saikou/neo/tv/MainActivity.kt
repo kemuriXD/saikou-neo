@@ -41,7 +41,12 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             val state by home.state.collectAsStateWithLifecycle()
-                            HomeScreen(state, onOpen = openDetails)
+                            HomeScreen(
+                                state = state,
+                                onOpen = openDetails,
+                                onPick = home::pick,
+                                onSpotlightInView = home::watchSpotlight,
+                            )
                         },
                         details = { animeId ->
                             val details = viewModel { DetailsViewModel(client, animeId) }
