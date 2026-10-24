@@ -1,12 +1,16 @@
 package ani.saikou.neo.tv.details
 
+import android.graphics.BlurMaskFilter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,12 +34,17 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -48,7 +57,6 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
-import androidx.tv.material3.Glow
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
@@ -60,6 +68,8 @@ import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.NeoTab
+import ani.saikou.neo.tv.ui.NeoTabPadding
 import coil3.compose.AsyncImage
 
 internal const val DETAILS_META_TAG = "details-meta"
@@ -84,6 +94,7 @@ private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHei
 // About 70 characters a line, a comfortable read from the sofa.
 private val SynopsisWidth = 520.dp
 private const val SYNOPSIS_PREVIEW_LINES = 3
+private const val SYNOPSIS_FOCUS_SCALE = 1.025f
 
 private val seasonNames =
     mapOf(
@@ -210,10 +221,10 @@ private fun Overview(
     modifier: Modifier = Modifier,
 ) {
     val dimensions = NeoTheme.dimensions
-    // The tab and the synopsis box sit a padding's width left, so their text lines up with the grid margin.
+    // The synopsis box sits a padding's width left, so its text lines up with the grid margin.
     val outdent = Modifier.offset(x = -dimensions.space4)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        OverviewTab(outdent.focusRequester(tabFocus))
+        OverviewTab(Modifier.focusRequester(tabFocus))
         state.synopsis.story?.let { story ->
             SynopsisPreview(
                 story = story,
@@ -226,38 +237,17 @@ private fun Overview(
     }
 }
 
-/** The selected Overview tab. Related joins it later; until then it's where focus starts. */
+/** The current Overview tab. Related joins it later; until then it's where focus starts. */
 @Composable
 private fun OverviewTab(modifier: Modifier = Modifier) {
-    val colors = NeoTheme.colors
-    val dimensions = NeoTheme.dimensions
-    Surface(
+    NeoTab(
+        text = stringResource(R.string.details_overview),
+        selected = true,
         onClick = {},
-        modifier = modifier.height(TabHeight).testTag(DETAILS_OVERVIEW_TAB_TAG),
-        shape = ClickableSurfaceDefaults.shape(CircleShape),
-        colors =
-            ClickableSurfaceDefaults.colors(
-                containerColor = colors.fillTonal,
-                contentColor = colors.paper,
-                focusedContainerColor = colors.paper,
-                focusedContentColor = colors.onFocus,
-                pressedContainerColor = colors.paper,
-                pressedContentColor = colors.onFocus,
-            ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = dimensions.focusScaleButton),
-        glow =
-            ClickableSurfaceDefaults.glow(
-                glow = Glow(Color.White.copy(alpha = 0.16f), 14.dp),
-                focusedGlow = Glow(Color.White.copy(alpha = 0.32f), dimensions.glowFocus),
-            ),
-    ) {
-        Box(Modifier.fillMaxHeight().padding(horizontal = dimensions.space4), contentAlignment = Alignment.Center) {
-            Text(
-                text = stringResource(R.string.details_overview),
-                style = NeoTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-            )
-        }
-    }
+        // Outdented so the label lines up with the grid margin.
+        modifier = modifier.offset(x = -NeoTabPadding).testTag(DETAILS_OVERVIEW_TAB_TAG),
+        height = TabHeight,
+    )
 }
 
 /** The start of the synopsis, with no box of its own until focus outlines it. Selecting it opens the reader. */
@@ -271,10 +261,26 @@ private fun SynopsisPreview(
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
     val shape = RoundedCornerShape(dimensions.radiusLg)
+    val interactions = remember { MutableInteractionSource() }
+    val focused by interactions.collectIsFocusedAsState()
+    val focus by animateFloatAsState(
+        targetValue = if (focused) 1f else 0f,
+        animationSpec = tween(dimensions.durationFocusMillis, easing = dimensions.easeStandard),
+        label = "focus",
+    )
     Surface(
         onClick = onRead,
         enabled = enabled,
-        modifier = modifier.width(SynopsisWidth).testTag(DETAILS_SYNOPSIS_TAG),
+        // The box grows and glows on its own layer, so the glow stays outside the border and grows with it.
+        modifier =
+            modifier
+                .width(SynopsisWidth)
+                .graphicsLayer {
+                    val scale = 1f + (SYNOPSIS_FOCUS_SCALE - 1f) * focus
+                    scaleX = scale
+                    scaleY = scale
+                }.outerGlow(Color.White.copy(alpha = 0.32f * focus), dimensions.glowFocus, dimensions.radiusLg)
+                .testTag(DETAILS_SYNOPSIS_TAG),
         shape = ClickableSurfaceDefaults.shape(shape),
         colors =
             ClickableSurfaceDefaults.colors(
@@ -292,8 +298,8 @@ private fun SynopsisPreview(
                 border = Border(BorderStroke(SynopsisBorder, Color.Transparent), shape = shape),
                 focusedBorder = Border(BorderStroke(SynopsisBorder, colors.focus), shape = shape),
             ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.025f),
-        glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(Color.White.copy(alpha = 0.32f), dimensions.glowFocus)),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        interactionSource = interactions,
     ) {
         Text(
             text = story,
@@ -303,6 +309,27 @@ private fun SynopsisPreview(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = dimensions.space4, vertical = dimensions.space3),
         )
+    }
+}
+
+/**
+ * A soft glow around a rounded box, like the design's outer shadow. TV Material's glow also shows through a transparent
+ * box, which made the synopsis look filled.
+ */
+private fun Modifier.outerGlow(
+    color: Color,
+    radius: Dp,
+    corner: Dp,
+) = drawWithCache {
+    val paint =
+        android.graphics.Paint().apply {
+            this.color = color.toArgb()
+            maskFilter = BlurMaskFilter(radius.toPx(), BlurMaskFilter.Blur.OUTER)
+        }
+    onDrawBehind {
+        if (color.alpha > 0f) {
+            drawIntoCanvas { it.nativeCanvas.drawRoundRect(0f, 0f, size.width, size.height, corner.toPx(), corner.toPx(), paint) }
+        }
     }
 }
 
