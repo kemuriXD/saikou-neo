@@ -5,6 +5,8 @@ import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
@@ -86,8 +88,9 @@ class DetailsScreenTest {
     fun theOverviewHasASynopsisPreviewAndTheFacts() {
         show(DetailsState.Loaded(details))
 
-        compose.onNodeWithText("Overview").assertExists()
-        compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertIsFocused()
+        // With no actions yet (#69), focus starts on the Overview tab, so the top stays in view.
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertIsFocused()
+        compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertExists()
         compose.onNodeWithText("Fall 2026").assertExists()
         compose.onNodeWithText("OLM").assertExists()
         compose.onNodeWithText("8.5").assertExists()
@@ -96,9 +99,36 @@ class DetailsScreenTest {
     }
 
     @Test
+    fun downMovesToTheSynopsisAndBringsTheOverviewUp() {
+        show(DetailsState.Loaded(details))
+
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertIsFocused()
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(72.dp)
+        // The title stays as a small line at the top.
+        compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).assertTopPositionInRootIsEqualTo(27.dp)
+        // The facts below the synopsis come into view with it.
+        compose.onNodeWithText("OLM").assertIsDisplayed()
+        compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertHeightIsEqualTo((12 + 3 * 20 + 12).dp)
+    }
+
+    @Test
+    fun upBringsTheTopBack() {
+        show(DetailsState.Loaded(details))
+
+        press(Key.DirectionDown)
+        press(Key.DirectionUp)
+
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertIsFocused().assertTopPositionInRootIsEqualTo(420.dp)
+        compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).assertDoesNotExist()
+    }
+
+    @Test
     fun selectingTheSynopsisOpensTheWholeOfIt() {
         show(DetailsState.Loaded(details))
 
+        press(Key.DirectionDown)
         press(Key.DirectionCenter)
 
         compose.onNodeWithTag(DETAILS_READER_TAG).assertIsFocused()
@@ -116,14 +146,17 @@ class DetailsScreenTest {
     fun backClosesTheReaderAndReturnsToTheSynopsis() {
         showFromHome(DetailsState.Loaded(details))
 
+        press(Key.DirectionDown)
         press(Key.DirectionCenter)
         back()
 
         compose.onNodeWithTag(DETAILS_READER_TAG).assertDoesNotExist()
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertIsFocused()
-        // Focused is drawn in paper. It once had focus but drew unfocused, as it missed the focus event.
+        // Focus turns the muted text paper. It once had focus but drew unfocused, as it missed the focus event.
         val preview = compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).captureToImage().toPixelMap()
-        assertEquals(NeoColors().paper, preview[preview.width / 2, 4])
+        val paper = NeoColors().paper
+        val brightest = (0 until preview.width).flatMap { x -> (0 until preview.height).map { y -> preview[x, y].red } }.max()
+        assertEquals(paper.red, brightest, 0.02f)
     }
 
     @Test
@@ -144,12 +177,9 @@ class DetailsScreenTest {
 
         compose
             .onNodeWithText("TV · FALL 2026")
-            .assertTopPositionInRootIsEqualTo(90.dp)
+            .assertTopPositionInRootIsEqualTo(150.dp)
             .assertLeftPositionInRootIsEqualTo(58.dp)
-        compose
-            .onNodeWithText("Overview")
-            .assertTopPositionInRootIsEqualTo(300.dp)
-            .assertLeftPositionInRootIsEqualTo(58.dp)
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(420.dp)
     }
 
     @Test

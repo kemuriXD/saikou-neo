@@ -83,7 +83,7 @@ internal fun SynopsisReader(
         }
         for (note in synopsis.notes) {
             Column(Modifier.width(ReaderWidth)) {
-                Text(text = stringResource(R.string.details_note), style = NeoTheme.typography.overline, color = colors.pink)
+                Text(text = stringResource(R.string.details_note).uppercase(), style = NeoTheme.typography.overline, color = colors.pink)
                 Text(text = note, style = NeoTheme.typography.body, color = colors.textMuted)
             }
         }
