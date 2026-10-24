@@ -14,6 +14,8 @@ public data class AnimeCard(
     val coverImageUrl: String?,
     /** The cover's main colour as `#rrggbb`, for placeholders. */
     val coverColor: String?,
+    /** Wide key art, about 1900 × 400. Many anime have none. */
+    val bannerImageUrl: String?,
     /** AniList's format name, such as `TV`, `MOVIE` or `ONA`. */
     val format: String?,
     val episodes: Int?,
@@ -34,7 +36,6 @@ public data class AnimeDetails(
     val card: AnimeCard,
     /** AniList's synopsis. It can still contain `<br>` and `<i>` tags. */
     val description: String?,
-    val bannerImageUrl: String?,
     /** AniList's status name, such as `RELEASING` or `FINISHED`. */
     val status: String?,
     val episodeMinutes: Int?,

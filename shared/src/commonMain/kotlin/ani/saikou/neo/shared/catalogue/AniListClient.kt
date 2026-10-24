@@ -61,7 +61,6 @@ public class AniListClient internal constructor(
                 AnimeDetails(
                     card = media.animeCardFields.toCard(),
                     description = media.description,
-                    bannerImageUrl = media.bannerImage,
                     status = media.status?.rawValue,
                     episodeMinutes = media.duration,
                     genres = media.genres.orEmpty().filterNotNull(),
@@ -151,6 +150,7 @@ private fun AnimeCardFields.toCard(): AnimeCard =
         title = AnimeTitle(romaji = title?.romaji, english = title?.english, native = title?.native),
         coverImageUrl = coverImage?.extraLarge,
         coverColor = coverImage?.color,
+        bannerImageUrl = bannerImage,
         format = format?.rawValue,
         episodes = episodes,
         averageScore = averageScore,
