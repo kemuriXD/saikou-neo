@@ -1,8 +1,12 @@
 package ani.saikou.neo.shared.details
 
+import ani.saikou.neo.shared.catalogue.AniZipClient
+import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
+import ani.saikou.neo.shared.catalogue.SilentEngine
 import ani.saikou.neo.shared.catalogue.clientFor
+import com.apollographql.apollo.network.http.HttpEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -16,6 +20,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -28,9 +33,18 @@ class DetailsViewModelTest {
     @AfterTest
     fun resetMain() = Dispatchers.resetMain()
 
+    // On the test's dispatcher, so no art is still on its way once a test ends.
+    private val aniZipEngine = AniZipEngine("mappings")
+    private val aniZip = AniZipClient(aniZipEngine, main)
+
+    private fun detailsViewModel(
+        engine: HttpEngine = RecordedEngine("details"),
+        aniZip: AniZipClient = this.aniZip,
+    ) = DetailsViewModel(clientFor(engine), aniZip, animeId = 195516)
+
     @Test
     fun startsLoading() {
-        val viewModel = DetailsViewModel(clientFor(RecordedEngine("details")), animeId = 195516)
+        val viewModel = detailsViewModel()
 
         assertEquals(DetailsState.Loading, viewModel.state.value)
     }
@@ -39,7 +53,7 @@ class DetailsViewModelTest {
     fun loadsTheAnimeItWasGiven() =
         runTest(main) {
             val engine = RecordedEngine("details")
-            val viewModel = DetailsViewModel(clientFor(engine), animeId = 195516)
+            val viewModel = detailsViewModel(engine)
 
             val loaded = assertIs<DetailsState.Loaded>(viewModel.settled())
             assertEquals(195516, loaded.details.card.id)
@@ -51,7 +65,7 @@ class DetailsViewModelTest {
     @Test
     fun anAnimeAniListDoesNotKnowFails() =
         runTest(main) {
-            val viewModel = DetailsViewModel(clientFor(RecordedEngine("details-not-found")), animeId = 1)
+            val viewModel = detailsViewModel(RecordedEngine("details-not-found"))
 
             assertEquals(DetailsState.Failed, viewModel.settled())
         }
@@ -59,9 +73,37 @@ class DetailsViewModelTest {
     @Test
     fun noConnectionFails() =
         runTest(main) {
-            val viewModel = DetailsViewModel(clientFor(OfflineEngine), animeId = 195516)
+            val viewModel = detailsViewModel(OfflineEngine)
 
             assertEquals(DetailsState.Failed, viewModel.settled())
+        }
+
+    @Test
+    fun theBackdropIsTheShowsFanArt() =
+        runTest(main) {
+            val viewModel = detailsViewModel()
+
+            val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.backdrop != null } as DetailsState.Loaded
+            assertEquals("https://artworks.thetvdb.com/banners/v4/series/423732/backgrounds/6654700131bab.jpg", loaded.backdrop)
+            assertEquals("https://api.ani.zip/mappings?anilist_id=195516", aniZipEngine.urls.single())
+        }
+
+    @Test
+    fun withoutFanArtTheBackdropIsTheBanner() =
+        runTest(main) {
+            val viewModel = detailsViewModel(aniZip = AniZipClient(OfflineEngine, main))
+
+            val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.backdrop != null } as DetailsState.Loaded
+            assertEquals(loaded.details.card.bannerImageUrl, loaded.backdrop)
+        }
+
+    // So the art fades in once, rather than AniList's first and then the fan art.
+    @Test
+    fun theBackdropWaitsForAniZip() =
+        runTest(main) {
+            val viewModel = detailsViewModel(aniZip = AniZipClient(SilentEngine, main))
+
+            assertNull(assertIs<DetailsState.Loaded>(viewModel.settled()).backdrop)
         }
 }
 

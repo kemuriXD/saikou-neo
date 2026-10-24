@@ -5,6 +5,7 @@ import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
+import ani.saikou.neo.shared.catalogue.SilentEngine
 import ani.saikou.neo.shared.catalogue.clientFor
 import com.apollographql.apollo.api.http.HttpRequest
 import com.apollographql.apollo.api.http.HttpResponse
@@ -131,6 +132,36 @@ class HomeViewModelTest {
 
             val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
             assertEquals(Logo.None, spotlight.logo(spotlight.shows.first().id))
+        }
+
+    @Test
+    fun eachFeaturedShowIsShownOverItsFanArt() =
+        runTest(main) {
+            val viewModel = homeViewModel()
+
+            val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
+            val fanArt = "https://artworks.thetvdb.com/banners/v4/series/423732/backgrounds/6654700131bab.jpg"
+            spotlight.shows.forEach { assertEquals(fanArt, spotlight.backdrop(it)) }
+        }
+
+    // So the art fades in once, rather than AniList's first and then the fan art.
+    @Test
+    fun theBackdropWaitsForAniZip() =
+        runTest(main) {
+            val viewModel = homeViewModel(aniZip = AniZipClient(SilentEngine, main))
+
+            val spotlight = viewModel.settledSpotlight()
+            assertNull(spotlight.backdrop(spotlight.show))
+        }
+
+    @Test
+    fun withoutFanArtTheBackdropIsTheBanner() =
+        runTest(main) {
+            val viewModel = homeViewModel(aniZip = AniZipClient(OfflineEngine, main))
+
+            val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
+            assertEquals(spotlight.show.bannerImageUrl, spotlight.backdrop(spotlight.show))
+            assertTrue(spotlight.show.bannerImageUrl!!.startsWith("https://s4.anilist.co/"))
         }
 
     @Test

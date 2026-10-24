@@ -8,6 +8,7 @@ import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimePage
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.details.parseSynopsis
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -49,6 +50,8 @@ public data class Spotlight(
     val index: Int = 0,
     /** Each show's logo, by anime id, once AniZip has answered. */
     val logos: Map<Int, Logo> = emptyMap(),
+    /** Each show's fan art, by anime id, from the same AniZip answer as its logo. Shows without any are left out. */
+    val fanArt: Map<Int, String> = emptyMap(),
     /**
      * Each show's story as one paragraph, by anime id, once AniList has sent it. The spotlight shows only a few lines,
      * so paragraph breaks would leave them half empty. Shows without a story are left out.
@@ -60,6 +63,9 @@ public data class Spotlight(
     val show: AnimeCard get() = shows[index]
 
     public fun logo(animeId: Int): Logo = logos[animeId] ?: Logo.Loading
+
+    /** The art behind [card]: its fan art, or AniList's art without any. Null until AniZip answers, so it fades in once. */
+    public fun backdrop(card: AnimeCard): String? = if (card.id in logos) fanArt[card.id] ?: card.art else null
 }
 
 /** A show's title logo. Without one, the title is shown as text. */
@@ -75,7 +81,7 @@ public sealed interface Logo {
 
 /**
  * Loads Home's rows from AniList. This season is [season] of [year]. The spotlight features the first shows of the
- * first row that loads, with logos from [aniZip]. While it's in view it moves on every 10 seconds, until the viewer
+ * first row that loads, with logos and fan art from [aniZip]. While it's in view it moves on every 10 seconds, until the viewer
  * picks a show.
  */
 public class HomeViewModel(
@@ -131,8 +137,14 @@ public class HomeViewModel(
         }
         shows.forEach { show ->
             viewModelScope.launch {
-                val logo = aniZip.logo(show.id)?.let(Logo::Image) ?: Logo.None
-                updateSpotlight { it.copy(logos = it.logos + (show.id to logo)) }
+                val art = aniZip.art(show.id)
+                val logo = art?.logo?.let(Logo::Image) ?: Logo.None
+                updateSpotlight { spotlight ->
+                    spotlight.copy(
+                        logos = spotlight.logos + (show.id to logo),
+                        fanArt = art?.fanArt?.let { spotlight.fanArt + (show.id to it) } ?: spotlight.fanArt,
+                    )
+                }
             }
         }
         rotate()

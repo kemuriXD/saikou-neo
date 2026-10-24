@@ -49,7 +49,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         details = { animeId ->
-                            val details = viewModel { DetailsViewModel(client, animeId) }
+                            val details = viewModel { DetailsViewModel(client, aniZip, animeId) }
                             val state by details.state.collectAsStateWithLifecycle()
                             DetailsScreen(state)
                         },

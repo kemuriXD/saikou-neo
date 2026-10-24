@@ -6,6 +6,7 @@ import com.apollographql.apollo.api.http.HttpRequest
 import com.apollographql.apollo.api.http.HttpResponse
 import com.apollographql.apollo.exception.ApolloNetworkException
 import com.apollographql.apollo.network.http.HttpEngine
+import kotlinx.coroutines.awaitCancellation
 import okio.Buffer
 import java.util.Collections
 
@@ -43,6 +44,13 @@ internal fun clientFor(engine: HttpEngine): AniListClient =
 /** Fails every request the way Apollo reports a dropped connection. */
 internal object OfflineEngine : HttpEngine {
     override suspend fun execute(request: HttpRequest): HttpResponse = throw ApolloNetworkException("Unable to resolve host")
+
+    override fun close() {}
+}
+
+/** Never answers, as if the request were still on its way. */
+internal object SilentEngine : HttpEngine {
+    override suspend fun execute(request: HttpRequest): HttpResponse = awaitCancellation()
 
     override fun close() {}
 }
