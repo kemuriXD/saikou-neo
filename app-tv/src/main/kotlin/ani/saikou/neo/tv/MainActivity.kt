@@ -10,6 +10,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Surface
 import ani.saikou.neo.shared.catalogue.AniListClient
+import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.details.DetailsViewModel
 import ani.saikou.neo.shared.home.HomeViewModel
@@ -20,6 +21,7 @@ import java.util.Calendar
 
 class MainActivity : ComponentActivity() {
     private val client by lazy { AniListClient() }
+    private val aniZip by lazy { AniZipClient() }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -33,6 +35,7 @@ class MainActivity : ComponentActivity() {
                                     val today = Calendar.getInstance()
                                     HomeViewModel(
                                         client = client,
+                                        aniZip = aniZip,
                                         season = AnimeSeason.forMonth(today.get(Calendar.MONTH) + 1),
                                         year = today.get(Calendar.YEAR),
                                     )

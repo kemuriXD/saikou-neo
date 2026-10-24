@@ -7,6 +7,7 @@ import com.apollographql.apollo.api.http.HttpResponse
 import com.apollographql.apollo.exception.ApolloNetworkException
 import com.apollographql.apollo.network.http.HttpEngine
 import okio.Buffer
+import java.util.Collections
 
 /** Answers every request with a recorded AniList response from `resources/anilist`. */
 internal class RecordedEngine(
@@ -14,7 +15,8 @@ internal class RecordedEngine(
     private val status: Int = 200,
     private val headers: List<HttpHeader> = emptyList(),
 ) : HttpEngine {
-    val requestBodies = mutableListOf<String>()
+    // Apollo sends requests from several threads at once.
+    val requestBodies: MutableList<String> = Collections.synchronizedList(mutableListOf())
 
     override suspend fun execute(request: HttpRequest): HttpResponse {
         requestBodies += Buffer().also { request.body!!.writeTo(it) }.readUtf8()

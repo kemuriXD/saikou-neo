@@ -1,6 +1,9 @@
 package ani.saikou.neo.shared.home
 
+import ani.saikou.neo.shared.catalogue.AniZipClient
+import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
 import ani.saikou.neo.shared.catalogue.clientFor
 import com.apollographql.apollo.api.http.HttpRequest
@@ -12,6 +15,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -21,6 +25,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -33,9 +38,17 @@ class HomeViewModelTest {
     @AfterTest
     fun resetMain() = Dispatchers.resetMain()
 
+    // On the test's dispatcher, so no logo is still on its way once a test ends.
+    private val aniZip = AniZipClient(AniZipEngine("mappings"), main)
+
+    private fun homeViewModel(
+        engine: HttpEngine = HomeEngine(),
+        aniZip: AniZipClient = this.aniZip,
+    ) = HomeViewModel(clientFor(engine), aniZip, AnimeSeason.FALL, 2026)
+
     @Test
     fun startsWithEveryRowLoading() {
-        val viewModel = HomeViewModel(clientFor(RecordedEngine("browse-trending")), AnimeSeason.FALL, 2026)
+        val viewModel = homeViewModel()
 
         assertEquals(HomeRow.entries.map { RowState.Loading }, HomeRow.entries.map { viewModel.state.value.rows[it] })
     }
@@ -43,7 +56,7 @@ class HomeViewModelTest {
     @Test
     fun loadsTheRowsInOrder() =
         runTest(main) {
-            val viewModel = HomeViewModel(clientFor(RecordedEngine("browse-trending")), AnimeSeason.FALL, 2026)
+            val viewModel = homeViewModel()
 
             val rows = viewModel.settledRows()
             assertEquals(listOf(HomeRow.TRENDING, HomeRow.THIS_SEASON, HomeRow.POPULAR), rows.keys.toList())
@@ -54,7 +67,7 @@ class HomeViewModelTest {
     fun thisSeasonAsksForTheGivenSeason() =
         runTest(main) {
             val engine = RecordedEngine("browse-trending")
-            HomeViewModel(clientFor(engine), AnimeSeason.SPRING, 2027).settledRows()
+            HomeViewModel(clientFor(engine), aniZip, AnimeSeason.SPRING, 2027).settledRows()
 
             assertTrue(engine.requestBodies.any { "\"season\":\"SPRING\"" in it && "\"seasonYear\":2027" in it })
         }
@@ -62,17 +75,206 @@ class HomeViewModelTest {
     @Test
     fun aFailedRowDoesNotStopTheOthers() =
         runTest(main) {
-            val viewModel = HomeViewModel(clientFor(SeasonOfflineEngine()), AnimeSeason.FALL, 2026)
+            val viewModel = homeViewModel(SeasonOfflineEngine())
 
             val rows = viewModel.settledRows()
             assertIs<RowState.Loaded>(rows[HomeRow.TRENDING])
             assertEquals(RowState.Failed, rows[HomeRow.THIS_SEASON])
             assertIs<RowState.Loaded>(rows[HomeRow.POPULAR])
         }
+
+    @Test
+    fun theSpotlightFeaturesTheFirstSixTrendingShows() =
+        runTest(main) {
+            val viewModel = homeViewModel(RecordedEngine("browse-eight"))
+
+            val spotlight = viewModel.settledSpotlight()
+            val trending = assertIs<RowState.Loaded>(viewModel.state.value.rows[HomeRow.TRENDING]).items
+            assertEquals(8, trending.size)
+            assertEquals(trending.take(6), spotlight.shows)
+            assertEquals(0, spotlight.index)
+        }
+
+    @Test
+    fun theSpotlightUsesTheNextRowWhenTrendingFails() =
+        runTest(main) {
+            val viewModel = homeViewModel(TrendingOfflineEngine())
+
+            val spotlight = viewModel.settledSpotlight()
+            assertEquals(RowState.Failed, viewModel.state.value.rows[HomeRow.TRENDING])
+            assertEquals(assertIs<RowState.Loaded>(viewModel.state.value.rows[HomeRow.THIS_SEASON]).items.take(6), spotlight.shows)
+        }
+
+    @Test
+    fun noRowsMeansNoSpotlight() =
+        runTest(main) {
+            val viewModel = homeViewModel(OfflineEngine)
+
+            viewModel.settledRows()
+            assertNull(viewModel.state.value.spotlight)
+        }
+
+    @Test
+    fun eachFeaturedShowGetsItsLogo() =
+        runTest(main) {
+            val viewModel = homeViewModel()
+
+            val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
+            val logo = Logo.Image("https://artworks.thetvdb.com/banners/v4/series/423732/icons/6687c76dcbad1.png")
+            spotlight.shows.forEach { assertEquals(logo, spotlight.logo(it.id)) }
+        }
+
+    @Test
+    fun aShowWithoutALogoSaysSo() =
+        runTest(main) {
+            val viewModel = homeViewModel(aniZip = AniZipClient(OfflineEngine, main))
+
+            val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
+            assertEquals(Logo.None, spotlight.logo(spotlight.shows.first().id))
+        }
+
+    @Test
+    fun eachFeaturedShowGetsItsStory() =
+        runTest(main) {
+            val viewModel = homeViewModel()
+
+            val spotlight = viewModel.state.first { it.spotlight?.synopses?.isNotEmpty() == true }.spotlight!!
+            val story = spotlight.synopses.getValue(195516)
+            assertTrue(story.startsWith("In the aftermath of the Shi Clan"))
+            // Only the story: the source credit is for the Details screen.
+            assertTrue("Crunchyroll" !in story)
+            // A preview of a few lines, so its paragraphs run on rather than leave half-empty lines.
+            assertTrue('\n' !in story)
+            assertTrue("investigating its true nature. Meanwhile, Jinshi" in story)
+        }
+
+    @Test
+    fun noStoriesWhenTheyFailToLoad() =
+        runTest(main) {
+            val viewModel = homeViewModel(HomeEngine(synopsesOffline = true))
+
+            viewModel.state.first { it.spotlight?.logos?.size == 2 }
+            assertEquals(
+                emptyMap(),
+                viewModel.state.value.spotlight!!
+                    .synopses,
+            )
+        }
+
+    @Test
+    fun theSpotlightMovesOnEveryTenSecondsAndWrapsAround() =
+        runTest(main) {
+            val viewModel = homeViewModel()
+            viewModel.settledSpotlight()
+
+            viewModel.whileWatching {
+                advanceTimeBy(9_999)
+                assertEquals(
+                    0,
+                    viewModel.state.value.spotlight!!
+                        .index,
+                )
+                advanceTimeBy(2)
+                assertEquals(
+                    1,
+                    viewModel.state.value.spotlight!!
+                        .index,
+                )
+                advanceTimeBy(10_000)
+                assertEquals(
+                    0,
+                    viewModel.state.value.spotlight!!
+                        .index,
+                )
+            }
+        }
+
+    @Test
+    fun theSpotlightStaysPutWhileOutOfView() =
+        runTest(main) {
+            val viewModel = homeViewModel()
+            viewModel.settledSpotlight()
+            viewModel.whileWatching { advanceTimeBy(5_000) }
+
+            advanceTimeBy(60_000)
+            assertEquals(
+                0,
+                viewModel.state.value.spotlight!!
+                    .index,
+            )
+            // Back in view, it waits a full 10 seconds again.
+            viewModel.whileWatching { advanceTimeBy(9_999) }
+            assertEquals(
+                0,
+                viewModel.state.value.spotlight!!
+                    .index,
+            )
+        }
+
+    @Test
+    fun pickingAShowStopsTheSpotlightMoving() =
+        runTest(main) {
+            val viewModel = homeViewModel()
+            viewModel.settledSpotlight()
+
+            viewModel.whileWatching {
+                viewModel.pick(1)
+                advanceTimeBy(60_000)
+            }
+
+            assertEquals(
+                1,
+                viewModel.state.value.spotlight!!
+                    .index,
+            )
+        }
 }
 
 /** Apollo runs requests on its own dispatcher, so wait until no row is loading. */
 private suspend fun HomeViewModel.settledRows() = state.first { state -> RowState.Loading !in state.rows.values }.rows
+
+/** Runs [block] with the spotlight in view, then out of view, as the test's clock runs until no timer is left. */
+private suspend fun HomeViewModel.whileWatching(block: suspend () -> Unit) {
+    watchSpotlight(true)
+    try {
+        block()
+    } finally {
+        watchSpotlight(false)
+    }
+}
+
+/** Answers the spotlight's synopses request with its recording, or fails it, and every row with the trending page. */
+private class HomeEngine(
+    private val synopsesOffline: Boolean = false,
+) : HttpEngine {
+    private val rows = RecordedEngine("browse-trending")
+    private val synopses = RecordedEngine("synopses")
+
+    override suspend fun execute(request: HttpRequest): HttpResponse {
+        val body = Buffer().also { request.body!!.writeTo(it) }.readUtf8()
+        if ("AnimeSynopses" !in body) return rows.execute(request)
+        if (synopsesOffline) throw ApolloNetworkException("Unable to resolve host")
+        return synopses.execute(request)
+    }
+
+    override fun close() {}
+}
+
+/** Waits for the rows to load and the spotlight to be chosen from them. */
+private suspend fun HomeViewModel.settledSpotlight() = state.first { it.spotlight != null }.spotlight!!
+
+/** Fails the trending request as if the connection dropped, and answers the rest. */
+private class TrendingOfflineEngine : HttpEngine {
+    private val recorded = RecordedEngine("browse-trending")
+
+    override suspend fun execute(request: HttpRequest): HttpResponse {
+        val body = Buffer().also { request.body!!.writeTo(it) }.readUtf8()
+        if ("TRENDING_DESC" in body) throw ApolloNetworkException("Unable to resolve host")
+        return recorded.execute(request)
+    }
+
+    override fun close() {}
+}
 
 /** Fails the season request as if the connection dropped, and answers the rest. */
 private class SeasonOfflineEngine : HttpEngine {

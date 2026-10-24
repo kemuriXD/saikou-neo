@@ -59,3 +59,13 @@ query AnimeDetails($id: Int!) {
     }
   }
 }
+
+# The story behind each of a few anime, such as the ones in Home's spotlight.
+query AnimeSynopses($ids: [Int]!) {
+  Page(perPage: 50) {
+    media(id_in: $ids, type: ANIME, isAdult: false) {
+      id
+      description(asHtml: false)
+    }
+  }
+}

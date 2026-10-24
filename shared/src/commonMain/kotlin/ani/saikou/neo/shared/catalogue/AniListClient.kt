@@ -1,6 +1,7 @@
 package ani.saikou.neo.shared.catalogue
 
 import ani.saikou.neo.shared.catalogue.anilist.AnimeDetailsQuery
+import ani.saikou.neo.shared.catalogue.anilist.AnimeSynopsesQuery
 import ani.saikou.neo.shared.catalogue.anilist.BrowseAnimeQuery
 import ani.saikou.neo.shared.catalogue.anilist.SearchAnimeQuery
 import ani.saikou.neo.shared.catalogue.anilist.fragment.AnimeCardFields
@@ -53,6 +54,15 @@ public class AniListClient internal constructor(
                     hasNextPage = result.pageInfo?.hasNextPage == true,
                 )
             }
+        }
+
+    /** Each anime's description, by id, as AniList sends it. See [ani.saikou.neo.shared.details.parseSynopsis]. */
+    public suspend fun synopses(ids: List<Int>): AniListResult<Map<Int, String?>> =
+        fetch(AnimeSynopsesQuery(ids = ids)) { data ->
+            data.Page
+                ?.media
+                ?.filterNotNull()
+                ?.associate { it.id to it.description }
         }
 
     public suspend fun details(id: Int): AniListResult<AnimeDetails> =
