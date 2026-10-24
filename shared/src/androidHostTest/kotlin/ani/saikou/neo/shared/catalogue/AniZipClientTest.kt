@@ -63,6 +63,8 @@ class AniZipClientTest {
 internal class AniZipEngine(
     private val fixture: String?,
     private val status: Int = 200,
+    /** Recordings for particular AniList ids, in place of [fixture]. */
+    private val byId: Map<Int, String> = emptyMap(),
 ) : HttpEngine {
     val urls = mutableListOf<String>()
     val threads = mutableListOf<Thread>()
@@ -70,7 +72,8 @@ internal class AniZipEngine(
     override suspend fun execute(request: HttpRequest): HttpResponse {
         urls += request.url
         threads += Thread.currentThread()
-        val body = fixture?.let { checkNotNull(javaClass.getResource("/anizip/$it.json")) { "No fixture $it" }.readText() }
+        val name = byId[request.url.substringAfter("anilist_id=").toInt()] ?: fixture
+        val body = name?.let { checkNotNull(javaClass.getResource("/anizip/$it.json")) { "No fixture $it" }.readText() }
         return HttpResponse
             .Builder(status)
             .body(Buffer().writeUtf8(body ?: "{\"code\":404}"))

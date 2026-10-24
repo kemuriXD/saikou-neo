@@ -7,6 +7,7 @@ import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.art
+import ani.saikou.neo.shared.catalogue.showArt
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,7 +38,7 @@ public class DetailsViewModel(
     public val state: StateFlow<DetailsState> = mutableState.asStateFlow()
 
     init {
-        val fanArt = viewModelScope.async { aniZip.art(animeId)?.fanArt }
+        val fanArt = viewModelScope.async { showArt(client, aniZip, animeId)?.fanArt }
         viewModelScope.launch {
             val result = client.details(animeId)
             if (result !is AniListResult.Success) {

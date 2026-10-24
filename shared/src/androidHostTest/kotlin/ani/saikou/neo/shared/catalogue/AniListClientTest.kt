@@ -88,6 +88,22 @@ class AniListClientTest {
             assertTrue("\"ids\":[195516,195539]" in engine.requestBodies.single())
         }
 
+    // Beerus lists the Battle of Gods movie first, but the TV series makes the better backdrop.
+    @Test
+    fun parentSeriesPutTvSeriesFirstAndLeaveOutOtherRelations() =
+        runTest {
+            val engine = RecordedEngine("parents")
+
+            val parents = clientFor(engine).parentSeries(206814).success()
+
+            assertEquals(listOf(21175, 14837), parents)
+            assertTrue("\"id\":206814" in engine.requestBodies.single())
+        }
+
+    @Test
+    fun aShowWithoutAParentHasNone() =
+        runTest { assertEquals(emptyList(), clientFor(RecordedEngine("parents-none")).parentSeries(177709).success()) }
+
     @Test
     fun detailsMapsTheRecordedAnime() =
         runTest {

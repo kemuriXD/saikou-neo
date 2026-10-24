@@ -69,3 +69,19 @@ query AnimeSynopses($ids: [Int]!) {
     }
   }
 }
+
+# The series an anime belongs to, such as the show a movie or special comes from.
+query AnimeParents($id: Int!) {
+  Media(id: $id, type: ANIME) {
+    relations {
+      edges {
+        relationType
+        node {
+          id
+          type
+          format
+        }
+      }
+    }
+  }
+}

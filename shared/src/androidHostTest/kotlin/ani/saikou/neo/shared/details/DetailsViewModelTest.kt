@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.details
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.OfflineEngine
+import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
 import ani.saikou.neo.shared.catalogue.SilentEngine
 import ani.saikou.neo.shared.catalogue.clientFor
@@ -40,7 +41,7 @@ class DetailsViewModelTest {
     private fun detailsViewModel(
         engine: HttpEngine = RecordedEngine("details"),
         aniZip: AniZipClient = this.aniZip,
-    ) = DetailsViewModel(clientFor(engine), aniZip, animeId = 195516)
+    ) = DetailsViewModel(clientFor(engine, main), aniZip, animeId = 195516)
 
     @Test
     fun startsLoading() {
@@ -88,6 +89,18 @@ class DetailsViewModelTest {
             assertEquals("https://api.ani.zip/mappings?anilist_id=195516", aniZipEngine.urls.single())
         }
 
+    // The Apothecary Diaries movie has no fan art, but the series it belongs to does.
+    @Test
+    fun withoutFanArtTheBackdropIsItsSeriesFanArt() =
+        runTest(main) {
+            val engine = QueryEngine("details", mapOf("AnimeParents" to "parents"))
+            val aniZip = AniZipClient(AniZipEngine("mappings-unknown", byId = mapOf(21175 to "mappings-parent")), main)
+            val viewModel = detailsViewModel(engine, aniZip)
+
+            val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.backdrop != null } as DetailsState.Loaded
+            assertEquals("https://artworks.thetvdb.com/banners/fanart/original/295068-1.jpg", loaded.backdrop)
+        }
+
     @Test
     fun withoutFanArtTheBackdropIsTheBanner() =
         runTest(main) {
@@ -107,5 +120,5 @@ class DetailsViewModelTest {
         }
 }
 
-/** Apollo runs requests on its own dispatcher, so wait until loading ends. */
+/** Waits until loading ends. */
 private suspend fun DetailsViewModel.settled() = state.first { it != DetailsState.Loading }

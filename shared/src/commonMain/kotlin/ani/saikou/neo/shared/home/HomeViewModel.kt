@@ -9,6 +9,7 @@ import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimePage
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.art
+import ani.saikou.neo.shared.catalogue.showArt
 import ani.saikou.neo.shared.details.parseSynopsis
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -137,7 +138,7 @@ public class HomeViewModel(
         }
         shows.forEach { show ->
             viewModelScope.launch {
-                val art = aniZip.art(show.id)
+                val art = showArt(client, aniZip, show.id)
                 val logo = art?.logo?.let(Logo::Image) ?: Logo.None
                 updateSpotlight { spotlight ->
                     spotlight.copy(
