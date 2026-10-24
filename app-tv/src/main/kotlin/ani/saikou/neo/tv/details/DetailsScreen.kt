@@ -4,15 +4,24 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -20,12 +29,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Glow
+import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.details.DetailsState
-import ani.saikou.neo.shared.details.Synopsis
 import ani.saikou.neo.shared.details.scoreOutOfTen
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
@@ -37,12 +48,14 @@ internal const val DETAILS_META_TAG = "details-meta"
 internal const val DETAILS_SYNOPSIS_TAG = "details-synopsis"
 internal const val DETAILS_LOADING_TAG = "details-loading"
 
-// From the design: the About column starts 90 dp down and is 340 dp wide.
-private val AboutTop = 90.dp
-private val AboutWidth = 340.dp
+// The title block starts 90 dp down. Overview sits lower, at 300 dp, leaving room for the actions (#69) between.
+private val HeroTop = 90.dp
+private val HeroWidth = 580.dp
+private val OverviewTop = 300.dp
 
-// The rest of the column is the episode list's (#69), so a long synopsis stops here.
-private const val SYNOPSIS_MAX_LINES = 10
+// About 70 characters a line, a comfortable read from the sofa.
+private val SynopsisWidth = 520.dp
+private const val SYNOPSIS_PREVIEW_LINES = 3
 
 private val seasonNames =
     mapOf(
@@ -52,22 +65,28 @@ private val seasonNames =
         AnimeSeason.FALL to R.string.details_season_fall,
     )
 
-/** One anime: what it is, when it aired, how it scores and what it's about, over its dimmed art. */
+/**
+ * One anime over its dimmed art: what it is at the top, and an Overview with a short synopsis and the facts below.
+ * Selecting the synopsis opens all of it, notes included.
+ */
 @Composable
 fun DetailsScreen(
     state: DetailsState,
     modifier: Modifier = Modifier,
 ) {
+    var reading by rememberSaveable { mutableStateOf(false) }
+    val loaded = state as? DetailsState.Loaded
     Box(modifier.fillMaxSize().background(NeoTheme.colors.ink)) {
-        Backdrop((state as? DetailsState.Loaded)?.details?.card)
-        val about = Modifier.padding(start = NeoTheme.dimensions.gridMargin, top = AboutTop).width(AboutWidth)
+        Backdrop(loaded?.details?.card)
+        val margin = Modifier.padding(start = NeoTheme.dimensions.gridMargin)
         when (state) {
             DetailsState.Loading -> {
-                LoadingAbout(about)
+                LoadingHero(margin.padding(top = HeroTop))
             }
 
             is DetailsState.Loaded -> {
-                About(state.details, state.synopsis, about)
+                Hero(state.details, margin.padding(top = HeroTop).width(HeroWidth))
+                Overview(state, reading, onRead = { reading = true }, margin.padding(top = OverviewTop))
             }
 
             DetailsState.Failed -> {
@@ -75,17 +94,20 @@ fun DetailsScreen(
                     text = stringResource(R.string.details_failed),
                     style = NeoTheme.typography.bodyLarge,
                     color = NeoTheme.colors.paper,
-                    modifier = about,
+                    modifier = margin.padding(top = HeroTop),
                 )
             }
+        }
+        // Over the page rather than instead of it, so the page keeps its place underneath.
+        if (reading && loaded != null) {
+            SynopsisReader(loaded.details.card.displayTitle(), loaded.synopsis, onClose = { reading = false })
         }
     }
 }
 
 @Composable
-private fun About(
+private fun Hero(
     details: AnimeDetails,
-    synopsis: Synopsis,
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
@@ -106,29 +128,100 @@ private fun About(
         if (meta.isNotEmpty()) {
             Text(text = meta, style = NeoTheme.typography.label, color = colors.textMuted, modifier = Modifier.testTag(DETAILS_META_TAG))
         }
-        synopsis.story?.let { story ->
-            Text(
-                text = story,
-                style = NeoTheme.typography.body,
-                color = colors.textMuted,
-                maxLines = SYNOPSIS_MAX_LINES,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.fillMaxWidth().testTag(DETAILS_SYNOPSIS_TAG),
-            )
+    }
+}
+
+@Composable
+private fun Overview(
+    state: DetailsState.Loaded,
+    reading: Boolean,
+    onRead: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val dimensions = NeoTheme.dimensions
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(dimensions.space3)) {
+        Text(text = stringResource(R.string.details_overview), style = NeoTheme.typography.title, color = NeoTheme.colors.paper)
+        state.synopsis.story?.let { story -> SynopsisPreview(story, enabled = !reading, onRead) }
+        Facts(state.details, Modifier.padding(top = dimensions.space1))
+    }
+}
+
+/** The start of the synopsis. It's the only thing to focus until the actions arrive, so focus starts here. */
+@Composable
+private fun SynopsisPreview(
+    story: String,
+    enabled: Boolean,
+    onRead: () -> Unit,
+) {
+    val colors = NeoTheme.colors
+    val dimensions = NeoTheme.dimensions
+    val shape = RoundedCornerShape(dimensions.radiusLg)
+    val focus = remember { FocusRequester() }
+    // Asked again each time the reader closes. The card stays on screen under the reader, so it is
+    // attached and listening when focus returns, and draws as focused.
+    LaunchedEffect(enabled) { if (enabled) focus.requestFocus() }
+    Surface(
+        onClick = onRead,
+        enabled = enabled,
+        modifier = Modifier.width(SynopsisWidth).focusRequester(focus).testTag(DETAILS_SYNOPSIS_TAG),
+        shape = ClickableSurfaceDefaults.shape(shape),
+        colors =
+            ClickableSurfaceDefaults.colors(
+                containerColor = colors.surfaceScrim,
+                contentColor = colors.textMuted,
+                focusedContainerColor = colors.paper,
+                focusedContentColor = colors.onFocus,
+                pressedContainerColor = colors.paper,
+                pressedContentColor = colors.onFocus,
+            ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1.025f),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(Color.White.copy(alpha = 0.28f), dimensions.glowFocus)),
+    ) {
+        Text(
+            text = story,
+            style = NeoTheme.typography.body,
+            maxLines = SYNOPSIS_PREVIEW_LINES,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.padding(horizontal = dimensions.space4, vertical = dimensions.space3),
+        )
+    }
+}
+
+/** Format, release, studio and score, side by side. Any AniList doesn't know is left out. */
+@Composable
+private fun Facts(
+    details: AnimeDetails,
+    modifier: Modifier = Modifier,
+) {
+    val card = details.card
+    val facts =
+        listOfNotNull(
+            card.formatName()?.let { R.string.details_fact_format to it },
+            card.seasonName()?.let { R.string.details_fact_released to it },
+            details.studios
+                .take(2)
+                .joinToString(", ")
+                .ifEmpty { null }
+                ?.let { R.string.details_fact_studio to it },
+            scoreOutOfTen(card.averageScore)?.let { R.string.details_fact_score to it },
+        )
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space8)) {
+        for ((label, value) in facts) {
+            Column {
+                Text(text = stringResource(label), style = NeoTheme.typography.caption, color = NeoTheme.colors.textFaint)
+                Text(text = value, style = NeoTheme.typography.label, color = NeoTheme.colors.paper)
+            }
         }
     }
 }
 
 /** Placeholders in the text's place, sized as in the design. */
 @Composable
-private fun LoadingAbout(modifier: Modifier = Modifier) {
-    val dimensions = NeoTheme.dimensions
-    Column(modifier.testTag(DETAILS_LOADING_TAG), verticalArrangement = Arrangement.spacedBy(dimensions.space3)) {
+private fun LoadingHero(modifier: Modifier = Modifier) {
+    Column(modifier.testTag(DETAILS_LOADING_TAG), verticalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space3)) {
         Skeleton(100.dp, 16.dp)
         Skeleton(280.dp, 38.dp)
         Skeleton(240.dp, 14.dp)
-        Skeleton(330.dp, 14.dp)
-        Skeleton(300.dp, 14.dp)
     }
 }
 
@@ -159,12 +252,11 @@ private fun Backdrop(card: AnimeCard?) {
     )
 }
 
-/** Genres, episode count and score, such as "Drama · Mystery · 12 episodes · Score 8.5". */
+/** Genres and episode count, such as "Drama · Mystery · 12 episodes". */
 @Composable
 private fun AnimeDetails.meta(): String {
     val episodes = card.episodes?.let { pluralStringResource(R.plurals.home_episodes, it, it) }
-    val score = scoreOutOfTen(card.averageScore)?.let { stringResource(R.string.details_score, it) }
-    return (genres + listOfNotNull(episodes, score)).joinToString(" · ")
+    return (genres + listOfNotNull(episodes)).joinToString(" · ")
 }
 
 /** Such as "Fall 2026", or just the year when AniList doesn't give the season. */
