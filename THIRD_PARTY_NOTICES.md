@@ -16,6 +16,7 @@ their APK assets under `legal/`.
 | OkHttp and Okio | Square, Inc. | [Apache-2.0](licenses/Apache-2.0.txt) |
 | Guava ListenableFuture | The Guava authors | [Apache-2.0](licenses/Apache-2.0.txt) |
 | JSpecify annotations | The JSpecify authors | [Apache-2.0](licenses/Apache-2.0.txt) |
+| Coil | Coil Contributors | [Apache-2.0](licenses/Apache-2.0.txt) |
 | Apollo Kotlin | Apollo Graph, Inc. | [MIT](licenses/Apollo-Kotlin-MIT.txt) |
 | uuid | Ben Asher | [MIT](licenses/uuid-MIT.txt) |
 

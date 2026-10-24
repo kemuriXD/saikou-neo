@@ -21,6 +21,11 @@ dependencies {
     implementation(libs.compose.foundation)
     implementation(libs.tv.material)
     implementation(libs.activity.compose)
+    implementation(libs.lifecycle.viewmodel.compose)
+    implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.coil.compose)
+    // Uses the OkHttp library that Apollo already brings.
+    implementation(libs.coil.network.okhttp)
 
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)

@@ -28,6 +28,7 @@ class AniListClientTest {
                         ),
                     coverImageUrl = "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195516-MJpUZlOberqH.jpg",
                     coverColor = "#e4a128",
+                    bannerImageUrl = "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
                     format = "TV",
                     episodes = 12,
                     averageScore = 85,
@@ -88,7 +89,7 @@ class AniListClientTest {
             assertEquals(NextEpisode(number = 5, airingAtEpochSeconds = 1793368800), details.nextEpisode)
             assertEquals(
                 "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
-                details.bannerImageUrl,
+                details.card.bannerImageUrl,
             )
             assertTrue(details.description.orEmpty().isNotBlank())
         }

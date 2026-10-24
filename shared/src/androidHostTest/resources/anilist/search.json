@@ -17,6 +17,7 @@
             "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-qQTzQnEJJ3oB.jpg",
             "color": "#bbf1a1"
           },
+          "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/154587-ivXNJ23SM1xB.jpg",
           "format": "TV",
           "episodes": 28,
           "averageScore": 91,
@@ -35,6 +36,7 @@
             "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx209939-g2Njkml1rheG.jpg",
             "color": "#f1e4c9"
           },
+          "bannerImage": null,
           "format": "TV",
           "episodes": null,
           "averageScore": null,

@@ -11,6 +11,7 @@ fragment AnimeCardFields on Media {
     extraLarge
     color
   }
+  bannerImage
   format
   episodes
   averageScore
@@ -44,7 +45,6 @@ query AnimeDetails($id: Int!) {
   Media(id: $id, type: ANIME) {
     ...AnimeCardFields
     description(asHtml: false)
-    bannerImage
     status
     duration
     genres

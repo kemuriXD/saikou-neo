@@ -1,8 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">Saikou Neo</string>
-    <!-- Sample row for checking focus on a TV, until Home arrives in #66. -->
-    <string name="sample_row_title">Continue watching</string>
-    <string name="sample_card_title">Sample show %1$d</string>
-    <string name="sample_card_meta">E%1$d · %2$d min left</string>
+
+    <string name="home_row_trending">Trending</string>
+    <string name="home_row_this_season">This season</string>
+    <string name="home_row_popular">Popular</string>
+
+    <!-- AniList's formats, as shown in card details such as "TV · 2026 · 12 episodes". -->
+    <string name="home_format_tv">TV</string>
+    <string name="home_format_tv_short">TV short</string>
+    <string name="home_format_movie">Movie</string>
+    <string name="home_format_special">Special</string>
+    <string name="home_format_ova">OVA</string>
+    <string name="home_format_ona">ONA</string>
+    <string name="home_format_music">Music video</string>
+    <plurals name="home_episodes">
+        <item quantity="one">%d episode</item>
+        <item quantity="other">%d episodes</item>
+    </plurals>
 </resources>
