@@ -24,7 +24,7 @@ dependencies {
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
     implementation(libs.coil.compose)
-    // Shares the OkHttp that Apollo already brings.
+    // Uses the OkHttp library that Apollo already brings.
     implementation(libs.coil.network.okhttp)
 
     testImplementation(platform(libs.compose.bom))

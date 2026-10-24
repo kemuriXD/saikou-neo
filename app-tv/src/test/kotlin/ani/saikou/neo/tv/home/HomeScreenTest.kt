@@ -1,10 +1,15 @@
 package ani.saikou.neo.tv.home
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
@@ -41,6 +46,22 @@ class HomeScreenTest {
 
     private fun show(state: HomeState = loaded) {
         compose.setContent { NeoTheme { HomeScreen(state) } }
+    }
+
+    /** Shows [loaded], runs [before], then recreates Home as after the app was killed, with [reloaded] instead. */
+    private fun restoreWith(
+        reloaded: HomeState,
+        before: () -> Unit,
+    ) {
+        val restoration = StateRestorationTester(compose)
+        var compositions = 0
+        restoration.setContent {
+            // remember starts over in the recreated composition, so only that one sees the reloaded rows.
+            val first = remember { compositions++ == 0 }
+            NeoTheme { HomeScreen(if (first) loaded else reloaded) }
+        }
+        before()
+        restoration.emulateSavedInstanceStateRestore()
     }
 
     private fun press(
@@ -136,6 +157,39 @@ class HomeScreenTest {
         compose.onNodeWithText("This season").assertTopPositionInRootIsEqualTo(300.dp)
     }
 
+    @Test
+    fun focusWaitsForTrendingEvenIfAnotherRowLoadsFirst() {
+        var state by mutableStateOf(loaded.copy(rows = loaded.rows + (HomeRow.TRENDING to RowState.Loading)))
+        compose.setContent { NeoTheme { HomeScreen(state) } }
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 0)).assertIsNotFocused()
+
+        state = loaded
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 0)).assertIsFocused()
+    }
+
+    @Test
+    fun aSavedCardThatIsGoneHandsFocusToTheCardNowInItsPlace() {
+        // The app was killed, and This season came back without the saved show.
+        val reloaded = (loaded.rows.getValue(HomeRow.THIS_SEASON) as RowState.Loaded).items.filter { it.id != 105 }
+        restoreWith(loaded.copy(rows = loaded.rows + (HomeRow.THIS_SEASON to RowState.Loaded(reloaded)))) {
+            press(Key.DirectionDown)
+            press(Key.DirectionRight, times = 5)
+        }
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 5)).assertIsFocused()
+    }
+
+    @Test
+    fun aSavedRowThatFailsHandsFocusToTrending() {
+        restoreWith(loaded.copy(rows = loaded.rows + (HomeRow.THIS_SEASON to RowState.Failed))) {
+            press(Key.DirectionDown)
+        }
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 0)).assertIsFocused()
+    }
+
+    // Guards against Home ever handling Back itself: Home is the start screen, so Back must reach the activity.
     @Test
     fun backOnHomeLeavesTheApp() {
         show()

@@ -49,6 +49,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.crossfade
+import kotlinx.coroutines.delay
 import java.io.Serializable
 
 internal fun homeCardTag(
@@ -70,6 +71,8 @@ private val SpotlightTop = 96.dp
 private val SpotlightWidth = 420.dp
 private val RowsTop = 300.dp
 
+private const val BACKDROP_SETTLE_MILLIS = 300L
+
 // A row is its 24 dp heading, a 10 dp gap and a 110 dp card. The next row's heading peeks at 478 dp.
 private val HeadingToCards = 34.dp
 private val RowGap = 34.dp
@@ -79,9 +82,10 @@ private val LastRowRoom = 96.dp
 
 private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
 
-/** Which card, so focus and the spotlight survive Home being recreated. */
+/** Which anime, and where it was in its row, so focus and the spotlight survive Home being recreated. */
 private data class CardKey(
     val row: HomeRow,
+    val animeId: Int,
     val index: Int,
 ) : Serializable
 
@@ -94,11 +98,18 @@ fun HomeScreen(
     var focused by rememberSaveable { mutableStateOf<CardKey?>(null) }
     // Not saved: after recreation, focus has to be placed again on the saved card.
     var hasFocus by remember { mutableStateOf(false) }
-    val target = focused ?: state.firstCard()
-    val spotlight = target?.let { state.card(it) }
     val columnState = rememberLazyListState()
     // Held here, not in the rows, so a row scrolled out of view keeps its place.
     val rowStates = HomeRow.entries.associateWith { rememberLazyListState() }
+    // Where focus goes when nothing has it yet. Null while the row it belongs in is still loading.
+    val target = if (hasFocus) null else state.focusTarget(focused)
+    val spotlight = (if (hasFocus) focused else target)?.let { state.card(it) }
+    val shownRows = HomeRow.entries.filter { state.rows[it].let { rowState -> rowState != null && rowState != RowState.Failed } }
+    // A row that failed after recreation can shift the restored scroll, so bring the target's row up first.
+    LaunchedEffect(target?.row) {
+        val row = target?.row ?: return@LaunchedEffect
+        columnState.scrollToItem(shownRows.indexOf(row))
+    }
 
     Box(modifier.fillMaxSize().background(NeoTheme.colors.ink)) {
         Backdrop(spotlight)
@@ -110,18 +121,17 @@ fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(RowGap),
                 contentPadding = PaddingValues(bottom = LastRowRoom),
             ) {
-                for (row in HomeRow.entries) {
-                    val rowState = state.rows[row]
-                    if (rowState == null || rowState == RowState.Failed) continue
+                for (row in shownRows) {
+                    val rowState = state.rows.getValue(row)
                     item(key = row.name) {
                         HomeRowSection(
                             row = row,
                             rowState = rowState,
                             listState = rowStates.getValue(row),
                             isFocusedRow = hasFocus && focused?.row == row,
-                            initialFocus = target.takeIf { !hasFocus && it?.row == row }?.index,
-                            onCardFocused = { index ->
-                                focused = CardKey(row, index)
+                            initialFocus = target?.takeIf { it.row == row }?.animeId,
+                            onCardFocused = { animeId, index ->
+                                focused = CardKey(row, animeId, index)
                                 hasFocus = true
                             },
                         )
@@ -139,7 +149,7 @@ private fun HomeRowSection(
     listState: LazyListState,
     isFocusedRow: Boolean,
     initialFocus: Int?,
-    onCardFocused: (Int) -> Unit,
+    onCardFocused: (animeId: Int, index: Int) -> Unit,
 ) {
     val dimensions = NeoTheme.dimensions
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -164,7 +174,7 @@ private fun HomeRowSection(
             ) {
                 itemsIndexed(rowState.items, key = { _, card -> card.id }) { index, card ->
                     val requester = remember { FocusRequester() }
-                    if (index == initialFocus) LaunchedEffect(Unit) { requester.requestFocus() }
+                    if (card.id == initialFocus) LaunchedEffect(Unit) { requester.requestFocus() }
                     HomeCard(
                         card = card,
                         // Details arrive in #68.
@@ -173,7 +183,7 @@ private fun HomeRowSection(
                             Modifier
                                 .testTag(homeCardTag(row, index))
                                 .focusRequester(requester)
-                                .onFocusChanged { if (it.isFocused) onCardFocused(index) },
+                                .onFocusChanged { if (it.isFocused) onCardFocused(card.id, index) },
                     )
                 }
             }
@@ -234,13 +244,32 @@ private fun Spotlight(
 private fun Backdrop(card: AnimeCard?) {
     val ink = NeoTheme.colors.ink
     val art = card?.let { it.bannerImageUrl ?: it.coverImageUrl }
+    // Fetch the full-screen art only once focus rests, not for every card passed on the way.
+    var resting by remember { mutableStateOf(art) }
+    LaunchedEffect(art) {
+        delay(BACKDROP_SETTLE_MILLIS)
+        resting = art
+    }
+    // The last art that finished loading stays underneath, so the screen doesn't flash to ink in between.
+    var shown by remember { mutableStateOf<String?>(null) }
+    val context = LocalPlatformContext.current
+    val duration = NeoTheme.dimensions.durationBackdropMillis
     val request =
-        ImageRequest
-            .Builder(LocalPlatformContext.current)
-            .data(art)
-            .crossfade(NeoTheme.dimensions.durationBackdropMillis)
-            .build()
-    AsyncImage(model = request, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+        remember(resting) {
+            ImageRequest
+                .Builder(context)
+                .data(resting)
+                .crossfade(duration)
+                .build()
+        }
+    AsyncImage(model = shown, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
+    AsyncImage(
+        model = request,
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        onSuccess = { shown = resting },
+        modifier = Modifier.fillMaxSize(),
+    )
     Box(
         Modifier.fillMaxSize().background(
             Brush.horizontalGradient(
@@ -264,10 +293,26 @@ private fun Backdrop(card: AnimeCard?) {
     )
 }
 
-private fun HomeState.card(key: CardKey): AnimeCard? = (rows[key.row] as? RowState.Loaded)?.items?.getOrNull(key.index)
+private fun HomeState.card(key: CardKey): AnimeCard? = (rows[key.row] as? RowState.Loaded)?.items?.firstOrNull { it.id == key.animeId }
 
-/** The first card of the first row that has loaded. */
-private fun HomeState.firstCard(): CardKey? =
-    HomeRow.entries
-        .firstOrNull { (rows[it] as? RowState.Loaded)?.items?.isNotEmpty() == true }
-        ?.let { CardKey(it, 0) }
+/**
+ * The saved card if it's still there, or the card now in its place if its row reloaded without it.
+ * With nothing saved, the first card of the first row that loads, waiting for rows above it.
+ */
+private fun HomeState.focusTarget(saved: CardKey?): CardKey? {
+    val rows = if (saved != null) listOf(saved.row) + HomeRow.entries else HomeRow.entries
+    for (row in rows) {
+        val items =
+            when (val rowState = this.rows[row]) {
+                RowState.Loading -> return null
+                is RowState.Loaded -> rowState.items
+                else -> emptyList()
+            }
+        if (items.isEmpty()) continue
+        if (row != saved?.row) return CardKey(row, items.first().id, 0)
+        if (items.any { it.id == saved.animeId }) return saved
+        val index = saved.index.coerceAtMost(items.lastIndex)
+        return CardKey(row, items[index].id, index)
+    }
+    return null
+}
