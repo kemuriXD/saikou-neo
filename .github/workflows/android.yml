@@ -1,9 +1,28 @@
 name: Android
 
+# PRs must be up to date with main before merging, so a run after the merge
+# would repeat a tested tree. Main only builds when the build setup changes,
+# plus once a week, to refresh the cache that PRs restore (ADR 0010).
 on:
   pull_request:
+    paths-ignore:
+      - "**.md"
+      - LICENSE
+      - licenses/**
+      - .markdownlint-cli2.jsonc
+      - .github/CODEOWNERS
+      - .github/ISSUE_TEMPLATE/**
+      - .github/workflows/repository-hygiene.yml
   push:
     branches: [main]
+    paths:
+      - gradle/**
+      - gradle.properties
+      - "**/*.gradle.kts"
+      - build-logic/**
+      - .github/workflows/android.yml
+  schedule:
+    - cron: "23 4 * * 1"
   workflow_dispatch:
 
 permissions:
@@ -33,7 +52,22 @@ jobs:
         with:
           distribution: temurin
           java-version: "21"
-          cache: gradle
+
+      # Restores dependencies, compiled build logic, the build cache and
+      # Robolectric's Android jars. The key changes with the build setup, and
+      # the restore keys fall back to the newest entry when it does. Only main
+      # saves, so every PR can read the entry.
+      - name: Restore Gradle cache
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.m2/repository/org/robolectric
+          key: gradle-${{ runner.os }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', 'gradle/libs.versions.toml', 'gradle.properties', '**/*.gradle.kts') }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: |
+            gradle-${{ runner.os }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', 'gradle/libs.versions.toml', 'gradle.properties', '**/*.gradle.kts') }}-
+            gradle-${{ runner.os }}-
 
       # The active release channel comes from the CHANNEL repository variable
       # (ADR 0008). Changing it moves CI to another channel.
@@ -59,7 +93,33 @@ jobs:
           :app-tv:assemble${VARIANT}Debug
           :app-companion:lint${VARIANT}Debug :app-companion:test${VARIANT}DebugUnitTest
           :app-companion:assemble${VARIANT}Debug
+          --profile
 
+      - name: Upload build profile
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: gradle-profile
+          path: build/reports/profile/
+          retention-days: 7
+
+      # Lock files would stop the next run from reusing the cache.
+      - name: Prepare Gradle cache
+        if: success() && (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
+        run: |
+          ./gradlew --stop
+          rm -f ~/.gradle/caches/modules-2/modules-2.lock ~/.gradle/caches/modules-2/gc.properties
+          find ~/.gradle/caches -name '*.lock' -delete
+
+      - name: Save Gradle cache
+        if: success() && (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            ~/.m2/repository/org/robolectric
+          key: gradle-${{ runner.os }}-${{ hashFiles('gradle/wrapper/gradle-wrapper.properties', 'gradle/libs.versions.toml', 'gradle.properties', '**/*.gradle.kts') }}-${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload lint and test reports
         if: failure()
@@ -67,7 +127,7 @@ jobs:
         with:
           name: reports
           path: "**/build/reports/"
-          retention-days: 14
+          retention-days: 7
 
       - name: Upload TV debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -75,7 +135,7 @@ jobs:
           name: saikou-neo-tv-${{ env.CHANNEL }}-debug
           path: app-tv/build/outputs/apk/${{ env.CHANNEL }}/debug/*.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
 
       - name: Upload companion debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -83,4 +143,4 @@ jobs:
           name: saikou-neo-companion-${{ env.CHANNEL }}-debug
           path: app-companion/build/outputs/apk/${{ env.CHANNEL }}/debug/*.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
