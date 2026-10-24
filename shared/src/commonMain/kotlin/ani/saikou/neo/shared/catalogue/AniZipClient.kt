@@ -42,56 +42,30 @@ public class AniZipClient internal constructor(
 public data class AniZipArt(
     /** The title logo, a transparent image. */
     val logo: String?,
-    /**
-     * 1920 × 1080 art for the backdrop. AniZip's art belongs to the whole series, so only a series' first season
-     * gets it. Later seasons, movies and specials would show another season's art.
-     */
+    /** 1920 × 1080 art for the backdrop. It belongs to the whole series, so every season shows the same art. */
     val fanArt: String?,
 )
 
-/** Reads the `Clearlogo` and `Fanart` urls from `images`, and which seasons the `episodes` are in. */
+/** Reads the `Clearlogo` and `Fanart` urls from `images` and skips everything else. */
 private fun JsonReader.art(): AniZipArt {
     var logo: String? = null
     var fanArt: String? = null
-    val seasons = mutableSetOf<Int>()
     beginObject()
     while (hasNext()) {
-        when (nextName()) {
-            "images" -> {
-                forEachObject { fields ->
-                    if (fields["coverType"] == "Clearlogo" && logo == null) logo = fields["url"]
-                    if (fields["coverType"] == "Fanart" && fanArt == null) fanArt = fields["url"]
-                }
-            }
-
-            "episodes" -> {
-                if (peek() != JsonReader.Token.BEGIN_OBJECT) {
-                    skipValue()
-                    continue
-                }
-                beginObject()
-                while (hasNext()) {
-                    nextName()
-                    readFields()["seasonNumber"]?.toIntOrNull()?.let(seasons::add)
-                }
-                endObject()
-            }
-
-            else -> {
-                skipValue()
-            }
+        if (nextName() != "images" || peek() != JsonReader.Token.BEGIN_ARRAY) {
+            skipValue()
+            continue
         }
+        beginArray()
+        while (hasNext()) {
+            val fields = readFields()
+            if (fields["coverType"] == "Clearlogo" && logo == null) logo = fields["url"]
+            if (fields["coverType"] == "Fanart" && fanArt == null) fanArt = fields["url"]
+        }
+        endArray()
     }
     endObject()
-    return AniZipArt(logo, fanArt.takeIf { seasons == setOf(1) })
-}
-
-/** Calls [block] with the plain fields of each object in an array, and skips anything that isn't one. */
-private fun JsonReader.forEachObject(block: (Map<String, String>) -> Unit) {
-    if (peek() != JsonReader.Token.BEGIN_ARRAY) return skipValue()
-    beginArray()
-    while (hasNext()) block(readFields())
-    endArray()
+    return AniZipArt(logo, fanArt)
 }
 
 /** An object's string and number fields. Nested values are skipped. */

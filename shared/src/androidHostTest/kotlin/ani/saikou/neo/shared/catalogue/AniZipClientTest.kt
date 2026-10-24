@@ -42,23 +42,15 @@ class AniZipClientTest {
             assertNull(art?.logo)
         }
 
-    // AniZip's art belongs to the whole series, so it would show the first season's art on the second.
+    // AniZip's art belongs to the whole series, so a later season shows the same art as the first.
     @Test
-    fun aLaterSeasonKeepsItsLogoButHasNoFanArt() =
+    fun aLaterSeasonGetsTheSeriesArt() =
         runTest {
             val art = AniZipClient(AniZipEngine("mappings-second-season")).art(145064)
 
             assertEquals("https://artworks.thetvdb.com/banners/v4/series/377543/icons/60735d109b705.png", art?.logo)
-            assertNull(art?.fanArt)
+            assertEquals("https://artworks.thetvdb.com/banners/v4/series/377543/backgrounds/609cba7794bab.jpg", art?.fanArt)
         }
-
-    // TheTVDB files movies under specials, season 0.
-    @Test
-    fun aMovieHasNoFanArt() = runTest { assertNull(AniZipClient(AniZipEngine("mappings-movie")).art(131573)?.fanArt) }
-
-    // Without episodes, there's no telling which season the show is.
-    @Test
-    fun aShowWithoutEpisodesHasNoFanArt() = runTest { assertNull(AniZipClient(AniZipEngine("mappings-no-logo")).art(177709)?.fanArt) }
 
     @Test
     fun aShowAniZipDoesNotKnowHasNoArt() = runTest { assertNull(AniZipClient(AniZipEngine(null, status = 404)).art(1)) }
