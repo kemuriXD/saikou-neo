@@ -50,7 +50,6 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
-import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.HomeState
 import ani.saikou.neo.shared.home.Logo
@@ -178,7 +177,7 @@ fun HomeScreen(
     }
 
     Box(modifier.fillMaxSize().background(NeoTheme.colors.ink)) {
-        Backdrop(spotlight?.show)
+        Backdrop(spotlight?.let { it.backdrop(it.show) })
         Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - shown }.background(NeoTheme.colors.ink.copy(alpha = DIM_ALPHA)))
         Box(
             Modifier.fillMaxSize().onFocusChanged {
@@ -330,25 +329,23 @@ private fun SpotlightSkeleton(modifier: Modifier) {
 @Composable
 private fun PreloadSpotlight(spotlight: Spotlight) {
     val context = LocalPlatformContext.current
-    LaunchedEffect(spotlight.shows, spotlight.logos) {
+    LaunchedEffect(spotlight.shows, spotlight.logos, spotlight.fanArt) {
         val loader = SingletonImageLoader.get(context)
         spotlight.shows.forEach { show ->
-            show.art()?.let { loader.enqueue(ImageRequest.Builder(context).data(it).build()) }
+            spotlight.backdrop(show)?.let { loader.enqueue(ImageRequest.Builder(context).data(it).build()) }
             (spotlight.logo(show.id) as? Logo.Image)?.let { loader.enqueue(logoRequest(context, it.url)) }
         }
     }
 }
 
-private fun AnimeCard.art() = bannerImageUrl ?: coverImageUrl
-
 /** The spotlight show's art behind everything, faded into ink on the left and bottom so text stays readable. */
 @Composable
-private fun Backdrop(card: AnimeCard?) {
+private fun Backdrop(art: String?) {
     val ink = NeoTheme.colors.ink
     val dimensions = NeoTheme.dimensions
     // Faded here rather than by Coil, which doesn't fade art it already has in memory, as preloaded art is.
     Crossfade(
-        targetState = card?.art(),
+        targetState = art,
         animationSpec = tween(dimensions.durationBackdropMillis, easing = dimensions.easeStandard),
         label = "art",
     ) { art ->
@@ -362,10 +359,11 @@ private fun Backdrop(card: AnimeCard?) {
     Box(
         Modifier.fillMaxSize().background(
             Brush.horizontalGradient(
+                // Fan art is brighter than AniList's banners, so the ink stays deep under the whole text column.
                 0f to ink.copy(alpha = 0.88f),
-                0.34f to ink.copy(alpha = 0.6f),
-                0.62f to ink.copy(alpha = 0.08f),
-                1f to ink.copy(alpha = 0f),
+                0.34f to ink.copy(alpha = 0.7f),
+                0.55f to ink.copy(alpha = 0.42f),
+                0.8f to ink.copy(alpha = 0f),
             ),
         ),
     )

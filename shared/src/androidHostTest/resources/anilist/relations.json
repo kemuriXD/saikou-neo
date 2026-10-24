@@ -1,0 +1,50 @@
+{
+  "data": {
+    "Media": {
+      "relations": {
+        "edges": [
+          {
+            "relationType": "PARENT",
+            "node": {
+              "id": 14837,
+              "type": "ANIME",
+              "format": "MOVIE"
+            }
+          },
+          {
+            "relationType": "PARENT",
+            "node": {
+              "id": 21175,
+              "type": "ANIME",
+              "format": "TV"
+            }
+          },
+          {
+            "relationType": "PREQUEL",
+            "node": {
+              "id": 813,
+              "type": "ANIME",
+              "format": "TV"
+            }
+          },
+          {
+            "relationType": "PREQUEL",
+            "node": {
+              "id": 20635,
+              "type": "ANIME",
+              "format": "TV"
+            }
+          },
+          {
+            "relationType": "PREQUEL",
+            "node": {
+              "id": 170083,
+              "type": "ANIME",
+              "format": "TV"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

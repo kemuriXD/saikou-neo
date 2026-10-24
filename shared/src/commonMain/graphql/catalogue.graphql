@@ -69,3 +69,19 @@ query AnimeSynopses($ids: [Int]!) {
     }
   }
 }
+
+# The series an anime belongs to or follows, such as the show a movie comes from or the season before a sequel.
+query AnimeRelations($id: Int!) {
+  Media(id: $id, type: ANIME) {
+    relations {
+      edges {
+        relationType
+        node {
+          id
+          type
+          format
+        }
+      }
+    }
+  }
+}

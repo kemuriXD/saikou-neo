@@ -5,6 +5,7 @@ import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
+import ani.saikou.neo.shared.catalogue.SilentEngine
 import ani.saikou.neo.shared.catalogue.clientFor
 import com.apollographql.apollo.api.http.HttpRequest
 import com.apollographql.apollo.api.http.HttpResponse
@@ -44,7 +45,7 @@ class HomeViewModelTest {
     private fun homeViewModel(
         engine: HttpEngine = HomeEngine(),
         aniZip: AniZipClient = this.aniZip,
-    ) = HomeViewModel(clientFor(engine), aniZip, AnimeSeason.FALL, 2026)
+    ) = HomeViewModel(clientFor(engine, main), aniZip, AnimeSeason.FALL, 2026)
 
     @Test
     fun startsWithEveryRowLoading() {
@@ -67,7 +68,7 @@ class HomeViewModelTest {
     fun thisSeasonAsksForTheGivenSeason() =
         runTest(main) {
             val engine = RecordedEngine("browse-trending")
-            HomeViewModel(clientFor(engine), aniZip, AnimeSeason.SPRING, 2027).settledRows()
+            HomeViewModel(clientFor(engine, main), aniZip, AnimeSeason.SPRING, 2027).settledRows()
 
             assertTrue(engine.requestBodies.any { "\"season\":\"SPRING\"" in it && "\"seasonYear\":2027" in it })
         }
@@ -131,6 +132,46 @@ class HomeViewModelTest {
 
             val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
             assertEquals(Logo.None, spotlight.logo(spotlight.shows.first().id))
+        }
+
+    @Test
+    fun eachFeaturedShowIsShownOverItsFanArt() =
+        runTest(main) {
+            val viewModel = homeViewModel()
+
+            val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
+            val fanArt = "https://artworks.thetvdb.com/banners/v4/series/423732/backgrounds/6654700131bab.jpg"
+            spotlight.shows.forEach { assertEquals(fanArt, spotlight.backdrop(it)) }
+        }
+
+    // So the art fades in once, rather than AniList's first and then the fan art.
+    @Test
+    fun theBackdropWaitsForAniZip() =
+        runTest(main) {
+            val viewModel = homeViewModel(aniZip = AniZipClient(SilentEngine, main))
+
+            val spotlight = viewModel.settledSpotlight()
+            assertNull(spotlight.backdrop(spotlight.show))
+        }
+
+    @Test
+    fun aShowWithoutFanArtIsShownOverItsSeriesFanArt() =
+        runTest(main) {
+            val aniZip = AniZipClient(AniZipEngine("mappings-unknown", byId = mapOf(21175 to "mappings-parent")), main)
+            val viewModel = homeViewModel(aniZip = aniZip)
+
+            val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
+            assertEquals("https://artworks.thetvdb.com/banners/fanart/original/295068-1.jpg", spotlight.backdrop(spotlight.show))
+        }
+
+    @Test
+    fun withoutFanArtTheBackdropIsTheBanner() =
+        runTest(main) {
+            val viewModel = homeViewModel(aniZip = AniZipClient(OfflineEngine, main))
+
+            val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
+            assertEquals(spotlight.show.bannerImageUrl, spotlight.backdrop(spotlight.show))
+            assertTrue(spotlight.show.bannerImageUrl!!.startsWith("https://s4.anilist.co/"))
         }
 
     @Test
@@ -230,7 +271,7 @@ class HomeViewModelTest {
         }
 }
 
-/** Apollo runs requests on its own dispatcher, so wait until no row is loading. */
+/** Waits until no row is loading. */
 private suspend fun HomeViewModel.settledRows() = state.first { state -> RowState.Loading !in state.rows.values }.rows
 
 /** Runs [block] with the spotlight in view, then out of view, as the test's clock runs until no timer is left. */
@@ -243,15 +284,20 @@ private suspend fun HomeViewModel.whileWatching(block: suspend () -> Unit) {
     }
 }
 
-/** Answers the spotlight's synopses request with its recording, or fails it, and every row with the trending page. */
+/**
+ * Answers the spotlight's synopses request with its recording, or fails it, a show's series with Dragon Ball Super, and
+ * every row with the trending page.
+ */
 private class HomeEngine(
     private val synopsesOffline: Boolean = false,
 ) : HttpEngine {
     private val rows = RecordedEngine("browse-trending")
     private val synopses = RecordedEngine("synopses")
+    private val parents = RecordedEngine("relations")
 
     override suspend fun execute(request: HttpRequest): HttpResponse {
         val body = Buffer().also { request.body!!.writeTo(it) }.readUtf8()
+        if ("AnimeRelations" in body) return parents.execute(request)
         if ("AnimeSynopses" !in body) return rows.execute(request)
         if (synopsesOffline) throw ApolloNetworkException("Unable to resolve host")
         return synopses.execute(request)

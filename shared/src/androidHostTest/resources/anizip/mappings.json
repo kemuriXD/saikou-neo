@@ -2,7 +2,20 @@
   "titles": {
     "x-jat": "Sakamoto Days",
     "ja": "SAKAMOTO DAYS",
-    "en": "Sakamoto Days"
+    "en": "Sakamoto Days",
+    "fr": "Sakamoto Days",
+    "ru": "Дни Сакамото",
+    "ko": "사카모토 데이즈",
+    "pl": "Sakamoto Days",
+    "ar": "أيام ساكاموتو",
+    "he": "החיים החדשים של סקמוטו",
+    "hu": "Sakamoto napjai",
+    "vi": "Sát thủ về vườn",
+    "uk": "Дні Сакамото",
+    "hr": "SAKAMOTOVI DANI",
+    "zh-Hant": "坂本日常",
+    "zh-Hans": "坂本日常",
+    "hi": "साकामोतो डेज़"
   },
   "episodeCount": 11,
   "images": [
@@ -23,6 +36,32 @@
       "url": "https://artworks.thetvdb.com/banners/v4/series/423732/icons/6687c76dcbad1.png"
     }
   ],
+  "episodes": {
+    "1": {
+      "tvdbShowId": 423732,
+      "episode": "1",
+      "seasonNumber": 1,
+      "absoluteEpisodeNumber": 1,
+      "title": {
+        "en": "The Legendary Hit Man"
+      }
+    },
+    "2": {
+      "tvdbShowId": 423732,
+      "episode": "2",
+      "seasonNumber": 1,
+      "absoluteEpisodeNumber": 2,
+      "title": {
+        "en": "Vs. Son Hee and Bacho"
+      }
+    },
+    "S1": {
+      "episode": "S1",
+      "title": {
+        "en": "Super Luxurious! Special Presentation by the Voice Actors Themselves!"
+      }
+    }
+  },
   "mappings": {
     "anilist_id": 177709,
     "thetvdb_id": 423732

@@ -1,0 +1,26 @@
+{
+  "data": {
+    "Media": {
+      "relations": {
+        "edges": [
+          {
+            "relationType": "ADAPTATION",
+            "node": {
+              "id": 125828,
+              "type": "MANGA",
+              "format": "MANGA"
+            }
+          },
+          {
+            "relationType": "SEQUEL",
+            "node": {
+              "id": 184237,
+              "type": "ANIME",
+              "format": "ONA"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

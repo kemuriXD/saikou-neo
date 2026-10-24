@@ -1,6 +1,7 @@
 package ani.saikou.neo.tv.details
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -128,7 +129,7 @@ fun DetailsScreen(
         label = "lift",
     )
     Box(modifier.fillMaxSize().background(NeoTheme.colors.ink)) {
-        Backdrop(loaded?.details?.card)
+        Backdrop(loaded?.backdrop)
         val margin = Modifier.padding(start = dimensions.gridMargin)
         when (state) {
             DetailsState.Loading -> {
@@ -368,16 +369,23 @@ private fun Skeleton(
     shape: Shape = RoundedCornerShape(6.dp),
 ) = Box(Modifier.size(width, height).background(NeoTheme.colors.surfaceRaised, shape))
 
-/** The banner, or the cover where there's none, dimmed so the text over it stays readable. */
+/** The show's art, faded in once it's known and dimmed so the text over it stays readable. */
 @Composable
-private fun Backdrop(card: AnimeCard?) {
+private fun Backdrop(art: String?) {
     val ink = NeoTheme.colors.ink
-    AsyncImage(
-        model = card?.let { it.bannerImageUrl ?: it.coverImageUrl },
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        modifier = Modifier.fillMaxSize(),
-    )
+    val dimensions = NeoTheme.dimensions
+    Crossfade(
+        targetState = art,
+        animationSpec = tween(dimensions.durationBackdropMillis, easing = dimensions.easeStandard),
+        label = "art",
+    ) {
+        AsyncImage(
+            model = it,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize(),
+        )
+    }
     Box(
         Modifier.fillMaxSize().background(
             Brush.horizontalGradient(

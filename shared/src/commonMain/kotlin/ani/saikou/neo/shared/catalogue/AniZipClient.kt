@@ -19,14 +19,14 @@ public class AniZipClient internal constructor(
 ) {
     public constructor() : this(DefaultHttpEngine(TIMEOUT_MILLIS))
 
-    /** The show's title logo, a transparent image, or null when AniZip has none or can't be reached. */
-    public suspend fun logo(anilistId: Int): String? =
+    /** The show's art, or null when AniZip doesn't know the show or can't be reached. */
+    public suspend fun art(anilistId: Int): AniZipArt? =
         // The engine blocks while it waits for the network, so keep it off the main thread, as ApolloClient does.
         withContext(io) {
             try {
                 val response = engine.execute(HttpRequest.Builder(HttpMethod.Get, "$ANIZIP_URL?anilist_id=$anilistId").build())
                 val body = response.body
-                if (response.statusCode != 200 || body == null) null else body.use { it.jsonReader().clearLogo() }
+                if (response.statusCode != 200 || body == null) null else body.use { it.jsonReader().art() }
             } catch (_: ApolloException) {
                 null
             }
@@ -38,9 +38,18 @@ public class AniZipClient internal constructor(
     }
 }
 
-/** Finds `images[coverType = Clearlogo].url` and skips everything else. */
-private fun JsonReader.clearLogo(): String? {
+/** A show's art from AniZip. Either can be missing. */
+public data class AniZipArt(
+    /** The title logo, a transparent image. */
+    val logo: String?,
+    /** 1920 × 1080 art for the backdrop. It belongs to the whole series, so every season shows the same art. */
+    val fanArt: String?,
+)
+
+/** Reads the `Clearlogo` and `Fanart` urls from `images` and skips everything else. */
+private fun JsonReader.art(): AniZipArt {
     var logo: String? = null
+    var fanArt: String? = null
     beginObject()
     while (hasNext()) {
         if (nextName() != "images" || peek() != JsonReader.Token.BEGIN_ARRAY) {
@@ -49,21 +58,31 @@ private fun JsonReader.clearLogo(): String? {
         }
         beginArray()
         while (hasNext()) {
-            var type: String? = null
-            var url: String? = null
-            beginObject()
-            while (hasNext()) {
-                when (nextName()) {
-                    "coverType" -> type = nextString()
-                    "url" -> url = nextString()
-                    else -> skipValue()
-                }
-            }
-            endObject()
-            if (type == "Clearlogo" && logo == null) logo = url
+            val fields = readFields()
+            if (fields["coverType"] == "Clearlogo" && logo == null) logo = fields["url"]
+            if (fields["coverType"] == "Fanart" && fanArt == null) fanArt = fields["url"]
         }
         endArray()
     }
     endObject()
-    return logo
+    return AniZipArt(logo, fanArt)
+}
+
+/** An object's string and number fields. Nested values are skipped. */
+private fun JsonReader.readFields(): Map<String, String> {
+    if (peek() != JsonReader.Token.BEGIN_OBJECT) {
+        skipValue()
+        return emptyMap()
+    }
+    val fields = mutableMapOf<String, String>()
+    beginObject()
+    while (hasNext()) {
+        val name = nextName()
+        when (peek()) {
+            JsonReader.Token.STRING, JsonReader.Token.NUMBER, JsonReader.Token.LONG -> fields[name] = nextString()!!
+            else -> skipValue()
+        }
+    }
+    endObject()
+    return fields
 }

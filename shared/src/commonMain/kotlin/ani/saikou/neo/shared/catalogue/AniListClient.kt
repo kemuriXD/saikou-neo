@@ -1,12 +1,16 @@
 package ani.saikou.neo.shared.catalogue
 
 import ani.saikou.neo.shared.catalogue.anilist.AnimeDetailsQuery
+import ani.saikou.neo.shared.catalogue.anilist.AnimeRelationsQuery
 import ani.saikou.neo.shared.catalogue.anilist.AnimeSynopsesQuery
 import ani.saikou.neo.shared.catalogue.anilist.BrowseAnimeQuery
 import ani.saikou.neo.shared.catalogue.anilist.SearchAnimeQuery
 import ani.saikou.neo.shared.catalogue.anilist.fragment.AnimeCardFields
+import ani.saikou.neo.shared.catalogue.anilist.type.MediaFormat
+import ani.saikou.neo.shared.catalogue.anilist.type.MediaRelation
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaSeason
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaSort
+import ani.saikou.neo.shared.catalogue.anilist.type.MediaType
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.Optional
 import com.apollographql.apollo.api.Query
@@ -63,6 +67,22 @@ public class AniListClient internal constructor(
                 ?.media
                 ?.filterNotNull()
                 ?.associate { it.id to it.description }
+        }
+
+    /**
+     * The ids of the anime series [id] belongs to, such as a movie's TV series, then the ones it follows, such as a
+     * sequel's earlier season. TV series come first in each.
+     */
+    public suspend fun relatedSeries(id: Int): AniListResult<List<Int>> =
+        fetch(AnimeRelationsQuery(id = id)) { data ->
+            data.Media
+                ?.relations
+                ?.edges
+                .orEmpty()
+                .filterNotNull()
+                .filter { it.relationType in seriesRelations && it.node?.type == MediaType.ANIME }
+                .sortedWith(compareBy({ seriesRelations.indexOf(it.relationType) }, { it.node?.format != MediaFormat.TV }))
+                .mapNotNull { it.node?.id }
         }
 
     public suspend fun details(id: Int): AniListResult<AnimeDetails> =
@@ -127,6 +147,7 @@ public class AniListClient internal constructor(
     private companion object {
         const val ANILIST_URL = "https://graphql.anilist.co"
         const val DEFAULT_PER_PAGE = 20
+        val seriesRelations = listOf(MediaRelation.PARENT, MediaRelation.PREQUEL)
     }
 }
 

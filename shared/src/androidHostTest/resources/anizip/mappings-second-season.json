@@ -1,0 +1,61 @@
+{
+  "titles": {
+    "x-jat": "jjk s2",
+    "en": "Jujutsu Kaisen (2023)",
+    "ar": "فنون الجوجتسو (2023)",
+    "zh-Hant": "咒術迴戰 第二季",
+    "x-unk": "jjk2",
+    "ja": "呪術廻戦 (2023)",
+    "fr": "Jujutsu Kaisen (Saison 2)",
+    "zh-Hans": "咒术回战 第二季"
+  },
+  "episodeCount": 23,
+  "images": [
+    {
+      "coverType": "Banner",
+      "url": "https://artworks.thetvdb.com/banners/series/377543/banners/5ff8299fd8bce.jpg"
+    },
+    {
+      "coverType": "Poster",
+      "url": "https://artworks.thetvdb.com/banners/series/377543/posters/5ecb7bcccc897.jpg"
+    },
+    {
+      "coverType": "Fanart",
+      "url": "https://artworks.thetvdb.com/banners/v4/series/377543/backgrounds/609cba7794bab.jpg"
+    },
+    {
+      "coverType": "Clearlogo",
+      "url": "https://artworks.thetvdb.com/banners/v4/series/377543/icons/60735d109b705.png"
+    }
+  ],
+  "episodes": {
+    "1": {
+      "tvdbShowId": 377543,
+      "episode": "1",
+      "seasonNumber": 2,
+      "absoluteEpisodeNumber": 25,
+      "title": {
+        "en": "Hidden Inventory"
+      }
+    },
+    "2": {
+      "tvdbShowId": 377543,
+      "episode": "2",
+      "seasonNumber": 2,
+      "absoluteEpisodeNumber": 26,
+      "title": {
+        "en": "Hidden Inventory 2"
+      }
+    },
+    "S3": {
+      "episode": "S3",
+      "title": {
+        "en": "Movie & Season 2 Pre-Broadcast Special"
+      }
+    }
+  },
+  "mappings": {
+    "anilist_id": 145064,
+    "thetvdb_id": 377543
+  }
+}

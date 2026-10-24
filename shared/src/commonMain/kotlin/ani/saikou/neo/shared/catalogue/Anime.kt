@@ -25,6 +25,9 @@ public data class AnimeCard(
     val seasonYear: Int?,
 )
 
+/** The banner, or the cover where there's none. */
+public val AnimeCard.art: String? get() = bannerImageUrl ?: coverImageUrl
+
 /** One page of results, and whether another page follows. */
 public data class AnimePage(
     val items: List<AnimeCard>,

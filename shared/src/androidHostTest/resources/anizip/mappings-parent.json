@@ -1,0 +1,30 @@
+{
+  "titles": {
+    "x-jat": "db s6",
+    "ja": "ドラゴンボールスーパー",
+    "en": "Dragon Ball Super"
+  },
+  "episodeCount": 131,
+  "images": [
+    {
+      "coverType": "Banner",
+      "url": "https://artworks.thetvdb.com/banners/series/295068/seasons/688948/banners/5f54012600fd9.jpg"
+    },
+    {
+      "coverType": "Poster",
+      "url": "https://artworks.thetvdb.com/banners/series/295068/seasons/621345/posters/5ef8b07a7bc89.jpg"
+    },
+    {
+      "coverType": "Fanart",
+      "url": "https://artworks.thetvdb.com/banners/fanart/original/295068-1.jpg"
+    },
+    {
+      "coverType": "Clearlogo",
+      "url": "https://artworks.thetvdb.com/banners/v4/series/295068/clearlogo/611b83c21f28f.png"
+    }
+  ],
+  "mappings": {
+    "anilist_id": 21175,
+    "thetvdb_id": 295068
+  }
+}
