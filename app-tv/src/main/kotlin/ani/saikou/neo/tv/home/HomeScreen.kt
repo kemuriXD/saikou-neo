@@ -104,11 +104,12 @@ private data class CardKey(
     val index: Int,
 ) : Serializable
 
-/** Home: a spotlight on the focused show, over rows of anime that browse left and right. */
+/** Home: a spotlight on the focused show, over rows of anime that browse left and right. Selecting one calls [onOpen]. */
 @Composable
 fun HomeScreen(
     state: HomeState,
     modifier: Modifier = Modifier,
+    onOpen: (animeId: Int) -> Unit = {},
 ) {
     var focused by rememberSaveable { mutableStateOf<CardKey?>(null) }
     // The anime each row last had focus on, so moving up and down returns to it.
@@ -148,6 +149,7 @@ fun HomeScreen(
                             isFocusedRow = hasFocus && focused?.row == row,
                             initialFocus = target?.takeIf { it.row == row }?.animeId,
                             lastCard = lastCards[row],
+                            onOpen = onOpen,
                             onCardFocused = { animeId, index ->
                                 focused = CardKey(row, animeId, index)
                                 lastCards[row] = animeId
@@ -169,6 +171,7 @@ private fun HomeRowSection(
     isFocusedRow: Boolean,
     initialFocus: Int?,
     lastCard: Int?,
+    onOpen: (animeId: Int) -> Unit,
     onCardFocused: (animeId: Int, index: Int) -> Unit,
 ) {
     val dimensions = NeoTheme.dimensions
@@ -207,8 +210,7 @@ private fun HomeRowSection(
                     if (card.id == initialFocus) LaunchedEffect(Unit) { requester.requestFocus() }
                     HomeCard(
                         card = card,
-                        // Details arrive in #68.
-                        onClick = {},
+                        onClick = { onOpen(card.id) },
                         modifier =
                             Modifier
                                 .testTag(homeCardTag(row, index))

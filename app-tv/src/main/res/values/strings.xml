@@ -18,4 +18,20 @@
         <item quantity="one">%d episode</item>
         <item quantity="other">%d episodes</item>
     </plurals>
+
+    <!-- Details. Seasons read such as "Fall 2026". -->
+    <string name="details_season_winter">Winter %1$d</string>
+    <string name="details_season_spring">Spring %1$d</string>
+    <string name="details_season_summer">Summer %1$d</string>
+    <string name="details_season_fall">Fall %1$d</string>
+    <string name="details_overview">Overview</string>
+    <string name="details_fact_format">Format</string>
+    <string name="details_fact_released">Released</string>
+    <string name="details_fact_studio">Studio</string>
+    <string name="details_fact_score">Score</string>
+    <!-- An editors' note from AniList, shown after the synopsis. -->
+    <string name="details_note">Note</string>
+    <!-- Where AniList's synopsis came from, such as "Source: Crunchyroll". -->
+    <string name="details_source">Source: %1$s</string>
+    <string name="details_failed">Couldn\'t load this anime.</string>
 </resources>

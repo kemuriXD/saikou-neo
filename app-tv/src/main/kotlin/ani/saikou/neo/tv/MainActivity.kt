@@ -11,29 +11,41 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Surface
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.details.DetailsViewModel
 import ani.saikou.neo.shared.home.HomeViewModel
+import ani.saikou.neo.tv.details.DetailsScreen
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.theme.NeoTheme
 import java.util.Calendar
 
 class MainActivity : ComponentActivity() {
+    private val client by lazy { AniListClient() }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             NeoTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
-                    val home =
-                        viewModel {
-                            val today = Calendar.getInstance()
-                            HomeViewModel(
-                                client = AniListClient(),
-                                season = AnimeSeason.forMonth(today.get(Calendar.MONTH) + 1),
-                                year = today.get(Calendar.YEAR),
-                            )
-                        }
-                    val state by home.state.collectAsStateWithLifecycle()
-                    // Home is the start screen, so Back leaves the app.
-                    HomeScreen(state)
+                    NeoNavigation(
+                        home = { openDetails ->
+                            val home =
+                                viewModel {
+                                    val today = Calendar.getInstance()
+                                    HomeViewModel(
+                                        client = client,
+                                        season = AnimeSeason.forMonth(today.get(Calendar.MONTH) + 1),
+                                        year = today.get(Calendar.YEAR),
+                                    )
+                                }
+                            val state by home.state.collectAsStateWithLifecycle()
+                            HomeScreen(state, onOpen = openDetails)
+                        },
+                        details = { animeId ->
+                            val details = viewModel { DetailsViewModel(client, animeId) }
+                            val state by details.state.collectAsStateWithLifecycle()
+                            DetailsScreen(state)
+                        },
+                    )
                 }
             }
         }
