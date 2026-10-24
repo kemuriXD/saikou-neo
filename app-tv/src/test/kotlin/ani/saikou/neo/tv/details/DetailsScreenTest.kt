@@ -35,7 +35,7 @@ class DetailsScreenTest {
 
         compose.onNodeWithText("Show 7").assertExists()
         compose.onNodeWithText("TV · FALL 2026").assertExists()
-        compose.onNodeWithText("Drama · Mystery · 12 episodes · Score 8.5").assertExists()
+        compose.onNodeWithText("Drama · Mystery · 12 episodes · Score 8.5").assertExists()
         compose.onNodeWithText("Maomao returns to the pleasure district.\n\nOne day, she senses an anomaly.").assertExists()
     }
 

@@ -24,6 +24,7 @@
     <string name="details_season_spring">Spring %1$d</string>
     <string name="details_season_summer">Summer %1$d</string>
     <string name="details_season_fall">Fall %1$d</string>
-    <string name="details_score">Score %1$s</string>
+    <!-- A no-break space keeps the score with its label when the line wraps. -->
+    <string name="details_score">Score %1$s</string>
     <string name="details_failed">Couldn\'t load this anime.</string>
 </resources>
