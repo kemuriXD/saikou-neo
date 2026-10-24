@@ -23,6 +23,8 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.navigation3.ui)
+    implementation(libs.lifecycle.viewmodel.navigation3)
     implementation(libs.coil.compose)
     // Uses the OkHttp library that Apollo already brings.
     implementation(libs.coil.network.okhttp)

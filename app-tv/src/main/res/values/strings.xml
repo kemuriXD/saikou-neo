@@ -18,4 +18,12 @@
         <item quantity="one">%d episode</item>
         <item quantity="other">%d episodes</item>
     </plurals>
+
+    <!-- Details, such as "Fall 2026" and "Score 8.5". -->
+    <string name="details_season_winter">Winter %1$d</string>
+    <string name="details_season_spring">Spring %1$d</string>
+    <string name="details_season_summer">Summer %1$d</string>
+    <string name="details_season_fall">Fall %1$d</string>
+    <string name="details_score">Score %1$s</string>
+    <string name="details_failed">Couldn\'t load this anime.</string>
 </resources>

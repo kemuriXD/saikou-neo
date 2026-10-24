@@ -100,10 +100,14 @@ internal fun AnimeCard.displayTitle(): String = title.english ?: title.romaji ?:
 /** Format, year and episode count, such as "TV · 2026 · 12 episodes". */
 @Composable
 internal fun AnimeCard.meta(): String {
-    val format = formatNames[format]?.let { stringResource(it) } ?: format
+    val format = formatName()
     val episodes = episodes?.let { pluralStringResource(R.plurals.home_episodes, it, it) }
     return listOfNotNull(format, seasonYear?.toString(), episodes).joinToString(" · ")
 }
+
+/** The format in words, such as "Movie", or AniList's own name for a format the app doesn't know yet. */
+@Composable
+internal fun AnimeCard.formatName(): String? = formatNames[format]?.let { stringResource(it) } ?: format
 
 private val formatNames =
     mapOf(

@@ -22,9 +22,6 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
-import ani.saikou.neo.shared.catalogue.AnimeCard
-import ani.saikou.neo.shared.catalogue.AnimeSeason
-import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.HomeState
 import ani.saikou.neo.shared.home.RowState
@@ -231,24 +228,5 @@ class HomeScreenTest {
         compose.activityRule.scenario.onActivity { it.onBackPressedDispatcher.onBackPressed() }
 
         compose.activityRule.scenario.onActivity { assertTrue(it.isFinishing) }
-    }
-
-    private companion object {
-        val loaded =
-            HomeState(HomeRow.entries.associateWith { row -> RowState.Loaded(List(12) { card(row.ordinal * 100 + it) }) })
-
-        fun card(id: Int) =
-            AnimeCard(
-                id = id,
-                title = AnimeTitle(romaji = null, english = "Show $id", native = null),
-                coverImageUrl = null,
-                coverColor = "#e4a128",
-                bannerImageUrl = null,
-                format = "TV",
-                episodes = 12,
-                averageScore = null,
-                season = AnimeSeason.FALL,
-                seasonYear = 2026,
-            )
     }
 }
