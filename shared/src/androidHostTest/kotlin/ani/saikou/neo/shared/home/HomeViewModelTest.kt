@@ -293,11 +293,11 @@ private class HomeEngine(
 ) : HttpEngine {
     private val rows = RecordedEngine("browse-trending")
     private val synopses = RecordedEngine("synopses")
-    private val parents = RecordedEngine("parents")
+    private val parents = RecordedEngine("relations")
 
     override suspend fun execute(request: HttpRequest): HttpResponse {
         val body = Buffer().also { request.body!!.writeTo(it) }.readUtf8()
-        if ("AnimeParents" in body) return parents.execute(request)
+        if ("AnimeRelations" in body) return parents.execute(request)
         if ("AnimeSynopses" !in body) return rows.execute(request)
         if (synopsesOffline) throw ApolloNetworkException("Unable to resolve host")
         return synopses.execute(request)

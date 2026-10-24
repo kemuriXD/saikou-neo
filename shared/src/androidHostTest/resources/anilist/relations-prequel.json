@@ -1,0 +1,26 @@
+{
+  "data": {
+    "Media": {
+      "relations": {
+        "edges": [
+          {
+            "relationType": "PREQUEL",
+            "node": {
+              "id": 186497,
+              "type": "ANIME",
+              "format": "TV"
+            }
+          },
+          {
+            "relationType": "ADAPTATION",
+            "node": {
+              "id": 166742,
+              "type": "MANGA",
+              "format": "MANGA"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

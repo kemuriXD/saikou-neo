@@ -93,7 +93,7 @@ class DetailsViewModelTest {
     @Test
     fun withoutFanArtTheBackdropIsItsSeriesFanArt() =
         runTest(main) {
-            val engine = QueryEngine("details", mapOf("AnimeParents" to "parents"))
+            val engine = QueryEngine("details", mapOf("AnimeRelations" to "relations"))
             val aniZip = AniZipClient(AniZipEngine("mappings-unknown", byId = mapOf(21175 to "mappings-parent")), main)
             val viewModel = detailsViewModel(engine, aniZip)
 

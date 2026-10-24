@@ -90,19 +90,24 @@ class AniListClientTest {
 
     // Beerus lists the Battle of Gods movie first, but the TV series makes the better backdrop.
     @Test
-    fun parentSeriesPutTvSeriesFirstAndLeaveOutOtherRelations() =
+    fun relatedSeriesPutParentsThenPrequelsWithTvSeriesFirst() =
         runTest {
-            val engine = RecordedEngine("parents")
+            val engine = RecordedEngine("relations")
 
-            val parents = clientFor(engine).parentSeries(206814).success()
+            val series = clientFor(engine).relatedSeries(206814).success()
 
-            assertEquals(listOf(21175, 14837), parents)
+            assertEquals(listOf(21175, 14837, 813, 20635, 170083), series)
             assertTrue("\"id\":206814" in engine.requestBodies.single())
         }
 
+    // The Ramparts of Ice Season 2 follows season 1, with no parent.
     @Test
-    fun aShowWithoutAParentHasNone() =
-        runTest { assertEquals(emptyList(), clientFor(RecordedEngine("parents-none")).parentSeries(177709).success()) }
+    fun aSequelFollowsItsEarlierSeason() =
+        runTest { assertEquals(listOf(186497), clientFor(RecordedEngine("relations-prequel")).relatedSeries(213805).success()) }
+
+    @Test
+    fun aShowWithoutRelatedSeriesHasNone() =
+        runTest { assertEquals(emptyList(), clientFor(RecordedEngine("relations-none")).relatedSeries(177709).success()) }
 
     @Test
     fun detailsMapsTheRecordedAnime() =

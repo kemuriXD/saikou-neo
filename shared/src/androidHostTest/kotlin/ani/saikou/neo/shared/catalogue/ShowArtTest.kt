@@ -12,7 +12,7 @@ class ShowArtTest {
     @Test
     fun aShowWithFanArtNeedsNothingMore() =
         runTest {
-            val aniList = QueryEngine("parents", emptyMap())
+            val aniList = QueryEngine("relations", emptyMap())
             val aniZip = AniZipEngine("mappings")
 
             val art = showArt(clientFor(aniList), AniZipClient(aniZip), 177709)
@@ -28,7 +28,7 @@ class ShowArtTest {
         runTest {
             val aniZip = AniZipEngine("mappings-unknown", byId = mapOf(21175 to "mappings-parent"))
 
-            val art = showArt(clientFor(RecordedEngine("parents")), AniZipClient(aniZip), 206814)
+            val art = showArt(clientFor(RecordedEngine("relations")), AniZipClient(aniZip), 206814)
 
             assertEquals(dragonBallSuperFanArt, art?.fanArt)
             // The logo stays the show's own. Beerus has none.
@@ -44,7 +44,7 @@ class ShowArtTest {
         runTest {
             val aniZip = AniZipEngine("mappings-unknown")
 
-            val art = showArt(clientFor(RecordedEngine("parents-none")), AniZipClient(aniZip), 177709)
+            val art = showArt(clientFor(RecordedEngine("relations-none")), AniZipClient(aniZip), 177709)
 
             assertNull(art?.fanArt)
             assertEquals(1, aniZip.urls.size)
