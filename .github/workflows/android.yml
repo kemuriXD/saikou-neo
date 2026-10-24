@@ -93,26 +93,17 @@ jobs:
           :app-tv:assemble${VARIANT}Debug
           :app-companion:lint${VARIANT}Debug :app-companion:test${VARIANT}DebugUnitTest
           :app-companion:assemble${VARIANT}Debug
-          --profile
-
-      - name: Upload build profile
-        if: always()
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: gradle-profile
-          path: build/reports/profile/
-          retention-days: 7
 
       # Lock files would stop the next run from reusing the cache.
       - name: Prepare Gradle cache
-        if: success() && (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
+        if: success() && github.ref == 'refs/heads/main'
         run: |
           ./gradlew --stop
           rm -f ~/.gradle/caches/modules-2/modules-2.lock ~/.gradle/caches/modules-2/gc.properties
           find ~/.gradle/caches -name '*.lock' -delete
 
       - name: Save Gradle cache
-        if: success() && (github.ref == 'refs/heads/main' || github.event_name == 'pull_request')
+        if: success() && github.ref == 'refs/heads/main'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
