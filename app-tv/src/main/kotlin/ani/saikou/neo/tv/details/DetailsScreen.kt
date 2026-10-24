@@ -25,7 +25,7 @@ import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.details.DetailsState
-import ani.saikou.neo.shared.details.plainSynopsis
+import ani.saikou.neo.shared.details.Synopsis
 import ani.saikou.neo.shared.details.scoreOutOfTen
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
@@ -67,7 +67,7 @@ fun DetailsScreen(
             }
 
             is DetailsState.Loaded -> {
-                About(state.details, about)
+                About(state.details, state.synopsis, about)
             }
 
             DetailsState.Failed -> {
@@ -85,6 +85,7 @@ fun DetailsScreen(
 @Composable
 private fun About(
     details: AnimeDetails,
+    synopsis: Synopsis,
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
@@ -105,9 +106,9 @@ private fun About(
         if (meta.isNotEmpty()) {
             Text(text = meta, style = NeoTheme.typography.label, color = colors.textMuted, modifier = Modifier.testTag(DETAILS_META_TAG))
         }
-        plainSynopsis(details.description)?.let { synopsis ->
+        synopsis.story?.let { story ->
             Text(
-                text = synopsis,
+                text = story,
                 style = NeoTheme.typography.body,
                 color = colors.textMuted,
                 maxLines = SYNOPSIS_MAX_LINES,

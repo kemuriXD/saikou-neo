@@ -36,6 +36,7 @@ class DetailsScreenTest {
         compose.onNodeWithText("Show 7").assertExists()
         compose.onNodeWithText("TV · FALL 2026").assertExists()
         compose.onNodeWithText("Drama · Mystery · 12 episodes · Score 8.5").assertExists()
+        // The editors' note is left out of the story.
         compose.onNodeWithText("Maomao returns to the pleasure district.\n\nOne day, she senses an anomaly.").assertExists()
     }
 
@@ -79,7 +80,9 @@ class DetailsScreenTest {
         val details =
             AnimeDetails(
                 card = card(7).copy(averageScore = 85, season = AnimeSeason.FALL),
-                description = "Maomao returns to the <i>pleasure district</i>.\n<br><br>\nOne day, she senses an anomaly.",
+                description =
+                    "Maomao returns to the <i>pleasure district</i>.\n<br><br>\nOne day, she senses an anomaly." +
+                        "<br><br><i>Note: Streamed early.</i>",
                 status = "RELEASING",
                 episodeMinutes = 24,
                 genres = listOf("Drama", "Mystery"),

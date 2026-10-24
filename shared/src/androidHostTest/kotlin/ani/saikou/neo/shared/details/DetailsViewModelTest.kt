@@ -44,6 +44,7 @@ class DetailsViewModelTest {
             val loaded = assertIs<DetailsState.Loaded>(viewModel.settled())
             assertEquals(195516, loaded.details.card.id)
             assertEquals(listOf("Drama", "Mystery"), loaded.details.genres)
+            assertEquals("Crunchyroll", loaded.synopsis.source)
             assertTrue(engine.requestBodies.single().contains("\"id\":195516"))
         }
 

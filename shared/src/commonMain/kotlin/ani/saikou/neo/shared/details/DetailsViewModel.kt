@@ -15,6 +15,7 @@ public sealed interface DetailsState {
 
     public data class Loaded(
         val details: AnimeDetails,
+        val synopsis: Synopsis = parseSynopsis(details.description),
     ) : DetailsState
 
     public data object Failed : DetailsState
