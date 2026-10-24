@@ -6,5 +6,10 @@ plugins {
 kotlin {
     android {
         namespace = "ani.saikou.neo.extension.api"
+        // Apps that use the API keep it whole when R8 runs.
+        optimization {
+            consumerKeepRules.publish = true
+            consumerKeepRules.file("consumer-rules.pro")
+        }
     }
 }

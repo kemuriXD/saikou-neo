@@ -26,6 +26,9 @@ their APK assets under `legal/`.
 | Inter | The Inter Project Authors | [SIL OFL 1.1](licenses/fonts/Inter-OFL.txt) |
 | Space Grotesk | The Space Grotesk Project Authors | [SIL OFL 1.1](licenses/fonts/SpaceGrotesk-OFL.txt) |
 
+The TV app bundles both fonts cut down to Latin characters, under their
+original names. Neither licence reserves a font name.
+
 The TV banner draws "Saikou Neo" in Space Grotesk as outlines. No font file is
 added for it.
 

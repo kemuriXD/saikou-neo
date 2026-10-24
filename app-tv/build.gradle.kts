@@ -1,5 +1,8 @@
+import androidx.baselineprofile.gradle.consumer.BaselineProfileConsumerExtension
+
 plugins {
     id("neo.android.app")
+    id("neo.baselineprofile")
 }
 
 android {
@@ -14,8 +17,15 @@ android {
     lint { disable += "IconLauncherShape" }
 }
 
+// :benchmark-tv records the startup and row-scrolling profile on the alpha
+// build. It goes into src/main, so beta and stable ship the same profile.
+configure<BaselineProfileConsumerExtension> {
+    variants.create("alpha") { from(project(":benchmark-tv")) }
+}
+
 dependencies {
     implementation(project(":shared"))
+    implementation(project(":extension-api"))
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)
