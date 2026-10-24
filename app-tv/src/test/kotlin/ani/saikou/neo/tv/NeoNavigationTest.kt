@@ -1,9 +1,12 @@
 package ani.saikou.neo.tv
 
+import androidx.activity.BackEventCompat
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
+import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -11,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.tv.home.HomeScreen
@@ -85,6 +89,23 @@ class NeoNavigationTest {
 
         compose.onNodeWithText("Details for 105").assertDoesNotExist()
         compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 5)).assertIsFocused()
+    }
+
+    // A TV remote has no back swipe, so Back fades between screens even when Android previews it.
+    @Test
+    fun aPreviewedBackDoesNotShrinkTheScreen() {
+        show()
+
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+        compose.runOnUiThread {
+            val dispatcher = compose.activity.onBackPressedDispatcher
+            dispatcher.dispatchOnBackStarted(BackEventCompat(0f, 0f, 0f, BackEventCompat.EDGE_LEFT))
+            dispatcher.dispatchOnBackProgressed(BackEventCompat(0f, 0f, 0.9f, BackEventCompat.EDGE_LEFT))
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Details for 0").assertLeftPositionInRootIsEqualTo(0.dp).assertTopPositionInRootIsEqualTo(0.dp)
     }
 
     @Test

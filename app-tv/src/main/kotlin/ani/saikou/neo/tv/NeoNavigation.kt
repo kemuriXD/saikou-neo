@@ -1,5 +1,9 @@
 package ani.saikou.neo.tv
 
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.saveable.listSaver
@@ -9,6 +13,7 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import ani.saikou.neo.tv.theme.NeoTheme
 
 /** The app's screens. Home is always at the bottom of the back stack. */
 sealed interface Screen {
@@ -36,6 +41,10 @@ fun NeoNavigation(
     details: @Composable (animeId: Int) -> Unit,
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
+    // One crossfade each way. The default Back preview shrinks the screen as for a phone's back swipe, which a remote doesn't have.
+    val dimensions = NeoTheme.dimensions
+    val fade = tween<Float>(dimensions.durationBackdropMillis, easing = dimensions.easeStandard)
+    val crossfade = fadeIn(fade) togetherWith fadeOut(fade)
     NavDisplay(
         backStack = backStack,
         onBack = { backStack.removeLastOrNull() },
@@ -44,6 +53,9 @@ fun NeoNavigation(
                 rememberSaveableStateHolderNavEntryDecorator(),
                 rememberViewModelStoreNavEntryDecorator(),
             ),
+        transitionSpec = { crossfade },
+        popTransitionSpec = { crossfade },
+        predictivePopTransitionSpec = { crossfade },
         entryProvider =
             entryProvider {
                 entry<Screen.Home> { home { animeId -> backStack.add(Screen.Details(animeId)) } }
