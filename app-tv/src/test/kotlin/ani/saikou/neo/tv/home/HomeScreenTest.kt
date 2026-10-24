@@ -125,6 +125,40 @@ class HomeScreenTest {
     }
 
     @Test
+    fun aRowThatScrolledOffScreenReturnsToTheCardYouLeft() {
+        show()
+
+        press(Key.DirectionRight, times = 5)
+        // Two rows down, Trending is off screen and its cards are disposed.
+        press(Key.DirectionDown, times = 2)
+        press(Key.DirectionUp, times = 2)
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 5)).assertIsFocused()
+    }
+
+    @Test
+    fun aRowLeftAtItsEndReturnsToItsLastCard() {
+        show()
+
+        // The last cards can't reach the keyline, so they sit further right than other rows' cards.
+        press(Key.DirectionRight, times = 11)
+        press(Key.DirectionDown)
+        press(Key.DirectionUp)
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 11)).assertIsFocused()
+    }
+
+    @Test
+    fun aRowYouHaveNotVisitedStartsAtItsFirstCard() {
+        show()
+
+        press(Key.DirectionRight, times = 11)
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 0)).assertIsFocused()
+    }
+
+    @Test
     fun theSpotlightShowsTheFocusedShow() {
         show()
 

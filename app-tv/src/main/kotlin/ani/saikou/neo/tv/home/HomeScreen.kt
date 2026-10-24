@@ -1,6 +1,7 @@
 package ani.saikou.neo.tv.home
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,14 +20,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.layout.ContentScale
@@ -82,6 +87,16 @@ private val LastRowRoom = 96.dp
 
 private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
 
+private val LastCardsSaver =
+    listSaver<SnapshotStateMap<HomeRow, Int>, Int>(
+        save = { lastCards -> lastCards.flatMap { (row, animeId) -> listOf(row.ordinal, animeId) } },
+        restore = { saved ->
+            mutableStateMapOf<HomeRow, Int>().apply {
+                saved.chunked(2).forEach { (row, animeId) -> put(HomeRow.entries[row], animeId) }
+            }
+        },
+    )
+
 /** Which anime, and where it was in its row, so focus and the spotlight survive Home being recreated. */
 private data class CardKey(
     val row: HomeRow,
@@ -96,6 +111,8 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
 ) {
     var focused by rememberSaveable { mutableStateOf<CardKey?>(null) }
+    // The anime each row last had focus on, so moving up and down returns to it.
+    val lastCards = rememberSaveable(saver = LastCardsSaver) { mutableStateMapOf<HomeRow, Int>() }
     // Not saved: after recreation, focus has to be placed again on the saved card.
     var hasFocus by remember { mutableStateOf(false) }
     val columnState = rememberLazyListState()
@@ -130,8 +147,10 @@ fun HomeScreen(
                             listState = rowStates.getValue(row),
                             isFocusedRow = hasFocus && focused?.row == row,
                             initialFocus = target?.takeIf { it.row == row }?.animeId,
+                            lastCard = lastCards[row],
                             onCardFocused = { animeId, index ->
                                 focused = CardKey(row, animeId, index)
+                                lastCards[row] = animeId
                                 hasFocus = true
                             },
                         )
@@ -149,6 +168,7 @@ private fun HomeRowSection(
     listState: LazyListState,
     isFocusedRow: Boolean,
     initialFocus: Int?,
+    lastCard: Int?,
     onCardFocused: (animeId: Int, index: Int) -> Unit,
 ) {
     val dimensions = NeoTheme.dimensions
@@ -164,11 +184,21 @@ private fun HomeRowSection(
             SkeletonCards()
             return@Column
         }
+        // Up and down enter a row on the card you left, or its first card, not the one nearest on screen.
+        val entryCard = lastCard?.takeIf { id -> rowState.items.any { it.id == id } } ?: rowState.items.firstOrNull()?.id
+        val entry = remember { FocusRequester() }
         KeylineScrolling {
             LazyRow(
                 state = listState,
-                // Coming back to a row lands on the card you left, not the one nearest.
-                modifier = Modifier.focusRestorer(),
+                modifier =
+                    Modifier
+                        .focusProperties {
+                            onEnter = {
+                                if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
+                                    entry.requestFocus()
+                                }
+                            }
+                        }.focusGroup(),
                 contentPadding = PaddingValues(horizontal = dimensions.gridMargin),
                 horizontalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
             ) {
@@ -183,6 +213,7 @@ private fun HomeRowSection(
                             Modifier
                                 .testTag(homeCardTag(row, index))
                                 .focusRequester(requester)
+                                .then(if (card.id == entryCard) Modifier.focusRequester(entry) else Modifier)
                                 .onFocusChanged { if (it.isFocused) onCardFocused(card.id, index) },
                     )
                 }
