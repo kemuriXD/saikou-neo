@@ -121,10 +121,10 @@ val collectLegalFiles =
     }
 
 androidComponents {
-    // JVM tests run on debug builds only. Beta shares alpha's code and
-    // resources, so testing it again adds time and finds nothing new.
+    // JVM tests run on debug builds only. CI runs them for the active
+    // channel (ADR 0008), so every channel keeps its test task.
     beforeVariants { variant ->
-        if (variant.buildType != "debug" || variant.flavorName == "beta") {
+        if (variant.buildType != "debug") {
             variant.hostTests[HostTestBuilder.UNIT_TEST_TYPE]?.enable = false
         }
     }
