@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.captureToImage
@@ -180,6 +181,19 @@ class DetailsScreenTest {
             .assertTopPositionInRootIsEqualTo(150.dp)
             .assertLeftPositionInRootIsEqualTo(58.dp)
         compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(420.dp)
+    }
+
+    @Test
+    fun overviewIsTheCurrentTabWithItsLabelOnTheGridMargin() {
+        show(DetailsState.Loaded(details))
+
+        compose
+            .onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG)
+            .assertIsSelected()
+            .assertHeightIsEqualTo(36.dp)
+        // Unfocused, so it's drawn at its own size.
+        press(Key.DirectionDown)
+        compose.onNodeWithText("Overview", useUnmergedTree = true).assertLeftPositionInRootIsEqualTo(58.dp)
     }
 
     @Test

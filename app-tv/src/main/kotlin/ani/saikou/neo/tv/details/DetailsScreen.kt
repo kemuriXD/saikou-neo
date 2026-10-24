@@ -60,6 +60,8 @@ import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.NeoTab
+import ani.saikou.neo.tv.ui.NeoTabPadding
 import coil3.compose.AsyncImage
 
 internal const val DETAILS_META_TAG = "details-meta"
@@ -210,10 +212,10 @@ private fun Overview(
     modifier: Modifier = Modifier,
 ) {
     val dimensions = NeoTheme.dimensions
-    // The tab and the synopsis box sit a padding's width left, so their text lines up with the grid margin.
+    // The synopsis box sits a padding's width left, so its text lines up with the grid margin.
     val outdent = Modifier.offset(x = -dimensions.space4)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        OverviewTab(outdent.focusRequester(tabFocus))
+        OverviewTab(Modifier.focusRequester(tabFocus))
         state.synopsis.story?.let { story ->
             SynopsisPreview(
                 story = story,
@@ -226,38 +228,17 @@ private fun Overview(
     }
 }
 
-/** The selected Overview tab. Related joins it later; until then it's where focus starts. */
+/** The current Overview tab. Related joins it later; until then it's where focus starts. */
 @Composable
 private fun OverviewTab(modifier: Modifier = Modifier) {
-    val colors = NeoTheme.colors
-    val dimensions = NeoTheme.dimensions
-    Surface(
+    NeoTab(
+        text = stringResource(R.string.details_overview),
+        selected = true,
         onClick = {},
-        modifier = modifier.height(TabHeight).testTag(DETAILS_OVERVIEW_TAB_TAG),
-        shape = ClickableSurfaceDefaults.shape(CircleShape),
-        colors =
-            ClickableSurfaceDefaults.colors(
-                containerColor = colors.fillTonal,
-                contentColor = colors.paper,
-                focusedContainerColor = colors.paper,
-                focusedContentColor = colors.onFocus,
-                pressedContainerColor = colors.paper,
-                pressedContentColor = colors.onFocus,
-            ),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = dimensions.focusScaleButton),
-        glow =
-            ClickableSurfaceDefaults.glow(
-                glow = Glow(Color.White.copy(alpha = 0.16f), 14.dp),
-                focusedGlow = Glow(Color.White.copy(alpha = 0.32f), dimensions.glowFocus),
-            ),
-    ) {
-        Box(Modifier.fillMaxHeight().padding(horizontal = dimensions.space4), contentAlignment = Alignment.Center) {
-            Text(
-                text = stringResource(R.string.details_overview),
-                style = NeoTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
-            )
-        }
-    }
+        // Outdented so the label lines up with the grid margin.
+        modifier = modifier.offset(x = -NeoTabPadding).testTag(DETAILS_OVERVIEW_TAB_TAG),
+        height = TabHeight,
+    )
 }
 
 /** The start of the synopsis, with no box of its own until focus outlines it. Selecting it opens the reader. */
