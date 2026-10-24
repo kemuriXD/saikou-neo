@@ -51,7 +51,7 @@ public data class Spotlight(
     val index: Int = 0,
     /** Each show's logo, by anime id, once AniZip has answered. */
     val logos: Map<Int, Logo> = emptyMap(),
-    /** Each show's fan art, by anime id, from the same AniZip answer as its logo. Shows without any are left out. */
+    /** Each show's fan art, or its series' when it has none, by anime id. Shows without any are left out. */
     val fanArt: Map<Int, String> = emptyMap(),
     /**
      * Each show's story as one paragraph, by anime id, once AniList has sent it. The spotlight shows only a few lines,
