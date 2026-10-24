@@ -6,6 +6,14 @@
     <string name="home_row_this_season">This season</string>
     <string name="home_row_popular">Popular</string>
 
+    <!-- The spotlight at the top of Home. -->
+    <string name="home_play">Play</string>
+    <string name="home_add_to_list">Add to list</string>
+    <string name="home_details">Details</string>
+    <!-- The dots under the spotlight, read out such as "Featured shows, 2 of 6: Frieren". -->
+    <string name="home_featured_shows">Featured shows</string>
+    <string name="home_featured_position">%1$d of %2$d: %3$s</string>
+
     <!-- AniList's formats, as shown in card details such as "TV · 2026 · 12 episodes". -->
     <string name="home_format_tv">TV</string>
     <string name="home_format_tv_short">TV short</string>

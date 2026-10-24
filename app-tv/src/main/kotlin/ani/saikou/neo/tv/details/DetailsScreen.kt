@@ -1,6 +1,5 @@
 package ani.saikou.neo.tv.details
 
-import android.graphics.BlurMaskFilter
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -34,17 +33,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawWithCache
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -70,6 +65,7 @@ import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoTab
 import ani.saikou.neo.tv.ui.NeoTabPadding
+import ani.saikou.neo.tv.ui.outerGlow
 import coil3.compose.AsyncImage
 
 internal const val DETAILS_META_TAG = "details-meta"
@@ -309,27 +305,6 @@ private fun SynopsisPreview(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.padding(horizontal = dimensions.space4, vertical = dimensions.space3),
         )
-    }
-}
-
-/**
- * A soft glow around a rounded box, like the design's outer shadow. TV Material's glow also shows through a transparent
- * box, which made the synopsis look filled.
- */
-private fun Modifier.outerGlow(
-    color: Color,
-    radius: Dp,
-    corner: Dp,
-) = drawWithCache {
-    val paint =
-        android.graphics.Paint().apply {
-            this.color = color.toArgb()
-            maskFilter = BlurMaskFilter(radius.toPx(), BlurMaskFilter.Blur.OUTER)
-        }
-    onDrawBehind {
-        if (color.alpha > 0f) {
-            drawIntoCanvas { it.nativeCanvas.drawRoundRect(0f, 0f, size.width, size.height, corner.toPx(), corner.toPx(), paint) }
-        }
     }
 }
 

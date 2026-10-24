@@ -1,5 +1,9 @@
 package ani.saikou.neo.tv.home
 
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
@@ -18,6 +22,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
@@ -27,6 +32,7 @@ import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
@@ -34,35 +40,37 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.LineHeightStyle
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.HomeState
+import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.RowState
+import ani.saikou.neo.shared.home.Spotlight
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.KeylineScrolling
 import ani.saikou.neo.tv.theme.NeoTheme
+import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
-import coil3.request.crossfade
-import kotlinx.coroutines.delay
 import java.io.Serializable
+
+internal const val BACKDROP_ART_TAG = "backdrop-art"
 
 internal fun homeCardTag(
     row: HomeRow,
     index: Int,
 ) = "${row.name.lowercase()}-card-$index"
-
-internal const val SPOTLIGHT_TITLE_TAG = "spotlight-title"
 
 private val rowTitles =
     mapOf(
@@ -71,19 +79,27 @@ private val rowTitles =
         HomeRow.POPULAR to R.string.home_row_popular,
     )
 
-// From the design: the spotlight starts 96 dp down, and the focused row's heading rests at 300 dp.
-private val SpotlightTop = 96.dp
-private val SpotlightWidth = 420.dp
-private val RowsTop = 300.dp
+// From the design: the spotlight's dots sit at 388 dp and the rows at 420 dp. Once focus is in the rows they move up,
+// and the focused row's heading rests at 104 dp. The spotlight may reach up to 120 dp, room for an 80 dp logo, the
+// meta line, three lines of story and the buttons.
+private val SpotlightTop = 120.dp
 
-private const val BACKDROP_SETTLE_MILLIS = 300L
+// The spotlight's buttons end 16 dp above the dots, with its text stacked on top of them.
+private val SpotlightBottom = 372.dp
+private val SpotlightWidth = 440.dp
+private val DotsTop = 388.dp
+private val RowsTop = 420.dp
+private val FocusedRowTop = 104.dp
+
+// How dark the art gets behind the rows.
+private const val DIM_ALPHA = 0.55f
 
 // A row is its 24 dp heading, a 10 dp gap and a 110 dp card. The next row's heading peeks at 478 dp.
 private val HeadingToCards = 34.dp
 private val RowGap = 34.dp
 
-// Room below the last row so it can scroll up to the same line: 540 - 300 - (34 + 110).
-private val LastRowRoom = 96.dp
+// Room below the last row so it can scroll up to the same line: 540 - 104 - (34 + 110).
+private val LastRowRoom = 292.dp
 
 private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
 
@@ -104,13 +120,20 @@ private data class CardKey(
     val index: Int,
 ) : Serializable
 
-/** Home: a spotlight on the focused show, over rows of anime that browse left and right. Selecting one calls [onOpen]. */
+/**
+ * Home: a spotlight on featured shows, over rows of anime that browse left and right. Selecting a show calls [onOpen];
+ * the spotlight's dots call [onPick]. [onSpotlightInView] says whether the spotlight is showing, so it only moves on
+ * while seen.
+ */
 @Composable
 fun HomeScreen(
     state: HomeState,
     modifier: Modifier = Modifier,
     onOpen: (animeId: Int) -> Unit = {},
+    onPick: (index: Int) -> Unit = {},
+    onSpotlightInView: (inView: Boolean) -> Unit = {},
 ) {
+    // The card with focus, or null while the spotlight has it.
     var focused by rememberSaveable { mutableStateOf<CardKey?>(null) }
     // The anime each row last had focus on, so moving up and down returns to it.
     val lastCards = rememberSaveable(saver = LastCardsSaver) { mutableStateMapOf<HomeRow, Int>() }
@@ -119,9 +142,34 @@ fun HomeScreen(
     val columnState = rememberLazyListState()
     // Held here, not in the rows, so a row scrolled out of view keeps its place.
     val rowStates = HomeRow.entries.associateWith { rememberLazyListState() }
-    // Where focus goes when nothing has it yet. Null while the row it belongs in is still loading.
-    val target = if (hasFocus) null else state.focusTarget(focused)
-    val spotlight = (if (hasFocus) focused else target)?.let { state.card(it) }
+    val spotlight = state.spotlight
+    val play = remember { FocusRequester() }
+    val dots = remember { FocusRequester() }
+    // Where focus goes when nothing has it yet: the spotlight's Play button, or the saved card if focus was in the rows.
+    // Null while what it belongs in is still loading.
+    val focusPlay = !hasFocus && focused == null && spotlight != null
+    val target = if (hasFocus || focusPlay) null else state.focusTarget(focused)
+    if (focusPlay) LaunchedEffect(Unit) { play.requestFocus() }
+    val inRows = focused != null
+    val dimensions = NeoTheme.dimensions
+    val shown by animateFloatAsState(
+        targetValue = if (inRows) 0f else 1f,
+        animationSpec = tween(dimensions.durationBackdropMillis, easing = dimensions.easeStandard),
+        label = "spotlight",
+    )
+    val rowsTop by animateDpAsState(
+        targetValue = if (inRows) FocusedRowTop else RowsTop,
+        animationSpec = tween(dimensions.durationBackdropMillis, easing = dimensions.easeStandard),
+        label = "rows",
+    )
+    DisposableEffect(inRows) {
+        onSpotlightInView(!inRows)
+        onDispose {}
+    }
+    DisposableEffect(Unit) { onDispose { onSpotlightInView(false) } }
+    // Behind the rows, the spotlight fades out and TalkBack skips it.
+    val hide =
+        Modifier.graphicsLayer { alpha = shown }.then(if (inRows) Modifier.semantics { hideFromAccessibility() } else Modifier)
     val shownRows = HomeRow.entries.filter { state.rows[it].let { rowState -> rowState != null && rowState != RowState.Failed } }
     // A row that failed after recreation can shift the restored scroll, so bring the target's row up first.
     LaunchedEffect(target?.row) {
@@ -130,12 +178,32 @@ fun HomeScreen(
     }
 
     Box(modifier.fillMaxSize().background(NeoTheme.colors.ink)) {
-        Backdrop(spotlight)
-        Spotlight(spotlight, Modifier.padding(start = NeoTheme.dimensions.gridMargin, top = SpotlightTop).width(SpotlightWidth))
+        Backdrop(spotlight?.show)
+        Box(Modifier.fillMaxSize().graphicsLayer { alpha = 1f - shown }.background(NeoTheme.colors.ink.copy(alpha = DIM_ALPHA)))
+        Box(
+            Modifier.fillMaxSize().onFocusChanged {
+                if (it.hasFocus) {
+                    focused = null
+                    hasFocus = true
+                }
+            },
+        ) {
+            val place =
+                Modifier
+                    .padding(start = dimensions.gridMargin, top = SpotlightTop)
+                    .size(SpotlightWidth, SpotlightBottom - SpotlightTop)
+            if (spotlight == null) {
+                SpotlightSkeleton(place)
+            } else {
+                PreloadSpotlight(spotlight)
+                SpotlightShow(spotlight, play, dots, onOpen, place.then(hide))
+                SpotlightDots(spotlight, dots, play, onPick, Modifier.align(Alignment.TopCenter).padding(top = DotsTop).then(hide))
+            }
+        }
         KeylineScrolling(keyline = HeadingToCards) {
             LazyColumn(
                 state = columnState,
-                modifier = Modifier.fillMaxSize().padding(top = RowsTop),
+                modifier = Modifier.fillMaxSize().padding(top = rowsTop),
                 verticalArrangement = Arrangement.spacedBy(RowGap),
                 contentPadding = PaddingValues(bottom = LastRowRoom),
             ) {
@@ -149,6 +217,8 @@ fun HomeScreen(
                             isFocusedRow = hasFocus && focused?.row == row,
                             initialFocus = target?.takeIf { it.row == row }?.animeId,
                             lastCard = lastCards[row],
+                            // Up from the first row goes to the spotlight's dots, wherever they are.
+                            up = dots.takeIf { spotlight != null && row == shownRows.first() },
                             onOpen = onOpen,
                             onCardFocused = { animeId, index ->
                                 focused = CardKey(row, animeId, index)
@@ -171,6 +241,7 @@ private fun HomeRowSection(
     isFocusedRow: Boolean,
     initialFocus: Int?,
     lastCard: Int?,
+    up: FocusRequester?,
     onOpen: (animeId: Int) -> Unit,
     onCardFocused: (animeId: Int, index: Int) -> Unit,
 ) {
@@ -216,6 +287,7 @@ private fun HomeRowSection(
                                 .testTag(homeCardTag(row, index))
                                 .focusRequester(requester)
                                 .then(if (card.id == entryCard) Modifier.focusRequester(entry) else Modifier)
+                                .then(if (up != null) Modifier.focusProperties { this.up = up } else Modifier)
                                 .onFocusChanged { if (it.isFocused) onCardFocused(card.id, index) },
                     )
                 }
@@ -245,64 +317,48 @@ private fun Skeleton(
     radius: Dp = 6.dp,
 ) = Box(Modifier.size(width, height).background(NeoTheme.colors.surfaceRaised, RoundedCornerShape(radius)))
 
+/** In the spotlight's place while the rows it comes from load. */
 @Composable
-private fun Spotlight(
-    card: AnimeCard?,
-    modifier: Modifier = Modifier,
-) {
+private fun SpotlightSkeleton(modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (card == null) {
-            Skeleton(300.dp, 56.dp, NeoTheme.dimensions.radiusSm)
-            Skeleton(200.dp, 16.dp)
-            return@Column
-        }
-        Text(
-            text = card.displayTitle(),
-            style = NeoTheme.typography.display,
-            color = NeoTheme.colors.paper,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.testTag(SPOTLIGHT_TITLE_TAG),
-        )
-        Text(
-            text = card.meta(),
-            style = NeoTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-            color = NeoTheme.colors.paper,
-        )
+        Skeleton(300.dp, 56.dp, NeoTheme.dimensions.radiusSm)
+        Skeleton(200.dp, 16.dp)
     }
 }
 
-/** The spotlit show's art behind everything, faded into ink on the left and bottom so text stays readable. */
+/** Starts loading every featured show's art and logo, so each fades in as soon as the spotlight moves on. */
+@Composable
+private fun PreloadSpotlight(spotlight: Spotlight) {
+    val context = LocalPlatformContext.current
+    LaunchedEffect(spotlight.shows, spotlight.logos) {
+        val loader = SingletonImageLoader.get(context)
+        spotlight.shows.forEach { show ->
+            show.art()?.let { loader.enqueue(ImageRequest.Builder(context).data(it).build()) }
+            (spotlight.logo(show.id) as? Logo.Image)?.let { loader.enqueue(logoRequest(context, it.url)) }
+        }
+    }
+}
+
+private fun AnimeCard.art() = bannerImageUrl ?: coverImageUrl
+
+/** The spotlight show's art behind everything, faded into ink on the left and bottom so text stays readable. */
 @Composable
 private fun Backdrop(card: AnimeCard?) {
     val ink = NeoTheme.colors.ink
-    val art = card?.let { it.bannerImageUrl ?: it.coverImageUrl }
-    // Fetch the full-screen art only once focus rests, not for every card passed on the way.
-    var resting by remember { mutableStateOf(art) }
-    LaunchedEffect(art) {
-        delay(BACKDROP_SETTLE_MILLIS)
-        resting = art
+    val dimensions = NeoTheme.dimensions
+    // Faded here rather than by Coil, which doesn't fade art it already has in memory, as preloaded art is.
+    Crossfade(
+        targetState = card?.art(),
+        animationSpec = tween(dimensions.durationBackdropMillis, easing = dimensions.easeStandard),
+        label = "art",
+    ) { art ->
+        AsyncImage(
+            model = art,
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
+            modifier = Modifier.fillMaxSize().testTag(BACKDROP_ART_TAG),
+        )
     }
-    // The last art that finished loading stays underneath, so the screen doesn't flash to ink in between.
-    var shown by remember { mutableStateOf<String?>(null) }
-    val context = LocalPlatformContext.current
-    val duration = NeoTheme.dimensions.durationBackdropMillis
-    val request =
-        remember(resting) {
-            ImageRequest
-                .Builder(context)
-                .data(resting)
-                .crossfade(duration)
-                .build()
-        }
-    AsyncImage(model = shown, contentDescription = null, contentScale = ContentScale.Crop, modifier = Modifier.fillMaxSize())
-    AsyncImage(
-        model = request,
-        contentDescription = null,
-        contentScale = ContentScale.Crop,
-        onSuccess = { shown = resting },
-        modifier = Modifier.fillMaxSize(),
-    )
     Box(
         Modifier.fillMaxSize().background(
             Brush.horizontalGradient(
@@ -325,8 +381,6 @@ private fun Backdrop(card: AnimeCard?) {
         ),
     )
 }
-
-private fun HomeState.card(key: CardKey): AnimeCard? = (rows[key.row] as? RowState.Loaded)?.items?.firstOrNull { it.id == key.animeId }
 
 /**
  * The saved card if it's still there, or the card now in its place if its row reloaded without it.

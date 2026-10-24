@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.tv.home.HomeScreen
+import ani.saikou.neo.tv.home.SPOTLIGHT_PLAY_TAG
 import ani.saikou.neo.tv.home.homeCardTag
 import ani.saikou.neo.tv.home.loaded
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -50,7 +51,13 @@ class NeoNavigationTest {
     private fun press(
         key: Key,
         times: Int = 1,
-    ) = compose.onRoot().performKeyInput { repeat(times) { pressKey(key) } }
+    ) = repeat(times) {
+        compose.onRoot().performKeyInput { pressKey(key) }
+        compose.waitForIdle()
+    }
+
+    /** From the spotlight's Play button, past its dots, into Trending. */
+    private fun enterRows() = press(Key.DirectionDown, times = 2)
 
     private fun back() {
         // Key input doesn't wait for the screen it opened, and Back is only handled once that screen is shown.
@@ -72,6 +79,7 @@ class NeoNavigationTest {
     fun selectingACardOpensItsDetails() {
         show()
 
+        enterRows()
         press(Key.DirectionRight, times = 5)
         press(Key.DirectionCenter)
 
@@ -79,9 +87,21 @@ class NeoNavigationTest {
     }
 
     @Test
+    fun backFromTheSpotlightReturnsToPlay() {
+        show()
+
+        press(Key.DirectionCenter)
+        compose.onNodeWithText("Details for 0").assertExists()
+        back()
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+    }
+
+    @Test
     fun backReturnsToTheCardYouOpened() {
         show()
 
+        enterRows()
         press(Key.DirectionDown)
         press(Key.DirectionRight, times = 5)
         press(Key.DirectionCenter)
@@ -112,6 +132,7 @@ class NeoNavigationTest {
     fun backReturnsToTheCardYouOpenedAfterTheAppIsRecreated() {
         show()
 
+        enterRows()
         press(Key.DirectionDown)
         press(Key.DirectionRight, times = 5)
         press(Key.DirectionCenter)
