@@ -31,6 +31,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.More
 import ani.saikou.neo.shared.home.SeeMoreState
@@ -38,6 +39,7 @@ import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.KeylineScrolling
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoButton
+import ani.saikou.neo.tv.ui.PreloadLogo
 
 internal const val POSTER_SKELETON_TAG = "poster-skeleton"
 
@@ -68,6 +70,7 @@ fun SeeMoreScreen(
     onLoadMore: () -> Unit,
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
+    onRest: (card: AnimeCard?) -> Unit = {},
 ) {
     val dimensions = NeoTheme.dimensions
     val ink = NeoTheme.colors.ink
@@ -80,6 +83,7 @@ fun SeeMoreScreen(
     val target = if (hasFocus) null else focusedId?.takeIf { id -> items.any { it.id == id } } ?: items.firstOrNull()?.id
 
     Box(modifier.fillMaxSize().background(ink)) {
+        PreloadLogo(state.restingLogo)
         if (items.isEmpty() && state.more == More.Failed) {
             LoadFailed(onRetry, Modifier.padding(start = dimensions.gridMargin, top = GridTop))
         } else {
@@ -121,6 +125,7 @@ fun SeeMoreScreen(
                                     .onFocusChanged {
                                         if (!it.isFocused) return@onFocusChanged
                                         focusedId = card.id
+                                        onRest(card)
                                         hasFocus = true
                                         if (index >= items.size - LOAD_AHEAD) onLoadMore()
                                     },

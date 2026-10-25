@@ -1,0 +1,70 @@
+{
+  "titles": {
+    "x-jat": "OP TV",
+    "ja": "ONE PIECE",
+    "it": "One Piece",
+    "ru": "Большой куш",
+    "tr": "Lastik Çocuk",
+    "bg": "Уан Пийс",
+    "tl": "One Piece",
+    "mn": "Уан Пийс",
+    "zh": "海贼",
+    "en": "One Piece",
+    "de": "One Piece",
+    "fr": "One Piece",
+    "es": "One Piece",
+    "ko": "원피스",
+    "pl": "One Piece",
+    "ar": "ون بيس",
+    "pt": "One Piece",
+    "no": "One Piece",
+    "pt-BR": "One Piece",
+    "da": "One Piece",
+    "fi": "One Piece",
+    "el": "Ντρέικ και το Κυνήγι του Θησαυρού",
+    "he": "וואן פיס",
+    "hu": "One Piece",
+    "th": "วันพีซ",
+    "my": "Budak Getah",
+    "vi": "Đảo hải tặc",
+    "id": "One Piece",
+    "uk": "Великий куш",
+    "zh-Hant": "海賊王",
+    "zh-Hans": "海贼王",
+    "bd": "ওয়ান পিস্",
+    "es-GA": "One Piece",
+    "fa": "وان پیس"
+  },
+  "images": [
+    {
+      "coverType": "Banner",
+      "url": "https://artworks.thetvdb.com/banners/blank/80472.jpg"
+    },
+    {
+      "coverType": "Poster",
+      "url": "https://artworks.thetvdb.com/banners/v4/series/81797/posters/63ab23cde990b.jpg"
+    },
+    {
+      "coverType": "Fanart",
+      "url": "https://artworks.thetvdb.com/banners/v4/series/81797/backgrounds/616009a8bd688.jpg"
+    },
+    {
+      "coverType": "Clearlogo",
+      "url": "https://artworks.thetvdb.com/banners/series/81797/icons/5eee2a0450c0e.jpg"
+    }
+  ],
+  "mappings": {
+    "animeplanet_id": "one-piece",
+    "kitsu_id": 12,
+    "mal_id": 21,
+    "type": "TV",
+    "anilist_id": 21,
+    "anisearch_id": 2227,
+    "anidb_id": 69,
+    "notifymoe_id": null,
+    "livechart_id": 321,
+    "thetvdb_id": 81797,
+    "imdb_id": "tt0388629",
+    "themoviedb_id": "37854"
+  }
+}

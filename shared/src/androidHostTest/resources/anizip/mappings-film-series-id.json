@@ -1,0 +1,54 @@
+{
+  "titles": {
+    "x-jat": "eva movie",
+    "en": "Neon Genesis Evangelion: The End of Evangelion",
+    "ru": "Конец Евангелиона",
+    "tr": "Evangelion`un Sonu",
+    "uk": "Кінець Євангеліона",
+    "ja": "新世紀エヴァンゲリオン劇場版 Air / まごころを, 君に",
+    "de": "Neon Genesis Evangelion: The End of Evangelion",
+    "fr": "Neon Genesis Evangelion - The End of Evangelion",
+    "it": "Neon Genesis Evangelion - The End of Evangelion",
+    "es": "Neon Genesis Evangelion: The End of Evangelion",
+    "ko": "신세기 에반게리온 - 엔드 오브 에바",
+    "pl": "The End of Evangelion",
+    "pt": "Evangelion: The End of Evangelion",
+    "fi": "Neon Genesis Evangelion: The End of Evangelion",
+    "th": "อีวาเกเลี่ยน: ปัจฉิมภาค",
+    "zh-Hans": "新世纪福音战士剧场版：Air/真心为你",
+    "es-419": "The End of Evangelion",
+    "es-GA": "O final de Evangelion"
+  },
+  "images": [
+    {
+      "coverType": "Banner",
+      "url": "https://artworks.thetvdb.com/banners/text/10065.jpg"
+    },
+    {
+      "coverType": "Poster",
+      "url": "https://artworks.thetvdb.com/banners/v4/series/70350/posters/66c2c0fc3543b.jpg"
+    },
+    {
+      "coverType": "Fanart",
+      "url": "https://artworks.thetvdb.com/banners/fanart/original/70350-4.jpg"
+    },
+    {
+      "coverType": "Clearlogo",
+      "url": "https://artworks.thetvdb.com/banners/v4/series/70350/clearlogo/611b8459b5f96.png"
+    }
+  ],
+  "mappings": {
+    "animeplanet_id": "neon-genesis-evangelion-the-end-of-evangelion",
+    "kitsu_id": 23,
+    "mal_id": 32,
+    "type": "MOVIE",
+    "anilist_id": 32,
+    "anisearch_id": 2877,
+    "anidb_id": 202,
+    "notifymoe_id": null,
+    "livechart_id": 3633,
+    "thetvdb_id": 70350,
+    "imdb_id": "tt0169858",
+    "themoviedb_id": "890"
+  }
+}

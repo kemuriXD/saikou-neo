@@ -13,10 +13,24 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import okio.IOException
 
-/**
- * Reads backgrounds from fanart.tv, for shows AniZip has no fan art for. [apiKey] is the app's fanart.tv project key.
- * Without one, it asks nothing.
- */
+/** How fanart.tv knows a show: a film by its TMDB or IMDb id, a series by its TheTVDB id. */
+public sealed interface FanartTvId {
+    public data class Film(
+        val id: String,
+    ) : FanartTvId
+
+    public data class Series(
+        val tvDbId: Int,
+    ) : FanartTvId
+}
+
+/** A show's backgrounds and HD title logos on fanart.tv, most liked first. */
+public data class FanartTvArt(
+    val logos: List<ArtImage>,
+    val backgrounds: List<ArtImage>,
+)
+
+/** Reads backgrounds and title logos from fanart.tv. [apiKey] is the app's fanart.tv project key. Without one, it asks nothing. */
 public class FanartTvClient internal constructor(
     private val apiKey: String?,
     private val engine: HttpEngine,
@@ -24,17 +38,13 @@ public class FanartTvClient internal constructor(
 ) {
     public constructor(apiKey: String?) : this(apiKey, DefaultHttpEngine(TIMEOUT_MILLIS))
 
-    /**
-     * The most liked background for the show AniZip described in [art]: a film by its TMDB id, a series by its
-     * TheTVDB id. Null without a key or an id, or when fanart.tv has none or can't be reached.
-     */
-    public suspend fun background(art: AniZipArt): String? {
+    /** The art fanart.tv has for [show]. Null without a key, or when fanart.tv doesn't know the show or can't be reached. */
+    public suspend fun art(show: FanartTvId): FanartTvArt? {
         if (apiKey.isNullOrBlank()) return null
-        val (path, field) =
-            when {
-                art.movieDbId != null -> "movies/${art.movieDbId}" to "moviebackground"
-                art.tvDbId != null -> "tv/${art.tvDbId}" to "showbackground"
-                else -> return null
+        val (path, fields) =
+            when (show) {
+                is FanartTvId.Film -> "movies/${show.id}" to MOVIE_FIELDS
+                is FanartTvId.Series -> "tv/${show.tvDbId}" to SERIES_FIELDS
             }
         // The engine blocks while it waits for the network, so keep it off the main thread, as ApolloClient does.
         return withContext(io) {
@@ -43,7 +53,7 @@ public class FanartTvClient internal constructor(
                 val request = HttpRequest.Builder(HttpMethod.Get, "$FANART_TV_URL/$path").addHeader("api-key", apiKey).build()
                 val response = engine.execute(request)
                 val body = response.body
-                if (response.statusCode != 200 || body == null) null else body.use { it.jsonReader().firstUrl(field) }
+                if (response.statusCode != 200 || body == null) null else body.use { it.jsonReader().art(fields) }
             } catch (_: ApolloException) {
                 null
             } catch (_: IOException) {
@@ -56,26 +66,54 @@ public class FanartTvClient internal constructor(
     private companion object {
         const val FANART_TV_URL = "https://webservice.fanart.tv/v3.2"
         const val TIMEOUT_MILLIS = 15_000L
+
+        // Only the HD logos: the plain `movielogo` and `clearlogo` lists hold the old 400 px ones.
+        val MOVIE_FIELDS = ArtFields(background = "moviebackground", logo = "hdmovielogo")
+        val SERIES_FIELDS = ArtFields(background = "showbackground", logo = "hdtvlogo")
     }
 }
 
-/** The first https image url in the [field] list, which fanart.tv sorts by likes. */
-private fun JsonReader.firstUrl(field: String): String? {
-    var url: String? = null
+private class ArtFields(
+    val background: String,
+    val logo: String,
+)
+
+private fun JsonReader.art(fields: ArtFields): FanartTvArt {
+    var backgrounds = emptyList<ArtImage>()
+    var logos = emptyList<ArtImage>()
     beginObject()
     while (hasNext()) {
-        if (nextName() != field || peek() != JsonReader.Token.BEGIN_ARRAY) {
-            skipValue()
-            continue
+        when (nextName()) {
+            fields.background -> backgrounds = images()
+            fields.logo -> logos = images()
+            else -> skipValue()
         }
-        beginArray()
-        while (hasNext()) {
-            // Android 7 and 8 still allow plain http, so only https art is used.
-            val image = readFields()["url"]?.takeIf { it.startsWith("https://") }
-            if (url == null) url = image
-        }
-        endArray()
     }
     endObject()
-    return url
+    return FanartTvArt(logos = logos, backgrounds = backgrounds)
+}
+
+/** The https images in a list, in fanart.tv's order. Anything that isn't a list reads as none. */
+private fun JsonReader.images(): List<ArtImage> {
+    if (peek() != JsonReader.Token.BEGIN_ARRAY) {
+        skipValue()
+        return emptyList()
+    }
+    val images = mutableListOf<ArtImage>()
+    beginArray()
+    while (hasNext()) {
+        val fields = readFields()
+        // Android 7 and 8 still allow plain http, so only https art is used.
+        val url = fields["url"]?.takeIf { it.startsWith("https://") } ?: continue
+        images +=
+            ArtImage(
+                url = url,
+                width = fields["width"]?.toIntOrNull() ?: 0,
+                height = fields["height"]?.toIntOrNull() ?: 0,
+                // Backgrounds have no words, which fanart.tv marks with an empty language.
+                language = fields["lang"]?.takeIf { it.isNotEmpty() },
+            )
+    }
+    endArray()
+    return images
 }

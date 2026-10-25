@@ -4,21 +4,28 @@ plugins {
     id("neo.android.app")
 }
 
-// The fanart.tv project key (ADR 0011): fanartTv.apiKey in local.properties, else the FANART_TV_API_KEY variable that
-// CI sets from a secret. Without one, the app asks fanart.tv nothing.
-val fanartTvApiKey: String =
+val localProperties: Properties? =
     providers
         .fileContents(rootProject.layout.projectDirectory.file("local.properties"))
         .asText.orNull
-        ?.let { text -> Properties().apply { load(text.reader()) }.getProperty("fanartTv.apiKey") }
-        ?: providers.environmentVariable("FANART_TV_API_KEY").orNull
-        ?: ""
+        ?.let { text -> Properties().apply { load(text.reader()) } }
+
+/** [property] from local.properties, else the [variable] that CI sets from a secret, else empty. */
+fun apiKey(
+    property: String,
+    variable: String,
+): String = (localProperties?.getProperty(property) ?: providers.environmentVariable(variable).orNull ?: "").trim()
+
+// The fanart.tv project key (ADR 0011) and the TMDB API key (ADR 0012). Without one, the app asks that site nothing.
+val fanartTvApiKey = apiKey("fanartTv.apiKey", "FANART_TV_API_KEY")
+val tmdbApiKey = apiKey("tmdb.apiKey", "TMDB_API_KEY")
 
 android {
     namespace = "ani.saikou.neo.tv"
     defaultConfig {
         applicationId = "ani.saikou.neo"
-        buildConfigField("String", "FANART_TV_API_KEY", "\"${fanartTvApiKey.trim()}\"")
+        buildConfigField("String", "FANART_TV_API_KEY", "\"$fanartTvApiKey\"")
+        buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
     }
     buildFeatures { buildConfig = true }
     // Robolectric needs the merged resources, fonts included.

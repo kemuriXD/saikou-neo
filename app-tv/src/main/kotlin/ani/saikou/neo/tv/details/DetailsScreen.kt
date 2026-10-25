@@ -2,7 +2,6 @@ package ani.saikou.neo.tv.details
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -46,12 +45,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -74,6 +74,8 @@ import ani.saikou.neo.tv.ui.outerGlow
 import coil3.compose.AsyncImage
 
 internal const val DETAILS_META_TAG = "details-meta"
+internal const val DETAILS_GENRES_TAG = "details-genres"
+internal const val DETAILS_HERO_TAG = "details-hero"
 internal const val DETAILS_SYNOPSIS_TAG = "details-synopsis"
 internal const val DETAILS_LOADING_TAG = "details-loading"
 internal const val DETAILS_OVERVIEW_TAB_TAG = "details-overview-tab"
@@ -98,6 +100,9 @@ private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHei
 private val SynopsisWidth = 520.dp
 private const val SYNOPSIS_PREVIEW_LINES = 3
 private const val SYNOPSIS_FOCUS_SCALE = 1.025f
+
+// A first visit downloads the logo once the art is found. Not loaded by now, it stays words for the visit.
+private const val LOGO_WAIT_MILLIS = 1_500L
 
 private val seasonNames =
     mapOf(
@@ -135,7 +140,7 @@ fun DetailsScreen(
         label = "lift",
     )
     Box(modifier.fillMaxSize().background(NeoTheme.colors.ink)) {
-        Backdrop(loaded?.backdrop)
+        Backdrop(loaded?.backdrop) { lift / -OverviewLift }
         val margin = Modifier.padding(start = dimensions.gridMargin)
         when (state) {
             DetailsState.Loading -> {
@@ -195,15 +200,20 @@ private fun Hero(
 ) {
     val colors = NeoTheme.colors
     val card = details.card
-    // Moves the details down smoothly when the logo takes the title's place.
-    val resize = tween<IntSize>(NeoTheme.dimensions.durationBackdropMillis, easing = NeoTheme.dimensions.easeStandard)
-    Column(modifier.animateContentSize(resize), verticalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space3)) {
-        val overline = listOfNotNull(card.formatName(), card.seasonName()).joinToString(" · ")
-        if (overline.isNotEmpty()) {
-            Text(text = overline.uppercase(), style = NeoTheme.typography.overline, color = colors.pink)
-        }
+    // Unseen until the title is the logo or words for good, then all of it fades in at once, so nothing moves.
+    var settled by remember(logo) { mutableStateOf(false) }
+    val shown by animateFloatAsState(
+        targetValue = if (settled) 1f else 0f,
+        animationSpec = tween(NeoTheme.dimensions.durationBackdropMillis / 2),
+        label = "hero",
+    )
+    val unseen = if (settled) Modifier else Modifier.semantics { hideFromAccessibility() }
+    // As on the spotlight: the title first, then what the show is, then its genres.
+    Column(
+        modifier.testTag(DETAILS_HERO_TAG).graphicsLayer { alpha = shown }.then(unseen),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         val title = card.displayTitle()
-        // The title in words until the logo is ready, so the top never sits empty.
         val words: @Composable () -> Unit = {
             Text(
                 text = title,
@@ -214,10 +224,23 @@ private fun Hero(
                 modifier = Modifier.testTag(DETAILS_TITLE_TAG),
             )
         }
-        ShowTitle(title, logo, DETAILS_LOGO_TAG, placeholder = words, text = words)
+        ShowTitle(title, logo, DETAILS_LOGO_TAG, LOGO_WAIT_MILLIS, placeholder = words, onSettled = { settled = true }, text = words)
         val meta = details.meta()
         if (meta.isNotEmpty()) {
-            Text(text = meta, style = NeoTheme.typography.label, color = colors.textMuted, modifier = Modifier.testTag(DETAILS_META_TAG))
+            Text(
+                text = meta,
+                style = NeoTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                color = colors.paper,
+                modifier = Modifier.testTag(DETAILS_META_TAG),
+            )
+        }
+        if (details.genres.isNotEmpty()) {
+            Text(
+                text = details.genres.joinToString(" · "),
+                style = NeoTheme.typography.label,
+                color = colors.textMuted,
+                modifier = Modifier.testTag(DETAILS_GENRES_TAG),
+            )
         }
     }
 }
@@ -384,9 +407,16 @@ private fun Skeleton(
     shape: Shape = RoundedCornerShape(6.dp),
 ) = Box(Modifier.size(width, height).background(NeoTheme.colors.surfaceRaised, shape))
 
-/** The show's art, faded in once it's known and dimmed so the text over it stays readable. */
+/**
+ * The show's art, faded in once it's known. As on the spotlight, it fades into ink on the left and from just above the
+ * Overview tab down, so the art shows at the top right. [lifted] dims all of it while the page is lifted, from 0 to 1,
+ * since the synopsis then sits high over the art.
+ */
 @Composable
-private fun Backdrop(art: String?) {
+private fun Backdrop(
+    art: String?,
+    lifted: () -> Float,
+) {
     val ink = NeoTheme.colors.ink
     val dimensions = NeoTheme.dimensions
     Crossfade(
@@ -401,22 +431,39 @@ private fun Backdrop(art: String?) {
             modifier = Modifier.fillMaxSize(),
         )
     }
-    Box(
-        Modifier.fillMaxSize().background(
-            Brush.horizontalGradient(
-                0f to ink.copy(alpha = 0.97f),
-                0.5f to ink.copy(alpha = 0.9f),
-                1f to ink.copy(alpha = 0.72f),
-            ),
-        ),
-    )
+    Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(*AcrossStops.inInk(ink))))
+    Box(Modifier.fillMaxSize().background(Brush.verticalGradient(*DownStops.inInk(ink))))
+    Box(Modifier.fillMaxSize().graphicsLayer { alpha = lifted() }.background(ink.copy(alpha = LIFTED_DIM)))
 }
 
-/** Genres and episode count, such as "Drama · Mystery · 12 episodes". */
+private fun List<Pair<Float, Float>>.inInk(ink: Color) = map { (at, alpha) -> at to ink.copy(alpha = alpha) }.toTypedArray()
+
+// From the design: ink over the backdrop from the left edge to the right, the same as the spotlight's.
+private val AcrossStops = listOf(0f to 0.88f, 0.34f to 0.7f, 0.55f to 0.42f, 0.8f to 0f, 1f to 0f)
+
+// From the design: ink from the top down. Clear above 62%, just over the Overview tab at 78%, and solid at the bottom,
+// under the synopsis and facts.
+private val DownStops = listOf(0f to 0f, 0.62f to 0f, 0.84f to 0.85f, 1f to 1f)
+
+// Lifted, the synopsis and facts sit at the top of the screen, over the clearest part of the art.
+private const val LIFTED_DIM = 0.85f
+
+/** The ink's alpha over the backdrop [across] the screen, from 0 at the left edge to 1 at the right. */
+internal fun detailsDimAcross(across: Float) = AcrossStops.alphaAt(across)
+
+/** The ink's alpha over the backdrop [down] the screen, from 0 at the top to 1 at the bottom. */
+internal fun detailsDimDown(down: Float) = DownStops.alphaAt(down)
+
+private fun List<Pair<Float, Float>>.alphaAt(at: Float): Float {
+    val (start, end) = zipWithNext().first { (_, end) -> at <= end.first }
+    return start.second + (end.second - start.second) * (at - start.first) / (end.first - start.first)
+}
+
+/** What the show is, such as "TV · Fall 2026 · 12 episodes". */
 @Composable
 private fun AnimeDetails.meta(): String {
     val episodes = card.episodes?.let { pluralStringResource(R.plurals.home_episodes, it, it) }
-    return (genres + listOfNotNull(episodes)).joinToString(" · ")
+    return listOfNotNull(card.formatName(), card.seasonName(), episodes).joinToString(" · ")
 }
 
 /** Such as "Fall 2026", or just the year when AniList doesn't give the season. */

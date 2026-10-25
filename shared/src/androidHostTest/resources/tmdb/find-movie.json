@@ -1,0 +1,32 @@
+{
+  "movie_results": [
+    {
+      "adult": false,
+      "backdrop_path": "/AfyuI3glMCBDFmNPj9PY6DwbgGp.jpg",
+      "id": 18491,
+      "title": "Neon Genesis Evangelion: The End of Evangelion",
+      "original_title": "新世紀エヴァンゲリオン劇場版 Air／まごころを、君に",
+      "overview": "SEELE orders an all-out attack on NERV, aiming to destroy the Evas before Gendo can advance his own plans for the Human Instrumentality Project. Shinji is pushed to the limits of his sanity as he is forced to decide the fate of humanity.",
+      "poster_path": "/j6G24dqI4WgUtChhWjfnI4lnmiK.jpg",
+      "media_type": "movie",
+      "original_language": "ja",
+      "genre_ids": [
+        16,
+        878,
+        18,
+        14,
+        28
+      ],
+      "popularity": 14.8358,
+      "release_date": "1997-07-19",
+      "softcore": false,
+      "video": false,
+      "vote_average": 8.266,
+      "vote_count": 1990
+    }
+  ],
+  "person_results": [],
+  "tv_results": [],
+  "tv_episode_results": [],
+  "tv_season_results": []
+}

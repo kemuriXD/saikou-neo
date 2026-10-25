@@ -1,0 +1,167 @@
+{
+  "id": 37854,
+  "backdrops": [
+    {
+      "aspect_ratio": 1.778,
+      "height": 2160,
+      "iso_3166_1": null,
+      "iso_639_1": null,
+      "file_path": "/v38qp4bySLTXYu3MF8r5GD51FN3.jpg",
+      "vote_average": 8.362,
+      "vote_count": 6,
+      "width": 3840
+    },
+    {
+      "aspect_ratio": 1.778,
+      "height": 2160,
+      "iso_3166_1": null,
+      "iso_639_1": null,
+      "file_path": "/2rmK7mnchw9Xr3XdiTFSxTTLXqv.jpg",
+      "vote_average": 5.25,
+      "vote_count": 22,
+      "width": 3840
+    },
+    {
+      "aspect_ratio": 1.778,
+      "height": 1394,
+      "iso_3166_1": null,
+      "iso_639_1": null,
+      "file_path": "/4Mt7WHox67uJ1yErwTBFcV8KWgG.jpg",
+      "vote_average": 4.608,
+      "vote_count": 37,
+      "width": 2478
+    },
+    {
+      "aspect_ratio": 1.778,
+      "height": 1080,
+      "iso_3166_1": null,
+      "iso_639_1": null,
+      "file_path": "/6fRwRD7GdCfg6owzmCT3VgQtowl.jpg",
+      "vote_average": 4.412,
+      "vote_count": 17,
+      "width": 1920
+    },
+    {
+      "aspect_ratio": 1.778,
+      "height": 1080,
+      "iso_3166_1": null,
+      "iso_639_1": null,
+      "file_path": "/a6ptrTUH1c5OdWanjyYtAkOuYD0.jpg",
+      "vote_average": 3.954,
+      "vote_count": 22,
+      "width": 1920
+    },
+    {
+      "aspect_ratio": 1.778,
+      "height": 1080,
+      "iso_3166_1": null,
+      "iso_639_1": null,
+      "file_path": "/oVfucXvhutTpYExG9k06NJqnpT9.jpg",
+      "vote_average": 3.666,
+      "vote_count": 12,
+      "width": 1920
+    },
+    {
+      "aspect_ratio": 1.778,
+      "height": 720,
+      "iso_3166_1": null,
+      "iso_639_1": null,
+      "file_path": "/jeOnKNtvo5akRNPJsDeuomaaI1m.jpg",
+      "vote_average": 3.334,
+      "vote_count": 1,
+      "width": 1280
+    }
+  ],
+  "logos": [
+    {
+      "aspect_ratio": 2.883,
+      "height": 443,
+      "iso_3166_1": "US",
+      "iso_639_1": "en",
+      "file_path": "/9F7daAmibx8ZHTE17CdM5FAwiHE.png",
+      "vote_average": 8.362,
+      "vote_count": 12,
+      "width": 1277
+    },
+    {
+      "aspect_ratio": 2.711,
+      "height": 228,
+      "iso_3166_1": "JP",
+      "iso_639_1": "ja",
+      "file_path": "/30PewfXICRJyg0FQfBeNCuniUrH.png",
+      "vote_average": 3.334,
+      "vote_count": 2,
+      "width": 618
+    },
+    {
+      "aspect_ratio": 2.586,
+      "height": 493,
+      "iso_3166_1": "KR",
+      "iso_639_1": "ko",
+      "file_path": "/pPhy19oNm236AkOT96wAIzY0eD8.png",
+      "vote_average": 3.334,
+      "vote_count": 1,
+      "width": 1275
+    },
+    {
+      "aspect_ratio": 2.742,
+      "height": 93,
+      "iso_3166_1": "JP",
+      "iso_639_1": "ja",
+      "file_path": "/fOtSIjkHW22CBj61tQqGdmSbVWL.svg",
+      "vote_average": 3.334,
+      "vote_count": 1,
+      "width": 255
+    },
+    {
+      "aspect_ratio": 2.88,
+      "height": 443,
+      "iso_3166_1": "US",
+      "iso_639_1": "en",
+      "file_path": "/cgz4g7uCmFd5I7LoBQhBiVXT4SE.png",
+      "vote_average": 3.334,
+      "vote_count": 2,
+      "width": 1276
+    },
+    {
+      "aspect_ratio": 2.593,
+      "height": 491,
+      "iso_3166_1": "HK",
+      "iso_639_1": "zh",
+      "file_path": "/dlbuMPl8U3IfSpIaJjbs51yr1Uc.png",
+      "vote_average": 3.334,
+      "vote_count": 1,
+      "width": 1273
+    },
+    {
+      "aspect_ratio": 2.816,
+      "height": 851,
+      "iso_3166_1": "US",
+      "iso_639_1": "en",
+      "file_path": "/ur3luprdGZFBlQZzRguvtILY5Ur.png",
+      "vote_average": 3.334,
+      "vote_count": 1,
+      "width": 2396
+    },
+    {
+      "aspect_ratio": 2.88,
+      "height": 443,
+      "iso_3166_1": "ES",
+      "iso_639_1": "es",
+      "file_path": "/9gpPRqhgPzxdhvgixODD8ox2JkS.png",
+      "vote_average": 3.334,
+      "vote_count": 2,
+      "width": 1276
+    },
+    {
+      "aspect_ratio": 2.713,
+      "height": 265,
+      "iso_3166_1": "JP",
+      "iso_639_1": "ja",
+      "file_path": "/jWgOP8QCUiCiyHiEjAdMdq0KcH7.svg",
+      "vote_average": 0.0,
+      "vote_count": 0,
+      "width": 719
+    }
+  ]
+}

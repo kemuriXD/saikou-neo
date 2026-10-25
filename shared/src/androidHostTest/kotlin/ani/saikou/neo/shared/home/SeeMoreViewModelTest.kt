@@ -1,15 +1,25 @@
 package ani.saikou.neo.shared.home
 
+import ani.saikou.neo.shared.catalogue.AniZipClient
+import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.ArtLibrary
+import ani.saikou.neo.shared.catalogue.ArtSources
+import ani.saikou.neo.shared.catalogue.FanartTvClient
+import ani.saikou.neo.shared.catalogue.FanartTvEngine
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
+import ani.saikou.neo.shared.catalogue.TmdbClient
+import ani.saikou.neo.shared.catalogue.card
 import ani.saikou.neo.shared.catalogue.clientFor
 import com.apollographql.apollo.api.http.HttpRequest
 import com.apollographql.apollo.api.http.HttpResponse
 import com.apollographql.apollo.network.http.HttpEngine
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -39,7 +49,18 @@ class SeeMoreViewModelTest {
     private fun seeMore(
         engine: HttpEngine = pagedEngine(),
         row: HomeRow = HomeRow.TRENDING,
-    ) = SeeMoreViewModel(clientFor(engine, main), row, AnimeSeason.FALL, 2026)
+        aniZip: AniZipEngine = AniZipEngine("mappings"),
+    ): SeeMoreViewModel {
+        val client = clientFor(engine, main)
+        val sources =
+            ArtSources(
+                client,
+                AniZipClient(aniZip, main),
+                FanartTvClient("test-project-key", FanartTvEngine("tv"), main),
+                TmdbClient(null, OfflineEngine, main),
+            )
+        return SeeMoreViewModel(client, ArtLibrary(sources, CoroutineScope(main)), row, AnimeSeason.FALL, 2026)
+    }
 
     private fun SeeMoreViewModel.ids() = state.value.items.map { it.id }
 
@@ -157,6 +178,25 @@ class SeeMoreViewModelTest {
             advanceUntilIdle()
 
             assertEquals(listOf(195516, 195539), viewModel.ids())
+        }
+
+    @Test
+    fun restingOnAPosterFindsItsArt() =
+        runTest(main) {
+            val aniZip = AniZipEngine("mappings")
+            val viewModel = seeMore(aniZip = aniZip)
+
+            viewModel.rest(card(424242, "Rested on"))
+
+            assertEquals(
+                Logo.Image("https://assets.fanart.tv/fanart/sakamoto-days-66866dc54d0e7.png"),
+                viewModel.state
+                    .first {
+                        it.restingLogo !=
+                            null
+                    }.restingLogo,
+            )
+            assertEquals(1, aniZip.urls.count { "=424242" in it })
         }
 }
 

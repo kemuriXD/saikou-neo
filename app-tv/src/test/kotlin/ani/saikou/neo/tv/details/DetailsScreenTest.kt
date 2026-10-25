@@ -1,11 +1,13 @@
 package ani.saikou.neo.tv.details
 
-import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsEqualTo
@@ -15,6 +17,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
@@ -41,15 +44,11 @@ import ani.saikou.neo.tv.home.card
 import ani.saikou.neo.tv.home.loaded
 import ani.saikou.neo.tv.theme.NeoColors
 import ani.saikou.neo.tv.theme.NeoTheme
-import coil3.ImageLoader
-import coil3.SingletonImageLoader
-import coil3.annotation.DelicateCoilApi
-import coil3.asImage
-import coil3.decode.DataSource
-import coil3.intercept.Interceptor
-import coil3.request.ImageResult
-import coil3.request.SuccessResult
-import kotlinx.coroutines.awaitCancellation
+import ani.saikou.neo.tv.ui.fakeImages
+import ani.saikou.neo.tv.ui.fakeImagesNeverArrive
+import ani.saikou.neo.tv.ui.forgetFakeImages
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -65,6 +64,8 @@ import org.robolectric.annotation.GraphicsMode
 @Config(qualifiers = "w960dp-h540dp-land-television-xhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class DetailsScreenTest {
+    private val hidden = SemanticsMatcher.keyIsDefined(SemanticsProperties.HideFromAccessibility)
+
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
@@ -100,9 +101,9 @@ class DetailsScreenTest {
     fun theTopSaysWhatTheAnimeIs() {
         show(DetailsState.Loaded(details))
 
-        compose.onNodeWithText("TV · FALL 2026").assertExists()
+        compose.onNodeWithText("TV · Fall 2026 · 12 episodes").assertExists()
         compose.onNodeWithText("Show 7").assertExists()
-        compose.onNodeWithText("Drama · Mystery · 12 episodes").assertExists()
+        compose.onNodeWithText("Drama · Mystery").assertExists()
     }
 
     @Test
@@ -223,7 +224,7 @@ class DetailsScreenTest {
 
         // The year alone, both at the top and in the facts.
         compose.onAllNodesWithText("2026").assertCountEquals(2)
-        compose.onNodeWithTag(DETAILS_META_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(DETAILS_GENRES_TAG).assertDoesNotExist()
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertDoesNotExist()
         compose.onNodeWithText("Score").assertDoesNotExist()
     }
@@ -233,7 +234,7 @@ class DetailsScreenTest {
         show(DetailsState.Loaded(details))
 
         compose
-            .onNodeWithText("TV · FALL 2026")
+            .onNodeWithTag(DETAILS_TITLE_TAG)
             .assertTopPositionInRootIsEqualTo(150.dp)
             .assertLeftPositionInRootIsEqualTo(58.dp)
         compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(420.dp)
@@ -258,27 +259,101 @@ class DetailsScreenTest {
         show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
 
         compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertContentDescriptionEquals("Show 7").assertHeightIsEqualTo(80.dp)
-        compose.onNodeWithText("TV · FALL 2026").assertTopPositionInRootIsEqualTo(150.dp)
+        compose
+            .onNodeWithTag(DETAILS_LOGO_TAG)
+            .assertContentDescriptionEquals("Show 7")
+            .assertHeightIsEqualTo(80.dp)
+            .assertTopPositionInRootIsEqualTo(150.dp)
     }
 
-    // Some of AniZip's logos are square key art, which would crowd out the details.
+    // Spirited Away's logo is almost ten times as wide as it is tall, so it's drawn 360 × 37.
     @Test
-    fun keyArtFiledAsALogoLeavesTheTitleInWords() {
+    fun aWideLogosSpaceIsOnlyAsTallAsItIsDrawn() {
+        imagesAre(3600, 370)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertWidthIsEqualTo(360.dp).assertHeightIsEqualTo(37.dp)
+        assertTitleGaps(DETAILS_LOGO_TAG)
+    }
+
+    // Tensei Kizoku's logo is 0.8:1, so it's drawn 64 × 80.
+    @Test
+    fun aTallLogoTakesTheFullHeight() {
+        imagesAre(600, 750)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertWidthIsEqualTo(64.dp).assertHeightIsEqualTo(80.dp)
+        assertTitleGaps(DETAILS_LOGO_TAG)
+    }
+
+    @Test
+    fun aTitleInWordsHasTheSameGaps() {
+        show(DetailsState.Loaded(details, logo = Logo.None))
+
+        assertTitleGaps(DETAILS_TITLE_TAG)
+    }
+
+    /** As on the spotlight, the title comes first and what the show is sits 10 dp under it, then its genres. */
+    private fun assertTitleGaps(titleTag: String) {
+        val title = compose.onNodeWithTag(titleTag).getUnclippedBoundsInRoot()
+        val meta = compose.onNodeWithTag(DETAILS_META_TAG).getUnclippedBoundsInRoot()
+        val genres = compose.onNodeWithTag(DETAILS_GENRES_TAG).getUnclippedBoundsInRoot()
+        assertEquals(150f, title.top.value, 0.01f)
+        assertEquals(10f, (meta.top - title.bottom).value, 0.01f)
+        assertEquals(10f, (genres.top - meta.bottom).value, 0.01f)
+    }
+
+    // :shared picks logos from the sizes the artwork sites report, so the TV app shows any shape it's given.
+    @Test
+    fun aSquareLogoIsShown() {
         imagesAre(680, 680)
         show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
 
-        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_LOGO_TAG).fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertExists()
     }
 
-    // Others are wide key art, a solid rectangle where a logo would be mostly see-through.
     @Test
-    fun opaqueKeyArtFiledAsALogoLeavesTheTitleInWords() {
+    fun aSolidLogoIsShown() {
         imagesAre(800, 310, color = Color.DKGRAY)
         show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
 
-        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_LOGO_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertExists()
+    }
+
+    // A first visit downloads the logo once Details has its art. The title waits unseen for it a moment.
+    @Test
+    fun aLogoThatLoadsWithinTheWaitIsShown() {
+        val ready = CompletableDeferred<Unit>()
+        imagesAre(800, 310, ready = ready)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onNodeWithTag(DETAILS_HERO_TAG).assert(hidden)
+        ready.complete(Unit)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertExists()
+        compose.onNodeWithTag(DETAILS_HERO_TAG).assert(!hidden)
+    }
+
+    // If it isn't ready in time, the title stays in words for the visit rather than swapping in front of the viewer.
+    @Test
+    fun aLogoThatIsNotReadyInTimeLeavesTheTitleInWordsForTheVisit() {
+        val ready = CompletableDeferred<Unit>()
+        imagesAre(800, 310, ready = ready)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.mainClock.advanceTimeBy(1_600)
+        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+        compose.onNodeWithTag(DETAILS_HERO_TAG).assert(!hidden)
+        ready.complete(Unit)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertDoesNotExist()
         compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
     }
 
@@ -291,7 +366,7 @@ class DetailsScreenTest {
     }
 
     @Test
-    fun theTitleIsInWordsWhileAniZipAnswers() {
+    fun theTitleIsInWordsWhileTheArtIsFound() {
         show(DetailsState.Loaded(details, logo = Logo.Loading))
 
         compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
@@ -306,30 +381,17 @@ class DetailsScreenTest {
         compose.onNodeWithTag(DETAILS_LOGO_TAG).assertDoesNotExist()
     }
 
-    /** Every image loads at once as a [width] × [height] bitmap, clear unless it's filled with [color]. */
     private fun imagesAre(
         width: Int,
         height: Int,
         color: Int = Color.TRANSPARENT,
-    ) = useImages { chain ->
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
-        SuccessResult(bitmap.asImage(), chain.request, DataSource.MEMORY)
-    }
+        ready: Deferred<Unit>? = null,
+    ) = fakeImages(compose.activity, width, height, color, ready)
 
-    private fun imagesNeverArrive() = useImages { awaitCancellation() }
+    private fun imagesNeverArrive() = fakeImagesNeverArrive(compose.activity)
 
-    @OptIn(DelicateCoilApi::class)
-    private fun useImages(answer: suspend (Interceptor.Chain) -> ImageResult) {
-        val interceptor =
-            object : Interceptor {
-                override suspend fun intercept(chain: Interceptor.Chain) = answer(chain)
-            }
-        SingletonImageLoader.setUnsafe(ImageLoader.Builder(compose.activity).components { add(interceptor) }.build())
-    }
-
-    @OptIn(DelicateCoilApi::class)
     @After
-    fun forgetImages() = SingletonImageLoader.reset()
+    fun forgetImages() = forgetFakeImages()
 
     @Test
     fun loadingShowsPlaceholdersInsteadOfText() {
@@ -347,7 +409,7 @@ class DetailsScreenTest {
     }
 
     private companion object {
-        const val LOGO = "https://anizip.test/logo.png"
+        const val LOGO = "https://logos.test/logo.png"
 
         val details =
             AnimeDetails(

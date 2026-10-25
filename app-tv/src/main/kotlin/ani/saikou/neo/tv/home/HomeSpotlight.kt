@@ -60,6 +60,7 @@ import ani.saikou.neo.tv.ui.outerGlow
 internal const val SPOTLIGHT_TAG = "spotlight"
 internal const val SPOTLIGHT_TITLE_TAG = "spotlight-title"
 internal const val SPOTLIGHT_LOGO_TAG = "spotlight-logo"
+internal const val SPOTLIGHT_META_TAG = "spotlight-meta"
 internal const val SPOTLIGHT_PLAY_TAG = "spotlight-play"
 internal const val SPOTLIGHT_DOTS_TAG = "spotlight-dots"
 internal const val SPOTLIGHT_SYNOPSIS_TAG = "spotlight-synopsis"
@@ -75,6 +76,9 @@ private const val OTHER_DOT_ALPHA = 0.45f
 private const val SYNOPSIS_ALPHA = 0.78f
 
 private const val SYNOPSIS_LINES = 3
+
+// Logos are preloaded with the shows' art, but a slow one gets this long before the title shows in words instead.
+private const val LOGO_WAIT_MILLIS = 1_000L
 private const val TITLE_LINES = 2
 
 // Whole lines, so the title and story are exactly as tall as their lines.
@@ -110,6 +114,7 @@ internal fun SpotlightShow(
                     text = shown.meta(),
                     style = NeoTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                     color = NeoTheme.colors.paper,
+                    modifier = Modifier.testTag(SPOTLIGHT_META_TAG),
                 )
                 spotlight.synopses[shown.id]?.let { story ->
                     Text(
@@ -138,7 +143,7 @@ internal fun SpotlightShow(
     }
 }
 
-/** The show's logo, or its title in words when there's no logo, or it won't load or isn't one. */
+/** The show's logo, or its title in words when there's no logo or it won't load. */
 @Composable
 private fun SpotlightTitle(
     title: String,
@@ -148,6 +153,7 @@ private fun SpotlightTitle(
         title = title,
         logo = logo,
         logoTag = SPOTLIGHT_LOGO_TAG,
+        waitMillis = LOGO_WAIT_MILLIS,
         // Logos are preloaded, so an empty box keeps the place for one that's on its way.
         placeholder = { Box(Modifier.size(LogoWidth, LogoHeight)) },
     ) {

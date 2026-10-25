@@ -16,10 +16,15 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
+import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.HomeRow
+import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.More
 import ani.saikou.neo.shared.home.SeeMoreState
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.fakeImages
+import ani.saikou.neo.tv.ui.forgetFakeImages
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -40,6 +45,7 @@ class SeeMoreScreenTest {
     private val opened = mutableListOf<Int>()
     private var loadMoreCalls = 0
     private var retries = 0
+    private val rested = mutableListOf<AnimeCard?>()
 
     private fun show(state: SeeMoreState = ready) {
         compose.setContent {
@@ -50,10 +56,34 @@ class SeeMoreScreenTest {
                     onOpen = { opened += it },
                     onLoadMore = { loadMoreCalls++ },
                     onRetry = { retries++ },
+                    onRest = { rested += it },
                 )
             }
         }
     }
+
+    @Test
+    fun focusSaysWhichPosterItIsOn() {
+        show()
+
+        compose.onNodeWithTag(posterTag(0)).assertIsFocused()
+        press(Key.DirectionRight)
+
+        assertEquals(ready.items.take(2), rested)
+    }
+
+    // So Details opens with the logo already loaded.
+    @Test
+    fun theLogoOfThePosterFocusRestsOnStartsLoading() {
+        val asked = fakeImages(compose.activity, 800, 310)
+
+        show(ready.copy(restingLogo = Logo.Image("https://logos.test/rested.png")))
+
+        compose.waitUntil { "https://logos.test/rested.png" in asked }
+    }
+
+    @After
+    fun forgetImages() = forgetFakeImages()
 
     private fun press(
         key: Key,

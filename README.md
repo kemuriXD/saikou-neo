@@ -45,9 +45,12 @@ Multiplatform core. Video sources come from separately installed extensions.
 
 ## Credits
 
-Anime information comes from [AniList](https://anilist.co). Logos and fan art
-come from [AniZip](https://ani.zip) and [TheTVDB](https://thetvdb.com), and
-backgrounds for films and newer shows from [fanart.tv](https://fanart.tv).
+Anime information comes from [AniList](https://anilist.co). Title logos and
+backgrounds come from [TMDB](https://www.themoviedb.org) and
+[fanart.tv](https://fanart.tv), and more fan art from [AniZip](https://ani.zip)
+and [TheTVDB](https://thetvdb.com).
+
+This product uses the TMDB API but is not endorsed or certified by TMDB.
 
 ## Contributing
 

@@ -1,0 +1,30 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/tDM4UAaHxMrvODGIUj9ZixmyVmw.jpg",
+      "genre_ids": [
+        16,
+        14,
+        18,
+        9648,
+        28
+      ],
+      "id": 357786,
+      "title": "Kizumonogatari Part 1: Tekketsu",
+      "original_language": "ja",
+      "original_title": "傷物語〈Ⅰ鉄血篇〉",
+      "overview": "One day, Koyomi Araragi encounters the horrifying vampire, Kiss-shot Acerola-orion Heart-under-blade A.K.A. the \"King of Apparitions.\" He saves the fatally wounded Kiss-shot by offering his blood at the expense of his own life as a human. Now Koyomi has to face the vampire hunters to retrieve Kiss-shot’s limbs which were taken by these hunters...",
+      "popularity": 4.3157,
+      "poster_path": "/vftYhVOdvMCmb0dQIRIKmUYG9TU.jpg",
+      "release_date": "2016-01-08",
+      "softcore": false,
+      "video": false,
+      "vote_average": 7.7,
+      "vote_count": 328
+    }
+  ],
+  "total_pages": 1,
+  "total_results": 1
+}
