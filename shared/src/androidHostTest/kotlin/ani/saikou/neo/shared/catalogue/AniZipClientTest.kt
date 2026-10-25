@@ -73,6 +73,15 @@ class AniZipClientTest {
             assertEquals(AniZipArt(fanArt = null, film = true), AniZipClient(AniZipEngine("mappings-no-ids")).art(9260))
         }
 
+    // The IMDb id goes into a fanart.tv path, so anything but an IMDb id is ignored.
+    @Test
+    fun anImdbIdThatIsNotOneIsLeftOut() =
+        runTest {
+            val engine = AniZipEngine("mappings-movie", change = { it.replace("tt0245429", "tt1/../../other?x=") })
+
+            assertNull(AniZipClient(engine).art(199)?.imdbId)
+        }
+
     @Test
     fun aShowAniZipDoesNotKnowHasNoArt() = runTest { assertNull(AniZipClient(AniZipEngine(null, status = 404)).art(1)) }
 
@@ -93,6 +102,7 @@ internal class AniZipEngine(
     private val status: Int = 200,
     /** Recordings for particular AniList ids, in place of [fixture]. */
     private val byId: Map<Int, String> = emptyMap(),
+    private val change: (String) -> String = { it },
 ) : HttpEngine {
     val urls = mutableListOf<String>()
     val threads = mutableListOf<Thread>()
@@ -104,7 +114,7 @@ internal class AniZipEngine(
         val body = name?.let { checkNotNull(javaClass.getResource("/anizip/$it.json")) { "No fixture $it" }.readText() }
         return HttpResponse
             .Builder(status)
-            .body(Buffer().writeUtf8(body ?: "{\"code\":404}"))
+            .body(Buffer().writeUtf8(body?.let(change) ?: "{\"code\":404}"))
             .build()
     }
 

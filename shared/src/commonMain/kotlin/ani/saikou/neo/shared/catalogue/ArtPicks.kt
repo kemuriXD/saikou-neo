@@ -27,6 +27,7 @@ internal fun pickBackdrop(backdrops: List<ArtImage>): ArtImage? =
 
 /**
  * AniZip's [fanArt] when it's one of TheTVDB's newer backgrounds, which were all 1920 × 1080 in a survey of 209 shows.
- * AniZip doesn't say how big its art is, and TheTVDB's old fan art is often 1280 × 720.
+ * AniZip doesn't say how big its art is, and TheTVDB's old fan art is often 1280 × 720. Only https art is used, as
+ * Android 7 and 8 still allow plain http.
  */
-internal fun fullHdFanArt(fanArt: String?): String? = fanArt?.takeIf { "/backgrounds/" in it }
+internal fun fullHdFanArt(fanArt: String?): String? = fanArt?.takeIf { it.startsWith("https://") && "/backgrounds/" in it }

@@ -102,5 +102,7 @@ class ArtPicksTest {
         )
         assertNull(fullHdFanArt("https://artworks.thetvdb.com/banners/fanart/original/74796-1.jpg"))
         assertNull(fullHdFanArt(null))
+        // Android 7 and 8 still allow plain http, so only https art is used.
+        assertNull(fullHdFanArt("http://artworks.thetvdb.com/banners/v4/series/81797/backgrounds/616009a8bd688.jpg"))
     }
 }

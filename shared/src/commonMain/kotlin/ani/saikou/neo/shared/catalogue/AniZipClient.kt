@@ -83,9 +83,12 @@ private fun JsonReader.art(): AniZipArt {
         film = mappings["type"] == "MOVIE",
         tvDbId = mappings["thetvdb_id"]?.toIntOrNull()?.takeIf { it > 0 },
         tmdbId = mappings["themoviedb_id"]?.toIntOrNull()?.takeIf { it > 0 },
-        imdbId = mappings["imdb_id"]?.takeIf { it.startsWith("tt") },
+        // It goes into a fanart.tv path, so it must be an IMDb id and nothing else.
+        imdbId = mappings["imdb_id"]?.takeIf { it.matches(imdbId) },
     )
 }
+
+private val imdbId = Regex("""tt\d{1,10}""")
 
 /** An object's string and number fields. Nested values are skipped. */
 internal fun JsonReader.readFields(): Map<String, String> {
