@@ -16,4 +16,6 @@ public val DetailsState.Loaded.sections: List<DetailsSection>
             DetailsSection.OVERVIEW,
             DetailsSection.EPISODES.takeIf { (episodes?.count ?: episodeCount(details, null)) > 0 },
             DetailsSection.RELATED.takeIf { details.related.isNotEmpty() },
+            // A watch order belongs to a franchise. It will come from an extension; until then the tab says so.
+            DetailsSection.WATCH_ORDER.takeIf { details.related.isNotEmpty() },
         )

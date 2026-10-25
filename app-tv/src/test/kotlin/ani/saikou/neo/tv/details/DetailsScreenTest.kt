@@ -481,6 +481,21 @@ class DetailsScreenTest {
         compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(72.dp)
     }
 
+    @Test
+    fun watchOrderSaysNoExtensionIsInstalledAndOffersNothingElse() {
+        show(DetailsState.Loaded(franchise))
+        press(Key.DirectionDown)
+        repeat(3) { press(Key.DirectionRight) }
+
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.WATCH_ORDER)).assertIsSelected()
+        compose
+            .onNodeWithText("A watch order extension shows the order to watch this series in. You don't have one installed.")
+            .assertExists()
+        // Nothing to move to, so the page stays where it is.
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.WATCH_ORDER)).assertIsFocused().assertTopPositionInRootIsEqualTo(420.dp)
+    }
+
     /** Details with its Episodes tab chosen, and focus on the tab. */
     private fun showEpisodes(state: DetailsState) {
         show(state)

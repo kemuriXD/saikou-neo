@@ -68,6 +68,7 @@
     <string name="details_aired_on">Aired %1$s</string>
     <string name="details_airs_on">Airs %1$s</string>
     <string name="details_released_on">Released %1$s</string>
+    <string name="details_watch_order_none">A watch order extension shows the order to watch this series in. You don\'t have one installed.</string>
     <string name="details_relation_parent">Parent</string>
     <string name="details_relation_prequel">Prequel</string>
     <string name="details_relation_sequel">Sequel</string>

@@ -24,6 +24,15 @@ class DetailsSectionsTest {
         assertFalse(DetailsSection.RELATED in DetailsState.Loaded(details()).sections)
     }
 
+    // A watch order belongs to a franchise, so a show on its own has no tab for one.
+    @Test
+    fun watchOrderHasATabOnlyForAFranchise() {
+        val sequel = RelatedAnime(details().card.copy(id = 2), Relation.SEQUEL)
+
+        assertTrue(DetailsSection.WATCH_ORDER in DetailsState.Loaded(details().copy(related = listOf(sequel))).sections)
+        assertFalse(DetailsSection.WATCH_ORDER in DetailsState.Loaded(details()).sections)
+    }
+
     private fun details() =
         AnimeDetails(
             card = AnimeCard(1, AnimeTitle("Show", null, null), null, null, null, "TV", 12, null, null, null),

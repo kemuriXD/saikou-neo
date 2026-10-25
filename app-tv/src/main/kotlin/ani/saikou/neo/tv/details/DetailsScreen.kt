@@ -237,6 +237,16 @@ fun DetailsScreen(
                                 )
                             }
 
+                            DetailsSection.WATCH_ORDER -> {
+                                // Words only: there's nothing to do here until a watch order extension is installed.
+                                Text(
+                                    text = stringResource(R.string.details_watch_order_none),
+                                    style = NeoTheme.typography.body,
+                                    color = NeoTheme.colors.textMuted,
+                                    modifier = Modifier.width(SynopsisWidth),
+                                )
+                            }
+
                             else -> {}
                         }
                     }
