@@ -9,11 +9,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -23,9 +23,22 @@ import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.transformations
 
-// From the design: the logo fits a 360 × 80 box, sitting on the line below it.
+// From the design: the logo fits a 360 × 80 box.
 internal val LogoWidth = 360.dp
 internal val LogoHeight = 80.dp
+
+/**
+ * The size a [width] × [height] logo is drawn at, as big as fits the logo box. Its space is just that big, so the lines
+ * above and below sit as close to a short, wide logo as to a title in words.
+ */
+internal fun logoSize(
+    width: Int,
+    height: Int,
+): DpSize {
+    if (width <= 0 || height <= 0) return DpSize(LogoWidth, LogoHeight)
+    val aspect = width.toFloat() / height
+    return if (aspect >= LogoWidth / LogoHeight) DpSize(LogoWidth, LogoWidth / aspect) else DpSize(LogoHeight * aspect, LogoHeight)
+}
 
 /**
  * A show's title logo, the same on Home and Details. Until the logo has loaded, [placeholder] shows; without a logo,
@@ -41,7 +54,9 @@ internal fun ShowTitle(
     text: @Composable () -> Unit,
 ) {
     var failed by remember(logo) { mutableStateOf(false) }
-    var loaded by remember(logo) { mutableStateOf(false) }
+    // The size it's drawn at, once it has loaded.
+    var drawn by remember(logo) { mutableStateOf<DpSize?>(null) }
+    val loaded = drawn != null
     when {
         logo == Logo.Loading -> {
             placeholder()
@@ -60,10 +75,9 @@ internal fun ShowTitle(
                     model = remember(logo.url) { logoRequest(context, logo.url) },
                     contentDescription = title,
                     contentScale = ContentScale.Fit,
-                    alignment = Alignment.BottomStart,
-                    onSuccess = { loaded = true },
+                    onSuccess = { drawn = it.result.image.run { logoSize(width, height) } },
                     onError = { failed = true },
-                    modifier = Modifier.size(LogoWidth, LogoHeight).alpha(shown).testTag(logoTag),
+                    modifier = Modifier.size(drawn ?: DpSize(LogoWidth, LogoHeight)).alpha(shown).testTag(logoTag),
                 )
             }
         }

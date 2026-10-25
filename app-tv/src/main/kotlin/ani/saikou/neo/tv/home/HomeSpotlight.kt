@@ -60,6 +60,7 @@ import ani.saikou.neo.tv.ui.outerGlow
 internal const val SPOTLIGHT_TAG = "spotlight"
 internal const val SPOTLIGHT_TITLE_TAG = "spotlight-title"
 internal const val SPOTLIGHT_LOGO_TAG = "spotlight-logo"
+internal const val SPOTLIGHT_META_TAG = "spotlight-meta"
 internal const val SPOTLIGHT_PLAY_TAG = "spotlight-play"
 internal const val SPOTLIGHT_DOTS_TAG = "spotlight-dots"
 internal const val SPOTLIGHT_SYNOPSIS_TAG = "spotlight-synopsis"
@@ -110,6 +111,7 @@ internal fun SpotlightShow(
                     text = shown.meta(),
                     style = NeoTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                     color = NeoTheme.colors.paper,
+                    modifier = Modifier.testTag(SPOTLIGHT_META_TAG),
                 )
                 spotlight.synopses[shown.id]?.let { story ->
                     Text(

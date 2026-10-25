@@ -1,6 +1,5 @@
 package ani.saikou.neo.tv.details
 
-import android.graphics.Bitmap
 import android.graphics.Color
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.graphics.toPixelMap
@@ -15,6 +14,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
@@ -41,15 +41,9 @@ import ani.saikou.neo.tv.home.card
 import ani.saikou.neo.tv.home.loaded
 import ani.saikou.neo.tv.theme.NeoColors
 import ani.saikou.neo.tv.theme.NeoTheme
-import coil3.ImageLoader
-import coil3.SingletonImageLoader
-import coil3.annotation.DelicateCoilApi
-import coil3.asImage
-import coil3.decode.DataSource
-import coil3.intercept.Interceptor
-import coil3.request.ImageResult
-import coil3.request.SuccessResult
-import kotlinx.coroutines.awaitCancellation
+import ani.saikou.neo.tv.ui.fakeImages
+import ani.saikou.neo.tv.ui.fakeImagesNeverArrive
+import ani.saikou.neo.tv.ui.forgetFakeImages
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -262,6 +256,44 @@ class DetailsScreenTest {
         compose.onNodeWithText("TV · FALL 2026").assertTopPositionInRootIsEqualTo(150.dp)
     }
 
+    // Spirited Away's logo is almost ten times as wide as it is tall, so it's drawn 360 × 37.
+    @Test
+    fun aWideLogosSpaceIsOnlyAsTallAsItIsDrawn() {
+        imagesAre(3600, 370)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertWidthIsEqualTo(360.dp).assertHeightIsEqualTo(37.dp)
+        assertTitleGaps(DETAILS_LOGO_TAG)
+    }
+
+    // Tensei Kizoku's logo is 0.8:1, so it's drawn 64 × 80.
+    @Test
+    fun aTallLogoTakesTheFullHeight() {
+        imagesAre(600, 750)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertWidthIsEqualTo(64.dp).assertHeightIsEqualTo(80.dp)
+        assertTitleGaps(DETAILS_LOGO_TAG)
+    }
+
+    @Test
+    fun aTitleInWordsHasTheSameGaps() {
+        show(DetailsState.Loaded(details, logo = Logo.None))
+
+        assertTitleGaps(DETAILS_TITLE_TAG)
+    }
+
+    /** The line above the title and the line below it both sit 12 dp away. */
+    private fun assertTitleGaps(titleTag: String) {
+        val above = compose.onNodeWithText("TV · FALL 2026").getUnclippedBoundsInRoot()
+        val title = compose.onNodeWithTag(titleTag).getUnclippedBoundsInRoot()
+        val below = compose.onNodeWithTag(DETAILS_META_TAG).getUnclippedBoundsInRoot()
+        assertEquals(12f, (title.top - above.bottom).value, 0.01f)
+        assertEquals(12f, (below.top - title.bottom).value, 0.01f)
+    }
+
     // :shared picks logos from the sizes the artwork sites report, so the TV app shows any shape it's given.
     @Test
     fun aSquareLogoIsShown() {
@@ -305,30 +337,16 @@ class DetailsScreenTest {
         compose.onNodeWithTag(DETAILS_LOGO_TAG).assertDoesNotExist()
     }
 
-    /** Every image loads at once as a [width] × [height] bitmap, clear unless it's filled with [color]. */
     private fun imagesAre(
         width: Int,
         height: Int,
         color: Int = Color.TRANSPARENT,
-    ) = useImages { chain ->
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
-        SuccessResult(bitmap.asImage(), chain.request, DataSource.MEMORY)
-    }
+    ) = fakeImages(compose.activity, width, height, color)
 
-    private fun imagesNeverArrive() = useImages { awaitCancellation() }
+    private fun imagesNeverArrive() = fakeImagesNeverArrive(compose.activity)
 
-    @OptIn(DelicateCoilApi::class)
-    private fun useImages(answer: suspend (Interceptor.Chain) -> ImageResult) {
-        val interceptor =
-            object : Interceptor {
-                override suspend fun intercept(chain: Interceptor.Chain) = answer(chain)
-            }
-        SingletonImageLoader.setUnsafe(ImageLoader.Builder(compose.activity).components { add(interceptor) }.build())
-    }
-
-    @OptIn(DelicateCoilApi::class)
     @After
-    fun forgetImages() = SingletonImageLoader.reset()
+    fun forgetImages() = forgetFakeImages()
 
     @Test
     fun loadingShowsPlaceholdersInsteadOfText() {

@@ -18,6 +18,7 @@ import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -29,11 +30,16 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.height
+import androidx.compose.ui.unit.width
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.HomeState
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.RowState
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.fakeImages
+import ani.saikou.neo.tv.ui.forgetFakeImages
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -138,6 +144,50 @@ class HomeScreenTest {
 
         compose.onNodeWithTag(SPOTLIGHT_LOGO_TAG).assertContentDescriptionEquals("Show 0").assertHeightIsEqualTo(80.dp)
     }
+
+    // Spirited Away's logo is almost ten times as wide as it is tall, so it's drawn 360 × 37.
+    @Test
+    fun aWideLogosSpaceIsOnlyAsTallAsItIsDrawn() {
+        fakeImages(compose.activity, 3600, 370)
+        showWithLogo()
+
+        compose.waitUntil { compose.onNodeWithTag(SPOTLIGHT_LOGO_TAG).getUnclippedBoundsInRoot().height == 37.dp }
+        compose.onNodeWithTag(SPOTLIGHT_LOGO_TAG).assertWidthIsEqualTo(360.dp)
+        assertGapUnder(SPOTLIGHT_LOGO_TAG)
+    }
+
+    // Tensei Kizoku's logo is 0.8:1, so it's drawn 64 × 80.
+    @Test
+    fun aTallLogoTakesTheFullHeight() {
+        fakeImages(compose.activity, 600, 750)
+        showWithLogo()
+
+        compose.waitUntil { compose.onNodeWithTag(SPOTLIGHT_LOGO_TAG).getUnclippedBoundsInRoot().width == 64.dp }
+        compose.onNodeWithTag(SPOTLIGHT_LOGO_TAG).assertHeightIsEqualTo(80.dp)
+        assertGapUnder(SPOTLIGHT_LOGO_TAG)
+    }
+
+    @Test
+    fun aTitleInWordsHasTheSameGap() {
+        show()
+
+        assertGapUnder(SPOTLIGHT_TITLE_TAG)
+    }
+
+    private fun showWithLogo() {
+        val spotlight = loaded.spotlight!!
+        show(loaded.copy(spotlight = spotlight.copy(logos = mapOf(0 to Logo.Image("https://logos.test/logo.png")))))
+    }
+
+    /** The line under the title sits 10 dp below it. */
+    private fun assertGapUnder(titleTag: String) {
+        val title = compose.onNodeWithTag(titleTag).getUnclippedBoundsInRoot()
+        val meta = compose.onNodeWithTag(SPOTLIGHT_META_TAG).getUnclippedBoundsInRoot()
+        assertEquals(10f, (meta.top - title.bottom).value, 0.01f)
+    }
+
+    @After
+    fun forgetImages() = forgetFakeImages()
 
     @Test
     fun theStoryTakesThreeLinesUnderTheDetails() {
