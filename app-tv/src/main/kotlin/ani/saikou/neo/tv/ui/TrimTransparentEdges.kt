@@ -1,4 +1,4 @@
-package ani.saikou.neo.tv.home
+package ani.saikou.neo.tv.ui
 
 import android.graphics.Bitmap
 import coil3.size.Size

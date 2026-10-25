@@ -1,4 +1,4 @@
-package ani.saikou.neo.tv.home
+package ani.saikou.neo.tv.ui
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

@@ -2,6 +2,7 @@ package ani.saikou.neo.tv.details
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -50,6 +51,7 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -60,12 +62,14 @@ import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.scoreOutOfTen
+import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoTab
 import ani.saikou.neo.tv.ui.NeoTabPadding
+import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
 import coil3.compose.AsyncImage
 
@@ -74,6 +78,8 @@ internal const val DETAILS_SYNOPSIS_TAG = "details-synopsis"
 internal const val DETAILS_LOADING_TAG = "details-loading"
 internal const val DETAILS_OVERVIEW_TAB_TAG = "details-overview-tab"
 internal const val DETAILS_COMPACT_TITLE_TAG = "details-compact-title"
+internal const val DETAILS_TITLE_TAG = "details-title"
+internal const val DETAILS_LOGO_TAG = "details-logo"
 
 // From the design: the title block starts 150 dp down and the Overview tabs rest at 420 dp, with the
 // synopsis peeking below the screen. Focus on the synopsis lifts the page so the tabs sit at 72 dp,
@@ -138,7 +144,7 @@ fun DetailsScreen(
 
             is DetailsState.Loaded -> {
                 Box(Modifier.fillMaxSize().offset { IntOffset(0, lift.roundToPx()) }) {
-                    Hero(state.details, margin.padding(top = HeroTop).width(HeroWidth))
+                    Hero(state.details, state.logo, margin.padding(top = HeroTop).width(HeroWidth))
                     Overview(
                         state = state,
                         reading = reading,
@@ -184,22 +190,31 @@ fun DetailsScreen(
 @Composable
 private fun Hero(
     details: AnimeDetails,
+    logo: Logo,
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
     val card = details.card
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space3)) {
+    // Moves the details down smoothly when the logo takes the title's place.
+    val resize = tween<IntSize>(NeoTheme.dimensions.durationBackdropMillis, easing = NeoTheme.dimensions.easeStandard)
+    Column(modifier.animateContentSize(resize), verticalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space3)) {
         val overline = listOfNotNull(card.formatName(), card.seasonName()).joinToString(" · ")
         if (overline.isNotEmpty()) {
             Text(text = overline.uppercase(), style = NeoTheme.typography.overline, color = colors.pink)
         }
-        Text(
-            text = card.displayTitle(),
-            style = NeoTheme.typography.headline,
-            color = colors.paper,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
+        val title = card.displayTitle()
+        // The title in words until the logo is ready, so the top never sits empty.
+        val words: @Composable () -> Unit = {
+            Text(
+                text = title,
+                style = NeoTheme.typography.headline,
+                color = colors.paper,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.testTag(DETAILS_TITLE_TAG),
+            )
+        }
+        ShowTitle(title, logo, DETAILS_LOGO_TAG, placeholder = words, text = words)
         val meta = details.meta()
         if (meta.isNotEmpty()) {
             Text(text = meta, style = NeoTheme.typography.label, color = colors.textMuted, modifier = Modifier.testTag(DETAILS_META_TAG))

@@ -1,15 +1,18 @@
 package ani.saikou.neo.tv.details
 
+import android.graphics.Bitmap
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -17,6 +20,7 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -29,12 +33,23 @@ import androidx.test.espresso.Espresso
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.details.DetailsState
+import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.tv.NeoNavigation
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.card
 import ani.saikou.neo.tv.home.loaded
 import ani.saikou.neo.tv.theme.NeoColors
 import ani.saikou.neo.tv.theme.NeoTheme
+import coil3.ImageLoader
+import coil3.SingletonImageLoader
+import coil3.annotation.DelicateCoilApi
+import coil3.asImage
+import coil3.decode.DataSource
+import coil3.intercept.Interceptor
+import coil3.request.ImageResult
+import coil3.request.SuccessResult
+import kotlinx.coroutines.awaitCancellation
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -237,6 +252,73 @@ class DetailsScreenTest {
     }
 
     @Test
+    fun theTitleIsTheLogoWhenThereIsOne() {
+        imagesAre(800, 310)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertContentDescriptionEquals("Show 7").assertHeightIsEqualTo(80.dp)
+        compose.onNodeWithText("TV · FALL 2026").assertTopPositionInRootIsEqualTo(150.dp)
+    }
+
+    // Some of AniZip's logos are square key art, which would crowd out the details.
+    @Test
+    fun keyArtFiledAsALogoLeavesTheTitleInWords() {
+        imagesAre(680, 680)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_LOGO_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+    }
+
+    @Test
+    fun theTitleIsInWordsWhileTheLogoLoads() {
+        imagesNeverArrive()
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7").assertIsDisplayed()
+    }
+
+    @Test
+    fun theTitleIsInWordsWhileAniZipAnswers() {
+        show(DetailsState.Loaded(details, logo = Logo.Loading))
+
+        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun withoutALogoTheTitleIsInWords() {
+        show(DetailsState.Loaded(details, logo = Logo.None))
+
+        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertDoesNotExist()
+    }
+
+    /** Every image loads at once as a blank [width] × [height] bitmap. */
+    private fun imagesAre(
+        width: Int,
+        height: Int,
+    ) = useImages { chain ->
+        SuccessResult(Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).asImage(), chain.request, DataSource.MEMORY)
+    }
+
+    private fun imagesNeverArrive() = useImages { awaitCancellation() }
+
+    @OptIn(DelicateCoilApi::class)
+    private fun useImages(answer: suspend (Interceptor.Chain) -> ImageResult) {
+        val interceptor =
+            object : Interceptor {
+                override suspend fun intercept(chain: Interceptor.Chain) = answer(chain)
+            }
+        SingletonImageLoader.setUnsafe(ImageLoader.Builder(compose.activity).components { add(interceptor) }.build())
+    }
+
+    @OptIn(DelicateCoilApi::class)
+    @After
+    fun forgetImages() = SingletonImageLoader.reset()
+
+    @Test
     fun loadingShowsPlaceholdersInsteadOfText() {
         show(DetailsState.Loading)
 
@@ -252,6 +334,8 @@ class DetailsScreenTest {
     }
 
     private companion object {
+        const val LOGO = "https://anizip.test/logo.png"
+
         val details =
             AnimeDetails(
                 card = card(7).copy(averageScore = 85, season = AnimeSeason.FALL),

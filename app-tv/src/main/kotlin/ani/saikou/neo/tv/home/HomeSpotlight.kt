@@ -22,9 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -36,7 +34,6 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -51,16 +48,14 @@ import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.Spotlight
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.LogoHeight
+import ani.saikou.neo.tv.ui.LogoWidth
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoButtonRow
 import ani.saikou.neo.tv.ui.NeoIconButton
 import ani.saikou.neo.tv.ui.NeoIcons
+import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
-import coil3.PlatformContext
-import coil3.compose.AsyncImage
-import coil3.compose.LocalPlatformContext
-import coil3.request.ImageRequest
-import coil3.request.transformations
 
 internal const val SPOTLIGHT_TAG = "spotlight"
 internal const val SPOTLIGHT_TITLE_TAG = "spotlight-title"
@@ -69,9 +64,7 @@ internal const val SPOTLIGHT_PLAY_TAG = "spotlight-play"
 internal const val SPOTLIGHT_DOTS_TAG = "spotlight-dots"
 internal const val SPOTLIGHT_SYNOPSIS_TAG = "spotlight-synopsis"
 
-// From the design: the logo fits a 360 × 80 box, sitting on the meta line. Dots are 6 dp, the current one 18 dp wide.
-private val LogoWidth = 360.dp
-private val LogoHeight = 80.dp
+// From the design: dots are 6 dp, the current one 18 dp wide.
 
 // The design puts the buttons 8 dp further down than the 10 dp between lines of text.
 private val ButtonsGap = 18.dp
@@ -86,14 +79,6 @@ private const val TITLE_LINES = 2
 
 // Whole lines, so the title and story are exactly as tall as their lines.
 private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
-
-// Title logos are wide. Anything squarer is key art filed as a logo.
-private const val MIN_LOGO_ASPECT = 1.3f
-
-internal fun looksLikeALogo(
-    width: Int,
-    height: Int,
-) = height > 0 && width >= height * MIN_LOGO_ASPECT
 
 /**
  * The featured show's title, details and actions. The text sits on the buttons and fades from one show to the next,
@@ -159,48 +144,24 @@ private fun SpotlightTitle(
     title: String,
     logo: Logo,
 ) {
-    var failed by remember(logo) { mutableStateOf(false) }
-    val context = LocalPlatformContext.current
-    when {
-        logo == Logo.Loading -> {
-            Box(Modifier.size(LogoWidth, LogoHeight))
-        }
-
-        logo is Logo.Image && !failed -> {
-            AsyncImage(
-                model = remember(logo.url) { logoRequest(context, logo.url) },
-                contentDescription = title,
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.BottomStart,
-                onSuccess = { failed = !looksLikeALogo(it.result.image.width, it.result.image.height) },
-                onError = { failed = true },
-                modifier = Modifier.size(LogoWidth, LogoHeight).testTag(SPOTLIGHT_LOGO_TAG),
-            )
-        }
-
-        else -> {
-            Text(
-                text = title,
-                // Smaller than the design's 44, so a title in words doesn't outweigh the logos.
-                style = NeoTheme.typography.headline.copy(lineHeightStyle = FullLine),
-                color = NeoTheme.colors.paper,
-                maxLines = TITLE_LINES,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.testTag(SPOTLIGHT_TITLE_TAG),
-            )
-        }
+    ShowTitle(
+        title = title,
+        logo = logo,
+        logoTag = SPOTLIGHT_LOGO_TAG,
+        // Logos are preloaded, so an empty box keeps the place for one that's on its way.
+        placeholder = { Box(Modifier.size(LogoWidth, LogoHeight)) },
+    ) {
+        Text(
+            text = title,
+            // Smaller than the design's 44, so a title in words doesn't outweigh the logos.
+            style = NeoTheme.typography.headline.copy(lineHeightStyle = FullLine),
+            color = NeoTheme.colors.paper,
+            maxLines = TITLE_LINES,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.testTag(SPOTLIGHT_TITLE_TAG),
+        )
     }
 }
-
-/** A logo trimmed of empty margins. Preloading uses the same request, so the cached copy is the one shown. */
-internal fun logoRequest(
-    context: PlatformContext,
-    url: String,
-) = ImageRequest
-    .Builder(context)
-    .data(url)
-    .transformations(TrimTransparentEdges)
-    .build()
 
 /** One dot per featured show. Focused, Left and Right change the show; Up goes back to [play]. */
 @Composable
