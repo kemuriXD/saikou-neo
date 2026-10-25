@@ -127,6 +127,11 @@ class TmdbClientTest {
     fun aSeriesWithAnotherNameIsNotTaken() =
         runTest { assertNull(TmdbClient(KEY, TmdbEngine { "search-tv" }).searchSeries("Princess", null)) }
 
+    // TMDB's first True Beauty is the live-action drama. The animated one comes second.
+    @Test
+    fun aSeriesThatIsNotAnimatedIsNotTaken() =
+        runTest { assertEquals(239779, TmdbClient(KEY, TmdbEngine { "search-tv-live-action" }).searchSeries("True Beauty", null)) }
+
     @Test
     fun aSeriesNameMatchesWhateverItsCase() =
         runTest { assertEquals(84737, TmdbClient(KEY, TmdbEngine { "search-tv" }).searchSeries("psychic princess", null)) }
