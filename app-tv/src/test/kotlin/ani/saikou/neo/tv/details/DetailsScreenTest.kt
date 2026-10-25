@@ -13,6 +13,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
@@ -23,6 +24,7 @@ import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -34,9 +36,16 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.test.espresso.Espresso
+import ani.saikou.neo.shared.catalogue.AirDate
+import ani.saikou.neo.shared.catalogue.AniZipEpisode
+import ani.saikou.neo.shared.catalogue.AniZipEpisodes
+import ani.saikou.neo.shared.catalogue.AniZipExtra
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.NextEpisode
+import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
+import ani.saikou.neo.shared.details.episodeList
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.tv.NeoNavigation
 import ani.saikou.neo.tv.home.HomeScreen
@@ -110,8 +119,7 @@ class DetailsScreenTest {
     fun theOverviewHasASynopsisPreviewAndTheFacts() {
         show(DetailsState.Loaded(details))
 
-        // With no actions yet (#69), focus starts on the Overview tab, so the top stays in view.
-        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertIsFocused()
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertIsSelected()
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertExists()
         compose.onNodeWithText("Fall 2026").assertExists()
         compose.onNodeWithText("OLM").assertExists()
@@ -124,6 +132,7 @@ class DetailsScreenTest {
     fun downMovesToTheSynopsisAndBringsTheOverviewUp() {
         show(DetailsState.Loaded(details))
 
+        press(Key.DirectionDown)
         press(Key.DirectionDown)
 
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertIsFocused()
@@ -140,6 +149,7 @@ class DetailsScreenTest {
         show(DetailsState.Loaded(details))
 
         press(Key.DirectionDown)
+        press(Key.DirectionDown)
         press(Key.DirectionUp)
 
         compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertIsFocused().assertTopPositionInRootIsEqualTo(420.dp)
@@ -149,6 +159,7 @@ class DetailsScreenTest {
     @Test
     fun theFocusedSynopsisGlowsAroundItsBorderButNotInsideIt() {
         show(DetailsState.Loaded(details))
+        press(Key.DirectionDown)
         press(Key.DirectionDown)
 
         // Robolectric doesn't always redraw the window on its own before a capture.
@@ -173,6 +184,7 @@ class DetailsScreenTest {
         show(DetailsState.Loaded(details))
 
         press(Key.DirectionDown)
+        press(Key.DirectionDown)
         press(Key.DirectionCenter)
 
         compose.onNodeWithTag(DETAILS_READER_TAG).assertIsFocused()
@@ -191,6 +203,7 @@ class DetailsScreenTest {
         show(DetailsState.Loaded(details))
 
         press(Key.DirectionDown)
+        press(Key.DirectionDown)
         press(Key.DirectionCenter)
         compose.waitForIdle()
 
@@ -204,6 +217,7 @@ class DetailsScreenTest {
     fun backClosesTheReaderAndReturnsToTheSynopsis() {
         showFromHome(DetailsState.Loaded(details))
 
+        press(Key.DirectionDown)
         press(Key.DirectionDown)
         press(Key.DirectionCenter)
         back()
@@ -248,9 +262,167 @@ class DetailsScreenTest {
             .onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG)
             .assertIsSelected()
             .assertHeightIsEqualTo(36.dp)
-        // Unfocused, so it's drawn at its own size.
-        press(Key.DirectionDown)
         compose.onNodeWithText("Overview", useUnmergedTree = true).assertLeftPositionInRootIsEqualTo(58.dp)
+    }
+
+    @Test
+    fun detailsOpensOnItsMainButton() {
+        show(DetailsState.Loaded(details))
+
+        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused().assertTextEquals("Episodes")
+    }
+
+    @Test
+    fun downFromTheMainButtonReachesTheTabs() {
+        show(DetailsState.Loaded(details))
+
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun theMainButtonGoesToTheEpisodes() {
+        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote)))
+
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertIsSelected()
+        compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertTopPositionInRootIsEqualTo(72.dp)
+    }
+
+    @Test
+    fun anEpisodeShowsItsTitleDateLengthAndSynopsis() {
+        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, deathNote)))
+
+        compose.onNodeWithText("12 episodes").assertExists()
+        compose.onNodeWithText("1 · Rebirth").assertExists()
+        compose.onNodeWithText("23 min · Aired 4 Oct 2006").assertExists()
+        compose.onNodeWithText("A notebook falls from the sky.").assertExists()
+        // AniZip doesn't know the second, so it has only its number.
+        compose.onNodeWithText("Episode 2").assertExists()
+    }
+
+    @Test
+    fun withoutEpisodeDataTheRowsAreNumberedAndTheHeaderSaysWhatIsMissing() {
+        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, null)))
+
+        compose.onNodeWithText("12 episodes · Titles and air dates unavailable").assertExists()
+        compose.onNodeWithText("Episode 1").assertExists()
+    }
+
+    @Test
+    fun aLongSeriesJumpsInRangesOfFifty() {
+        val long = details.copy(card = details.card.copy(episodes = null), nextEpisode = NextEpisode(202, 0))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+
+        compose.onNodeWithText("201 known episodes · Titles and air dates unavailable").assertExists()
+        compose.onNodeWithText("151–201").assertExists()
+        // Down from the tabs lands on the first range; Right moves to the next and shows it.
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        compose.onNodeWithText("Episode 51").assertExists()
+        compose.onNodeWithText("Episode 1").assertDoesNotExist()
+    }
+
+    // As with posters, the ranges run from the screen's edge and stop a margin short of the other, so focus can grow.
+    @Test
+    fun theRangesHaveRoomToGrowAtBothEnds() {
+        val long = details.copy(card = details.card.copy(episodes = 1180))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+
+        compose.onNodeWithTag(EPISODE_RANGES_TAG).assertLeftPositionInRootIsEqualTo(0.dp).assertWidthIsEqualTo(960.dp)
+        // The chip, which holds its label, starts on the grid margin.
+        compose.onNodeWithText("1–50").assertLeftPositionInRootIsEqualTo(58.dp)
+    }
+
+    // Holding Right across a long series' ranges shouldn't rebuild the list for every range it passes.
+    @Test
+    fun aRangeShowsOnceFocusRestsOnIt() {
+        val long = details.copy(card = details.card.copy(episodes = 201))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        press(Key.DirectionDown)
+        compose.mainClock.autoAdvance = false
+
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(100)
+        compose.onNodeWithText("Episode 1").assertExists()
+
+        compose.mainClock.advanceTimeBy(200)
+        compose.onNodeWithText("Episode 101").assertExists()
+        compose.onNodeWithText("Episode 51").assertDoesNotExist()
+    }
+
+    // Only the list waits for focus to rest. The range marked as shown moves with focus, so two never look chosen.
+    @Test
+    fun theChosenRangeMovesWithFocusAtOnce() {
+        val long = details.copy(card = details.card.copy(episodes = 201))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        press(Key.DirectionDown)
+        compose.mainClock.autoAdvance = false
+
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+        compose.waitForIdle()
+
+        compose.onNodeWithText("101–150").assertIsSelected()
+        compose.onNodeWithText("1–50").assertIsNotSelected()
+    }
+
+    // Down straight after moving goes into the range now chosen, not the one still showing.
+    @Test
+    fun downBeforeARangeShowsGoesIntoThatRange() {
+        val long = details.copy(card = details.card.copy(episodes = 201))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        press(Key.DirectionDown)
+        compose.mainClock.autoAdvance = false
+
+        press(Key.DirectionRight)
+        compose.waitForIdle()
+        press(Key.DirectionDown)
+        compose.mainClock.autoAdvance = true
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(episodeTag(51)).assertIsFocused()
+    }
+
+    @Test
+    fun aFilmListsItselfThenItsExtras() {
+        val film = details.copy(card = details.card.copy(format = "MOVIE", episodes = 1))
+        val aniZip =
+            AniZipEpisodes(
+                listOf(AniZipEpisode(1, "Complete Movie", null, null, AirDate(2001, 7, 20), 125)),
+                listOf(AniZipExtra("Behind the microphone", 6)),
+            )
+        showEpisodes(DetailsState.Loaded(film, episodes = episodeList(film, aniZip)))
+
+        compose.onNodeWithText("Film · 1 extra").assertExists()
+        compose.onNodeWithText("Complete Movie").assertExists()
+        compose.onNodeWithText("2 h 5 min · Released 20 Jul 2001").assertExists()
+        compose.onNodeWithText("EXTRAS").assertExists()
+        compose.onNodeWithText("Behind the microphone").assertExists()
+    }
+
+    @Test
+    fun theSectionShownSurvivesRecreation() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { NeoTheme { DetailsScreen(DetailsState.Loaded(details, episodes = episodeList(details, null))) } }
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+
+        restoration.emulateSavedInstanceStateRestore()
+
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertIsSelected()
+    }
+
+    /** Details with its Episodes tab chosen, and focus on the tab. */
+    private fun showEpisodes(state: DetailsState) {
+        show(state)
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
     }
 
     @Test
@@ -410,6 +582,12 @@ class DetailsScreenTest {
 
     private companion object {
         const val LOGO = "https://logos.test/logo.png"
+
+        val deathNote =
+            AniZipEpisodes(
+                listOf(AniZipEpisode(1, "Rebirth", "A notebook falls from the sky.", null, AirDate(2006, 10, 4), 23)),
+                emptyList(),
+            )
 
         val details =
             AnimeDetails(

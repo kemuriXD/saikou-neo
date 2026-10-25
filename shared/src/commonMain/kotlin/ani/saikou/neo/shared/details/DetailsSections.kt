@@ -11,4 +11,8 @@ public enum class DetailsSection {
 
 /** The sections this show has something to show in. Overview is always first. */
 public val DetailsState.Loaded.sections: List<DetailsSection>
-    get() = listOf(DetailsSection.OVERVIEW)
+    get() =
+        listOfNotNull(
+            DetailsSection.OVERVIEW,
+            DetailsSection.EPISODES.takeIf { (episodes?.count ?: episodeCount(details, null)) > 0 },
+        )

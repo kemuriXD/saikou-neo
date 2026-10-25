@@ -69,6 +69,8 @@ import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.NeoButton
+import ani.saikou.neo.tv.ui.NeoButtonRow
 import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
 import coil3.compose.AsyncImage
@@ -82,6 +84,7 @@ internal const val DETAILS_OVERVIEW_TAB_TAG = "details-tab-overview"
 internal const val DETAILS_COMPACT_TITLE_TAG = "details-compact-title"
 internal const val DETAILS_TITLE_TAG = "details-title"
 internal const val DETAILS_LOGO_TAG = "details-logo"
+internal const val DETAILS_MAIN_BUTTON_TAG = "details-main-button"
 
 // From the design: the title block starts 150 dp down and the Overview tabs rest at 420 dp, with the
 // synopsis peeking below the screen. Focus on the synopsis lifts the page so the tabs sit at 72 dp,
@@ -92,6 +95,9 @@ private val OverviewTop = 420.dp
 private val OverviewLift = 348.dp
 private val CompactTitleTop = 27.dp
 private val SynopsisBorder = 2.dp
+
+// From the design: the buttons sit a little further below the genres than the lines above sit apart.
+private val ButtonsGap = 8.dp
 
 private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
 
@@ -125,13 +131,22 @@ fun DetailsScreen(
     var lifted by rememberSaveable { mutableStateOf(false) }
     var section by rememberSaveable { mutableStateOf(DetailsSection.OVERVIEW) }
     val loaded = state as? DetailsState.Loaded
+    val mainFocus = remember { FocusRequester() }
     val tabFocus = remember { FocusRequester() }
     val synopsisFocus = remember { FocusRequester() }
-    // Focus starts on the tabs until the actions arrive (#69), and returns to the synopsis when the reader closes. The
-    // page stays composed under the reader, so the synopsis is listening when focus comes back.
+    val episodesFocus = remember { FocusRequester() }
+    // Set by the main button, for the Episodes section to take focus once it's shown.
+    var toEpisodes by remember { mutableStateOf(false) }
+    val hasEpisodes = loaded != null && DetailsSection.EPISODES in loaded.sections
+    // Focus starts on the main button, or on the tabs for a show with no episodes yet, and returns to the synopsis when
+    // the reader closes. The page stays composed under the reader, so the synopsis is listening when focus comes back.
     LaunchedEffect(loaded != null, reading) {
         if (loaded == null || reading) return@LaunchedEffect
-        if (hasRead) synopsisFocus.requestFocus() else tabFocus.requestFocus()
+        when {
+            hasRead -> synopsisFocus.requestFocus()
+            hasEpisodes -> mainFocus.requestFocus()
+            else -> tabFocus.requestFocus()
+        }
     }
     val dimensions = NeoTheme.dimensions
     val lift by animateDpAsState(
@@ -149,7 +164,22 @@ fun DetailsScreen(
 
             is DetailsState.Loaded -> {
                 Box(Modifier.fillMaxSize().offset { IntOffset(0, lift.roundToPx()) }) {
-                    Hero(state.details, state.logo, margin.padding(top = HeroTop).width(HeroWidth))
+                    Hero(
+                        details = state.details,
+                        logo = state.logo,
+                        // The main button goes to the episodes. Without any, there's nothing for it to do.
+                        onMain =
+                            if (hasEpisodes) {
+                                {
+                                    section = DetailsSection.EPISODES
+                                    toEpisodes = true
+                                }
+                            } else {
+                                null
+                            },
+                        mainFocus = mainFocus,
+                        modifier = margin.padding(top = HeroTop).width(HeroWidth),
+                    )
                     val sections = state.sections
                     DetailsSections(
                         sections = sections,
@@ -175,6 +205,17 @@ fun DetailsScreen(
                                         hasRead = true
                                     },
                                 )
+                            }
+
+                            DetailsSection.EPISODES -> {
+                                val episodes = state.episodes
+                                if (episodes != null) {
+                                    EpisodesSection(episodes, Modifier.focusRequester(episodesFocus))
+                                    LaunchedEffect(toEpisodes) {
+                                        if (toEpisodes) episodesFocus.requestFocus()
+                                        toEpisodes = false
+                                    }
+                                }
                             }
 
                             else -> {}
@@ -213,6 +254,8 @@ fun DetailsScreen(
 private fun Hero(
     details: AnimeDetails,
     logo: Logo,
+    onMain: (() -> Unit)?,
+    mainFocus: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
@@ -258,6 +301,15 @@ private fun Hero(
                 color = colors.textMuted,
                 modifier = Modifier.testTag(DETAILS_GENRES_TAG),
             )
+        }
+        onMain?.let {
+            NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
+                NeoButton(
+                    text = stringResource(R.string.details_episodes),
+                    onClick = it,
+                    modifier = Modifier.focusRequester(mainFocus).testTag(DETAILS_MAIN_BUTTON_TAG),
+                )
+            }
         }
     }
 }

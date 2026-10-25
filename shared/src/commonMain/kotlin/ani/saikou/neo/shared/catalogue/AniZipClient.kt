@@ -21,13 +21,25 @@ public class AniZipClient internal constructor(
     public constructor() : this(DefaultHttpEngine(TIMEOUT_MILLIS))
 
     /** The show's art, or null when AniZip doesn't know the show or can't be reached. */
-    public suspend fun art(anilistId: Int): AniZipArt? =
+    public suspend fun art(anilistId: Int): AniZipArt? = mappings(anilistId) { art() }
+
+    /**
+     * What AniZip knows of the show's episodes and extras, or null when it doesn't know the show or can't be reached.
+     * It comes from the same address as [art], but Details asks for it on its own, since the art is usually found
+     * earlier, while the viewer rests on the show's card.
+     */
+    public suspend fun episodes(anilistId: Int): AniZipEpisodes? = mappings(anilistId) { episodes() }
+
+    private suspend fun <T> mappings(
+        anilistId: Int,
+        read: JsonReader.() -> T,
+    ): T? =
         // The engine blocks while it waits for the network, so keep it off the main thread, as ApolloClient does.
         withContext(io) {
             try {
                 val response = engine.execute(HttpRequest.Builder(HttpMethod.Get, "$ANIZIP_URL?anilist_id=$anilistId").build())
                 val body = response.body
-                if (response.statusCode != 200 || body == null) null else body.use { it.jsonReader().art() }
+                if (response.statusCode != 200 || body == null) null else body.use { it.jsonReader().read() }
             } catch (_: ApolloException) {
                 null
             } catch (_: IOException) {

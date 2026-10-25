@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
+import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.ShowArt
@@ -31,6 +32,8 @@ public sealed interface DetailsState {
         val backdrop: String? = null,
         /** The title logo, found with the backdrop. */
         val logo: Logo = Logo.Loading,
+        /** Null until AniZip has answered, or couldn't be reached. */
+        val episodes: EpisodeList? = null,
     ) : DetailsState
 
     public data object Failed : DetailsState
@@ -40,11 +43,12 @@ public sealed interface DetailsState {
  * Loads one anime's details from AniList, and its backdrop and logo from [library] at the same time. Art found while the
  * viewer rested on the show's card is there at once; otherwise Details waits up to [ART_WAIT] for it. The title is the
  * logo only if the art came by then, so the title never swaps in front of the viewer. A backdrop found later still fades
- * in.
+ * in. The episodes come from AniZip once AniList's details are in, or as plain numbers without it.
  */
 public class DetailsViewModel(
     private val client: AniListClient,
     private val library: ArtLibrary,
+    private val aniZip: AniZipClient,
     private val animeId: Int,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
@@ -64,8 +68,15 @@ public class DetailsViewModel(
                 mutableState.value = DetailsState.Failed
                 return@launch
             }
-            val loaded = DetailsState.Loaded(result.value)
+            // The episodes can come before or after Details shows, so they're kept here as well as in the state.
+            var episodes: EpisodeList? = null
+            launch {
+                val found = episodeList(result.value, aniZip.episodes(animeId))
+                episodes = found
+                mutableState.update { (it as? DetailsState.Loaded)?.copy(episodes = found) ?: it }
+            }
             val found = withTimeoutOrNull(ART_WAIT) { art.await() }
+            val loaded = DetailsState.Loaded(result.value, episodes = episodes)
             if (found != null) {
                 mutableState.value = loaded.withArt(found)
                 return@launch

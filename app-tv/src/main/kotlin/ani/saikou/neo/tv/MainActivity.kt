@@ -26,8 +26,9 @@ import java.util.Calendar
 
 class MainActivity : ComponentActivity() {
     private val client by lazy { AniListClient() }
+    private val aniZip by lazy { AniZipClient() }
     private val library by lazy {
-        ArtLibrary(client, AniZipClient(), FanartTvClient(BuildConfig.FANART_TV_API_KEY), TmdbClient(BuildConfig.TMDB_API_KEY))
+        ArtLibrary(client, aniZip, FanartTvClient(BuildConfig.FANART_TV_API_KEY), TmdbClient(BuildConfig.TMDB_API_KEY))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -61,7 +62,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         details = { animeId ->
-                            val details = viewModel { DetailsViewModel(client, library, animeId) }
+                            val details = viewModel { DetailsViewModel(client, library, aniZip, animeId) }
                             val state by details.state.collectAsStateWithLifecycle()
                             DetailsScreen(state)
                         },
