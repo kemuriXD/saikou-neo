@@ -330,7 +330,7 @@ private fun SkeletonCards() {
         horizontalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
     ) {
         repeat(5) {
-            Skeleton(dimensions.cardWideWidth, dimensions.cardWideHeight, dimensions.radiusMd)
+            Skeleton(dimensions.cardWideWidth, dimensions.cardWideHeight, radius = dimensions.radiusMd)
         }
     }
 }
@@ -339,15 +339,15 @@ private fun SkeletonCards() {
 internal fun Skeleton(
     width: Dp,
     height: Dp,
-    radius: Dp = 6.dp,
     modifier: Modifier = Modifier,
+    radius: Dp = 6.dp,
 ) = Box(modifier.size(width, height).background(NeoTheme.colors.surfaceRaised, RoundedCornerShape(radius)))
 
 /** In the spotlight's place while the rows it comes from load. */
 @Composable
 private fun SpotlightSkeleton(modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Skeleton(300.dp, 56.dp, NeoTheme.dimensions.radiusSm)
+        Skeleton(300.dp, 56.dp, radius = NeoTheme.dimensions.radiusSm)
         Skeleton(200.dp, 16.dp)
     }
 }

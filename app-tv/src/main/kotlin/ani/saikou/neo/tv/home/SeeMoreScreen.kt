@@ -103,8 +103,8 @@ fun SeeMoreScreen(
                             Skeleton(
                                 dimensions.cardPosterWidth,
                                 dimensions.cardPosterHeight,
-                                dimensions.radiusSm,
                                 Modifier.testTag(POSTER_SKELETON_TAG),
+                                dimensions.radiusSm,
                             )
                         }
                     }
