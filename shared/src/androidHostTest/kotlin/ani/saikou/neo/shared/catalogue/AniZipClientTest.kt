@@ -52,8 +52,32 @@ class AniZipClientTest {
             assertEquals("https://artworks.thetvdb.com/banners/v4/series/377543/backgrounds/609cba7794bab.jpg", art?.fanArt)
         }
 
+    // Spirited Away: a film, so fanart.tv knows it by its TMDB id.
+    @Test
+    fun aFilmHasItsTmdbId() =
+        runTest {
+            val art = AniZipClient(AniZipEngine("mappings-movie")).art(199)
+
+            assertEquals(129, art?.movieDbId)
+            assertNull(art?.tvDbId)
+            assertNull(art?.fanArt)
+        }
+
+    // Sakamoto Days has a TMDB id too, but it's for TMDB's series, so only TheTVDB's id is kept.
+    @Test
+    fun aSeriesHasOnlyItsTheTvdbId() =
+        runTest {
+            val art = AniZipClient(AniZipEngine("mappings")).art(177709)
+
+            assertEquals(423732, art?.tvDbId)
+            assertNull(art?.movieDbId)
+        }
+
     @Test
     fun aShowAniZipDoesNotKnowHasNoArt() = runTest { assertNull(AniZipClient(AniZipEngine(null, status = 404)).art(1)) }
+
+    @Test
+    fun aDroppedConnectionMeansNoArt() = runTest { assertNull(AniZipClient(DroppedEngine).art(177709)) }
 
     @Test
     fun noConnectionMeansNoArt() = runTest { assertNull(AniZipClient(OfflineEngine).art(177709)) }

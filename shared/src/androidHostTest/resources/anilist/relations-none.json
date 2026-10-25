@@ -4,19 +4,43 @@
       "relations": {
         "edges": [
           {
+            "relationType": "CHARACTER",
+            "node": {
+              "id": 97962,
+              "type": "ANIME",
+              "format": "SPECIAL"
+            }
+          },
+          {
             "relationType": "ADAPTATION",
             "node": {
-              "id": 125828,
+              "id": 97337,
               "type": "MANGA",
               "format": "MANGA"
             }
           },
           {
-            "relationType": "SEQUEL",
+            "relationType": "SIDE_STORY",
             "node": {
-              "id": 184237,
+              "id": 97789,
+              "type": "MANGA",
+              "format": "NOVEL"
+            }
+          },
+          {
+            "relationType": "CHARACTER",
+            "node": {
+              "id": 106286,
               "type": "ANIME",
-              "format": "ONA"
+              "format": "MOVIE"
+            }
+          },
+          {
+            "relationType": "CHARACTER",
+            "node": {
+              "id": 16782,
+              "type": "ANIME",
+              "format": "MOVIE"
             }
           }
         ]

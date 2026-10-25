@@ -1,6 +1,6 @@
 # Privacy policy
 
-Last updated: 23 October 2026
+Last updated: 25 October 2026
 
 Saikou Neo doesn't run any servers and doesn't collect data about you.
 
@@ -19,6 +19,8 @@ Uninstalling the app, or clearing its data, removes all of this.
   token, under their own privacy policies:
   [AniList](https://anilist.co/terms) and
   [MyAnimeList](https://myanimelist.net/about/privacy_policy).
+- The app fetches artwork for the shows you look at from AniZip and fanart.tv.
+  They see which show it asks about, but never your token.
 - When you sign in on the TV with the companion app, your account
   is sent from the phone to the TV over your local network, encrypted. It
   doesn't go through the internet or any server of ours.

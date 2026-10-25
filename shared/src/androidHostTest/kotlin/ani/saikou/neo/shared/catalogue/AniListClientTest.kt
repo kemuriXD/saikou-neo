@@ -105,9 +105,24 @@ class AniListClientTest {
     fun aSequelFollowsItsEarlierSeason() =
         runTest { assertEquals(listOf(186497), clientFor(RecordedEngine("relations-prequel")).relatedSeries(213805).success()) }
 
+    // Attack on Titan Season 2 follows season 1 and is followed by season 3. The earlier season comes first.
+    @Test
+    fun anEarlierSeasonComesBeforeALaterOne() =
+        runTest { assertEquals(listOf(16498, 99147), clientFor(RecordedEngine("relations-sequel")).relatedSeries(20958).success()) }
+
+    // Sakamoto Days has no parent or earlier season, so its second season is next.
+    @Test
+    fun aFirstSeasonFallsBackToItsSequel() =
+        runTest { assertEquals(listOf(184237), clientFor(RecordedEngine("relations-first-season")).relatedSeries(177709).success()) }
+
+    // THE ONE PIECE is a new version of ONE PIECE, with no parent or earlier season.
+    @Test
+    fun aNewVersionFallsBackToTheOriginal() =
+        runTest { assertEquals(listOf(21), clientFor(RecordedEngine("relations-alternative")).relatedSeries(171630).success()) }
+
     @Test
     fun aShowWithoutRelatedSeriesHasNone() =
-        runTest { assertEquals(emptyList(), clientFor(RecordedEngine("relations-none")).relatedSeries(177709).success()) }
+        runTest { assertEquals(emptyList(), clientFor(RecordedEngine("relations-none")).relatedSeries(21519).success()) }
 
     @Test
     fun detailsMapsTheRecordedAnime() =

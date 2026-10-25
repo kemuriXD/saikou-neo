@@ -9,6 +9,9 @@ import com.apollographql.apollo.network.http.HttpEngine
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.awaitCancellation
 import okio.Buffer
+import okio.IOException
+import okio.Source
+import okio.buffer
 import java.util.Collections
 
 /** Answers every request with a recorded AniList response from `resources/anilist`. */
@@ -72,6 +75,25 @@ internal fun clientFor(
 /** Fails every request the way Apollo reports a dropped connection. */
 internal object OfflineEngine : HttpEngine {
     override suspend fun execute(request: HttpRequest): HttpResponse = throw ApolloNetworkException("Unable to resolve host")
+
+    override fun close() {}
+}
+
+/** Starts to answer, then drops the connection while the body is read. */
+internal object DroppedEngine : HttpEngine {
+    override suspend fun execute(request: HttpRequest): HttpResponse {
+        val dropping =
+            object : Source by Buffer() {
+                override fun read(
+                    sink: Buffer,
+                    byteCount: Long,
+                ): Long = throw IOException("Connection reset")
+            }
+        return HttpResponse
+            .Builder(200)
+            .body(dropping.buffer())
+            .build()
+    }
 
     override fun close() {}
 }

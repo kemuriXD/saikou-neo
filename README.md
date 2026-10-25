@@ -43,6 +43,12 @@ The first public release is **v0.1.0**.
 Two Android apps, one for the TV and one for the phone, share a Kotlin
 Multiplatform core. Video sources come from separately installed extensions.
 
+## Credits
+
+Anime information comes from [AniList](https://anilist.co). Logos and fan art
+come from [AniZip](https://ani.zip) and [TheTVDB](https://thetvdb.com), and
+backgrounds for films and newer shows from [fanart.tv](https://fanart.tv).
+
 ## Contributing
 
 See [CONTRIBUTING.md](CONTRIBUTING.md).
