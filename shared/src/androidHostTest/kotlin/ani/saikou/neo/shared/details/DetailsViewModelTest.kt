@@ -100,11 +100,11 @@ class DetailsViewModelTest {
     fun withoutFanArtTheBackdropIsItsSeriesFanArt() =
         runTest(main) {
             val engine = QueryEngine("details", mapOf("AnimeRelations" to "relations"))
-            val aniZip = AniZipClient(AniZipEngine("mappings-unknown", byId = mapOf(21175 to "mappings-parent")), main)
+            val aniZip = AniZipClient(AniZipEngine("mappings-unknown", byId = mapOf(21175 to "mappings-second-season")), main)
             val viewModel = detailsViewModel(engine, aniZip)
 
             val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.backdrop != null } as DetailsState.Loaded
-            assertEquals("https://artworks.thetvdb.com/banners/fanart/original/295068-1.jpg", loaded.backdrop)
+            assertEquals("https://artworks.thetvdb.com/banners/v4/series/377543/backgrounds/609cba7794bab.jpg", loaded.backdrop)
         }
 
     @Test

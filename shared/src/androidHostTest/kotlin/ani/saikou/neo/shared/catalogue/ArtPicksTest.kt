@@ -61,4 +61,46 @@ class ArtPicksTest {
     fun noLogosMeansNone() {
         assertNull(pickLogo(emptyList()))
     }
+
+    private fun backdrop(
+        name: String,
+        language: String? = null,
+        width: Int = 1920,
+        height: Int = 1080,
+    ) = ArtImage("https://art.test/$name.jpg", width, height, language)
+
+    @Test
+    fun aBackdropIsTheMostLikedFullHdOne() {
+        assertEquals(backdrop("hd"), pickBackdrop(listOf(backdrop("hd"), backdrop("4k", width = 3840, height = 2160))))
+    }
+
+    @Test
+    fun aBackdropUnderFullHdIsNotUsed() {
+        val small = listOf(backdrop("720", width = 1280, height = 720), backdrop("short", height = 1079), backdrop("narrow", width = 1919))
+
+        assertNull(pickBackdrop(small))
+        assertEquals(backdrop("hd"), pickBackdrop(small + backdrop("hd")))
+    }
+
+    // TMDB files backdrops with the title written on them under a language.
+    @Test
+    fun aBackdropWithWordsIsNotUsed() {
+        assertEquals(backdrop("plain"), pickBackdrop(listOf(backdrop("titled", "en"), backdrop("plain"))))
+        assertNull(pickBackdrop(listOf(backdrop("titled", "ja"))))
+    }
+
+    // Every one of TheTVDB's newer backgrounds was 1920 × 1080 in a survey of 209 shows. Its old fan art is often 1280 × 720.
+    @Test
+    fun onlyTheTvdbBackgroundsCountAsFullHdFanArt() {
+        assertEquals(
+            "https://artworks.thetvdb.com/banners/v4/series/81797/backgrounds/616009a8bd688.jpg",
+            fullHdFanArt("https://artworks.thetvdb.com/banners/v4/series/81797/backgrounds/616009a8bd688.jpg"),
+        )
+        assertEquals(
+            "https://artworks.thetvdb.com/banners/series/81797/backgrounds/5f1c1fd2e7a8b.jpg",
+            fullHdFanArt("https://artworks.thetvdb.com/banners/series/81797/backgrounds/5f1c1fd2e7a8b.jpg"),
+        )
+        assertNull(fullHdFanArt("https://artworks.thetvdb.com/banners/fanart/original/74796-1.jpg"))
+        assertNull(fullHdFanArt(null))
+    }
 }

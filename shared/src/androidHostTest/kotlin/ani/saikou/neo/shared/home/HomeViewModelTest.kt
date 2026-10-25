@@ -169,11 +169,14 @@ class HomeViewModelTest {
     @Test
     fun aShowWithoutFanArtIsShownOverItsSeriesFanArt() =
         runTest(main) {
-            val aniZip = AniZipClient(AniZipEngine("mappings-unknown", byId = mapOf(21175 to "mappings-parent")), main)
+            val aniZip = AniZipClient(AniZipEngine("mappings-unknown", byId = mapOf(21175 to "mappings-second-season")), main)
             val viewModel = homeViewModel(aniZip = aniZip)
 
             val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
-            assertEquals("https://artworks.thetvdb.com/banners/fanart/original/295068-1.jpg", spotlight.backdrop(spotlight.show))
+            assertEquals(
+                "https://artworks.thetvdb.com/banners/v4/series/377543/backgrounds/609cba7794bab.jpg",
+                spotlight.backdrop(spotlight.show),
+            )
         }
 
     @Test

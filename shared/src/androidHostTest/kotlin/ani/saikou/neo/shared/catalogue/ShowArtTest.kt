@@ -9,7 +9,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ShowArtTest {
-    private val dragonBallSuperFanArt = "https://artworks.thetvdb.com/banners/fanart/original/295068-1.jpg"
+    private val onePieceFanArt = "https://artworks.thetvdb.com/banners/v4/series/81797/backgrounds/616009a8bd688.jpg"
     private val noTmdb = TmdbEngine(status = 404) { "not-found" }
     private val noFanartTv = FanartTvEngine("not-found", status = 404)
 
@@ -114,8 +114,45 @@ class ShowArtTest {
 
             assertEquals(Logo.Image("https://assets.fanart.tv/fanart/sakamoto-days-66866dc54d0e7.png"), art.logo)
             assertEquals("https://webservice.fanart.tv/v3.2/tv/295068", fanartTv.requests.single().url)
-            assertEquals(dragonBallSuperFanArt, art.backdrop)
+            // Its series' backdrop too: TheTVDB's is old 1280 × 720 fan art, so fanart.tv's.
+            assertEquals("https://assets.fanart.tv/fanart/sakamoto-days-66866dfcc9fd5.jpg", art.backdrop)
         }
+
+    @Test
+    fun aBackdropComesFromTmdbFirst() =
+        runTest {
+            val art =
+                showArt(
+                    sources(
+                        AniZipEngine("mappings-one-piece"),
+                        fanartTv = FanartTvEngine("tv"),
+                        tmdb =
+                            TmdbEngine {
+                                "tv-images"
+                            },
+                    ),
+                    card(21, "One Piece"),
+                )
+
+            assertEquals("https://image.tmdb.org/t/p/original/v38qp4bySLTXYu3MF8r5GD51FN3.jpg", art.backdrop)
+        }
+
+    @Test
+    fun withoutATmdbBackdropItIsFanartTvs() =
+        runTest {
+            val art = showArt(sources(AniZipEngine("mappings-one-piece"), fanartTv = FanartTvEngine("tv")), card(21, "One Piece"))
+
+            assertEquals("https://assets.fanart.tv/fanart/sakamoto-days-66866dfcc9fd5.jpg", art.backdrop)
+        }
+
+    @Test
+    fun thenAniZipsFanArt() =
+        runTest { assertEquals(onePieceFanArt, showArt(sources(AniZipEngine("mappings-one-piece")), card(21, "One Piece")).backdrop) }
+
+    // The End of Evangelion's AniZip fan art is TheTVDB's old kind, which is often 1280 × 720.
+    @Test
+    fun oldTheTvdbFanArtIsNotUsed() =
+        runTest { assertNull(showArt(sources(AniZipEngine("mappings-film-series-id")), card(32, "The End of Evangelion")).backdrop) }
 
     @Test
     fun aShowWithFanArtNeedsNoSeries() =

@@ -38,10 +38,11 @@ internal suspend fun showArt(
 ): ShowArt = showArt(sources, card.id) { card }
 
 /**
- * [animeId]'s art. Its logo is TMDB's, else fanart.tv's. AniZip tells TMDB and fanart.tv which show it is, and a film
- * is looked up on TMDB by its IMDb id, or by the title and year on its [card], which is only asked for when needed. A
- * show without ids of its own, such as a season too new for AniZip, takes the logo of the series AniList says it
- * belongs to, follows or comes from. A show without a backdrop of its own borrows the series' too.
+ * [animeId]'s art. Its logo is TMDB's, else fanart.tv's, and its backdrop is TMDB's, fanart.tv's or AniZip's, full HD
+ * or more. AniZip tells TMDB and fanart.tv which show it is, and a film is looked up on TMDB by its IMDb id, or by the
+ * title and year on its [card], which is only asked for when needed. A show without ids of its own, such as a season
+ * too new for AniZip, takes the logo of the series AniList says it belongs to, follows or comes from. A show without a
+ * backdrop of its own borrows the series' too. Callers fall back to AniList's banner or cover.
  */
 internal suspend fun showArt(
     sources: ArtSources,
@@ -91,12 +92,9 @@ private suspend fun ArtSources.picks(
         val tmdbImages = async { ids.tmdb?.let { tmdb.images(it) } }
         val fanartTvArt = async { ids.fanartTv?.let { fanartTv.art(it) } }
         val logo = pickLogo(tmdbImages.await()?.logos.orEmpty()) ?: pickLogo(fanartTvArt.await()?.logos.orEmpty())
-        Picks(
-            logo,
-            aniZip?.fanArt ?: fanartTvArt
-                .await()
-                ?.backgrounds
-                ?.firstOrNull()
-                ?.url,
-        )
+        val backdrop =
+            pickBackdrop(tmdbImages.await()?.backdrops.orEmpty())?.url
+                ?: pickBackdrop(fanartTvArt.await()?.backgrounds.orEmpty())?.url
+                ?: fullHdFanArt(aniZip?.fanArt)
+        Picks(logo, backdrop)
     }

@@ -17,3 +17,16 @@ internal fun pickLogo(logos: List<ArtImage>): ArtImage? {
         }
     return usable.firstOrNull { it.language == "en" } ?: usable.firstOrNull { it.language in noLanguage } ?: usable.firstOrNull()
 }
+
+private const val FULL_HD_WIDTH = 1920
+private const val FULL_HD_HEIGHT = 1080
+
+/** The most liked backdrop in [backdrops] that's full HD or more, with no words on it. */
+internal fun pickBackdrop(backdrops: List<ArtImage>): ArtImage? =
+    backdrops.firstOrNull { it.width >= FULL_HD_WIDTH && it.height >= FULL_HD_HEIGHT && it.language in noLanguage }
+
+/**
+ * AniZip's [fanArt] when it's one of TheTVDB's newer backgrounds, which were all 1920 × 1080 in a survey of 209 shows.
+ * AniZip doesn't say how big its art is, and TheTVDB's old fan art is often 1280 × 720.
+ */
+internal fun fullHdFanArt(fanArt: String?): String? = fanArt?.takeIf { "/backgrounds/" in it }
