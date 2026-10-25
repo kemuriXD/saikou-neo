@@ -61,6 +61,7 @@ import ani.saikou.neo.tv.theme.KeylineScrolling
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoIcons
+import ani.saikou.neo.tv.ui.logoRequest
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext

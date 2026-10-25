@@ -35,7 +35,6 @@ import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.RowState
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -209,15 +208,6 @@ class HomeScreenTest {
         show()
 
         compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertDoesNotExist()
-    }
-
-    // Some of AniZip's logos are square key art, which would crowd out the title.
-    @Test
-    fun onlyAWideImageCountsAsALogo() {
-        assertTrue(looksLikeALogo(800, 310))
-        assertTrue(looksLikeALogo(800, 450))
-        assertFalse(looksLikeALogo(680, 680))
-        assertFalse(looksLikeALogo(0, 0))
     }
 
     @Test

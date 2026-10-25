@@ -9,6 +9,7 @@ import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
 import ani.saikou.neo.shared.catalogue.SilentEngine
 import ani.saikou.neo.shared.catalogue.clientFor
+import ani.saikou.neo.shared.home.Logo
 import com.apollographql.apollo.network.http.HttpEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -124,6 +125,43 @@ class DetailsViewModelTest {
             assertEquals(loaded.details.card.bannerImageUrl, loaded.backdrop)
         }
 
+    @Test
+    fun theTitleIsTheShowsLogo() =
+        runTest(main) {
+            val viewModel = detailsViewModel()
+
+            val loaded = viewModel.withLogo()
+            assertEquals(Logo.Image("https://artworks.thetvdb.com/banners/v4/series/423732/icons/6687c76dcbad1.png"), loaded.logo)
+            // The logo comes in the same AniZip answer as the fan art.
+            assertEquals("https://api.ani.zip/mappings?anilist_id=195516", aniZipEngine.urls.single())
+        }
+
+    @Test
+    fun withoutALogoTheTitleStaysText() =
+        runTest(main) {
+            val viewModel = detailsViewModel(aniZip = AniZipClient(AniZipEngine("mappings-no-logo"), main))
+
+            val loaded = viewModel.withLogo()
+            assertEquals(Logo.None, loaded.logo)
+        }
+
+    @Test
+    fun withoutAniZipTheTitleStaysText() =
+        runTest(main) {
+            val viewModel = detailsViewModel(aniZip = AniZipClient(OfflineEngine, main))
+
+            val loaded = viewModel.withLogo()
+            assertEquals(Logo.None, loaded.logo)
+        }
+
+    @Test
+    fun theLogoWaitsForAniZip() =
+        runTest(main) {
+            val viewModel = detailsViewModel(aniZip = AniZipClient(SilentEngine, main))
+
+            assertEquals(Logo.Loading, assertIs<DetailsState.Loaded>(viewModel.settled()).logo)
+        }
+
     // So the art fades in once, rather than AniList's first and then the fan art.
     @Test
     fun theBackdropWaitsForAniZip() =
@@ -136,3 +174,9 @@ class DetailsViewModelTest {
 
 /** Waits until loading ends. */
 private suspend fun DetailsViewModel.settled() = state.first { it != DetailsState.Loading }
+
+/** Waits until AniZip has answered. */
+private suspend fun DetailsViewModel.withLogo() =
+    state.first {
+        it is DetailsState.Loaded && it.logo != Logo.Loading
+    } as DetailsState.Loaded

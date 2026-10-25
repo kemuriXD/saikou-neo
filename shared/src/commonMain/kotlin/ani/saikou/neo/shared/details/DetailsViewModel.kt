@@ -4,11 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
+import ani.saikou.neo.shared.catalogue.AniZipArt
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.FanartTvClient
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.catalogue.showArt
+import ani.saikou.neo.shared.home.Logo
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -24,12 +26,14 @@ public sealed interface DetailsState {
         val synopsis: Synopsis = parseSynopsis(details.description),
         /** The show's fan art, or AniList's art without any. Null until AniZip answers, so it fades in once. */
         val backdrop: String? = null,
+        /** The title logo, from the same AniZip answer as the backdrop. */
+        val logo: Logo = Logo.Loading,
     ) : DetailsState
 
     public data object Failed : DetailsState
 }
 
-/** Loads one anime's details from AniList, and its fan art from [aniZip] or [fanartTv] at the same time. */
+/** Loads one anime's details from AniList, and its fan art and logo from [aniZip] or [fanartTv] at the same time. */
 public class DetailsViewModel(
     private val client: AniListClient,
     private val aniZip: AniZipClient,
@@ -40,22 +44,25 @@ public class DetailsViewModel(
     public val state: StateFlow<DetailsState> = mutableState.asStateFlow()
 
     init {
-        val fanArt = viewModelScope.async { showArt(client, aniZip, fanartTv, animeId)?.fanArt }
+        val art = viewModelScope.async { showArt(client, aniZip, fanartTv, animeId) }
         viewModelScope.launch {
             val result = client.details(animeId)
             if (result !is AniListResult.Success) {
-                fanArt.cancel()
+                art.cancel()
                 mutableState.value = DetailsState.Failed
                 return@launch
             }
             val details = result.value
-            if (fanArt.isCompleted) {
-                mutableState.value = DetailsState.Loaded(details, backdrop = fanArt.await() ?: details.card.art)
+            if (art.isCompleted) {
+                mutableState.value = DetailsState.Loaded(details).withArt(art.await())
                 return@launch
             }
             mutableState.value = DetailsState.Loaded(details)
-            val backdrop = fanArt.await() ?: details.card.art
-            mutableState.update { (it as DetailsState.Loaded).copy(backdrop = backdrop) }
+            val shown = art.await()
+            mutableState.update { (it as DetailsState.Loaded).withArt(shown) }
         }
     }
 }
+
+private fun DetailsState.Loaded.withArt(art: AniZipArt?) =
+    copy(backdrop = art?.fanArt ?: details.card.art, logo = art?.logo?.let(Logo::Image) ?: Logo.None)
