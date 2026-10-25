@@ -76,6 +76,9 @@ private const val OTHER_DOT_ALPHA = 0.45f
 private const val SYNOPSIS_ALPHA = 0.78f
 
 private const val SYNOPSIS_LINES = 3
+
+// Logos are preloaded with the shows' art, but a slow one gets this long before the title shows in words instead.
+private const val LOGO_WAIT_MILLIS = 1_000L
 private const val TITLE_LINES = 2
 
 // Whole lines, so the title and story are exactly as tall as their lines.
@@ -150,6 +153,7 @@ private fun SpotlightTitle(
         title = title,
         logo = logo,
         logoTag = SPOTLIGHT_LOGO_TAG,
+        waitMillis = LOGO_WAIT_MILLIS,
         // Logos are preloaded, so an empty box keeps the place for one that's on its way.
         placeholder = { Box(Modifier.size(LogoWidth, LogoHeight)) },
     ) {

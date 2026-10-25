@@ -35,6 +35,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -98,6 +99,9 @@ private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHei
 private val SynopsisWidth = 520.dp
 private const val SYNOPSIS_PREVIEW_LINES = 3
 private const val SYNOPSIS_FOCUS_SCALE = 1.025f
+
+// The logo was preloaded while the viewer rested on the show's card. Not in memory by now, it stays words for the visit.
+private const val LOGO_WAIT_MILLIS = 150L
 
 private val seasonNames =
     mapOf(
@@ -203,7 +207,7 @@ private fun Hero(
             Text(text = overline.uppercase(), style = NeoTheme.typography.overline, color = colors.pink)
         }
         val title = card.displayTitle()
-        // The title in words until the logo is ready, so the top never sits empty.
+        // The title in words, unseen while the logo loads so it holds the logo's place.
         val words: @Composable () -> Unit = {
             Text(
                 text = title,
@@ -214,7 +218,7 @@ private fun Hero(
                 modifier = Modifier.testTag(DETAILS_TITLE_TAG),
             )
         }
-        ShowTitle(title, logo, DETAILS_LOGO_TAG, placeholder = words, text = words)
+        ShowTitle(title, logo, DETAILS_LOGO_TAG, LOGO_WAIT_MILLIS, placeholder = { Box(Modifier.alpha(0f)) { words() } }, text = words)
         val meta = details.meta()
         if (meta.isNotEmpty()) {
             Text(text = meta, style = NeoTheme.typography.label, color = colors.textMuted, modifier = Modifier.testTag(DETAILS_META_TAG))

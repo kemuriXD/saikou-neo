@@ -32,6 +32,7 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
+import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.HomeState
 import ani.saikou.neo.shared.home.Logo
@@ -39,8 +40,10 @@ import ani.saikou.neo.shared.home.RowState
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.fakeImages
 import ani.saikou.neo.tv.ui.forgetFakeImages
+import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -139,6 +142,7 @@ class HomeScreenTest {
 
     @Test
     fun theTitleIsTheLogoWhenThereIsOne() {
+        fakeImages(compose.activity, 800, 310)
         val spotlight = loaded.spotlight!!
         show(loaded.copy(spotlight = spotlight.copy(logos = mapOf(0 to Logo.Image("https://logos.test/logo.png")))))
 
@@ -172,6 +176,46 @@ class HomeScreenTest {
         show()
 
         assertGapUnder(SPOTLIGHT_TITLE_TAG)
+    }
+
+    // A logo still on its way after a second leaves the title in words until the next show, so it never swaps in.
+    @Test
+    fun aLogoThatIsSlowToLoadLeavesTheTitleInWords() {
+        val ready = CompletableDeferred<Unit>()
+        fakeImages(compose.activity, 800, 310, ready = ready)
+        showWithLogo()
+
+        compose.mainClock.advanceTimeBy(1_100)
+        compose.onNodeWithTag(SPOTLIGHT_TITLE_TAG).assertTextEquals("Show 0")
+        ready.complete(Unit)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(SPOTLIGHT_LOGO_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(SPOTLIGHT_TITLE_TAG).assertTextEquals("Show 0")
+    }
+
+    @Test
+    fun focusSaysWhichCardItIsOn() {
+        val rested = mutableListOf<AnimeCard?>()
+        compose.setContent { NeoTheme { HomeScreen(loaded, onRest = { rested += it }) } }
+
+        enterRows()
+        press(Key.DirectionRight)
+
+        assertEquals(listOf(0, 1), rested.filterNotNull().map { it.id })
+        // Back up to the spotlight, focus is on no card.
+        press(Key.DirectionUp, times = 2)
+        assertNull(rested.last())
+    }
+
+    // So Details opens with the logo already loaded.
+    @Test
+    fun theLogoOfTheCardFocusRestsOnStartsLoading() {
+        val asked = fakeImages(compose.activity, 800, 310)
+
+        show(loaded.copy(restingLogo = Logo.Image("https://logos.test/rested.png")))
+
+        compose.waitUntil { "https://logos.test/rested.png" in asked }
     }
 
     private fun showWithLogo() {

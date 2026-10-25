@@ -11,21 +11,27 @@ import coil3.decode.DataSource
 import coil3.intercept.Interceptor
 import coil3.request.ImageResult
 import coil3.request.SuccessResult
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.awaitCancellation
+import java.util.Collections
 
 /**
- * Every image loads at once as a [width] × [height] bitmap, clear unless it's filled with [color]. Interceptors answer
- * before transformations, so logos aren't trimmed. Call [forgetFakeImages] after each test.
+ * Every image loads as a [width] × [height] bitmap, clear unless it's filled with [color], once [ready] completes.
+ * Interceptors answer before transformations, so logos aren't trimmed. Returns what each request asked for. Call
+ * [forgetFakeImages] after each test.
  */
 internal fun fakeImages(
     context: Context,
     width: Int,
     height: Int,
     color: Int = Color.TRANSPARENT,
-) = useImages(context) { chain ->
-    val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
-    SuccessResult(bitmap.asImage(), chain.request, DataSource.MEMORY)
-}
+    ready: Deferred<Unit>? = null,
+): List<Any> =
+    useImages(context) { chain ->
+        ready?.await()
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
+        SuccessResult(bitmap.asImage(), chain.request, DataSource.MEMORY)
+    }
 
 /** No image ever arrives. */
 internal fun fakeImagesNeverArrive(context: Context) = useImages(context) { awaitCancellation() }
@@ -37,10 +43,15 @@ internal fun forgetFakeImages() = SingletonImageLoader.reset()
 private fun useImages(
     context: Context,
     answer: suspend (Interceptor.Chain) -> ImageResult,
-) {
+): List<Any> {
+    val asked = Collections.synchronizedList(mutableListOf<Any>())
     val interceptor =
         object : Interceptor {
-            override suspend fun intercept(chain: Interceptor.Chain) = answer(chain)
+            override suspend fun intercept(chain: Interceptor.Chain): ImageResult {
+                asked += chain.request.data
+                return answer(chain)
+            }
         }
     SingletonImageLoader.setUnsafe(ImageLoader.Builder(context).components { add(interceptor) }.build())
+    return asked
 }

@@ -6,6 +6,7 @@ import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.ArtLibrary
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,11 +28,14 @@ public enum class More {
 public data class SeeMoreState(
     val items: List<AnimeCard> = emptyList(),
     val more: More = More.Loading,
+    /** The logo of the poster focus rests on, once found, for the screen to start loading. */
+    val restingLogo: Logo.Image? = null,
 )
 
 /** All of one Home row, a page at a time. This season is [season] of [year]. */
 public class SeeMoreViewModel(
     private val client: AniListClient,
+    private val library: ArtLibrary,
     private val row: HomeRow,
     private val season: AnimeSeason,
     private val year: Int,
@@ -39,6 +43,7 @@ public class SeeMoreViewModel(
     private val mutableState = MutableStateFlow(SeeMoreState())
     public val state: StateFlow<SeeMoreState> = mutableState.asStateFlow()
     private var loadedPages = 0
+    private val resting = Resting(viewModelScope, library) { logo -> mutableState.update { it.copy(restingLogo = logo) } }
 
     init {
         load()
@@ -47,6 +52,11 @@ public class SeeMoreViewModel(
     /** Loads the next page, unless one is on its way, the last one failed or there are none left. */
     public fun loadMore() {
         if (state.value.more == More.Ready) load()
+    }
+
+    /** Call with the poster focus moves to. Resting on one finds its art. */
+    public fun rest(card: AnimeCard?) {
+        resting.on(card)
     }
 
     /** Loads the page that failed again. */

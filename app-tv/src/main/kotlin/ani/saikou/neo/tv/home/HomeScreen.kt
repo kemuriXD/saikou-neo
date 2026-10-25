@@ -51,6 +51,7 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.HomeState
 import ani.saikou.neo.shared.home.Logo
@@ -61,6 +62,7 @@ import ani.saikou.neo.tv.theme.KeylineScrolling
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoIcons
+import ani.saikou.neo.tv.ui.PreloadLogo
 import ani.saikou.neo.tv.ui.logoRequest
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
@@ -131,7 +133,7 @@ private data class CardKey(
 /**
  * Home: a spotlight on featured shows, over rows of anime that browse left and right. Selecting a show calls [onOpen];
  * the spotlight's dots call [onPick], and the button at the end of each row calls [onSeeMore]. [onSpotlightInView] says whether the spotlight is showing, so it only moves on
- * while seen.
+ * while seen. [onRest] gets the card focus is on, or null off the cards, so resting on one can find its art.
  */
 @Composable
 fun HomeScreen(
@@ -141,6 +143,7 @@ fun HomeScreen(
     onPick: (index: Int) -> Unit = {},
     onSpotlightInView: (inView: Boolean) -> Unit = {},
     onSeeMore: (row: HomeRow) -> Unit = {},
+    onRest: (card: AnimeCard?) -> Unit = {},
 ) {
     // The card with focus, or null while the spotlight has it.
     var focused by rememberSaveable { mutableStateOf<CardKey?>(null) }
@@ -194,6 +197,7 @@ fun HomeScreen(
                 if (it.hasFocus) {
                     focused = null
                     hasFocus = true
+                    onRest(null)
                 }
             },
         ) {
@@ -205,6 +209,7 @@ fun HomeScreen(
                 SpotlightSkeleton(place)
             } else {
                 PreloadSpotlight(spotlight)
+                PreloadLogo(state.restingLogo)
                 SpotlightShow(spotlight, play, dots, onOpen, place.then(hide))
                 SpotlightDots(spotlight, dots, play, onPick, Modifier.align(Alignment.TopCenter).padding(top = DotsTop).then(hide))
             }
@@ -234,6 +239,7 @@ fun HomeScreen(
                                 focused = CardKey(row, animeId, index)
                                 lastCards[row] = animeId
                                 hasFocus = true
+                                onRest((rowState as? RowState.Loaded)?.items?.firstOrNull { it.id == animeId })
                             },
                         )
                     }

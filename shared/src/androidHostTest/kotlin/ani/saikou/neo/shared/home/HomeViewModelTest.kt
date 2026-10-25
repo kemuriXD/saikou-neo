@@ -3,23 +3,28 @@ package ani.saikou.neo.shared.home
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.ArtLibrary
+import ani.saikou.neo.shared.catalogue.ArtSources
 import ani.saikou.neo.shared.catalogue.FanartTvClient
 import ani.saikou.neo.shared.catalogue.FanartTvEngine
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
 import ani.saikou.neo.shared.catalogue.SilentEngine
 import ani.saikou.neo.shared.catalogue.TmdbClient
+import ani.saikou.neo.shared.catalogue.card
 import ani.saikou.neo.shared.catalogue.clientFor
 import com.apollographql.apollo.api.http.HttpRequest
 import com.apollographql.apollo.api.http.HttpResponse
 import com.apollographql.apollo.exception.ApolloNetworkException
 import com.apollographql.apollo.network.http.HttpEngine
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -31,6 +36,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
@@ -43,14 +49,18 @@ class HomeViewModelTest {
     fun resetMain() = Dispatchers.resetMain()
 
     // On the test's dispatcher, so no logo is still on its way once a test ends.
-    private val aniZip = AniZipClient(AniZipEngine("mappings"), main)
+    private val aniZipEngine = AniZipEngine("mappings")
+    private val aniZip = AniZipClient(aniZipEngine, main)
 
     private fun homeViewModel(
         engine: HttpEngine = HomeEngine(),
         aniZip: AniZipClient = this.aniZip,
         fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
         tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
-    ) = HomeViewModel(clientFor(engine, main), aniZip, fanartTv, tmdb, AnimeSeason.FALL, 2026)
+    ): HomeViewModel {
+        val client = clientFor(engine, main)
+        return HomeViewModel(client, ArtLibrary(ArtSources(client, aniZip, fanartTv, tmdb), CoroutineScope(main)), AnimeSeason.FALL, 2026)
+    }
 
     @Test
     fun startsWithEveryRowLoading() {
@@ -73,11 +83,13 @@ class HomeViewModelTest {
     fun thisSeasonAsksForTheGivenSeason() =
         runTest(main) {
             val engine = RecordedEngine("browse-trending")
+            val client = clientFor(engine, main)
             HomeViewModel(
-                clientFor(engine, main),
-                aniZip,
-                FanartTvClient(null, OfflineEngine, main),
-                TmdbClient(null, OfflineEngine, main),
+                client,
+                ArtLibrary(
+                    ArtSources(client, aniZip, FanartTvClient(null, OfflineEngine, main), TmdbClient(null, OfflineEngine, main)),
+                    CoroutineScope(main),
+                ),
                 AnimeSeason.SPRING,
                 2027,
             ).settledRows()
@@ -198,6 +210,54 @@ class HomeViewModelTest {
             val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
             assertEquals(spotlight.show.bannerImageUrl, spotlight.backdrop(spotlight.show))
             assertTrue(spotlight.show.bannerImageUrl!!.startsWith("https://s4.anilist.co/"))
+        }
+
+    @Test
+    fun restingOnACardFindsItsArt() =
+        runTest(main) {
+            val viewModel = homeViewModel(fanartTv = FanartTvClient("test-project-key", FanartTvEngine("tv"), main))
+            viewModel.settledRows()
+
+            viewModel.rest(card(424242, "Rested on"))
+            advanceTimeBy(REST - 1.milliseconds)
+            assertTrue(aniZipEngine.urls.none { "=424242" in it })
+
+            assertEquals(
+                Logo.Image("https://assets.fanart.tv/fanart/sakamoto-days-66866dc54d0e7.png"),
+                viewModel.state
+                    .first {
+                        it.restingLogo !=
+                            null
+                    }.restingLogo,
+            )
+            assertEquals(1, aniZipEngine.urls.count { "=424242" in it })
+        }
+
+    @Test
+    fun cardsFocusPassesOverAreNotAskedAbout() =
+        runTest(main) {
+            val viewModel = homeViewModel()
+            viewModel.settledRows()
+
+            viewModel.rest(card(424242, "Passed over"))
+            advanceTimeBy(REST / 2)
+            viewModel.rest(card(434343, "Rested on"))
+            advanceUntilIdle()
+
+            assertTrue(aniZipEngine.urls.none { "=424242" in it })
+            assertEquals(1, aniZipEngine.urls.count { "=434343" in it })
+        }
+
+    @Test
+    fun leavingTheRowsForgetsTheRestedLogo() =
+        runTest(main) {
+            val viewModel = homeViewModel(fanartTv = FanartTvClient("test-project-key", FanartTvEngine("tv"), main))
+            viewModel.rest(card(424242, "Rested on"))
+            viewModel.state.first { it.restingLogo != null }
+
+            viewModel.rest(null)
+
+            assertNull(viewModel.state.value.restingLogo)
         }
 
     @Test

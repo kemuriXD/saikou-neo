@@ -2,6 +2,8 @@ package ani.saikou.neo.shared.details
 
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
+import ani.saikou.neo.shared.catalogue.ArtLibrary
+import ani.saikou.neo.shared.catalogue.ArtSources
 import ani.saikou.neo.shared.catalogue.FanartTvClient
 import ani.saikou.neo.shared.catalogue.FanartTvEngine
 import ani.saikou.neo.shared.catalogue.OfflineEngine
@@ -9,9 +11,14 @@ import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
 import ani.saikou.neo.shared.catalogue.SilentEngine
 import ani.saikou.neo.shared.catalogue.TmdbClient
+import ani.saikou.neo.shared.catalogue.card
 import ani.saikou.neo.shared.catalogue.clientFor
 import ani.saikou.neo.shared.home.Logo
+import com.apollographql.apollo.api.http.HttpRequest
+import com.apollographql.apollo.api.http.HttpResponse
 import com.apollographql.apollo.network.http.HttpEngine
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -47,7 +54,15 @@ class DetailsViewModelTest {
         aniZip: AniZipClient = this.aniZip,
         fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
         tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
-    ) = DetailsViewModel(clientFor(engine, main), aniZip, fanartTv, tmdb, animeId = 195516)
+        library: ArtLibrary = library(engine, aniZip, fanartTv, tmdb),
+    ) = DetailsViewModel(clientFor(engine, main), library, animeId = 195516)
+
+    private fun library(
+        engine: HttpEngine = RecordedEngine("details"),
+        aniZip: AniZipClient = this.aniZip,
+        fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
+        tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
+    ) = ArtLibrary(ArtSources(clientFor(engine, main), aniZip, fanartTv, tmdb), CoroutineScope(main))
 
     @Test
     fun startsLoading() {
@@ -130,11 +145,13 @@ class DetailsViewModelTest {
     @Test
     fun theTitleIsTheShowsLogo() =
         runTest(main) {
-            val viewModel = detailsViewModel(fanartTv = FanartTvClient("test-project-key", FanartTvEngine("tv"), main))
+            // Found while the viewer rested on its card.
+            val library = library(fanartTv = FanartTvClient("test-project-key", FanartTvEngine("tv"), main))
+            library.art(card(195516, "The Apothecary Diaries"))
 
-            val loaded = viewModel.withLogo()
+            val loaded = assertIs<DetailsState.Loaded>(detailsViewModel(library = library).settled())
             assertEquals(Logo.Image("https://assets.fanart.tv/fanart/sakamoto-days-66866dc54d0e7.png"), loaded.logo)
-            // AniZip is asked once, for the ids and fan art together.
+            // The art the app already had, with no second request.
             assertEquals("https://api.ani.zip/mappings?anilist_id=195516", aniZipEngine.urls.single())
         }
 
@@ -157,11 +174,30 @@ class DetailsViewModelTest {
         }
 
     @Test
-    fun theLogoWaitsForAniZip() =
+    fun withoutArtYetTheTitleIsInWords() =
         runTest(main) {
             val viewModel = detailsViewModel(aniZip = AniZipClient(SilentEngine, main))
 
-            assertEquals(Logo.Loading, assertIs<DetailsState.Loaded>(viewModel.settled()).logo)
+            assertEquals(Logo.None, assertIs<DetailsState.Loaded>(viewModel.settled()).logo)
+        }
+
+    // So the title never swaps from words to the logo in front of the viewer.
+    @Test
+    fun aLogoFoundOnceDetailsShowsIsLeftOut() =
+        runTest(main) {
+            val aniZip = GatedEngine(AniZipEngine("mappings"))
+            val viewModel =
+                detailsViewModel(
+                    aniZip = AniZipClient(aniZip, main),
+                    fanartTv = FanartTvClient("test-project-key", FanartTvEngine("tv"), main),
+                )
+            assertEquals(Logo.None, assertIs<DetailsState.Loaded>(viewModel.settled()).logo)
+
+            aniZip.open.complete(Unit)
+
+            val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.backdrop != null } as DetailsState.Loaded
+            assertEquals("https://assets.fanart.tv/fanart/sakamoto-days-66866dfcc9fd5.jpg", loaded.backdrop)
+            assertEquals(Logo.None, loaded.logo)
         }
 
     // So the art fades in once, rather than AniList's first and then the fan art.
@@ -182,3 +218,17 @@ private suspend fun DetailsViewModel.withLogo() =
     state.first {
         it is DetailsState.Loaded && it.logo != Logo.Loading
     } as DetailsState.Loaded
+
+/** Holds every request until [open] completes. */
+private class GatedEngine(
+    private val engine: HttpEngine,
+) : HttpEngine {
+    val open = CompletableDeferred<Unit>()
+
+    override suspend fun execute(request: HttpRequest): HttpResponse {
+        open.await()
+        return engine.execute(request)
+    }
+
+    override fun close() {}
+}

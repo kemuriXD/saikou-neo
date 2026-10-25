@@ -4,14 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
-import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeDetails
-import ani.saikou.neo.shared.catalogue.ArtSources
-import ani.saikou.neo.shared.catalogue.FanartTvClient
+import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.ShowArt
-import ani.saikou.neo.shared.catalogue.TmdbClient
 import ani.saikou.neo.shared.catalogue.art
-import ani.saikou.neo.shared.catalogue.showArt
 import ani.saikou.neo.shared.home.Logo
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -35,12 +31,14 @@ public sealed interface DetailsState {
     public data object Failed : DetailsState
 }
 
-/** Loads one anime's details from AniList, and its backdrop and logo from [tmdb], [fanartTv] and [aniZip] at the same time. */
+/**
+ * Loads one anime's details from AniList, and its backdrop and logo from [library] at the same time. The title is the
+ * logo only if the art arrives with the details, as art found while the viewer rested on its card does, so the title
+ * never swaps in front of the viewer. A backdrop found later still fades in.
+ */
 public class DetailsViewModel(
     private val client: AniListClient,
-    private val aniZip: AniZipClient,
-    private val fanartTv: FanartTvClient,
-    private val tmdb: TmdbClient,
+    private val library: ArtLibrary,
     private val animeId: Int,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
@@ -51,7 +49,7 @@ public class DetailsViewModel(
         // A film's title is only needed when TMDB can't find it by its IMDb id.
         val art =
             viewModelScope.async {
-                showArt(ArtSources(client, aniZip, fanartTv, tmdb), animeId) { (details.await() as? AniListResult.Success)?.value?.card }
+                library.art(animeId) { (details.await() as? AniListResult.Success)?.value?.card }
             }
         viewModelScope.launch {
             val result = details.await()
@@ -60,16 +58,19 @@ public class DetailsViewModel(
                 mutableState.value = DetailsState.Failed
                 return@launch
             }
-            val details = result.value
+            val loaded = DetailsState.Loaded(result.value)
             if (art.isCompleted) {
-                mutableState.value = DetailsState.Loaded(details).withArt(art.await())
+                mutableState.value = loaded.withArt(art.await())
                 return@launch
             }
-            mutableState.value = DetailsState.Loaded(details)
+            mutableState.value = loaded.copy(logo = Logo.None)
             val shown = art.await()
-            mutableState.update { (it as DetailsState.Loaded).withArt(shown) }
+            mutableState.update { (it as DetailsState.Loaded).withArt(shown, logo = Logo.None) }
         }
     }
 }
 
-private fun DetailsState.Loaded.withArt(art: ShowArt) = copy(backdrop = art.backdrop ?: details.card.art, logo = art.logo)
+private fun DetailsState.Loaded.withArt(
+    art: ShowArt,
+    logo: Logo = art.logo,
+) = copy(backdrop = art.backdrop ?: details.card.art, logo = logo)

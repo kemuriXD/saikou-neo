@@ -4,15 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
-import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimePage
 import ani.saikou.neo.shared.catalogue.AnimeSeason
-import ani.saikou.neo.shared.catalogue.ArtSources
-import ani.saikou.neo.shared.catalogue.FanartTvClient
-import ani.saikou.neo.shared.catalogue.TmdbClient
+import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.art
-import ani.saikou.neo.shared.catalogue.showArt
 import ani.saikou.neo.shared.details.parseSynopsis
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -46,6 +42,8 @@ public data class HomeState(
     val rows: Map<HomeRow, RowState>,
     /** Null until the rows it comes from have loaded, and if none did. */
     val spotlight: Spotlight? = null,
+    /** The logo of the card focus rests on, once found, for the screen to start loading. */
+    val restingLogo: Logo.Image? = null,
 )
 
 /** The shows featured at the top of Home, and which one is showing. */
@@ -85,14 +83,12 @@ public sealed interface Logo {
 
 /**
  * Loads Home's rows from AniList. This season is [season] of [year]. The spotlight features the first shows of the
- * first row that loads, with logos and backdrops from [tmdb], [fanartTv] and [aniZip]. While it's in view it moves on
- * every 10 seconds, until the viewer picks a show.
+ * first row that loads, with logos and backdrops from [library]. While it's in view it moves on every 10 seconds,
+ * until the viewer picks a show.
  */
 public class HomeViewModel(
     private val client: AniListClient,
-    private val aniZip: AniZipClient,
-    private val fanartTv: FanartTvClient,
-    private val tmdb: TmdbClient,
+    private val library: ArtLibrary,
     private val season: AnimeSeason,
     private val year: Int,
 ) : ViewModel() {
@@ -100,6 +96,7 @@ public class HomeViewModel(
     public val state: StateFlow<HomeState> = mutableState.asStateFlow()
     private var spotlightInView = false
     private var rotation: Job? = null
+    private val resting = Resting(viewModelScope, library) { logo -> mutableState.update { it.copy(restingLogo = logo) } }
 
     init {
         HomeRow.entries.forEach { row ->
@@ -123,6 +120,11 @@ public class HomeViewModel(
         rotate()
     }
 
+    /** Call with the card focus moves to, or null once it leaves the rows. Resting on one finds its art. */
+    public fun rest(card: AnimeCard?) {
+        resting.on(card)
+    }
+
     /** Call with true while the spotlight is on screen, and false once it isn't, so it only moves on while seen. */
     public fun watchSpotlight(inView: Boolean) {
         spotlightInView = inView
@@ -143,7 +145,7 @@ public class HomeViewModel(
         }
         shows.forEach { show ->
             viewModelScope.launch {
-                val art = showArt(ArtSources(client, aniZip, fanartTv, tmdb), show)
+                val art = library.art(show)
                 updateSpotlight { spotlight ->
                     spotlight.copy(
                         logos = spotlight.logos + (show.id to art.logo),

@@ -44,6 +44,8 @@ import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.fakeImages
 import ani.saikou.neo.tv.ui.fakeImagesNeverArrive
 import ani.saikou.neo.tv.ui.forgetFakeImages
+import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Deferred
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -313,6 +315,23 @@ class DetailsScreenTest {
         compose.onNodeWithTag(DETAILS_LOGO_TAG).assertExists()
     }
 
+    // Details' art is found while the viewer rests on its card, so its logo is ready. If it isn't, the title stays in
+    // words for the visit rather than swapping in front of the viewer.
+    @Test
+    fun aLogoThatIsNotReadyAtOnceLeavesTheTitleInWordsForTheVisit() {
+        val ready = CompletableDeferred<Unit>()
+        imagesAre(800, 310, ready = ready)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.mainClock.advanceTimeBy(200)
+        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+        ready.complete(Unit)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+    }
+
     @Test
     fun theTitleIsInWordsWhileTheLogoLoads() {
         imagesNeverArrive()
@@ -341,7 +360,8 @@ class DetailsScreenTest {
         width: Int,
         height: Int,
         color: Int = Color.TRANSPARENT,
-    ) = fakeImages(compose.activity, width, height, color)
+        ready: Deferred<Unit>? = null,
+    ) = fakeImages(compose.activity, width, height, color, ready)
 
     private fun imagesNeverArrive() = fakeImagesNeverArrive(compose.activity)
 
