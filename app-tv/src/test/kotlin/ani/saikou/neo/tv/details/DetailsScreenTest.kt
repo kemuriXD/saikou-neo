@@ -96,9 +96,9 @@ class DetailsScreenTest {
     fun theTopSaysWhatTheAnimeIs() {
         show(DetailsState.Loaded(details))
 
-        compose.onNodeWithText("TV · FALL 2026").assertExists()
+        compose.onNodeWithText("TV · Fall 2026 · 12 episodes").assertExists()
         compose.onNodeWithText("Show 7").assertExists()
-        compose.onNodeWithText("Drama · Mystery · 12 episodes").assertExists()
+        compose.onNodeWithText("Drama · Mystery").assertExists()
     }
 
     @Test
@@ -219,7 +219,7 @@ class DetailsScreenTest {
 
         // The year alone, both at the top and in the facts.
         compose.onAllNodesWithText("2026").assertCountEquals(2)
-        compose.onNodeWithTag(DETAILS_META_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(DETAILS_GENRES_TAG).assertDoesNotExist()
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertDoesNotExist()
         compose.onNodeWithText("Score").assertDoesNotExist()
     }
@@ -229,7 +229,7 @@ class DetailsScreenTest {
         show(DetailsState.Loaded(details))
 
         compose
-            .onNodeWithText("TV · FALL 2026")
+            .onNodeWithTag(DETAILS_TITLE_TAG)
             .assertTopPositionInRootIsEqualTo(150.dp)
             .assertLeftPositionInRootIsEqualTo(58.dp)
         compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(420.dp)
@@ -254,8 +254,11 @@ class DetailsScreenTest {
         show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
 
         compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertContentDescriptionEquals("Show 7").assertHeightIsEqualTo(80.dp)
-        compose.onNodeWithText("TV · FALL 2026").assertTopPositionInRootIsEqualTo(150.dp)
+        compose
+            .onNodeWithTag(DETAILS_LOGO_TAG)
+            .assertContentDescriptionEquals("Show 7")
+            .assertHeightIsEqualTo(80.dp)
+            .assertTopPositionInRootIsEqualTo(150.dp)
     }
 
     // Spirited Away's logo is almost ten times as wide as it is tall, so it's drawn 360 × 37.
@@ -287,13 +290,14 @@ class DetailsScreenTest {
         assertTitleGaps(DETAILS_TITLE_TAG)
     }
 
-    /** The line above the title and the line below it both sit 12 dp away. */
+    /** As on the spotlight, the title comes first and what the show is sits 10 dp under it, then its genres. */
     private fun assertTitleGaps(titleTag: String) {
-        val above = compose.onNodeWithText("TV · FALL 2026").getUnclippedBoundsInRoot()
         val title = compose.onNodeWithTag(titleTag).getUnclippedBoundsInRoot()
-        val below = compose.onNodeWithTag(DETAILS_META_TAG).getUnclippedBoundsInRoot()
-        assertEquals(12f, (title.top - above.bottom).value, 0.01f)
-        assertEquals(12f, (below.top - title.bottom).value, 0.01f)
+        val meta = compose.onNodeWithTag(DETAILS_META_TAG).getUnclippedBoundsInRoot()
+        val genres = compose.onNodeWithTag(DETAILS_GENRES_TAG).getUnclippedBoundsInRoot()
+        assertEquals(150f, title.top.value, 0.01f)
+        assertEquals(10f, (meta.top - title.bottom).value, 0.01f)
+        assertEquals(10f, (genres.top - meta.bottom).value, 0.01f)
     }
 
     // :shared picks logos from the sizes the artwork sites report, so the TV app shows any shape it's given.
