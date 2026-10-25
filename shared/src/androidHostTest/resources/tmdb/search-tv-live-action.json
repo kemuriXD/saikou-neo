@@ -1,0 +1,73 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/3E1GroTJCRdIYHa5n62GqjmqxQR.jpg",
+      "genre_ids": [
+        35,
+        18
+      ],
+      "id": 112888,
+      "origin_country": [
+        "KR"
+      ],
+      "original_language": "ko",
+      "original_name": "여신강림",
+      "overview": "After being bullied and discriminated because of her ugly looks, a high school girl transforms herself into a gorgeous \"goddess\" and quickly rises to fame after mastering the art of makeup via online tutorial videos.",
+      "popularity": 45.4015,
+      "poster_path": "/I9WCyKUbKAiu95tAitaHOx8EVO.jpg",
+      "first_air_date": "2020-12-09",
+      "softcore": false,
+      "name": "True Beauty",
+      "vote_average": 8.284,
+      "vote_count": 2737
+    },
+    {
+      "adult": false,
+      "backdrop_path": "/yNQT7fVLhopmytPytN6VVPgrMoX.jpg",
+      "genre_ids": [
+        16,
+        35,
+        18
+      ],
+      "id": 239779,
+      "origin_country": [
+        "KR"
+      ],
+      "original_language": "ko",
+      "original_name": "여신강림",
+      "overview": "Once bullied for her looks, Jugyeong transforms herself using the art of makeup. When she joins a new school with a True Beauty goddess competition, offering winners the chance of recruitment by entertainment agencies, she instantly becomes a top candidate! But her new identity is at stake when heartthrob Suho Lee accidentally sees her bare face. Will her elite status be short-lived?",
+      "popularity": 6.0021,
+      "poster_path": "/9gpc8kIhNEG7r0VTkyI9aVBxdO3.jpg",
+      "first_air_date": "2024-08-07",
+      "softcore": false,
+      "name": "True Beauty",
+      "vote_average": 8.245,
+      "vote_count": 94
+    },
+    {
+      "adult": false,
+      "backdrop_path": null,
+      "genre_ids": [
+        18
+      ],
+      "id": 32945,
+      "origin_country": [
+        "US"
+      ],
+      "original_language": "en",
+      "original_name": "True Beauty",
+      "overview": "What makes a person truly beautiful? Hosted and judged by Vanessa Minnillo, the series will determine the True Beauty of ten stunning females and handsome males who will live together in a spectacular mansion as they undergo a series of challenges to determine who is truly the most beautiful.",
+      "popularity": 4.8176,
+      "poster_path": "/kXMsz2dKK43ripZZPaahLdWEojB.jpg",
+      "first_air_date": "2009-01-05",
+      "softcore": false,
+      "name": "True Beauty",
+      "vote_average": 0.0,
+      "vote_count": 0
+    }
+  ],
+  "total_pages": 1,
+  "total_results": 3
+}

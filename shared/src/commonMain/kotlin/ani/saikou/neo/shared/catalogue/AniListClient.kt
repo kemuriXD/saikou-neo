@@ -243,4 +243,6 @@ private fun AnimeCardFields.toCard(): AnimeCard =
         averageScore = averageScore,
         season = AnimeSeason.entries.firstOrNull { it.name == season?.rawValue },
         seasonYear = seasonYear,
+        // AniList's CountryCode scalar arrives as a plain string.
+        country = countryOfOrigin as? String,
     )

@@ -76,6 +76,15 @@ class AniListClientTest {
             assertTrue("\"search\":\"frieren\"" in engine.requestBodies.single())
         }
 
+    // The art picks a logo in the show's own language when there's no English one.
+    @Test
+    fun aCardKnowsWhereTheShowIsFrom() =
+        runTest {
+            val page = clientFor(RecordedEngine("search-country")).search("Psychic Princess", perPage = 1).success()
+
+            assertEquals("CN", page.items.single().country)
+        }
+
     @Test
     fun synopsesAskForTheIdsAndMapEachDescription() =
         runTest {

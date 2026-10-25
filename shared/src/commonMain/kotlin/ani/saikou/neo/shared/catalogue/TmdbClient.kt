@@ -48,6 +48,15 @@ public class TmdbClient internal constructor(
         year: Int?,
     ): Int? = get("/search/movie?query=${encode(title)}${year?.let { "&year=$it" }.orEmpty()}") { firstId("results") }
 
+    /**
+     * The series called [title] that first aired in [year], or null when none has that name. TV search matches loosely,
+     * so only a series with that exact name, in any case, is taken.
+     */
+    public suspend fun searchSeries(
+        title: String,
+        year: Int?,
+    ): Int? = get("/search/tv?query=${encode(title)}${year?.let { "&first_air_date_year=$it" }.orEmpty()}") { firstNamed(title) }
+
     private suspend fun <T> get(
         path: String,
         read: JsonReader.() -> T?,
@@ -136,6 +145,70 @@ private fun JsonReader.firstId(field: String): Int? {
     }
     endObject()
     return id
+}
+
+/**
+ * The id of the first animated series in `results` whose name or original name is [title], ignoring case. Some anime
+ * share their name with a live-action drama, such as True Beauty.
+ */
+private fun JsonReader.firstNamed(title: String): Int? {
+    var id: Int? = null
+    beginObject()
+    while (hasNext()) {
+        if (nextName() != "results" || peek() != JsonReader.Token.BEGIN_ARRAY) {
+            skipValue()
+            continue
+        }
+        beginArray()
+        while (hasNext()) {
+            val series = readSeries()
+            val named = listOfNotNull(series.name, series.originalName).any { it.equals(title, ignoreCase = true) }
+            if (id == null && named && series.animated) id = series.id
+        }
+        endArray()
+    }
+    endObject()
+    return id
+}
+
+private const val ANIMATION_GENRE = 16
+
+private class FoundSeries(
+    val id: Int?,
+    val name: String?,
+    val originalName: String?,
+    val animated: Boolean,
+)
+
+/** One series from a TV search, with its genres, which [readFields] would skip. */
+private fun JsonReader.readSeries(): FoundSeries {
+    if (peek() != JsonReader.Token.BEGIN_OBJECT) {
+        skipValue()
+        return FoundSeries(null, null, null, animated = false)
+    }
+    val fields = mutableMapOf<String, String>()
+    var animated = false
+    beginObject()
+    while (hasNext()) {
+        val name = nextName()
+        when {
+            name == "genre_ids" && peek() == JsonReader.Token.BEGIN_ARRAY -> {
+                beginArray()
+                while (hasNext()) if (nextString()?.toIntOrNull() == ANIMATION_GENRE) animated = true
+                endArray()
+            }
+
+            peek() == JsonReader.Token.STRING || peek() == JsonReader.Token.NUMBER || peek() == JsonReader.Token.LONG -> {
+                fields[name] = nextString()!!
+            }
+
+            else -> {
+                skipValue()
+            }
+        }
+    }
+    endObject()
+    return FoundSeries(fields["id"]?.toIntOrNull(), fields["name"], fields["original_name"], animated)
 }
 
 /** Percent-encodes everything but the characters a url never needs encoded. */
