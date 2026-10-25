@@ -4,7 +4,10 @@ import android.graphics.Color
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsEqualTo
@@ -61,6 +64,8 @@ import org.robolectric.annotation.GraphicsMode
 @Config(qualifiers = "w960dp-h540dp-land-television-xhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class DetailsScreenTest {
+    private val hidden = SemanticsMatcher.keyIsDefined(SemanticsProperties.HideFromAccessibility)
+
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
@@ -319,16 +324,32 @@ class DetailsScreenTest {
         compose.onNodeWithTag(DETAILS_LOGO_TAG).assertExists()
     }
 
-    // Details' art is found while the viewer rests on its card, so its logo is ready. If it isn't, the title stays in
-    // words for the visit rather than swapping in front of the viewer.
+    // A first visit downloads the logo once Details has its art. The title waits unseen for it a moment.
     @Test
-    fun aLogoThatIsNotReadyAtOnceLeavesTheTitleInWordsForTheVisit() {
+    fun aLogoThatLoadsWithinTheWaitIsShown() {
         val ready = CompletableDeferred<Unit>()
         imagesAre(800, 310, ready = ready)
         show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
 
-        compose.mainClock.advanceTimeBy(200)
+        compose.mainClock.advanceTimeBy(1_000)
+        compose.onNodeWithTag(DETAILS_HERO_TAG).assert(hidden)
+        ready.complete(Unit)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertExists()
+        compose.onNodeWithTag(DETAILS_HERO_TAG).assert(!hidden)
+    }
+
+    // If it isn't ready in time, the title stays in words for the visit rather than swapping in front of the viewer.
+    @Test
+    fun aLogoThatIsNotReadyInTimeLeavesTheTitleInWordsForTheVisit() {
+        val ready = CompletableDeferred<Unit>()
+        imagesAre(800, 310, ready = ready)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.mainClock.advanceTimeBy(1_600)
         compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+        compose.onNodeWithTag(DETAILS_HERO_TAG).assert(!hidden)
         ready.complete(Unit)
         compose.waitForIdle()
 

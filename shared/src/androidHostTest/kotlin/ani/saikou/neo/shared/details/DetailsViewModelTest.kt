@@ -24,6 +24,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -34,6 +35,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DetailsViewModelTest {
@@ -179,6 +181,25 @@ class DetailsViewModelTest {
             val viewModel = detailsViewModel(aniZip = AniZipClient(SilentEngine, main))
 
             assertEquals(Logo.None, assertIs<DetailsState.Loaded>(viewModel.settled()).logo)
+        }
+
+    // On a first visit the art takes about twice as long as AniList's details. Details waits for it a little.
+    @Test
+    fun detailsWaitsAMomentForArtStillOnItsWay() =
+        runTest(main) {
+            val aniZip = GatedEngine(AniZipEngine("mappings"))
+            val viewModel =
+                detailsViewModel(
+                    aniZip = AniZipClient(aniZip, main),
+                    fanartTv = FanartTvClient("test-project-key", FanartTvEngine("tv"), main),
+                )
+            advanceTimeBy(ART_WAIT - 1.seconds)
+            assertEquals(DetailsState.Loading, viewModel.state.value)
+
+            aniZip.open.complete(Unit)
+
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.settled())
+            assertEquals(Logo.Image("https://assets.fanart.tv/fanart/sakamoto-days-66866dc54d0e7.png"), loaded.logo)
         }
 
     // So the title never swaps from words to the logo in front of the viewer.

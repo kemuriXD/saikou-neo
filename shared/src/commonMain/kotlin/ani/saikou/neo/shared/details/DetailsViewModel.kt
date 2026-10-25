@@ -15,6 +15,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.seconds
+
+// On a first visit the art takes about twice as long as AniList's details, so Details waits this long for it.
+internal val ART_WAIT = 3.seconds
 
 public sealed interface DetailsState {
     public data object Loading : DetailsState
@@ -32,9 +37,10 @@ public sealed interface DetailsState {
 }
 
 /**
- * Loads one anime's details from AniList, and its backdrop and logo from [library] at the same time. The title is the
- * logo only if the art arrives with the details, as art found while the viewer rested on its card does, so the title
- * never swaps in front of the viewer. A backdrop found later still fades in.
+ * Loads one anime's details from AniList, and its backdrop and logo from [library] at the same time. Art found while the
+ * viewer rested on the show's card is there at once; otherwise Details waits up to [ART_WAIT] for it. The title is the
+ * logo only if the art came by then, so the title never swaps in front of the viewer. A backdrop found later still fades
+ * in.
  */
 public class DetailsViewModel(
     private val client: AniListClient,
@@ -59,8 +65,9 @@ public class DetailsViewModel(
                 return@launch
             }
             val loaded = DetailsState.Loaded(result.value)
-            if (art.isCompleted) {
-                mutableState.value = loaded.withArt(art.await())
+            val found = withTimeoutOrNull(ART_WAIT) { art.await() }
+            if (found != null) {
+                mutableState.value = loaded.withArt(found)
                 return@launch
             }
             mutableState.value = loaded.copy(logo = Logo.None)

@@ -47,7 +47,8 @@ internal fun logoSize(
 /**
  * A show's title logo, the same on Home and Details. While the logo loads, [placeholder] shows; without a logo, when it
  * won't load, or when it hasn't loaded within [waitMillis], [text] shows the title in words. A logo too late stays
- * words until the show changes, so the title never swaps in front of the viewer. `:shared` has already picked the logo
+ * words until the show changes, so the title never swaps in front of the viewer. [onSettled] is called once it's one
+ * or the other. `:shared` has already picked the logo
  * by its size, so any shape it sends is shown.
  */
 @Composable
@@ -57,12 +58,16 @@ internal fun ShowTitle(
     logoTag: String,
     waitMillis: Long,
     placeholder: @Composable () -> Unit,
+    onSettled: () -> Unit = {},
     text: @Composable () -> Unit,
 ) {
     var failed by remember(logo) { mutableStateOf(false) }
     // The size it's drawn at, once it has loaded.
     var drawn by remember(logo) { mutableStateOf<DpSize?>(null) }
     val loaded = drawn != null
+    // Settled once it's the logo or the title in words for good.
+    val settled = logo == Logo.None || loaded || failed
+    LaunchedEffect(settled) { if (settled) onSettled() }
     if (logo is Logo.Image) {
         LaunchedEffect(logo) {
             delay(waitMillis)

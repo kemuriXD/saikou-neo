@@ -2,7 +2,6 @@ package ani.saikou.neo.tv.details
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
-import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
@@ -35,7 +34,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -47,12 +45,13 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.hideFromAccessibility
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -76,6 +75,7 @@ import coil3.compose.AsyncImage
 
 internal const val DETAILS_META_TAG = "details-meta"
 internal const val DETAILS_GENRES_TAG = "details-genres"
+internal const val DETAILS_HERO_TAG = "details-hero"
 internal const val DETAILS_SYNOPSIS_TAG = "details-synopsis"
 internal const val DETAILS_LOADING_TAG = "details-loading"
 internal const val DETAILS_OVERVIEW_TAB_TAG = "details-overview-tab"
@@ -101,8 +101,8 @@ private val SynopsisWidth = 520.dp
 private const val SYNOPSIS_PREVIEW_LINES = 3
 private const val SYNOPSIS_FOCUS_SCALE = 1.025f
 
-// The logo was preloaded while the viewer rested on the show's card. Not in memory by now, it stays words for the visit.
-private const val LOGO_WAIT_MILLIS = 150L
+// A first visit downloads the logo once the art is found. Not loaded by now, it stays words for the visit.
+private const val LOGO_WAIT_MILLIS = 1_500L
 
 private val seasonNames =
     mapOf(
@@ -200,12 +200,20 @@ private fun Hero(
 ) {
     val colors = NeoTheme.colors
     val card = details.card
-    // Moves the details down smoothly when the logo takes the title's place.
-    val resize = tween<IntSize>(NeoTheme.dimensions.durationBackdropMillis, easing = NeoTheme.dimensions.easeStandard)
+    // Unseen until the title is the logo or words for good, then all of it fades in at once, so nothing moves.
+    var settled by remember(logo) { mutableStateOf(false) }
+    val shown by animateFloatAsState(
+        targetValue = if (settled) 1f else 0f,
+        animationSpec = tween(NeoTheme.dimensions.durationBackdropMillis / 2),
+        label = "hero",
+    )
+    val unseen = if (settled) Modifier else Modifier.semantics { hideFromAccessibility() }
     // As on the spotlight: the title first, then what the show is, then its genres.
-    Column(modifier.animateContentSize(resize), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(
+        modifier.testTag(DETAILS_HERO_TAG).graphicsLayer { alpha = shown }.then(unseen),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         val title = card.displayTitle()
-        // The title in words, unseen while the logo loads so it holds the logo's place.
         val words: @Composable () -> Unit = {
             Text(
                 text = title,
@@ -216,7 +224,7 @@ private fun Hero(
                 modifier = Modifier.testTag(DETAILS_TITLE_TAG),
             )
         }
-        ShowTitle(title, logo, DETAILS_LOGO_TAG, LOGO_WAIT_MILLIS, placeholder = { Box(Modifier.alpha(0f)) { words() } }, text = words)
+        ShowTitle(title, logo, DETAILS_LOGO_TAG, LOGO_WAIT_MILLIS, placeholder = words, onSettled = { settled = true }, text = words)
         val meta = details.meta()
         if (meta.isNotEmpty()) {
             Text(
