@@ -17,23 +17,38 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.tv.theme.NeoTheme
+import coil3.Image
 import coil3.PlatformContext
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.transformations
+import coil3.toBitmap
 
 // From the design: the logo fits a 360 × 80 box, sitting on the line below it.
 internal val LogoWidth = 360.dp
 internal val LogoHeight = 80.dp
 
-// Title logos are wide. Anything squarer is key art filed as a logo.
-private const val MIN_LOGO_ASPECT = 1.3f
+// Title logos are wide. Squarer images filed as logos are pictures of a character, and a narrower logo can't be read
+// at the logo's height. Demon Slayer's logo is 1.23 times as wide as it is tall; the pictures are 1.08 at most.
+private const val MIN_LOGO_ASPECT = 1.2f
+
+// Key art filed as a logo fills its rectangle. Real logos are mostly see-through: the most solid one is 91% opaque.
+private const val MAX_OPAQUE_SHARE = 0.95f
 
 internal fun looksLikeALogo(
     width: Int,
     height: Int,
-) = height > 0 && width >= height * MIN_LOGO_ASPECT
+    opaqueShare: Float,
+) = height > 0 && width >= height * MIN_LOGO_ASPECT && opaqueShare < MAX_OPAQUE_SHARE
+
+/** Reads the loaded logo's pixels. Coil never puts a transformed image in GPU memory, so they can be read. */
+private fun Image.looksLikeALogo(): Boolean {
+    val bitmap = toBitmap()
+    val pixels = IntArray(bitmap.width * bitmap.height)
+    bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+    return looksLikeALogo(bitmap.width, bitmap.height, opaqueShare(pixels))
+}
 
 /**
  * A show's title logo, the same on Home and Details. Until the logo has loaded and looks like one, [placeholder]
@@ -69,7 +84,7 @@ internal fun ShowTitle(
                     contentScale = ContentScale.Fit,
                     alignment = Alignment.BottomStart,
                     onSuccess = {
-                        if (looksLikeALogo(it.result.image.width, it.result.image.height)) loaded = true else failed = true
+                        if (it.result.image.looksLikeALogo()) loaded = true else failed = true
                     },
                     onError = { failed = true },
                     modifier = Modifier.size(LogoWidth, LogoHeight).alpha(shown).testTag(logoTag),

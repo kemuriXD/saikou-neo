@@ -36,6 +36,12 @@ internal fun opaqueBounds(
     return if (right < 0) null else LogoBounds(left, top, right - left + 1, bottom - top + 1)
 }
 
+/** The share of an ARGB image's pixels that are visible, from 0 for a clear image to 1 for a solid one. */
+internal fun opaqueShare(pixels: IntArray): Float {
+    if (pixels.isEmpty()) return 1f
+    return pixels.count { it ushr 24 >= MIN_ALPHA }.toFloat() / pixels.size
+}
+
 /** Crops a logo's empty margins, so every logo starts on the same line as the text under it. */
 internal object TrimTransparentEdges : Transformation() {
     override val cacheKey = "trim-transparent-edges"
