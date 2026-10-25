@@ -208,7 +208,7 @@ fun HomeScreen(
                 SpotlightDots(spotlight, dots, play, onPick, Modifier.align(Alignment.TopCenter).padding(top = DotsTop).then(hide))
             }
         }
-        KeylineScrolling(keyline = HeadingToCards) {
+        KeylineScrolling(keyline = HeadingToCards, itemSize = dimensions.cardWideHeight) {
             LazyColumn(
                 state = columnState,
                 modifier = Modifier.fillMaxSize().padding(top = rowsTop),

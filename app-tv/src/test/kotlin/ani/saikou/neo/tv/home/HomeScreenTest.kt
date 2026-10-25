@@ -473,4 +473,15 @@ class HomeScreenTest {
 
         compose.onNodeWithTag(seeMoreTag(HomeRow.TRENDING)).assertIsFocused()
     }
+
+    @Test
+    fun seeMoreKeepsItsRowInPlace() {
+        show()
+
+        enterRows()
+        press(Key.DirectionRight, times = 12)
+
+        // The button is shorter than a card, but the row rests where it does for a card: cards 34 dp under 104 dp.
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 11)).assertTopPositionInRootIsEqualTo(138.dp)
+    }
 }
