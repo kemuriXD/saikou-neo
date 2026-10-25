@@ -23,6 +23,8 @@ public data class AnimeCard(
     val averageScore: Int?,
     val season: AnimeSeason?,
     val seasonYear: Int?,
+    /** Where the show was made, as AniList's country code, such as `JP` or `CN`. */
+    val country: String? = null,
 )
 
 /** The banner, or the cover where there's none. */

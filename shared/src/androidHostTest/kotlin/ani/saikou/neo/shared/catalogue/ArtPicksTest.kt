@@ -27,14 +27,21 @@ class ArtPicksTest {
     }
 
     @Test
-    fun otherwiseTheMostLikedLogo() {
-        assertEquals(logo("ja", "ja"), pickLogo(listOf(logo("ja", "ja"), logo("ko", "ko"))))
+    fun otherwiseALogoInTheShowsOwnLanguage() {
+        assertEquals(logo("ko", "ko"), pickLogo(listOf(logo("ja", "ja"), logo("ko", "ko")), ownLanguage = "ko"))
+    }
+
+    // Larva, a Korean show, has only a Russian logo on TMDB. Its title shows in words instead.
+    @Test
+    fun aLogoInAnUnrelatedLanguageIsNotUsed() {
+        assertNull(pickLogo(listOf(logo("ru", "ru")), ownLanguage = "ko"))
+        assertNull(pickLogo(listOf(logo("ja", "ja"))))
     }
 
     // fanart.tv's old logos are 400 wide, and some of TMDB's are smaller still.
     @Test
     fun aLogoUnder600WideIsTooBlurry() {
-        assertEquals(logo("sharp", "ja"), pickLogo(listOf(logo("small", width = 599, height = 200), logo("sharp", "ja"))))
+        assertEquals(logo("sharp"), pickLogo(listOf(logo("small", width = 599, height = 200), logo("sharp"))))
     }
 
     @Test

@@ -122,6 +122,29 @@ class ShowArtTest {
             assertEquals("https://image.tmdb.org/t/p/original/jzeavatG8IStoIOk0UfPy1UTTfR.jpg", art.backdrop)
         }
 
+    @Test
+    fun aLogoInTheShowsOwnLanguageIsUsedWhenThereIsNoEnglishOne() =
+        runTest {
+            val tmdb = TmdbEngine { if ("/search/" in it) "search-tv" else "tv-images-chinese-logo" }
+            val psychicPrincess = card(99935, "Psychic Princess", "ONA", country = "CN")
+
+            val art = showArt(sources(AniZipEngine("mappings-psychic-princess"), tmdb = tmdb), psychicPrincess)
+
+            assertEquals(Logo.Image("https://image.tmdb.org/t/p/original/4CgOkh7xercnO37jbu55izxrRKR.png"), art.logo)
+        }
+
+    // A Korean show whose only logo on TMDB is Russian, as Larva's is.
+    @Test
+    fun aLogoInAnUnrelatedLanguageIsNotUsed() =
+        runTest {
+            val tmdb = TmdbEngine { if ("/search/" in it) "search-tv" else "tv-images-larva" }
+            val korean = card(99935, "Psychic Princess", "ONA", country = "KR")
+
+            val art = showArt(sources(AniZipEngine("mappings-psychic-princess"), tmdb = tmdb), korean)
+
+            assertEquals(Logo.None, art.logo)
+        }
+
     // Dragon Ball Super: Beerus has no ids, but it belongs to Dragon Ball Super, which has.
     @Test
     fun aShowWithoutIdsUsesItsSeriesLogo() =
@@ -211,4 +234,5 @@ internal fun card(
     title: String,
     format: String = "TV",
     year: Int? = null,
-) = AnimeCard(id, AnimeTitle(romaji = title, english = title, native = null), null, null, null, format, null, null, null, year)
+    country: String? = null,
+) = AnimeCard(id, AnimeTitle(romaji = title, english = title, native = null), null, null, null, format, null, null, null, year, country)

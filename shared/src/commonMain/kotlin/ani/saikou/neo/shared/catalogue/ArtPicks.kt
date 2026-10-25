@@ -9,14 +9,33 @@ private const val MIN_LOGO_WIDTH = 600
 
 private val noLanguage = setOf(null, "00", "xx")
 
-/** The best sharp title logo in [logos]: English first, then one with no words in any one language, then the most liked. */
-internal fun pickLogo(logos: List<ArtImage>): ArtImage? {
+/**
+ * The best sharp title logo in [logos]: English first, then one with no words in any one language, then one in the
+ * show's [ownLanguage]. A logo in any other language, such as a Russian one for a Korean show, is left out, so the title
+ * shows in words.
+ */
+internal fun pickLogo(
+    logos: List<ArtImage>,
+    ownLanguage: String? = null,
+): ArtImage? {
     val usable =
         logos.filter {
             it.height > 0 && it.width.toFloat() / it.height in MIN_LOGO_ASPECT..MAX_LOGO_ASPECT && (it.vector || it.width >= MIN_LOGO_WIDTH)
         }
-    return usable.firstOrNull { it.language == "en" } ?: usable.firstOrNull { it.language in noLanguage } ?: usable.firstOrNull()
+    return usable.firstOrNull { it.language == "en" }
+        ?: usable.firstOrNull { it.language in noLanguage }
+        ?: ownLanguage?.let { language -> usable.firstOrNull { it.language == language } }
 }
+
+/** The language a show made in [AnimeCard.country] is written in, as TMDB and fanart.tv name it. */
+internal val AnimeCard.language: String?
+    get() =
+        when (country) {
+            "JP" -> "ja"
+            "KR" -> "ko"
+            "CN", "TW" -> "zh"
+            else -> null
+        }
 
 private const val FULL_HD_WIDTH = 1920
 private const val FULL_HD_HEIGHT = 1080

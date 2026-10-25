@@ -38,12 +38,12 @@ internal suspend fun showArt(
 ): ShowArt = showArt(sources, card.id) { card }
 
 /**
- * [animeId]'s art. Its logo is TMDB's, else fanart.tv's, and its backdrop is TMDB's, fanart.tv's or AniZip's, full HD
- * or more. AniZip tells TMDB and fanart.tv which show it is, and a film is looked up on TMDB by its IMDb id, or by the
- * title and year on its [card], which is only asked for when needed. A series AniZip has no TMDB id for is looked up by
- * its title and year too. A show without ids of its own, such as a season
- * too new for AniZip, takes the logo of the series AniList says it belongs to, follows or comes from. A show without a
- * backdrop of its own borrows the series' too. Callers fall back to AniList's banner or cover.
+ * [animeId]'s art. Its logo is TMDB's, else fanart.tv's, in English or no language, else in the show's own language.
+ * Its backdrop is TMDB's, fanart.tv's or AniZip's, full HD or more. AniZip tells TMDB and fanart.tv which show it is,
+ * and a film is looked up on TMDB by its IMDb id, or by the title and year on its [card], which is only asked for when
+ * needed. A series AniZip has no TMDB id for is looked up by its title and year too. A show without ids of its own,
+ * such as a season too new for AniZip, takes the logo of the series AniList says it belongs to, follows or comes from.
+ * A show without a backdrop of its own borrows the series' too. Callers fall back to AniList's banner or cover.
  */
 internal suspend fun showArt(
     sources: ArtSources,
@@ -52,19 +52,23 @@ internal suspend fun showArt(
 ): ShowArt {
     val aniZip = sources.aniZip.art(animeId)
     val ids = sources.ids(aniZip, card)
-    val own = sources.picks(aniZip, ids)
+    val own = sources.picks(aniZip, ids, card)
     if (own.backdrop != null && (own.logo != null || !ids.none)) return ShowArt(own.backdrop, own.logo.asLogo())
-    val series = sources.seriesPicks(animeId)
+    val series = sources.seriesPicks(animeId, card)
     val logo = own.logo ?: series?.logo?.takeIf { ids.none }
     return ShowArt(own.backdrop ?: series?.backdrop, logo.asLogo())
 }
 
 private fun ArtImage?.asLogo() = this?.let { Logo.Image(it.url) } ?: Logo.None
 
-private suspend fun ArtSources.seriesPicks(animeId: Int): Picks? {
+// The series is from the same country as the show, so the show's card tells its language.
+private suspend fun ArtSources.seriesPicks(
+    animeId: Int,
+    card: suspend () -> AnimeCard?,
+): Picks? {
     val series = (aniList.relatedSeries(animeId) as? AniListResult.Success)?.value?.firstOrNull() ?: return null
     val aniZip = aniZip.art(series)
-    return picks(aniZip, ids(aniZip) { null })
+    return picks(aniZip, ids(aniZip) { null }, card)
 }
 
 private suspend fun ArtSources.ids(
@@ -97,11 +101,17 @@ private suspend fun ArtSources.searchSeries(card: AnimeCard): Int? {
 private suspend fun ArtSources.picks(
     aniZip: AniZipArt?,
     ids: ShowIds,
+    card: suspend () -> AnimeCard?,
 ): Picks =
     coroutineScope {
         val tmdbImages = async { ids.tmdb?.let { tmdb.images(it) } }
         val fanartTvArt = async { ids.fanartTv?.let { fanartTv.art(it) } }
-        val logo = pickLogo(tmdbImages.await()?.logos.orEmpty()) ?: pickLogo(fanartTvArt.await()?.logos.orEmpty())
+        val tmdbLogos = tmdbImages.await()?.logos.orEmpty()
+        val fanartTvLogos = fanartTvArt.await()?.logos.orEmpty()
+        // An English logo from either comes before one in the show's own language, which needs its card.
+        val logo =
+            pickLogo(tmdbLogos) ?: pickLogo(fanartTvLogos)
+                ?: card()?.language?.let { pickLogo(tmdbLogos, it) ?: pickLogo(fanartTvLogos, it) }
         val backdrop =
             pickBackdrop(tmdbImages.await()?.backdrops.orEmpty())?.url
                 ?: pickBackdrop(fanartTvArt.await()?.backgrounds.orEmpty())?.url

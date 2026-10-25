@@ -17,6 +17,7 @@ fragment AnimeCardFields on Media {
   averageScore
   season
   seasonYear
+  countryOfOrigin
 }
 
 query BrowseAnime($page: Int!, $perPage: Int!, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int) {
