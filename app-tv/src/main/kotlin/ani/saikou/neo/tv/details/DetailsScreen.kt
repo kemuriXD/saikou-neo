@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv.details
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
@@ -60,15 +61,19 @@ import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.RelatedAnime
+import ani.saikou.neo.shared.catalogue.Relation
+import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.scoreOutOfTen
+import ani.saikou.neo.shared.details.sections
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.theme.NeoTheme
-import ani.saikou.neo.tv.ui.NeoTab
-import ani.saikou.neo.tv.ui.NeoTabPadding
+import ani.saikou.neo.tv.ui.NeoButton
+import ani.saikou.neo.tv.ui.NeoButtonRow
 import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
 import coil3.compose.AsyncImage
@@ -78,10 +83,11 @@ internal const val DETAILS_GENRES_TAG = "details-genres"
 internal const val DETAILS_HERO_TAG = "details-hero"
 internal const val DETAILS_SYNOPSIS_TAG = "details-synopsis"
 internal const val DETAILS_LOADING_TAG = "details-loading"
-internal const val DETAILS_OVERVIEW_TAB_TAG = "details-overview-tab"
+internal const val DETAILS_OVERVIEW_TAB_TAG = "details-tab-overview"
 internal const val DETAILS_COMPACT_TITLE_TAG = "details-compact-title"
 internal const val DETAILS_TITLE_TAG = "details-title"
 internal const val DETAILS_LOGO_TAG = "details-logo"
+internal const val DETAILS_MAIN_BUTTON_TAG = "details-main-button"
 
 // From the design: the title block starts 150 dp down and the Overview tabs rest at 420 dp, with the
 // synopsis peeking below the screen. Focus on the synopsis lifts the page so the tabs sit at 72 dp,
@@ -91,8 +97,10 @@ private val HeroWidth = 580.dp
 private val OverviewTop = 420.dp
 private val OverviewLift = 348.dp
 private val CompactTitleTop = 27.dp
-private val TabHeight = 36.dp
 private val SynopsisBorder = 2.dp
+
+// From the design: the buttons sit a little further below the genres than the lines above sit apart.
+private val ButtonsGap = 8.dp
 
 private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
 
@@ -120,18 +128,39 @@ private val seasonNames =
 fun DetailsScreen(
     state: DetailsState,
     modifier: Modifier = Modifier,
+    onOpen: (animeId: Int) -> Unit = {},
+    onRecommendations: () -> Unit = {},
 ) {
     var reading by rememberSaveable { mutableStateOf(false) }
     var hasRead by rememberSaveable { mutableStateOf(false) }
     var lifted by rememberSaveable { mutableStateOf(false) }
+    var section by rememberSaveable { mutableStateOf(DetailsSection.OVERVIEW) }
+    // The poster or See more opened from here, so Back returns to it.
+    var returnTo by rememberSaveable { mutableStateOf<Int?>(null) }
+    // Taken as Details is composed, so only coming back to it returns focus to the poster.
+    val returningTo = remember { returnTo }
     val loaded = state as? DetailsState.Loaded
+    val mainFocus = remember { FocusRequester() }
     val tabFocus = remember { FocusRequester() }
     val synopsisFocus = remember { FocusRequester() }
-    // Focus starts on the Overview tab until the actions arrive (#69), and returns to the synopsis when the reader
-    // closes. The page stays composed under the reader, so the synopsis is listening when focus comes back.
+    val episodesFocus = remember { FocusRequester() }
+    // Set by the main button, for the Episodes section to take focus once it's shown.
+    var toEpisodes by remember { mutableStateOf(false) }
+    val hasEpisodes = loaded != null && DetailsSection.EPISODES in loaded.sections
+    // Focus starts on the main button, or on the tabs for a show with no episodes yet, and returns to the synopsis when
+    // the reader closes. The page stays composed under the reader, so the synopsis is listening when focus comes back.
     LaunchedEffect(loaded != null, reading) {
-        if (loaded == null || reading) return@LaunchedEffect
-        if (hasRead) synopsisFocus.requestFocus() else tabFocus.requestFocus()
+        if (loaded == null || reading || returningTo != null) return@LaunchedEffect
+        when {
+            hasRead -> synopsisFocus.requestFocus()
+            hasEpisodes -> mainFocus.requestFocus()
+            else -> tabFocus.requestFocus()
+        }
+    }
+    // Down in a section, Back first brings the page back to the top. Back again leaves Details.
+    BackHandler(enabled = lifted && !reading) {
+        (if (hasEpisodes) mainFocus else tabFocus).requestFocus()
+        lifted = false
     }
     val dimensions = NeoTheme.dimensions
     val lift by animateDpAsState(
@@ -149,20 +178,104 @@ fun DetailsScreen(
 
             is DetailsState.Loaded -> {
                 Box(Modifier.fillMaxSize().offset { IntOffset(0, lift.roundToPx()) }) {
-                    Hero(state.details, state.logo, margin.padding(top = HeroTop).width(HeroWidth))
-                    Overview(
-                        state = state,
-                        reading = reading,
-                        tabFocus = tabFocus,
-                        synopsisFocus = synopsisFocus,
-                        onSynopsisFocused = { focused -> if (!reading) lifted = focused },
-                        onRead = {
-                            reading = true
-                            hasRead = true
-                        },
-                        // Measured at full height, so it runs past the bottom of the screen until the page lifts.
-                        modifier = margin.padding(top = OverviewTop).wrapContentHeight(Alignment.Top, unbounded = true),
+                    Hero(
+                        details = state.details,
+                        logo = state.logo,
+                        // The main button goes to the episodes. Without any, there's nothing for it to do.
+                        onMain =
+                            if (hasEpisodes) {
+                                {
+                                    section = DetailsSection.EPISODES
+                                    toEpisodes = true
+                                }
+                            } else {
+                                null
+                            },
+                        mainFocus = mainFocus,
+                        modifier = margin.padding(top = HeroTop).width(HeroWidth),
                     )
+                    val sections = state.sections
+                    DetailsSections(
+                        sections = sections,
+                        selected = { section.takeIf { it in sections } ?: sections.first() },
+                        onSelect = { section = it },
+                        // The reader and a related show's Details take focus from the page without lowering it.
+                        onInside = { inside -> if (!reading && returnTo == null) lifted = inside },
+                        // Measured at full height, so it runs past the bottom of the screen until the page lifts.
+                        modifier =
+                            margin
+                                .padding(top = OverviewTop)
+                                .wrapContentHeight(Alignment.Top, unbounded = true)
+                                .focusRequester(tabFocus),
+                    ) { shown ->
+                        when (shown) {
+                            DetailsSection.OVERVIEW -> {
+                                Overview(
+                                    state = state,
+                                    reading = reading,
+                                    synopsisFocus = synopsisFocus,
+                                    onRead = {
+                                        reading = true
+                                        hasRead = true
+                                    },
+                                )
+                            }
+
+                            DetailsSection.EPISODES -> {
+                                val episodes = state.episodes
+                                if (episodes != null) {
+                                    EpisodesSection(episodes, Modifier.focusRequester(episodesFocus))
+                                    LaunchedEffect(toEpisodes) {
+                                        if (toEpisodes) episodesFocus.requestFocus()
+                                        toEpisodes = false
+                                    }
+                                }
+                            }
+
+                            DetailsSection.RELATED -> {
+                                PosterRowSection(
+                                    posters = state.details.related.map { Poster(it.card, it.caption()) },
+                                    onOpen = {
+                                        returnTo = it
+                                        onOpen(it)
+                                    },
+                                    returnTo = returningTo,
+                                    onReturned = { returnTo = null },
+                                )
+                            }
+
+                            DetailsSection.WATCH_ORDER -> {
+                                // Words only: there's nothing to do here until a watch order extension is installed.
+                                Text(
+                                    text = stringResource(R.string.details_watch_order_none),
+                                    style = NeoTheme.typography.body,
+                                    color = NeoTheme.colors.textMuted,
+                                    modifier = Modifier.width(SynopsisWidth),
+                                )
+                            }
+
+                            DetailsSection.RECOMMENDATIONS -> {
+                                PosterRowSection(
+                                    posters = state.details.recommendations.map { Poster(it) },
+                                    onOpen = {
+                                        returnTo = it
+                                        onOpen(it)
+                                    },
+                                    returnTo = returningTo,
+                                    onReturned = { returnTo = null },
+                                    seeMore =
+                                        if (state.details.moreRecommendations) {
+                                            {
+                                                returnTo = SEE_MORE
+                                                onRecommendations()
+                                            }
+                                        } else {
+                                            null
+                                        },
+                                )
+                            }
+                        }
+                    }
                 }
                 AnimatedVisibility(visible = lifted, enter = fadeIn(), exit = fadeOut()) {
                     Text(
@@ -196,6 +309,8 @@ fun DetailsScreen(
 private fun Hero(
     details: AnimeDetails,
     logo: Logo,
+    onMain: (() -> Unit)?,
+    mainFocus: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
@@ -242,16 +357,24 @@ private fun Hero(
                 modifier = Modifier.testTag(DETAILS_GENRES_TAG),
             )
         }
+        onMain?.let {
+            NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
+                NeoButton(
+                    text = stringResource(R.string.details_episodes),
+                    onClick = it,
+                    modifier = Modifier.focusRequester(mainFocus).testTag(DETAILS_MAIN_BUTTON_TAG),
+                )
+            }
+        }
     }
 }
 
+/** A short synopsis and the facts. */
 @Composable
 private fun Overview(
     state: DetailsState.Loaded,
     reading: Boolean,
-    tabFocus: FocusRequester,
     synopsisFocus: FocusRequester,
-    onSynopsisFocused: (Boolean) -> Unit,
     onRead: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -259,30 +382,16 @@ private fun Overview(
     // The synopsis box sits a padding's width left, so its text lines up with the grid margin.
     val outdent = Modifier.offset(x = -dimensions.space4)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        OverviewTab(Modifier.focusRequester(tabFocus))
         state.synopsis.story?.let { story ->
             SynopsisPreview(
                 story = story,
                 enabled = !reading,
                 onRead = onRead,
-                modifier = outdent.focusRequester(synopsisFocus).onFocusChanged { onSynopsisFocused(it.isFocused) },
+                modifier = outdent.focusRequester(synopsisFocus),
             )
         }
         Facts(state.details, Modifier.padding(top = dimensions.space1))
     }
-}
-
-/** The current Overview tab. Related joins it later; until then it's where focus starts. */
-@Composable
-private fun OverviewTab(modifier: Modifier = Modifier) {
-    NeoTab(
-        text = stringResource(R.string.details_overview),
-        selected = true,
-        onClick = {},
-        // Outdented so the label lines up with the grid margin.
-        modifier = modifier.offset(x = -NeoTabPadding).testTag(DETAILS_OVERVIEW_TAB_TAG),
-        height = TabHeight,
-    )
 }
 
 /** The start of the synopsis, with no box of its own until focus outlines it. Selecting it opens the reader. */
@@ -458,6 +567,20 @@ private fun List<Pair<Float, Float>>.alphaAt(at: Float): Float {
     val (start, end) = zipWithNext().first { (_, end) -> at <= end.first }
     return start.second + (end.second - start.second) * (at - start.first) / (end.first - start.first)
 }
+
+private val relationNames =
+    mapOf(
+        Relation.PARENT to R.string.details_relation_parent,
+        Relation.PREQUEL to R.string.details_relation_prequel,
+        Relation.SEQUEL to R.string.details_relation_sequel,
+        Relation.SIDE_STORY to R.string.details_relation_side_story,
+        Relation.SPIN_OFF to R.string.details_relation_spin_off,
+    )
+
+/** How it's related, then its format and year, such as "Sequel · TV · 2008". */
+@Composable
+private fun RelatedAnime.caption(): String =
+    listOfNotNull(stringResource(relationNames.getValue(relation)), card.formatName(), card.seasonYear?.toString()).joinToString(" · ")
 
 /** What the show is, such as "TV · Fall 2026 · 12 episodes". */
 @Composable

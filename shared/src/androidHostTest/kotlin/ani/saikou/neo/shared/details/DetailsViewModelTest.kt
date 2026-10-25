@@ -57,7 +57,8 @@ class DetailsViewModelTest {
         fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
         tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
         library: ArtLibrary = library(engine, aniZip, fanartTv, tmdb),
-    ) = DetailsViewModel(clientFor(engine, main), library, animeId = 195516)
+        episodes: AniZipClient = AniZipClient(AniZipEngine("episodes-new"), main),
+    ) = DetailsViewModel(clientFor(engine, main), library, episodes, animeId = 195516)
 
     private fun library(
         engine: HttpEngine = RecordedEngine("details"),
@@ -84,6 +85,28 @@ class DetailsViewModelTest {
             assertEquals(listOf("Drama", "Mystery"), loaded.details.genres)
             assertEquals("Crunchyroll", loaded.synopsis.source)
             assertTrue(engine.requestBodies.single().contains("\"id\":195516"))
+        }
+
+    @Test
+    fun theEpisodesComeWithWhatAniZipKnows() =
+        runTest(main) {
+            val viewModel = detailsViewModel()
+
+            val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.episodes != null } as DetailsState.Loaded
+            val episodes = loaded.episodes!!
+            assertEquals(loaded.details.card.episodes, episodes.count)
+            assertEquals("Day of Atonement", episodes.episodes[3].title)
+            assertEquals(false, episodes.detailsMissing)
+        }
+
+    @Test
+    fun withoutAniZipTheEpisodesAreJustNumbers() =
+        runTest(main) {
+            val viewModel = detailsViewModel(episodes = AniZipClient(OfflineEngine, main))
+
+            val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.episodes != null } as DetailsState.Loaded
+            assertTrue(loaded.episodes!!.detailsMissing)
+            assertEquals(loaded.details.card.episodes, loaded.episodes.episodes.size)
         }
 
     @Test

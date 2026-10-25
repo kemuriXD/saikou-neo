@@ -13,6 +13,13 @@ public sealed interface AniListResult<out T> {
     ) : AniListResult<Nothing>
 }
 
+/** The value mapped by [transform], or the same failure. */
+internal inline fun <T, R> AniListResult<T>.map(transform: (T) -> R): AniListResult<R> =
+    when (this) {
+        is AniListResult.Success -> AniListResult.Success(transform(value))
+        is AniListResult.Failure -> this
+    }
+
 /** Why an AniList call failed. */
 public sealed interface AniListError {
     /** AniList answered 429. Wait [retryAfter] before calling again. */

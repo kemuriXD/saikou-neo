@@ -1,0 +1,459 @@
+{
+  "data": {
+    "Media": {
+      "__typename": "Media",
+      "title": {
+        "romaji": "DEATH NOTE",
+        "english": "Death Note",
+        "native": "DEATH NOTE"
+      },
+      "recommendations": {
+        "pageInfo": {
+          "hasNextPage": true
+        },
+        "nodes": [
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 1575,
+              "title": {
+                "romaji": "Code Geass: Hangyaku no Lelouch",
+                "english": "Code Geass: Lelouch of the Rebellion",
+                "native": "コードギアス 反逆のルルーシュ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1575-hsmWM2ydNm1m.jpg",
+                "color": "#c9d678"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1575.jpg",
+              "format": "TV",
+              "episodes": 25,
+              "averageScore": 85,
+              "season": "FALL",
+              "seasonYear": 2006,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 19,
+              "title": {
+                "romaji": "MONSTER",
+                "english": "Monster",
+                "native": "MONSTER"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx19-gtMC64182sm4.jpg",
+                "color": null
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/19-kJhwsB0Z97tL.jpg",
+              "format": "TV",
+              "episodes": 74,
+              "averageScore": 88,
+              "season": "SPRING",
+              "seasonYear": 2004,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 2904,
+              "title": {
+                "romaji": "Code Geass: Hangyaku no Lelouch R2",
+                "english": "Code Geass: Lelouch of the Rebellion R2",
+                "native": "コードギアス 反逆のルルーシュ R2"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx2904-Fet9Q33suC7G.jpg",
+                "color": "#e4bb50"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2904-X71fcvE83n3s.jpg",
+              "format": "TV",
+              "episodes": 25,
+              "averageScore": 87,
+              "season": "SPRING",
+              "seasonYear": 2008,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 101759,
+              "title": {
+                "romaji": "Yakusoku no Neverland",
+                "english": "The Promised Neverland",
+                "native": "約束のネバーランド"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101759-8UR7r9MNVpz2.jpg",
+                "color": "#e4ae50"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/101759-MhlCoeqnODso.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 83,
+              "season": "WINTER",
+              "seasonYear": 2019,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 20623,
+              "title": {
+                "romaji": "Kiseijuu: Sei no Kakuritsu",
+                "english": "Parasyte -the maxim-",
+                "native": "寄生獣 セイの格率"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20623-dUARfggnNDOe.jpg",
+                "color": "#285086"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20623-xb9PPf8rGOsG.jpg",
+              "format": "TV",
+              "episodes": 24,
+              "averageScore": 81,
+              "season": "FALL",
+              "seasonYear": 2014,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 20661,
+              "title": {
+                "romaji": "Zankyou no Terror",
+                "english": "Terror in Resonance",
+                "native": "残響のテロル"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20661-aCR7QgzDfOSI.png",
+                "color": "#aee4e4"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20661-JwMKrCzeSTZ7.png",
+              "format": "TV",
+              "episodes": 11,
+              "averageScore": 78,
+              "season": "SUMMER",
+              "seasonYear": 2014,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 114124,
+              "title": {
+                "romaji": "Yuukoku no Moriarty",
+                "english": "Moriarty the Patriot",
+                "native": "憂国のモリアーティ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx114124-def92qPuIVeK.jpg",
+                "color": "#f14328"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/114124-44utnIatIX16.jpg",
+              "format": "TV",
+              "episodes": 11,
+              "averageScore": 80,
+              "season": "FALL",
+              "seasonYear": 2020,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 20931,
+              "title": {
+                "romaji": "Death Parade",
+                "english": "Death Parade",
+                "native": "デス・パレード"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/nx20931-bktYqOcxPERi.jpg",
+                "color": "#35a1f1"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20931-xDhiTPZmtS3u.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 80,
+              "season": "WINTER",
+              "seasonYear": 2015,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 117343,
+              "title": {
+                "romaji": "Munou na Nana",
+                "english": "Talentless Nana",
+                "native": "無能なナナ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx117343-NgCLZTaxallv.jpg",
+                "color": "#f1ae5d"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/117343-w0m2gfOlQphZ.jpg",
+              "format": "TV",
+              "episodes": 13,
+              "averageScore": 70,
+              "season": "FALL",
+              "seasonYear": 2020,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 127401,
+              "title": {
+                "romaji": "Platinum End",
+                "english": "Platinum End",
+                "native": "プラチナエンド"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx127401-fVKVbuIE5W5Q.jpg",
+                "color": "#f15078"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/127401-e27CVSLfGjnb.jpg",
+              "format": "TV",
+              "episodes": 24,
+              "averageScore": 58,
+              "season": "FALL",
+              "seasonYear": 2021,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 13601,
+              "title": {
+                "romaji": "PSYCHO-PASS",
+                "english": "PSYCHO-PASS",
+                "native": "PSYCHO-PASS サイコパス"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx13601-i42VFuHpqEOJ.jpg",
+                "color": "#288686"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/13601-YrCmS1oY4uBZ.jpg",
+              "format": "TV",
+              "episodes": 22,
+              "averageScore": 81,
+              "season": "FALL",
+              "seasonYear": 2012,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 97922,
+              "title": {
+                "romaji": "Inuyashiki",
+                "english": "INUYASHIKI LAST HERO",
+                "native": "いぬやしき"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx97922-qrGn5fkQinDs.jpg",
+                "color": "#e49335"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/97922-j6ba0Zmq8xOa.jpg",
+              "format": "TV",
+              "episodes": 11,
+              "averageScore": 74,
+              "season": "FALL",
+              "seasonYear": 2017,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 3002,
+              "title": {
+                "romaji": "Gyakkyou Burai Kaiji: Ultimate Survivor",
+                "english": "Kaiji - Ultimate Survivor",
+                "native": "逆境無頼カイジ Ultimate Survivor"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx3002-BExanPfxp888.jpg",
+                "color": "#78430d"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/3002-HcG6WRNYf5BC.jpg",
+              "format": "TV",
+              "episodes": 26,
+              "averageScore": 82,
+              "season": "FALL",
+              "seasonYear": 2007,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 124858,
+              "title": {
+                "romaji": "Yuukoku no Moriarty Part 2",
+                "english": "Moriarty the Patriot Part 2",
+                "native": "憂国のモリアーティ2クール"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx124858-96RtyVSgUYnm.jpg",
+                "color": "#e44328"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/124858-3Kb09cB8JxnF.jpg",
+              "format": "TV",
+              "episodes": 13,
+              "averageScore": 82,
+              "season": "SPRING",
+              "seasonYear": 2021,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 21234,
+              "title": {
+                "romaji": "Boku dake ga Inai Machi",
+                "english": "ERASED",
+                "native": "僕だけがいない街"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21234-XmqW39aQ9o7O.jpg",
+                "color": "#f1a150"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21234-7lfSSPoMmwr2.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 81,
+              "season": "WINTER",
+              "seasonYear": 2016,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 5040,
+              "title": {
+                "romaji": "One Outs",
+                "english": "One Outs",
+                "native": "ワンナウツ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx5040-9ruuekq2LZKJ.png",
+                "color": "#e4e45d"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/5040-DGZoPmQP7bV9.jpg",
+              "format": "TV",
+              "episodes": 25,
+              "averageScore": 81,
+              "season": "FALL",
+              "seasonYear": 2008,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 141014,
+              "title": {
+                "romaji": "Tomodachi Game",
+                "english": "Tomodachi Game",
+                "native": "トモダチゲーム"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx141014-bTWr7TtS0wt9.jpg",
+                "color": "#e4d6ae"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/141014-ocrpDt7M8EfY.jpg",
+              "format": "ONA",
+              "episodes": 12,
+              "averageScore": 76,
+              "season": "SPRING",
+              "seasonYear": 2022,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 98314,
+              "title": {
+                "romaji": "Kakegurui",
+                "english": "Kakegurui",
+                "native": "賭ケグルイ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b98314-TSJykxVwCCQN.jpg",
+                "color": "#e44328"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/98314-gwgiHiJOj2ls.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 70,
+              "season": "SUMMER",
+              "seasonYear": 2017,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 98659,
+              "title": {
+                "romaji": "Youkoso Jitsuryoku Shijou Shugi no Kyoushitsu e",
+                "english": "Classroom of the Elite",
+                "native": "ようこそ実力至上主義の教室へ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx98659-WNyPLIZDpGGY.jpg",
+                "color": "#bbf1a1"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/98659-u46B5RCNl9il.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 76,
+              "season": "SUMMER",
+              "seasonYear": 2017,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 9253,
+              "title": {
+                "romaji": "Steins;Gate",
+                "english": "Steins;Gate",
+                "native": "シュタインズ・ゲート"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx9253-tIUXF2gfU8Sg.jpg",
+                "color": "#ffd6ae"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/n9253-JIhmKgBKsWUN.jpg",
+              "format": "TV",
+              "episodes": 24,
+              "averageScore": 89,
+              "season": "SPRING",
+              "seasonYear": 2011,
+              "isAdult": false
+            }
+          }
+        ]
+      }
+    }
+  }
+}

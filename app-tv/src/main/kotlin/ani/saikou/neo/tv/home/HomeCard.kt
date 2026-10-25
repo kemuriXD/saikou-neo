@@ -27,6 +27,7 @@ import androidx.tv.material3.CardDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
+import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
 import coil3.compose.AsyncImage
@@ -95,7 +96,10 @@ internal fun HomeCard(
 }
 
 /** The English title where AniList has one, as most viewers here read English. */
-internal fun AnimeCard.displayTitle(): String = title.english ?: title.romaji ?: title.native.orEmpty()
+internal fun AnimeCard.displayTitle(): String = title.displayTitle()
+
+/** The English title, else the romaji, else the native one. */
+internal fun AnimeTitle.displayTitle(): String = english ?: romaji ?: native.orEmpty()
 
 /** Format, year and episode count, such as "TV · 2026 · 12 episodes". */
 @Composable

@@ -29,12 +29,16 @@ import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.tv.theme.NeoTheme
 import coil3.compose.AsyncImage
 
-/** A 2:3 poster for one anime, with its title and format and year under it. [modifier] goes on the focusable poster. */
+/**
+ * A 2:3 poster for one anime, with its title and, under that, its format and year or a [caption] in their place.
+ * [modifier] goes on the focusable poster.
+ */
 @Composable
 internal fun PosterCard(
     card: AnimeCard,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    caption: String? = null,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
@@ -71,7 +75,7 @@ internal fun PosterCard(
             )
             Text(
                 // The episode count wouldn't fit under a poster.
-                text = listOfNotNull(card.formatName(), card.seasonYear?.toString()).joinToString(" · "),
+                text = caption ?: listOfNotNull(card.formatName(), card.seasonYear?.toString()).joinToString(" · "),
                 style = NeoTheme.typography.caption,
                 color = colors.textFaint,
                 maxLines = 1,

@@ -21,7 +21,10 @@ import androidx.navigation3.ui.NavDisplay
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.tv.theme.NeoTheme
 
-/** The app's screens. Home is always at the bottom of the back stack. */
+/**
+ * The app's screens. Home is always at the bottom of the back stack. A show can be opened again further up, such as a
+ * season from its prequel's Related row, so each visit has its own [Visited.visit] number to keep its state apart.
+ */
 sealed interface Screen {
     data object Home : Screen
 
@@ -31,38 +34,65 @@ sealed interface Screen {
 
     data class Details(
         val animeId: Int,
-    ) : Screen
+        override val visit: Int = 0,
+    ) : Visited
+
+    /** All the anime recommended for one. */
+    data class Recommendations(
+        val animeId: Int,
+        override val visit: Int = 0,
+    ) : Visited
+
+    /** A screen that can be on the back stack more than once. */
+    sealed interface Visited : Screen {
+        val visit: Int
+    }
 }
 
-// Home is implied, so only the screens above it are saved: Details as its anime id, which AniList keeps above 0, and
-// See more as minus its row's position, less one.
+/** A number no screen on [stack] has, for the next one opened. */
+private fun nextVisit(stack: List<Screen>) = (stack.filterIsInstance<Screen.Visited>().maxOfOrNull { it.visit } ?: 0) + 1
+
+// Home is implied, so only the screens above it are saved, each as a letter and numbers: See more as "s" and its row's
+// position, Details as "d" and its anime id and visit, and recommendations as "r" and theirs.
 private val BackStackSaver =
-    listSaver<SnapshotStateList<Screen>, Int>(
+    listSaver<SnapshotStateList<Screen>, String>(
         save = { stack ->
             stack.mapNotNull { screen ->
                 when (screen) {
                     Screen.Home -> null
-                    is Screen.SeeMore -> -(screen.row.ordinal + 1)
-                    is Screen.Details -> screen.animeId
+                    is Screen.SeeMore -> "s${screen.row.ordinal}"
+                    is Screen.Details -> "d${screen.animeId}.${screen.visit}"
+                    is Screen.Recommendations -> "r${screen.animeId}.${screen.visit}"
                 }
             }
         },
         restore = { saved ->
             mutableStateListOf<Screen>(Screen.Home).apply {
-                addAll(saved.map { if (it < 0) Screen.SeeMore(HomeRow.entries[-it - 1]) else Screen.Details(it) })
+                addAll(
+                    saved.map {
+                        val (number, visit) = it.drop(1).split('.').map(String::toInt) + 0
+                        when (it.first()) {
+                            's' -> Screen.SeeMore(HomeRow.entries[number])
+                            'r' -> Screen.Recommendations(number, visit)
+                            else -> Screen.Details(number, visit)
+                        }
+                    },
+                )
             }
         },
     )
 
 /**
- * Moves between [home], a row's [seeMore] page and [details]. Each screen keeps its saved state and ViewModels while it's on the back stack,
+ * Moves between [home], a row's [seeMore] page and [details], which can open another show's Details or all of its
+ * [recommendations]. Each screen keeps its saved state and ViewModels while it's on the back stack,
  * so Back finds Home as it was left. Back on Home leaves the app.
  */
 @Composable
 fun NeoNavigation(
     home: @Composable (openDetails: (animeId: Int) -> Unit, openSeeMore: (row: HomeRow) -> Unit) -> Unit,
     seeMore: @Composable (row: HomeRow, openDetails: (animeId: Int) -> Unit) -> Unit,
-    details: @Composable (animeId: Int) -> Unit,
+    details: @Composable (animeId: Int, openDetails: (animeId: Int) -> Unit, openRecommendations: (animeId: Int) -> Unit) -> Unit,
+    recommendations: @Composable (animeId: Int, openDetails: (animeId: Int) -> Unit) -> Unit = { _, _ -> },
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
     // One crossfade each way. The default Back preview shrinks the screen as for a phone's back swipe, which a remote doesn't have.
@@ -82,7 +112,7 @@ fun NeoNavigation(
         predictivePopTransitionSpec = { crossfade },
         entryProvider =
             entryProvider {
-                val openDetails: (Int) -> Unit = { animeId -> backStack.add(Screen.Details(animeId)) }
+                val openDetails: (Int) -> Unit = { animeId -> backStack.add(Screen.Details(animeId, nextVisit(backStack))) }
 
                 // A screen fading out keeps its focus until the next one takes it, which can wait for that screen to load.
                 // Only the top screen takes the remote's keys, so a quick press can't move focus on the one left behind.
@@ -91,7 +121,15 @@ fun NeoNavigation(
                     Box(Modifier.onPreviewKeyEvent { it.key != Key.Back && this != backStack.lastOrNull() }) { content() }
                 entry<Screen.Home> { it.TakesKeysOnTop { home(openDetails) { row -> backStack.add(Screen.SeeMore(row)) } } }
                 entry<Screen.SeeMore> { it.TakesKeysOnTop { seeMore(it.row, openDetails) } }
-                entry<Screen.Details> { it.TakesKeysOnTop { details(it.animeId) } }
+                entry<Screen.Details> {
+                    it.TakesKeysOnTop {
+                        details(
+                            it.animeId,
+                            openDetails,
+                        ) { animeId -> backStack.add(Screen.Recommendations(animeId, nextVisit(backStack))) }
+                    }
+                }
+                entry<Screen.Recommendations> { it.TakesKeysOnTop { recommendations(it.animeId, openDetails) } }
             },
     )
 }

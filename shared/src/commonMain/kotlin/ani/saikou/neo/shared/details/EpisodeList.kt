@@ -1,0 +1,66 @@
+package ani.saikou.neo.shared.details
+
+import ani.saikou.neo.shared.catalogue.AniZipEpisode
+import ani.saikou.neo.shared.catalogue.AniZipEpisodes
+import ani.saikou.neo.shared.catalogue.AniZipExtra
+import ani.saikou.neo.shared.catalogue.AnimeDetails
+
+private const val RANGE = 50
+
+/** A show's episodes for its Episodes tab. They come from the catalogue, never from extensions. */
+public data class EpisodeList(
+    val count: Int,
+    /** AniList doesn't say how many there will be, so [count] is how many are out so far. */
+    val countSoFar: Boolean,
+    val film: Boolean,
+    /** Every episode from 1 to [count]. One AniZip doesn't know has only its number. */
+    val episodes: List<AniZipEpisode>,
+    /** A film's extras, such as its making-of. */
+    val extras: List<AniZipExtra>,
+    /** No episode has a title or an air date, so the list says they're unavailable. */
+    val detailsMissing: Boolean,
+)
+
+/**
+ * How many episodes [details] has, from AniList: its total, or the episodes out before the next one airs. When AniList
+ * knows neither, AniZip's episodes count.
+ */
+public fun episodeCount(
+    details: AnimeDetails,
+    aniZip: AniZipEpisodes?,
+): Int =
+    details.card.episodes
+        ?: details.nextEpisode?.number?.minus(1)
+        ?: aniZip?.episodes?.size
+        ?: 0
+
+/** The Episodes tab's list: AniList's count, with whatever [aniZip] knows of each episode. */
+public fun episodeList(
+    details: AnimeDetails,
+    aniZip: AniZipEpisodes?,
+): EpisodeList {
+    val count = episodeCount(details, aniZip)
+    val known = aniZip?.episodes.orEmpty().associateBy { it.number }
+    val episodes = (1..count).map { known[it] ?: AniZipEpisode(it, null, null, null, null, null) }
+    val film = details.card.format == "MOVIE"
+    return EpisodeList(
+        count = count,
+        countSoFar = details.card.episodes == null,
+        film = film,
+        episodes = episodes,
+        extras = if (film) aniZip?.extras.orEmpty() else emptyList(),
+        detailsMissing = episodes.none { it.title != null || it.airDate != null },
+    )
+}
+
+/**
+ * Ranges of 50 to jump between, such as 1–50 and 51–100, for a show with more than 50 episodes. A few left over join
+ * the last range, as in 151–201, rather than making a range of their own.
+ */
+public fun episodeRanges(count: Int): List<IntRange> {
+    if (count <= RANGE) return emptyList()
+    val ranges = (1..count step RANGE).map { it..minOf(it + RANGE - 1, count) }
+    val last = ranges.last()
+    if (last.count() >= RANGE / 2) return ranges
+    return ranges.dropLast(2) + listOf(ranges[ranges.size - 2].first..last.last)
+}
