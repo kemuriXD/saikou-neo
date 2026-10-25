@@ -388,7 +388,7 @@ private fun Skeleton(
     shape: Shape = RoundedCornerShape(6.dp),
 ) = Box(Modifier.size(width, height).background(NeoTheme.colors.surfaceRaised, shape))
 
-/** The show's art, faded in once it's known and dimmed so the text over it stays readable. */
+/** The show's art, faded in once it's known and dimmed so the text over it stays readable while the art shows. */
 @Composable
 private fun Backdrop(art: String?) {
     val ink = NeoTheme.colors.ink
@@ -408,12 +408,23 @@ private fun Backdrop(art: String?) {
     Box(
         Modifier.fillMaxSize().background(
             Brush.horizontalGradient(
-                0f to ink.copy(alpha = 0.97f),
-                0.5f to ink.copy(alpha = 0.9f),
-                1f to ink.copy(alpha = 0.72f),
+                *DimStops
+                    .map { (x, alpha) ->
+                        x to ink.copy(alpha = alpha)
+                    }.toTypedArray(),
             ),
         ),
     )
+}
+
+// From the design: ink over the backdrop, from the left edge to the right. Deep enough under the text column, which
+// ends 66% across, for 4.5:1 contrast even over white, and light where the art shows on the right.
+private val DimStops = listOf(0f to 0.93f, 0.5f to 0.88f, 0.66f to 0.74f, 0.82f to 0.35f, 1f to 0.15f)
+
+/** The ink's alpha over the backdrop [across] the screen, from 0 at the left edge to 1 at the right. */
+internal fun detailsDimAt(across: Float): Float {
+    val (start, end) = DimStops.zipWithNext().first { (_, end) -> across <= end.first }
+    return start.second + (end.second - start.second) * (across - start.first) / (end.first - start.first)
 }
 
 /** Genres and episode count, such as "Drama · Mystery · 12 episodes". */
