@@ -71,7 +71,7 @@ internal fun homeCardTag(
     index: Int,
 ) = "${row.name.lowercase()}-card-$index"
 
-private val rowTitles =
+internal val rowTitles =
     mapOf(
         HomeRow.TRENDING to R.string.home_row_trending,
         HomeRow.THIS_SEASON to R.string.home_row_this_season,
@@ -310,11 +310,12 @@ private fun SkeletonCards() {
 }
 
 @Composable
-private fun Skeleton(
+internal fun Skeleton(
     width: Dp,
     height: Dp,
     radius: Dp = 6.dp,
-) = Box(Modifier.size(width, height).background(NeoTheme.colors.surfaceRaised, RoundedCornerShape(radius)))
+    modifier: Modifier = Modifier,
+) = Box(modifier.size(width, height).background(NeoTheme.colors.surfaceRaised, RoundedCornerShape(radius)))
 
 /** In the spotlight's place while the rows it comes from load. */
 @Composable
