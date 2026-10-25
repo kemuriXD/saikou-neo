@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -58,6 +59,8 @@ import ani.saikou.neo.shared.home.Spotlight
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.KeylineScrolling
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.NeoButton
+import ani.saikou.neo.tv.ui.NeoIcons
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
@@ -65,6 +68,11 @@ import coil3.request.ImageRequest
 import java.io.Serializable
 
 internal const val BACKDROP_ART_TAG = "backdrop-art"
+
+internal fun seeMoreTag(row: HomeRow) = "${row.name.lowercase()}-see-more"
+
+// Where focus is saved as an anime id, the See more button at a row's end.
+private const val SEE_MORE = -1
 
 internal fun homeCardTag(
     row: HomeRow,
@@ -121,7 +129,7 @@ private data class CardKey(
 
 /**
  * Home: a spotlight on featured shows, over rows of anime that browse left and right. Selecting a show calls [onOpen];
- * the spotlight's dots call [onPick]. [onSpotlightInView] says whether the spotlight is showing, so it only moves on
+ * the spotlight's dots call [onPick], and the button at the end of each row calls [onSeeMore]. [onSpotlightInView] says whether the spotlight is showing, so it only moves on
  * while seen.
  */
 @Composable
@@ -131,6 +139,7 @@ fun HomeScreen(
     onOpen: (animeId: Int) -> Unit = {},
     onPick: (index: Int) -> Unit = {},
     onSpotlightInView: (inView: Boolean) -> Unit = {},
+    onSeeMore: (row: HomeRow) -> Unit = {},
 ) {
     // The card with focus, or null while the spotlight has it.
     var focused by rememberSaveable { mutableStateOf<CardKey?>(null) }
@@ -219,6 +228,7 @@ fun HomeScreen(
                             // Up from the first row goes to the spotlight's dots, wherever they are.
                             up = dots.takeIf { spotlight != null && row == shownRows.first() },
                             onOpen = onOpen,
+                            onSeeMore = { onSeeMore(row) },
                             onCardFocused = { animeId, index ->
                                 focused = CardKey(row, animeId, index)
                                 lastCards[row] = animeId
@@ -242,6 +252,7 @@ private fun HomeRowSection(
     lastCard: Int?,
     up: FocusRequester?,
     onOpen: (animeId: Int) -> Unit,
+    onSeeMore: () -> Unit,
     onCardFocused: (animeId: Int, index: Int) -> Unit,
 ) {
     val dimensions = NeoTheme.dimensions
@@ -258,7 +269,7 @@ private fun HomeRowSection(
             return@Column
         }
         // Up and down enter a row on the card you left, or its first card, not the one nearest on screen.
-        val entryCard = lastCard?.takeIf { id -> rowState.items.any { it.id == id } } ?: rowState.items.firstOrNull()?.id
+        val entryCard = lastCard?.takeIf { id -> id == SEE_MORE || rowState.items.any { it.id == id } } ?: rowState.items.firstOrNull()?.id
         val entry = remember { FocusRequester() }
         KeylineScrolling {
             LazyRow(
@@ -275,20 +286,35 @@ private fun HomeRowSection(
                 contentPadding = PaddingValues(horizontal = dimensions.gridMargin),
                 horizontalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
             ) {
-                itemsIndexed(rowState.items, key = { _, card -> card.id }) { index, card ->
+                // A card, or the See more button as SEE_MORE: focus is placed, entered and saved the same way.
+                @Composable
+                fun Modifier.rowItem(
+                    animeId: Int,
+                    index: Int,
+                ): Modifier {
                     val requester = remember { FocusRequester() }
-                    if (card.id == initialFocus) LaunchedEffect(Unit) { requester.requestFocus() }
+                    if (animeId == initialFocus) LaunchedEffect(Unit) { requester.requestFocus() }
+                    return focusRequester(requester)
+                        .then(if (animeId == entryCard) Modifier.focusRequester(entry) else Modifier)
+                        .then(if (up != null) Modifier.focusProperties { this.up = up } else Modifier)
+                        .onFocusChanged { if (it.isFocused) onCardFocused(animeId, index) }
+                }
+                itemsIndexed(rowState.items, key = { _, card -> card.id }) { index, card ->
                     HomeCard(
                         card = card,
                         onClick = { onOpen(card.id) },
-                        modifier =
-                            Modifier
-                                .testTag(homeCardTag(row, index))
-                                .focusRequester(requester)
-                                .then(if (card.id == entryCard) Modifier.focusRequester(entry) else Modifier)
-                                .then(if (up != null) Modifier.focusProperties { this.up = up } else Modifier)
-                                .onFocusChanged { if (it.isFocused) onCardFocused(card.id, index) },
+                        modifier = Modifier.testTag(homeCardTag(row, index)).rowItem(card.id, index),
                     )
+                }
+                item(key = SEE_MORE) {
+                    Box(Modifier.height(dimensions.cardWideHeight), contentAlignment = Alignment.Center) {
+                        NeoButton(
+                            text = stringResource(R.string.home_see_more),
+                            onClick = onSeeMore,
+                            trailingIcon = NeoIcons.Arrow,
+                            modifier = Modifier.testTag(seeMoreTag(row)).rowItem(SEE_MORE, rowState.items.size),
+                        )
+                    }
                 }
             }
         }
@@ -396,7 +422,7 @@ private fun HomeState.focusTarget(saved: CardKey?): CardKey? {
             }
         if (items.isEmpty()) continue
         if (row != saved?.row) return CardKey(row, items.first().id, 0)
-        if (items.any { it.id == saved.animeId }) return saved
+        if (saved.animeId == SEE_MORE || items.any { it.id == saved.animeId }) return saved
         val index = saved.index.coerceAtMost(items.lastIndex)
         return CardKey(row, items[index].id, index)
     }

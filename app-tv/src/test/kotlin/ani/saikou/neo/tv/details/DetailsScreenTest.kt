@@ -61,7 +61,8 @@ class DetailsScreenTest {
         compose.setContent {
             NeoTheme {
                 NeoNavigation(
-                    home = { openDetails -> HomeScreen(loaded, onOpen = openDetails) },
+                    home = { openDetails, _ -> HomeScreen(loaded, onOpen = openDetails) },
+                    seeMore = { _, _ -> },
                     details = { DetailsScreen(state) },
                 )
             }

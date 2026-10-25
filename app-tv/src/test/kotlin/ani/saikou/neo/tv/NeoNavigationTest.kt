@@ -17,10 +17,16 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.home.HomeRow
+import ani.saikou.neo.shared.home.More
+import ani.saikou.neo.shared.home.SeeMoreState
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SPOTLIGHT_PLAY_TAG
+import ani.saikou.neo.tv.home.SeeMoreScreen
+import ani.saikou.neo.tv.home.card
 import ani.saikou.neo.tv.home.homeCardTag
 import ani.saikou.neo.tv.home.loaded
+import ani.saikou.neo.tv.home.posterTag
+import ani.saikou.neo.tv.home.seeMoreTag
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -42,7 +48,10 @@ class NeoNavigationTest {
         restoration.setContent {
             NeoTheme {
                 NeoNavigation(
-                    home = { openDetails -> HomeScreen(loaded, onOpen = openDetails) },
+                    home = { openDetails, openSeeMore -> HomeScreen(loaded, onOpen = openDetails, onSeeMore = openSeeMore) },
+                    seeMore = { row, openDetails ->
+                        SeeMoreScreen(row, SeeMoreState(List(24) { card(it) }, More.Done), openDetails, onLoadMore = {}, onRetry = {})
+                    },
                     details = { animeId -> Text("Details for $animeId") },
                 )
             }
@@ -141,5 +150,54 @@ class NeoNavigationTest {
         compose.onNodeWithText("Details for 105").assertExists()
         back()
         compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 5)).assertIsFocused()
+    }
+
+    /** From Play to the end of Trending, and into its See more page. */
+    private fun openTrendingSeeMore() {
+        enterRows()
+        press(Key.DirectionRight, times = 12)
+        press(Key.DirectionCenter)
+    }
+
+    @Test
+    fun seeMoreOpensTheRowsPageAndBackReturnsToTheButton() {
+        show()
+
+        openTrendingSeeMore()
+        compose.onNodeWithTag(posterTag(0)).assertIsFocused()
+        back()
+
+        compose.onNodeWithTag(seeMoreTag(HomeRow.TRENDING)).assertIsFocused()
+    }
+
+    @Test
+    fun backFromDetailsReturnsToTheSameShowOnSeeMore() {
+        show()
+
+        openTrendingSeeMore()
+        press(Key.DirectionDown)
+        press(Key.DirectionRight, times = 2)
+        press(Key.DirectionCenter)
+        compose.onNodeWithText("Details for 8").assertExists()
+        back()
+
+        compose.onNodeWithTag(posterTag(8)).assertIsFocused()
+    }
+
+    @Test
+    fun seeMoreStaysOnTheBackStackAfterTheAppIsRecreated() {
+        show()
+
+        openTrendingSeeMore()
+        press(Key.DirectionDown)
+        press(Key.DirectionRight, times = 2)
+        press(Key.DirectionCenter)
+        restoration.emulateSavedInstanceStateRestore()
+
+        compose.onNodeWithText("Details for 8").assertExists()
+        back()
+        compose.onNodeWithTag(posterTag(8)).assertIsFocused()
+        back()
+        compose.onNodeWithTag(seeMoreTag(HomeRow.TRENDING)).assertIsFocused()
     }
 }
