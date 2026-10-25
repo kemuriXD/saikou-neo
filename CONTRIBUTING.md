@@ -9,7 +9,9 @@ The same rules apply to anyone who joins later.
 1. Pick an issue from the **Ready** column of the project board, or open one.
 2. Branch from `main` as `<type>/<issue>-<short-name>`, for example
    `fix/71-retry-button`.
-3. Write tests for any new logic, then the code.
+3. Write tests for any new logic, then the code. To see fanart.tv backgrounds
+   in your own builds, add `fanartTv.apiKey=<project key>` to
+   `local.properties`. Builds and tests work without it.
 4. Open a pull request titled in Conventional Commits form, such as
    `fix(tv): make Retry reload the row`, with `Closes #71` in the body.
 5. CI builds both apps and runs lint and tests for the active release channel,

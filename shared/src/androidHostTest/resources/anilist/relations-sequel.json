@@ -1,0 +1,58 @@
+{
+  "data": {
+    "Media": {
+      "relations": {
+        "edges": [
+          {
+            "relationType": "PREQUEL",
+            "node": {
+              "id": 16498,
+              "type": "ANIME",
+              "format": "TV"
+            }
+          },
+          {
+            "relationType": "SEQUEL",
+            "node": {
+              "id": 99147,
+              "type": "ANIME",
+              "format": "TV"
+            }
+          },
+          {
+            "relationType": "SUMMARY",
+            "node": {
+              "id": 100465,
+              "type": "ANIME",
+              "format": "MOVIE"
+            }
+          },
+          {
+            "relationType": "ADAPTATION",
+            "node": {
+              "id": 53390,
+              "type": "MANGA",
+              "format": "MANGA"
+            }
+          },
+          {
+            "relationType": "OTHER",
+            "node": {
+              "id": 110640,
+              "type": "ANIME",
+              "format": "SPECIAL"
+            }
+          },
+          {
+            "relationType": "SUMMARY",
+            "node": {
+              "id": 119113,
+              "type": "ANIME",
+              "format": "MOVIE"
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -71,7 +71,7 @@ public class AniListClient internal constructor(
 
     /**
      * The ids of the anime series [id] belongs to, such as a movie's TV series, then the ones it follows, such as a
-     * sequel's earlier season. TV series come first in each.
+     * sequel's earlier season, then the ones that follow it and other versions of it. TV series come first in each.
      */
     public suspend fun relatedSeries(id: Int): AniListResult<List<Int>> =
         fetch(AnimeRelationsQuery(id = id)) { data ->
@@ -147,7 +147,7 @@ public class AniListClient internal constructor(
     private companion object {
         const val ANILIST_URL = "https://graphql.anilist.co"
         const val DEFAULT_PER_PAGE = 20
-        val seriesRelations = listOf(MediaRelation.PARENT, MediaRelation.PREQUEL)
+        val seriesRelations = listOf(MediaRelation.PARENT, MediaRelation.PREQUEL, MediaRelation.SEQUEL, MediaRelation.ALTERNATIVE)
     }
 }
 

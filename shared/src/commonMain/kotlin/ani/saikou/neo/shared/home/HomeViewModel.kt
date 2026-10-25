@@ -8,6 +8,7 @@ import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimePage
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.FanartTvClient
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.catalogue.showArt
 import ani.saikou.neo.shared.details.parseSynopsis
@@ -82,12 +83,13 @@ public sealed interface Logo {
 
 /**
  * Loads Home's rows from AniList. This season is [season] of [year]. The spotlight features the first shows of the
- * first row that loads, with logos and fan art from [aniZip]. While it's in view it moves on every 10 seconds, until the viewer
- * picks a show.
+ * first row that loads, with logos and fan art from [aniZip], or backgrounds from [fanartTv] without fan art. While it's
+ * in view it moves on every 10 seconds, until the viewer picks a show.
  */
 public class HomeViewModel(
     private val client: AniListClient,
     private val aniZip: AniZipClient,
+    private val fanartTv: FanartTvClient,
     private val season: AnimeSeason,
     private val year: Int,
 ) : ViewModel() {
@@ -138,7 +140,7 @@ public class HomeViewModel(
         }
         shows.forEach { show ->
             viewModelScope.launch {
-                val art = showArt(client, aniZip, show.id)
+                val art = showArt(client, aniZip, fanartTv, show.id)
                 val logo = art?.logo?.let(Logo::Image) ?: Logo.None
                 updateSpotlight { spotlight ->
                     spotlight.copy(

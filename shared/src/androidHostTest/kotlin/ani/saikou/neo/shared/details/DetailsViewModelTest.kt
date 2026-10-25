@@ -2,6 +2,8 @@ package ani.saikou.neo.shared.details
 
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
+import ani.saikou.neo.shared.catalogue.FanartTvClient
+import ani.saikou.neo.shared.catalogue.FanartTvEngine
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
@@ -41,7 +43,8 @@ class DetailsViewModelTest {
     private fun detailsViewModel(
         engine: HttpEngine = RecordedEngine("details"),
         aniZip: AniZipClient = this.aniZip,
-    ) = DetailsViewModel(clientFor(engine, main), aniZip, animeId = 195516)
+        fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
+    ) = DetailsViewModel(clientFor(engine, main), aniZip, fanartTv, animeId = 195516)
 
     @Test
     fun startsLoading() {
@@ -99,6 +102,17 @@ class DetailsViewModelTest {
 
             val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.backdrop != null } as DetailsState.Loaded
             assertEquals("https://artworks.thetvdb.com/banners/fanart/original/295068-1.jpg", loaded.backdrop)
+        }
+
+    @Test
+    fun withoutAniZipFanArtTheBackdropIsFanartTvs() =
+        runTest(main) {
+            val engine = QueryEngine("details", mapOf("AnimeRelations" to "relations"))
+            val aniZip = AniZipClient(AniZipEngine("mappings-movie"), main)
+            val viewModel = detailsViewModel(engine, aniZip, FanartTvClient("test-project-key", FanartTvEngine("movie"), main))
+
+            val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.backdrop != null } as DetailsState.Loaded
+            assertEquals("https://assets.fanart.tv/fanart/spirited-away-50f0c9c556cad.jpg", loaded.backdrop)
         }
 
     @Test

@@ -12,6 +12,7 @@ import androidx.tv.material3.Surface
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.FanartTvClient
 import ani.saikou.neo.shared.details.DetailsViewModel
 import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
@@ -24,6 +25,7 @@ import java.util.Calendar
 class MainActivity : ComponentActivity() {
     private val client by lazy { AniListClient() }
     private val aniZip by lazy { AniZipClient() }
+    private val fanartTv by lazy { FanartTvClient(BuildConfig.FANART_TV_API_KEY) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -32,7 +34,7 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     NeoNavigation(
                         home = { openDetails, openSeeMore ->
-                            val home = viewModel { HomeViewModel(client, aniZip, season(), year()) }
+                            val home = viewModel { HomeViewModel(client, aniZip, fanartTv, season(), year()) }
                             val state by home.state.collectAsStateWithLifecycle()
                             HomeScreen(
                                 state = state,
@@ -48,7 +50,7 @@ class MainActivity : ComponentActivity() {
                             SeeMoreScreen(row, state, onOpen = openDetails, onLoadMore = seeMore::loadMore, onRetry = seeMore::retry)
                         },
                         details = { animeId ->
-                            val details = viewModel { DetailsViewModel(client, aniZip, animeId) }
+                            val details = viewModel { DetailsViewModel(client, aniZip, fanartTv, animeId) }
                             val state by details.state.collectAsStateWithLifecycle()
                             DetailsScreen(state)
                         },

@@ -1,12 +1,26 @@
+import java.util.Properties
+
 plugins {
     id("neo.android.app")
 }
+
+// The fanart.tv project key (ADR 0011): fanartTv.apiKey in local.properties, else the FANART_TV_API_KEY variable that
+// CI sets from a secret. Without one, the app asks fanart.tv nothing.
+val fanartTvApiKey: String =
+    providers
+        .fileContents(rootProject.layout.projectDirectory.file("local.properties"))
+        .asText.orNull
+        ?.let { text -> Properties().apply { load(text.reader()) }.getProperty("fanartTv.apiKey") }
+        ?: providers.environmentVariable("FANART_TV_API_KEY").orNull
+        ?: ""
 
 android {
     namespace = "ani.saikou.neo.tv"
     defaultConfig {
         applicationId = "ani.saikou.neo"
+        buildConfigField("String", "FANART_TV_API_KEY", "\"${fanartTvApiKey.trim()}\"")
     }
+    buildFeatures { buildConfig = true }
     // Robolectric needs the merged resources, fonts included.
     testOptions { unitTests.isIncludeAndroidResources = true }
     // The PNG icons are for TVs on Android 7 (Fire OS 6), where a square TV

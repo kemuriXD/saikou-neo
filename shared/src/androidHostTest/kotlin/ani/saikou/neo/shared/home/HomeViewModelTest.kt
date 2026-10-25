@@ -3,6 +3,8 @@ package ani.saikou.neo.shared.home
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.FanartTvClient
+import ani.saikou.neo.shared.catalogue.FanartTvEngine
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
 import ani.saikou.neo.shared.catalogue.SilentEngine
@@ -45,7 +47,8 @@ class HomeViewModelTest {
     private fun homeViewModel(
         engine: HttpEngine = HomeEngine(),
         aniZip: AniZipClient = this.aniZip,
-    ) = HomeViewModel(clientFor(engine, main), aniZip, AnimeSeason.FALL, 2026)
+        fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
+    ) = HomeViewModel(clientFor(engine, main), aniZip, fanartTv, AnimeSeason.FALL, 2026)
 
     @Test
     fun startsWithEveryRowLoading() {
@@ -68,7 +71,13 @@ class HomeViewModelTest {
     fun thisSeasonAsksForTheGivenSeason() =
         runTest(main) {
             val engine = RecordedEngine("browse-trending")
-            HomeViewModel(clientFor(engine, main), aniZip, AnimeSeason.SPRING, 2027).settledRows()
+            HomeViewModel(
+                clientFor(engine, main),
+                aniZip,
+                FanartTvClient(null, OfflineEngine, main),
+                AnimeSeason.SPRING,
+                2027,
+            ).settledRows()
 
             assertTrue(engine.requestBodies.any { "\"season\":\"SPRING\"" in it && "\"seasonYear\":2027" in it })
         }
@@ -162,6 +171,17 @@ class HomeViewModelTest {
 
             val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
             assertEquals("https://artworks.thetvdb.com/banners/fanart/original/295068-1.jpg", spotlight.backdrop(spotlight.show))
+        }
+
+    @Test
+    fun aShowWithoutAniZipFanArtIsShownOverFanartTvs() =
+        runTest(main) {
+            val aniZip = AniZipClient(AniZipEngine("mappings-movie"), main)
+            val fanartTv = FanartTvClient("test-project-key", FanartTvEngine("movie"), main)
+            val viewModel = homeViewModel(aniZip = aniZip, fanartTv = fanartTv)
+
+            val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
+            assertEquals("https://assets.fanart.tv/fanart/spirited-away-50f0c9c556cad.jpg", spotlight.backdrop(spotlight.show))
         }
 
     @Test

@@ -6,6 +6,7 @@ import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeDetails
+import ani.saikou.neo.shared.catalogue.FanartTvClient
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.catalogue.showArt
 import kotlinx.coroutines.async
@@ -28,17 +29,18 @@ public sealed interface DetailsState {
     public data object Failed : DetailsState
 }
 
-/** Loads one anime's details from AniList, and its fan art from [aniZip] at the same time. */
+/** Loads one anime's details from AniList, and its fan art from [aniZip] or [fanartTv] at the same time. */
 public class DetailsViewModel(
     private val client: AniListClient,
     private val aniZip: AniZipClient,
+    private val fanartTv: FanartTvClient,
     private val animeId: Int,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
     public val state: StateFlow<DetailsState> = mutableState.asStateFlow()
 
     init {
-        val fanArt = viewModelScope.async { showArt(client, aniZip, animeId)?.fanArt }
+        val fanArt = viewModelScope.async { showArt(client, aniZip, fanartTv, animeId)?.fanArt }
         viewModelScope.launch {
             val result = client.details(animeId)
             if (result !is AniListResult.Success) {
