@@ -44,13 +44,13 @@ class NeoNavigationTest {
 
     private val restoration = StateRestorationTester(compose)
 
-    private fun show() =
+    private fun show(seeMoreState: SeeMoreState = SeeMoreState(List(24) { card(it) }, More.Done)) =
         restoration.setContent {
             NeoTheme {
                 NeoNavigation(
                     home = { openDetails, openSeeMore -> HomeScreen(loaded, onOpen = openDetails, onSeeMore = openSeeMore) },
                     seeMore = { row, openDetails ->
-                        SeeMoreScreen(row, SeeMoreState(List(24) { card(it) }, More.Done), openDetails, onLoadMore = {}, onRetry = {})
+                        SeeMoreScreen(row, seeMoreState, openDetails, onLoadMore = {}, onRetry = {})
                     },
                     details = { animeId -> Text("Details for $animeId") },
                 )
@@ -198,6 +198,23 @@ class NeoNavigationTest {
         back()
         compose.onNodeWithTag(posterTag(8)).assertIsFocused()
         back()
+        compose.onNodeWithTag(seeMoreTag(HomeRow.TRENDING)).assertIsFocused()
+    }
+
+    @Test
+    fun pressesWhileSeeMoreOpensDoNotMoveHomesFocus() {
+        // Still loading, so See more has nothing to focus yet, while Home fades out with its button focused.
+        show(SeeMoreState())
+
+        enterRows()
+        press(Key.DirectionRight, times = 12)
+        compose.mainClock.autoAdvance = false
+        compose.onRoot().performKeyInput { pressKey(Key.DirectionCenter) }
+        compose.mainClock.advanceTimeBy(100)
+        compose.onRoot().performKeyInput { pressKey(Key.DirectionDown) }
+        compose.mainClock.autoAdvance = true
+        back()
+
         compose.onNodeWithTag(seeMoreTag(HomeRow.TRENDING)).assertIsFocused()
     }
 }
