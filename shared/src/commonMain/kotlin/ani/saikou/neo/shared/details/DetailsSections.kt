@@ -15,4 +15,5 @@ public val DetailsState.Loaded.sections: List<DetailsSection>
         listOfNotNull(
             DetailsSection.OVERVIEW,
             DetailsSection.EPISODES.takeIf { (episodes?.count ?: episodeCount(details, null)) > 0 },
+            DetailsSection.RELATED.takeIf { details.related.isNotEmpty() },
         )

@@ -12,13 +12,13 @@
         "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195516-MJpUZlOberqH.jpg",
         "color": "#e4a128"
       },
+      "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
       "format": "TV",
       "episodes": 12,
       "averageScore": 85,
       "season": "FALL",
       "seasonYear": 2026,
       "description": "In the aftermath of the Shi Clan’s rebellion, things have finally settled down, and Maomao has returned to her old life as a pharmacist in the pleasure district.\n<br><br>\nOne day, triggered by a breakfast served at the Verdigris House, Maomao senses an anomaly and begins investigating its true nature.\n<br><br>\nMeanwhile, Jinshi, who has revealed his true identity as the Imperial brother and begun to face his heavy responsibilities, is deeply troubled by the final message left by Loulan: a warning of an impending \"disaster that will strike the nation.\"\n<br><br>\nTo make matters worse, rumors of a mysterious shrine maiden who deceives the people begin to spread, casting a dark shadow over the country of Li once again.\n<br><br>\nFrom the depths of the inner court to the city streets, and across foreign borders—the world grows wider, and the stakes even higher for Maomao and Jinshi.\n<br><br>\n(Source: Crunchyroll)",
-      "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
       "status": "RELEASING",
       "duration": 24,
       "genres": [
@@ -35,6 +35,202 @@
       "nextAiringEpisode": {
         "episode": 5,
         "airingAt": 1793368800
+      },
+      "relations": {
+        "edges": [
+          {
+            "relationType": "ADAPTATION",
+            "node": {
+              "__typename": "Media",
+              "id": 99026,
+              "title": {
+                "romaji": "Kusuriya no Hitorigoto",
+                "english": "The Apothecary Diaries",
+                "native": "薬屋のひとりごと"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx99026-5Eg650WAd9Rj.jpg",
+                "color": "#e4d6a1"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/99026-CWFP526DyTGz.jpg",
+              "format": "NOVEL",
+              "episodes": null,
+              "averageScore": 88,
+              "season": null,
+              "seasonYear": null,
+              "type": "MANGA",
+              "isAdult": false
+            }
+          },
+          {
+            "relationType": "PREQUEL",
+            "node": {
+              "__typename": "Media",
+              "id": 176301,
+              "title": {
+                "romaji": "Kusuriya no Hitorigoto 2nd Season",
+                "english": "The Apothecary Diaries Season 2",
+                "native": "薬屋のひとりごと 第2期"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx176301-TIGmldLffQGX.jpg",
+                "color": "#e4bb50"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/176301-GkuTF1YTT6b2.jpg",
+              "format": "TV",
+              "episodes": 24,
+              "averageScore": 88,
+              "season": "WINTER",
+              "seasonYear": 2025,
+              "type": "ANIME",
+              "isAdult": false
+            }
+          },
+          {
+            "relationType": "SEQUEL",
+            "node": {
+              "__typename": "Media",
+              "id": 200927,
+              "title": {
+                "romaji": "Kusuriya no Hitorigoto 3rd Season Part 2",
+                "english": null,
+                "native": "薬屋のひとりごと 第3期 第2クール"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx200927-IXFYyIb728bM.png",
+                "color": "#d67878"
+              },
+              "bannerImage": null,
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": null,
+              "season": "SPRING",
+              "seasonYear": 2027,
+              "type": "ANIME",
+              "isAdult": false
+            }
+          },
+          {
+            "relationType": "SIDE_STORY",
+            "node": {
+              "__typename": "Media",
+              "id": 200929,
+              "title": {
+                "romaji": "Kusuriya no Hitorigoto: Bouhi no Hihou",
+                "english": "The Apothecary Diaries: The Late Lady’s Treasure",
+                "native": "薬屋のひとりごと 亡妃の秘宝"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx200929-dx3hnftE7K7C.jpg",
+                "color": "#e4bba1"
+              },
+              "bannerImage": null,
+              "format": "MOVIE",
+              "episodes": 1,
+              "averageScore": null,
+              "season": "FALL",
+              "seasonYear": 2026,
+              "type": "ANIME",
+              "isAdult": false
+            }
+          },
+          {
+            "relationType": "ALTERNATIVE",
+            "node": {
+              "__typename": "Media",
+              "id": 99022,
+              "title": {
+                "romaji": "Kusuriya no Hitorigoto",
+                "english": "The Apothecary Diaries",
+                "native": "薬屋のひとりごと"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/nx99022-Hh2WdyNgR8HM.jpg",
+                "color": null
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/99022-J1LhaA8HbVzV.jpg",
+              "format": "MANGA",
+              "episodes": null,
+              "averageScore": 86,
+              "season": null,
+              "seasonYear": null,
+              "type": "MANGA",
+              "isAdult": false
+            }
+          },
+          {
+            "relationType": "OTHER",
+            "node": {
+              "__typename": "Media",
+              "id": 218387,
+              "title": {
+                "romaji": "AIYOU",
+                "english": "AIYOU",
+                "native": "AIYOU"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx218387-aSD6Bq5zFIis.jpg",
+                "color": "#bb5028"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/218387-PO53ChDzF0c1.jpg",
+              "format": "MUSIC",
+              "episodes": 1,
+              "averageScore": 73,
+              "season": null,
+              "seasonYear": null,
+              "type": "ANIME",
+              "isAdult": false
+            }
+          },
+          {
+            "relationType": "OTHER",
+            "node": {
+              "__typename": "Media",
+              "id": 218390,
+              "title": {
+                "romaji": "Kumo wo Nuke Kazashimo e Watashi dake",
+                "english": "Beyond the Clouds, Only Me Downwind",
+                "native": "雲を抜け風下へ私だけ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx218390-5x0fFx3emeYE.png",
+                "color": "#6baed6"
+              },
+              "bannerImage": null,
+              "format": "MUSIC",
+              "episodes": 1,
+              "averageScore": 66,
+              "season": null,
+              "seasonYear": null,
+              "type": "ANIME",
+              "isAdult": false
+            }
+          },
+          {
+            "relationType": "SIDE_STORY",
+            "node": {
+              "__typename": "Media",
+              "id": 218532,
+              "title": {
+                "romaji": "Maomao no Hitorigoto 3rd Season",
+                "english": null,
+                "native": "猫猫のひとりごと 第3期"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx218532-I1GCprJrJ5sm.png",
+                "color": "#e4c9ae"
+              },
+              "bannerImage": null,
+              "format": "ONA",
+              "episodes": null,
+              "averageScore": null,
+              "season": "FALL",
+              "seasonYear": 2026,
+              "type": "ANIME",
+              "isAdult": false
+            }
+          }
+        ]
       }
     }
   }

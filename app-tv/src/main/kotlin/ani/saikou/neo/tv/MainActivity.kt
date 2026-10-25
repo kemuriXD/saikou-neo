@@ -61,10 +61,10 @@ class MainActivity : ComponentActivity() {
                                 onRest = seeMore::rest,
                             )
                         },
-                        details = { animeId ->
+                        details = { animeId, openDetails ->
                             val details = viewModel { DetailsViewModel(client, library, aniZip, animeId) }
                             val state by details.state.collectAsStateWithLifecycle()
-                            DetailsScreen(state)
+                            DetailsScreen(state, onOpen = openDetails)
                         },
                     )
                 }

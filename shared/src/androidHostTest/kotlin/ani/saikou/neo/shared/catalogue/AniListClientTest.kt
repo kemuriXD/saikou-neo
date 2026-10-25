@@ -141,6 +141,33 @@ class AniListClientTest {
             )
             assertTrue(details.description.orEmpty().isNotBlank())
         }
+
+    // The Apothecary Diaries season 3: its manga, music videos and other versions aren't anime to watch next.
+    @Test
+    fun detailsListsTheShowsItComesFromFollowsAndLeadsToThenSideStories() =
+        runTest {
+            val related = clientFor(RecordedEngine("details")).details(195516).success().related
+
+            assertEquals(
+                listOf(
+                    Relation.PREQUEL to 176301,
+                    Relation.SEQUEL to 200927,
+                    Relation.SIDE_STORY to 200929,
+                    Relation.SIDE_STORY to 218532,
+                ),
+                related.map { it.relation to it.card.id },
+            )
+            assertEquals("The Apothecary Diaries Season 2", related[0].card.title.english)
+            assertEquals("MOVIE", related[2].card.format)
+        }
+
+    @Test
+    fun adultShowsAreLeftOutOfRelated() =
+        runTest {
+            val engine = RecordedEngine("details", change = { it.replace("\"isAdult\": false", "\"isAdult\": true") })
+
+            assertEquals(emptyList(), clientFor(engine).details(195516).success().related)
+        }
 }
 
 internal fun <T> AniListResult<T>.success(): T = assertIs<AniListResult.Success<T>>(this).value

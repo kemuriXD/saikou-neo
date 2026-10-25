@@ -43,6 +43,8 @@ import ani.saikou.neo.shared.catalogue.AniZipExtra
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.NextEpisode
+import ani.saikou.neo.shared.catalogue.RelatedAnime
+import ani.saikou.neo.shared.catalogue.Relation
 import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.episodeList
@@ -78,8 +80,11 @@ class DetailsScreenTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private fun show(state: DetailsState) {
-        compose.setContent { NeoTheme { DetailsScreen(state) } }
+    private fun show(
+        state: DetailsState,
+        onOpen: (Int) -> Unit = {},
+    ) {
+        compose.setContent { NeoTheme { DetailsScreen(state, onOpen = onOpen) } }
     }
 
     /** Inside the app's navigation, opened from Home, as on the TV. */
@@ -89,7 +94,7 @@ class DetailsScreenTest {
                 NeoNavigation(
                     home = { openDetails, _ -> HomeScreen(loaded, onOpen = openDetails) },
                     seeMore = { _, _ -> },
-                    details = { DetailsScreen(state) },
+                    details = { _, openDetails -> DetailsScreen(state, onOpen = openDetails) },
                 )
             }
         }
@@ -418,6 +423,64 @@ class DetailsScreenTest {
         compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertIsSelected()
     }
 
+    @Test
+    fun relatedShowsPostersSayingHowEachIsRelated() {
+        show(DetailsState.Loaded(franchise))
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected()
+        compose.onNodeWithText("Show 8").assertExists()
+        compose.onNodeWithText("Prequel · TV · 2025").assertExists()
+        compose.onNodeWithText("Side story · Movie · 2026").assertExists()
+    }
+
+    // The Related tab sits over the second poster, but the row starts at its first.
+    @Test
+    fun downFromTheTabsLandsOnTheFirstPoster() {
+        show(DetailsState.Loaded(franchise))
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(relatedPosterTag(8)).assertIsFocused()
+    }
+
+    @Test
+    fun selectingARelatedPosterOpensItsDetails() {
+        var opened: Int? = null
+        show(DetailsState.Loaded(franchise), onOpen = { opened = it })
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+
+        assertEquals(9, opened)
+    }
+
+    @Test
+    fun backFromARelatedShowReturnsToItsPoster() {
+        showFromHome(DetailsState.Loaded(franchise))
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+
+        back()
+
+        compose.onNodeWithTag(relatedPosterTag(9)).assertIsFocused()
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(72.dp)
+    }
+
     /** Details with its Episodes tab chosen, and focus on the tab. */
     private fun showEpisodes(state: DetailsState) {
         show(state)
@@ -582,6 +645,17 @@ class DetailsScreenTest {
 
     private companion object {
         const val LOGO = "https://logos.test/logo.png"
+
+        // Built from details, which comes later in this object.
+        val franchise
+            get() =
+                details.copy(
+                    related =
+                        listOf(
+                            RelatedAnime(card(8).copy(seasonYear = 2025), Relation.PREQUEL),
+                            RelatedAnime(card(9).copy(format = "MOVIE"), Relation.SIDE_STORY),
+                        ),
+                )
 
         val deathNote =
             AniZipEpisodes(

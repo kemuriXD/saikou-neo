@@ -57,6 +57,16 @@ query AnimeDetails($id: Int!) {
       episode
       airingAt
     }
+    relations {
+      edges {
+        relationType
+        node {
+          ...AnimeCardFields
+          type
+          isAdult
+        }
+      }
+    }
   }
 }
 

@@ -68,6 +68,11 @@
     <string name="details_aired_on">Aired %1$s</string>
     <string name="details_airs_on">Airs %1$s</string>
     <string name="details_released_on">Released %1$s</string>
+    <string name="details_relation_parent">Parent</string>
+    <string name="details_relation_prequel">Prequel</string>
+    <string name="details_relation_sequel">Sequel</string>
+    <string name="details_relation_side_story">Side story</string>
+    <string name="details_relation_spin_off">Spin-off</string>
     <string name="details_fact_format">Format</string>
     <string name="details_fact_released">Released</string>
     <string name="details_fact_studio">Studio</string>

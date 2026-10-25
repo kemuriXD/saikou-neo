@@ -55,14 +55,14 @@ private val BackStackSaver =
     )
 
 /**
- * Moves between [home], a row's [seeMore] page and [details]. Each screen keeps its saved state and ViewModels while it's on the back stack,
+ * Moves between [home], a row's [seeMore] page and [details], which can open another show's Details. Each screen keeps its saved state and ViewModels while it's on the back stack,
  * so Back finds Home as it was left. Back on Home leaves the app.
  */
 @Composable
 fun NeoNavigation(
     home: @Composable (openDetails: (animeId: Int) -> Unit, openSeeMore: (row: HomeRow) -> Unit) -> Unit,
     seeMore: @Composable (row: HomeRow, openDetails: (animeId: Int) -> Unit) -> Unit,
-    details: @Composable (animeId: Int) -> Unit,
+    details: @Composable (animeId: Int, openDetails: (animeId: Int) -> Unit) -> Unit,
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
     // One crossfade each way. The default Back preview shrinks the screen as for a phone's back swipe, which a remote doesn't have.
@@ -91,7 +91,7 @@ fun NeoNavigation(
                     Box(Modifier.onPreviewKeyEvent { it.key != Key.Back && this != backStack.lastOrNull() }) { content() }
                 entry<Screen.Home> { it.TakesKeysOnTop { home(openDetails) { row -> backStack.add(Screen.SeeMore(row)) } } }
                 entry<Screen.SeeMore> { it.TakesKeysOnTop { seeMore(it.row, openDetails) } }
-                entry<Screen.Details> { it.TakesKeysOnTop { details(it.animeId) } }
+                entry<Screen.Details> { it.TakesKeysOnTop { details(it.animeId, openDetails) } }
             },
     )
 }

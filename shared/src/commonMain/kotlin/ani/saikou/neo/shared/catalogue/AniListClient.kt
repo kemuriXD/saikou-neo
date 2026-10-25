@@ -100,6 +100,12 @@ public class AniListClient internal constructor(
                             .orEmpty()
                             .mapNotNull { it?.name },
                     nextEpisode = media.nextAiringEpisode?.let { NextEpisode(it.episode, it.airingAt.toLong()) },
+                    related =
+                        media.relations
+                            ?.edges
+                            .orEmpty()
+                            .mapNotNull { it?.toRelated() }
+                            .sortedBy { it.relation },
                 )
             }
         }
@@ -174,6 +180,14 @@ private fun retryAfter(headers: List<HttpHeader>): Duration =
         ?.trim()
         ?.toLongOrNull()
         ?.seconds ?: 1.minutes
+
+/** An anime in the franchise, or null for one Details doesn't list, such as the manga or a music video. */
+private fun AnimeDetailsQuery.Edge.toRelated(): RelatedAnime? {
+    val node = node ?: return null
+    if (node.type != MediaType.ANIME || node.isAdult == true) return null
+    val relation = Relation.entries.firstOrNull { it.name == relationType?.rawValue } ?: return null
+    return RelatedAnime(node.animeCardFields.toCard(), relation)
+}
 
 private fun AnimeCardFields.toCard(): AnimeCard =
     AnimeCard(

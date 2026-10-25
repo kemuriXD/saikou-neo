@@ -60,6 +60,8 @@ import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.RelatedAnime
+import ani.saikou.neo.shared.catalogue.Relation
 import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.scoreOutOfTen
@@ -125,11 +127,16 @@ private val seasonNames =
 fun DetailsScreen(
     state: DetailsState,
     modifier: Modifier = Modifier,
+    onOpen: (animeId: Int) -> Unit = {},
 ) {
     var reading by rememberSaveable { mutableStateOf(false) }
     var hasRead by rememberSaveable { mutableStateOf(false) }
     var lifted by rememberSaveable { mutableStateOf(false) }
     var section by rememberSaveable { mutableStateOf(DetailsSection.OVERVIEW) }
+    // The related show opened from here, so Back returns to its poster.
+    var returnTo by rememberSaveable { mutableStateOf<Int?>(null) }
+    // Taken as Details is composed, so only coming back to it returns focus to the poster.
+    val returningTo = remember { returnTo }
     val loaded = state as? DetailsState.Loaded
     val mainFocus = remember { FocusRequester() }
     val tabFocus = remember { FocusRequester() }
@@ -141,7 +148,7 @@ fun DetailsScreen(
     // Focus starts on the main button, or on the tabs for a show with no episodes yet, and returns to the synopsis when
     // the reader closes. The page stays composed under the reader, so the synopsis is listening when focus comes back.
     LaunchedEffect(loaded != null, reading) {
-        if (loaded == null || reading) return@LaunchedEffect
+        if (loaded == null || reading || returningTo != null) return@LaunchedEffect
         when {
             hasRead -> synopsisFocus.requestFocus()
             hasEpisodes -> mainFocus.requestFocus()
@@ -185,8 +192,8 @@ fun DetailsScreen(
                         sections = sections,
                         selected = section.takeIf { it in sections } ?: sections.first(),
                         onSelect = { section = it },
-                        // The reader takes focus from the page without lowering it.
-                        onInside = { inside -> if (!reading) lifted = inside },
+                        // The reader and a related show's Details take focus from the page without lowering it.
+                        onInside = { inside -> if (!reading && returnTo == null) lifted = inside },
                         // Measured at full height, so it runs past the bottom of the screen until the page lifts.
                         modifier =
                             margin
@@ -216,6 +223,18 @@ fun DetailsScreen(
                                         toEpisodes = false
                                     }
                                 }
+                            }
+
+                            DetailsSection.RELATED -> {
+                                PosterRowSection(
+                                    posters = state.details.related.map { Poster(it.card, it.caption()) },
+                                    onOpen = {
+                                        returnTo = it
+                                        onOpen(it)
+                                    },
+                                    returnTo = returningTo,
+                                    onReturned = { returnTo = null },
+                                )
                             }
 
                             else -> {}
@@ -512,6 +531,20 @@ private fun List<Pair<Float, Float>>.alphaAt(at: Float): Float {
     val (start, end) = zipWithNext().first { (_, end) -> at <= end.first }
     return start.second + (end.second - start.second) * (at - start.first) / (end.first - start.first)
 }
+
+private val relationNames =
+    mapOf(
+        Relation.PARENT to R.string.details_relation_parent,
+        Relation.PREQUEL to R.string.details_relation_prequel,
+        Relation.SEQUEL to R.string.details_relation_sequel,
+        Relation.SIDE_STORY to R.string.details_relation_side_story,
+        Relation.SPIN_OFF to R.string.details_relation_spin_off,
+    )
+
+/** How it's related, then its format and year, such as "Sequel · TV · 2008". */
+@Composable
+private fun RelatedAnime.caption(): String =
+    listOfNotNull(stringResource(relationNames.getValue(relation)), card.formatName(), card.seasonYear?.toString()).joinToString(" · ")
 
 /** What the show is, such as "TV · Fall 2026 · 12 episodes". */
 @Composable
