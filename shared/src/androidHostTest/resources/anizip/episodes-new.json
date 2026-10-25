@@ -1,0 +1,69 @@
+{
+  "titles": {
+    "x-jat": "Black Clover 2nd Season",
+    "en": "Black Clover Second Season",
+    "ja": "ブラッククローバー 2nd Season",
+    "de": "Black Clover Staffel 2",
+    "zh-Hant": "黑色五葉草 Season 2"
+  },
+  "episodes": {
+    "4": {
+      "tvdbShowId": 331753,
+      "tvdbId": 12006278,
+      "seasonNumber": 2,
+      "episodeNumber": 4,
+      "absoluteEpisodeNumber": 174,
+      "title": {
+        "en": "Day of Atonement"
+      },
+      "airDate": "2026-10-24",
+      "airDateUtc": "2026-10-24T10:00:00Z",
+      "runtime": 24,
+      "overview": "Nacht recalls his past as he tries to finish his battle with two supreme devils.",
+      "image": "https://artworks.thetvdb.com/banners/v4/episode/12006278/screencap/6adba970df0e4.jpg",
+      "episode": "4",
+      "anidbEid": 316590,
+      "length": 25,
+      "airdate": "2026-10-24"
+    },
+    "5": {
+      "tvdbShowId": 331753,
+      "tvdbId": 12006279,
+      "seasonNumber": 2,
+      "episodeNumber": 5,
+      "absoluteEpisodeNumber": 175,
+      "airDate": "2026-10-31",
+      "airDateUtc": "2026-10-31T10:00:00Z",
+      "runtime": 24,
+      "episode": "5",
+      "anidbEid": 317640,
+      "length": 25,
+      "airdate": "2026-10-31",
+      "title": {
+        "en": null
+      }
+    }
+  },
+  "episodeCount": 8,
+  "specialCount": 0,
+  "images": [
+    {
+      "coverType": "Banner",
+      "url": "https://artworks.thetvdb.com/banners/graphical/331753-g.jpg"
+    }
+  ],
+  "mappings": {
+    "animeplanet_id": "black-clover-2nd-season",
+    "kitsu_id": 50024,
+    "mal_id": 61967,
+    "type": "TV",
+    "anilist_id": 195604,
+    "anisearch_id": 20716,
+    "anidb_id": 19433,
+    "notifymoe_id": null,
+    "livechart_id": 13232,
+    "thetvdb_id": 331753,
+    "imdb_id": "tt7441658",
+    "themoviedb_id": "73223"
+  }
+}

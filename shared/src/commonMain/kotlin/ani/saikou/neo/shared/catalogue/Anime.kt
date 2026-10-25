@@ -45,6 +45,33 @@ public data class AnimeDetails(
     val genres: List<String>,
     val studios: List<String>,
     val nextEpisode: NextEpisode?,
+    /** Other anime in the show's franchise, in [Relation]'s order. */
+    val related: List<RelatedAnime> = emptyList(),
+    /** The anime AniList's users recommend most for this one, ten at most. */
+    val recommendations: List<AnimeCard> = emptyList(),
+    /** AniList has more recommendations than [recommendations] holds. */
+    val moreRecommendations: Boolean = false,
+)
+
+/** One page of an anime's recommendations, and the [show] they're for. */
+public data class RecommendationsPage(
+    val show: AnimeTitle,
+    val page: AnimePage,
+)
+
+/** How an anime is related to the one on Details. */
+public enum class Relation {
+    /** The series it's part of, such as a film's TV series. */
+    PARENT,
+    PREQUEL,
+    SEQUEL,
+    SIDE_STORY,
+    SPIN_OFF,
+}
+
+public data class RelatedAnime(
+    val card: AnimeCard,
+    val relation: Relation,
 )
 
 public data class NextEpisode(

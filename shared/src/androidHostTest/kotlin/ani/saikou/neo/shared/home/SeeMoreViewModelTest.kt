@@ -65,6 +65,29 @@ class SeeMoreViewModelTest {
     private fun SeeMoreViewModel.ids() = state.value.items.map { it.id }
 
     @Test
+    fun recommendationsPageThroughTheShowsRecommendations() =
+        runTest(main) {
+            val client = clientFor(RecordedEngine("recommendations"), main)
+            val sources =
+                ArtSources(
+                    client,
+                    AniZipClient(AniZipEngine("mappings"), main),
+                    FanartTvClient(null, OfflineEngine, main),
+                    TmdbClient(null, OfflineEngine, main),
+                )
+            val viewModel = SeeMoreViewModel.recommendations(client, ArtLibrary(sources, CoroutineScope(main)), animeId = 1535)
+            advanceUntilIdle()
+
+            assertEquals(20, viewModel.state.value.items.size)
+            assertEquals(
+                "Death Note",
+                viewModel.state.value.show
+                    ?.english,
+            )
+            assertEquals(More.Ready, viewModel.state.value.more)
+        }
+
+    @Test
     fun startsLoadingWithNoShows() {
         val viewModel = seeMore()
 

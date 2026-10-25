@@ -141,6 +141,60 @@ class AniListClientTest {
             )
             assertTrue(details.description.orEmpty().isNotBlank())
         }
+
+    // The Apothecary Diaries season 3: its manga, music videos and other versions aren't anime to watch next.
+    @Test
+    fun detailsListsTheShowsItComesFromFollowsAndLeadsToThenSideStories() =
+        runTest {
+            val related = clientFor(RecordedEngine("details")).details(195516).success().related
+
+            assertEquals(
+                listOf(
+                    Relation.PREQUEL to 176301,
+                    Relation.SEQUEL to 200927,
+                    Relation.SIDE_STORY to 200929,
+                    Relation.SIDE_STORY to 218532,
+                ),
+                related.map { it.relation to it.card.id },
+            )
+            assertEquals("The Apothecary Diaries Season 2", related[0].card.title.english)
+            assertEquals("MOVIE", related[2].card.format)
+        }
+
+    @Test
+    fun adultShowsAreLeftOutOfRelated() =
+        runTest {
+            val engine = RecordedEngine("details", change = { it.replace("\"isAdult\": false", "\"isAdult\": true") })
+
+            val details = clientFor(engine).details(195516).success()
+            assertEquals(emptyList(), details.related)
+            assertEquals(emptyList(), details.recommendations)
+        }
+
+    @Test
+    fun detailsHasTheTenBestRatedRecommendations() =
+        runTest {
+            val details = clientFor(RecordedEngine("details")).details(195516).success()
+
+            assertEquals(
+                listOf(188139, 161645, 190569, 142701, 154587, 20770, 170503, 957, 1914, 99935),
+                details.recommendations.map { it.id },
+            )
+            assertTrue(details.moreRecommendations)
+        }
+
+    @Test
+    fun recommendationsComeAPageAtATimeWithTheShowsTitle() =
+        runTest {
+            val engine = RecordedEngine("recommendations")
+
+            val page = clientFor(engine).recommendations(1535, page = 2).success()
+
+            assertEquals("Death Note", page.show.english)
+            assertEquals(20, page.page.items.size)
+            assertTrue(page.page.hasNextPage)
+            assertTrue(engine.requestBodies.single().let { "\"id\":1535" in it && "\"page\":2" in it })
+        }
 }
 
 internal fun <T> AniListResult<T>.success(): T = assertIs<AniListResult.Success<T>>(this).value

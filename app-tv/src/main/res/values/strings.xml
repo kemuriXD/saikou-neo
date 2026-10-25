@@ -41,6 +41,39 @@
     <string name="details_season_summer">Summer %1$d</string>
     <string name="details_season_fall">Fall %1$d</string>
     <string name="details_overview">Overview</string>
+    <string name="details_episodes">Episodes</string>
+    <string name="details_related">Related</string>
+    <string name="details_watch_order">Watch order</string>
+    <string name="details_recommendations">Recommendations</string>
+    <plurals name="details_episode_count">
+        <item quantity="one">%1$,d episode</item>
+        <item quantity="other">%1$,d episodes</item>
+    </plurals>
+    <plurals name="details_known_episodes">
+        <item quantity="one">%1$,d known episode</item>
+        <item quantity="other">%1$,d known episodes</item>
+    </plurals>
+    <string name="details_episodes_missing">Titles and air dates unavailable</string>
+    <string name="details_film">Film</string>
+    <plurals name="details_extras">
+        <item quantity="one">%d extra</item>
+        <item quantity="other">%d extras</item>
+    </plurals>
+    <string name="details_extras">Extras</string>
+    <string name="details_episode_range">%1$d–%2$d</string>
+    <string name="details_episode_number">Episode %1$d</string>
+    <string name="details_episode_titled">%1$d · %2$s</string>
+    <string name="details_minutes">%1$d min</string>
+    <string name="details_hours_minutes">%1$d h %2$d min</string>
+    <string name="details_aired_on">Aired %1$s</string>
+    <string name="details_airs_on">Airs %1$s</string>
+    <string name="details_released_on">Released %1$s</string>
+    <string name="details_watch_order_none">A watch order extension shows the order to watch this series in. You don\'t have one installed.</string>
+    <string name="details_relation_parent">Parent</string>
+    <string name="details_relation_prequel">Prequel</string>
+    <string name="details_relation_sequel">Sequel</string>
+    <string name="details_relation_side_story">Side story</string>
+    <string name="details_relation_spin_off">Spin-off</string>
     <string name="details_fact_format">Format</string>
     <string name="details_fact_released">Released</string>
     <string name="details_fact_studio">Studio</string>

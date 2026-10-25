@@ -19,6 +19,7 @@ internal class RecordedEngine(
     private val fixture: String,
     private val status: Int = 200,
     private val headers: List<HttpHeader> = emptyList(),
+    private val change: (String) -> String = { it },
 ) : HttpEngine {
     // Apollo sends requests from several threads at once.
     val requestBodies: MutableList<String> = Collections.synchronizedList(mutableListOf())
@@ -29,7 +30,7 @@ internal class RecordedEngine(
         return HttpResponse
             .Builder(status)
             .addHeaders(headers)
-            .body(Buffer().writeUtf8(body))
+            .body(Buffer().writeUtf8(change(body)))
             .build()
     }
 

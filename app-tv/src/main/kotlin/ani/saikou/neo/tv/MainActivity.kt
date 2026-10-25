@@ -6,6 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Surface
@@ -21,13 +22,15 @@ import ani.saikou.neo.shared.home.SeeMoreViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SeeMoreScreen
+import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.theme.NeoTheme
 import java.util.Calendar
 
 class MainActivity : ComponentActivity() {
     private val client by lazy { AniListClient() }
+    private val aniZip by lazy { AniZipClient() }
     private val library by lazy {
-        ArtLibrary(client, AniZipClient(), FanartTvClient(BuildConfig.FANART_TV_API_KEY), TmdbClient(BuildConfig.TMDB_API_KEY))
+        ArtLibrary(client, aniZip, FanartTvClient(BuildConfig.FANART_TV_API_KEY), TmdbClient(BuildConfig.TMDB_API_KEY))
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,10 +63,23 @@ class MainActivity : ComponentActivity() {
                                 onRest = seeMore::rest,
                             )
                         },
-                        details = { animeId ->
-                            val details = viewModel { DetailsViewModel(client, library, animeId) }
+                        details = { animeId, openDetails, openRecommendations ->
+                            val details = viewModel { DetailsViewModel(client, library, aniZip, animeId) }
                             val state by details.state.collectAsStateWithLifecycle()
-                            DetailsScreen(state)
+                            DetailsScreen(state, onOpen = openDetails, onRecommendations = { openRecommendations(animeId) })
+                        },
+                        recommendations = { animeId, openDetails ->
+                            val recommendations = viewModel { SeeMoreViewModel.recommendations(client, library, animeId) }
+                            val state by recommendations.state.collectAsStateWithLifecycle()
+                            SeeMoreScreen(
+                                title = stringResource(R.string.details_recommendations),
+                                state = state,
+                                onOpen = openDetails,
+                                onLoadMore = recommendations::loadMore,
+                                onRetry = recommendations::retry,
+                                onRest = recommendations::rest,
+                                eyebrow = state.show?.displayTitle(),
+                            )
                         },
                     )
                 }
