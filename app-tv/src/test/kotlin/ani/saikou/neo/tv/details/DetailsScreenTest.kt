@@ -1,6 +1,7 @@
 package ani.saikou.neo.tv.details
 
 import android.graphics.Bitmap
+import android.graphics.Color
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
@@ -271,6 +272,16 @@ class DetailsScreenTest {
         compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
     }
 
+    // Others are wide key art, a solid rectangle where a logo would be mostly see-through.
+    @Test
+    fun opaqueKeyArtFiledAsALogoLeavesTheTitleInWords() {
+        imagesAre(800, 310, color = Color.DKGRAY)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_LOGO_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+    }
+
     @Test
     fun theTitleIsInWordsWhileTheLogoLoads() {
         imagesNeverArrive()
@@ -295,12 +306,14 @@ class DetailsScreenTest {
         compose.onNodeWithTag(DETAILS_LOGO_TAG).assertDoesNotExist()
     }
 
-    /** Every image loads at once as a blank [width] × [height] bitmap. */
+    /** Every image loads at once as a [width] × [height] bitmap, clear unless it's filled with [color]. */
     private fun imagesAre(
         width: Int,
         height: Int,
+        color: Int = Color.TRANSPARENT,
     ) = useImages { chain ->
-        SuccessResult(Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).asImage(), chain.request, DataSource.MEMORY)
+        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
+        SuccessResult(bitmap.asImage(), chain.request, DataSource.MEMORY)
     }
 
     private fun imagesNeverArrive() = useImages { awaitCancellation() }
