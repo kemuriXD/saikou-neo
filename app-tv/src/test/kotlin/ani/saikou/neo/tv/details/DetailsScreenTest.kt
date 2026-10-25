@@ -47,6 +47,7 @@ import coil3.annotation.DelicateCoilApi
 import coil3.asImage
 import coil3.decode.DataSource
 import coil3.intercept.Interceptor
+import coil3.request.ErrorResult
 import coil3.request.ImageResult
 import coil3.request.SuccessResult
 import kotlinx.coroutines.awaitCancellation
@@ -59,6 +60,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.io.IOException
 
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -283,6 +285,42 @@ class DetailsScreenTest {
     }
 
     @Test
+    fun aPictureFiledAsAniZipsLogoGivesWayToFanartTvs() {
+        imagesAt(LOGO to image(680, 680), FANART_TV_LOGO to image(800, 310))
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO, FANART_TV_LOGO)))
+
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertContentDescriptionEquals("Show 7")
+    }
+
+    @Test
+    fun anAniZipLogoThatWontLoadGivesWayToFanartTvs() {
+        imagesAt(FANART_TV_LOGO to image(800, 310))
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO, FANART_TV_LOGO)))
+
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertIsDisplayed()
+    }
+
+    @Test
+    fun aNarrowFanartTvLogoIsStillTheTitle() {
+        imagesAt(FANART_TV_LOGO to image(800, 1000))
+        show(DetailsState.Loaded(details, logo = Logo.Image(aniZip = null, fanartTv = FANART_TV_LOGO)))
+
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertIsDisplayed()
+    }
+
+    @Test
+    fun withNeitherLogoUsableTheTitleIsInWords() {
+        imagesAt(LOGO to image(680, 680), FANART_TV_LOGO to image(800, 310, Color.DKGRAY))
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO, FANART_TV_LOGO)))
+
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_LOGO_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+    }
+
+    @Test
     fun theTitleIsInWordsWhileTheLogoLoads() {
         imagesNeverArrive()
         show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
@@ -311,10 +349,24 @@ class DetailsScreenTest {
         width: Int,
         height: Int,
         color: Int = Color.TRANSPARENT,
-    ) = useImages { chain ->
-        val bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
-        SuccessResult(bitmap.asImage(), chain.request, DataSource.MEMORY)
-    }
+    ) = useImages { chain -> SuccessResult(image(width, height, color).asImage(), chain.request, DataSource.MEMORY) }
+
+    /** Answers each url in [images] with its bitmap. Any other url fails to load. */
+    private fun imagesAt(vararg images: Pair<String, Bitmap>) =
+        useImages { chain ->
+            val bitmap = images.toMap()[chain.request.data]
+            if (bitmap == null) {
+                ErrorResult(null, chain.request, IOException("Not found"))
+            } else {
+                SuccessResult(bitmap.asImage(), chain.request, DataSource.MEMORY)
+            }
+        }
+
+    private fun image(
+        width: Int,
+        height: Int,
+        color: Int = Color.TRANSPARENT,
+    ) = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888).apply { eraseColor(color) }
 
     private fun imagesNeverArrive() = useImages { awaitCancellation() }
 
@@ -348,6 +400,7 @@ class DetailsScreenTest {
 
     private companion object {
         const val LOGO = "https://anizip.test/logo.png"
+        const val FANART_TV_LOGO = "https://fanart.test/logo.png"
 
         val details =
             AnimeDetails(

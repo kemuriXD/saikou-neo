@@ -124,7 +124,10 @@ class FanartTvClientTest {
                     it.replace("\"lang\": \"en\"", "\"lang\": \"ja\"").replace("\"lang\": \"fr\"", "\"lang\": \"00\"")
                 }
 
-            assertEquals("https://assets.fanart.tv/fanart/spirited-away-51e26b5dd706e.png", FanartTvClient(KEY, engine).art(spiritedAway)?.logo)
+            assertEquals(
+                "https://assets.fanart.tv/fanart/spirited-away-51e26b5dd706e.png",
+                FanartTvClient(KEY, engine).art(spiritedAway)?.logo,
+            )
         }
 
     @Test
@@ -132,7 +135,10 @@ class FanartTvClientTest {
         runTest {
             val engine = FanartTvEngine("movie") { it.replace("\"lang\": \"en\"", "\"lang\": \"ja\"") }
 
-            assertEquals("https://assets.fanart.tv/fanart/spirited-away-581cdc4963a71.png", FanartTvClient(KEY, engine).art(spiritedAway)?.logo)
+            assertEquals(
+                "https://assets.fanart.tv/fanart/spirited-away-581cdc4963a71.png",
+                FanartTvClient(KEY, engine).art(spiritedAway)?.logo,
+            )
         }
 
     @Test
@@ -143,7 +149,10 @@ class FanartTvClientTest {
                     it.replace("https://assets.fanart.tv/fanart/spirited-away-5e6d", "http://assets.fanart.tv/fanart/spirited-away-5e6d")
                 }
 
-            assertEquals("https://assets.fanart.tv/fanart/spirited-away-50569b75d10d6.png", FanartTvClient(KEY, engine).art(spiritedAway)?.logo)
+            assertEquals(
+                "https://assets.fanart.tv/fanart/spirited-away-50569b75d10d6.png",
+                FanartTvClient(KEY, engine).art(spiritedAway)?.logo,
+            )
         }
 
     @Test

@@ -145,7 +145,10 @@ class DetailsViewModelTest {
             val viewModel = detailsViewModel(engine, aniZip, FanartTvClient("test-project-key", FanartTvEngine("movie"), main))
 
             val loaded = viewModel.withLogo()
-            assertEquals(Logo.Image(aniZip = null, fanartTv = "https://assets.fanart.tv/fanart/spirited-away-5e6dbe495c04b.png"), loaded.logo)
+            assertEquals(
+                Logo.Image(aniZip = null, fanartTv = "https://assets.fanart.tv/fanart/spirited-away-5e6dbe495c04b.png"),
+                loaded.logo,
+            )
         }
 
     @Test

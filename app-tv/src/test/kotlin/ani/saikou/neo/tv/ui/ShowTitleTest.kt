@@ -27,6 +27,16 @@ class ShowTitleTest {
         assertTrue(looksLikeALogo(539, 299, opaqueShare = 0.91f))
     }
 
+    // fanart.tv's logos are picked by people as the title, so even a narrow one is a logo. Tensei Kizoku's is 0.8:1.
+    @Test
+    fun aPickedLogoNeedNotBeWide() {
+        assertTrue(looksLikeALogo(800, 1000, opaqueShare = 0.6f, checkShape = false))
+        assertFalse(looksLikeALogo(800, 1000, opaqueShare = 0.6f))
+        // Still never a solid rectangle.
+        assertFalse(looksLikeALogo(1000, 100, opaqueShare = 1f, checkShape = false))
+        assertFalse(looksLikeALogo(0, 0, opaqueShare = 0f, checkShape = false))
+    }
+
     @Test
     fun theOpaqueShareCountsVisiblePixels() {
         val clear = 0x00FFFFFF

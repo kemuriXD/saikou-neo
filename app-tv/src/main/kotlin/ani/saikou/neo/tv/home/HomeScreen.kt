@@ -62,6 +62,7 @@ import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.logoRequest
+import ani.saikou.neo.tv.ui.sources
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
@@ -361,7 +362,8 @@ private fun PreloadSpotlight(spotlight: Spotlight) {
         val loader = SingletonImageLoader.get(context)
         spotlight.shows.forEach { show ->
             spotlight.backdrop(show)?.let { loader.enqueue(ImageRequest.Builder(context).data(it).build()) }
-            (spotlight.logo(show.id) as? Logo.Image)?.let { loader.enqueue(logoRequest(context, it.url)) }
+            // fanart.tv's too, in case AniZip's turns out not to be a logo.
+            (spotlight.logo(show.id) as? Logo.Image)?.sources()?.forEach { loader.enqueue(logoRequest(context, it.url)) }
         }
     }
 }
