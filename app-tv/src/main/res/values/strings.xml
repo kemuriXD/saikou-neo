@@ -13,6 +13,14 @@
     <!-- The dots under the spotlight, read out such as "Featured shows, 2 of 6: Frieren". -->
     <string name="home_featured_shows">Featured shows</string>
     <string name="home_featured_position">%1$d of %2$d: %3$s</string>
+    <!-- Ends each Home row and opens the row's whole list. -->
+    <string name="home_see_more">See more</string>
+
+    <!-- A Home row's whole list. -->
+    <string name="see_more_failed">Couldn’t load these shows</string>
+    <string name="see_more_failed_hint">Check your network, then try again.</string>
+    <string name="see_more_failed_more">Couldn’t load more</string>
+    <string name="try_again">Try again</string>
 
     <!-- AniList's formats, as shown in card details such as "TV · 2026 · 12 episodes". -->
     <string name="home_format_tv">TV</string>

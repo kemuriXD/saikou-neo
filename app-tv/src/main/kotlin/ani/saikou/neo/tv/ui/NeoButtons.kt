@@ -67,6 +67,8 @@ fun NeoButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     icon: ImageVector? = null,
+    // After the words, such as See more's arrow.
+    trailingIcon: ImageVector? = null,
 ) {
     NeoSurface(onClick, CircleShape, NeoTheme.dimensions.focusScaleButton, modifier.height(ButtonHeight)) {
         Row(
@@ -76,6 +78,7 @@ fun NeoButton(
         ) {
             icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(ButtonIcon)) }
             Text(text = text, style = NeoTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), maxLines = 1)
+            trailingIcon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(ButtonIcon)) }
         }
     }
 }

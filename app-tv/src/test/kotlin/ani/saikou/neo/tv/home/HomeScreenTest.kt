@@ -447,4 +447,41 @@ class HomeScreenTest {
 
         compose.activityRule.scenario.onActivity { assertTrue(it.isFinishing) }
     }
+
+    @Test
+    fun eachRowEndsWithSeeMore() {
+        val opened = mutableListOf<HomeRow>()
+        compose.setContent { NeoTheme { HomeScreen(loaded, onSeeMore = { opened += it }) } }
+
+        enterRows()
+        press(Key.DirectionDown, times = 2)
+        press(Key.DirectionRight, times = 12)
+        compose.onNodeWithTag(seeMoreTag(HomeRow.POPULAR)).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(HomeRow.POPULAR), opened)
+    }
+
+    @Test
+    fun aRowLeftOnSeeMoreReturnsToIt() {
+        show()
+
+        enterRows()
+        press(Key.DirectionRight, times = 12)
+        press(Key.DirectionDown)
+        press(Key.DirectionUp)
+
+        compose.onNodeWithTag(seeMoreTag(HomeRow.TRENDING)).assertIsFocused()
+    }
+
+    @Test
+    fun seeMoreKeepsItsRowInPlace() {
+        show()
+
+        enterRows()
+        press(Key.DirectionRight, times = 12)
+
+        // The button is shorter than a card, but the row rests where it does for a card: cards 34 dp under 104 dp.
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 11)).assertTopPositionInRootIsEqualTo(138.dp)
+    }
 }

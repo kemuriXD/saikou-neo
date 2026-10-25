@@ -14,8 +14,10 @@ import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.details.DetailsViewModel
 import ani.saikou.neo.shared.home.HomeViewModel
+import ani.saikou.neo.shared.home.SeeMoreViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
 import ani.saikou.neo.tv.home.HomeScreen
+import ani.saikou.neo.tv.home.SeeMoreScreen
 import ani.saikou.neo.tv.theme.NeoTheme
 import java.util.Calendar
 
@@ -29,24 +31,21 @@ class MainActivity : ComponentActivity() {
             NeoTheme {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     NeoNavigation(
-                        home = { openDetails ->
-                            val home =
-                                viewModel {
-                                    val today = Calendar.getInstance()
-                                    HomeViewModel(
-                                        client = client,
-                                        aniZip = aniZip,
-                                        season = AnimeSeason.forMonth(today.get(Calendar.MONTH) + 1),
-                                        year = today.get(Calendar.YEAR),
-                                    )
-                                }
+                        home = { openDetails, openSeeMore ->
+                            val home = viewModel { HomeViewModel(client, aniZip, season(), year()) }
                             val state by home.state.collectAsStateWithLifecycle()
                             HomeScreen(
                                 state = state,
                                 onOpen = openDetails,
                                 onPick = home::pick,
                                 onSpotlightInView = home::watchSpotlight,
+                                onSeeMore = openSeeMore,
                             )
+                        },
+                        seeMore = { row, openDetails ->
+                            val seeMore = viewModel { SeeMoreViewModel(client, row, season(), year()) }
+                            val state by seeMore.state.collectAsStateWithLifecycle()
+                            SeeMoreScreen(row, state, onOpen = openDetails, onLoadMore = seeMore::loadMore, onRetry = seeMore::retry)
                         },
                         details = { animeId ->
                             val details = viewModel { DetailsViewModel(client, aniZip, animeId) }
@@ -58,4 +57,9 @@ class MainActivity : ComponentActivity() {
             }
         }
     }
+
+    // This season, for the This season row and its page.
+    private fun season() = AnimeSeason.forMonth(Calendar.getInstance().get(Calendar.MONTH) + 1)
+
+    private fun year() = Calendar.getInstance().get(Calendar.YEAR)
 }
