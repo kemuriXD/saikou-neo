@@ -26,7 +26,7 @@ public class ArtLibrary internal constructor(
 
     public suspend fun art(card: AnimeCard): ShowArt = art(card.id) { card }
 
-    /** [animeId]'s art. Its [card] is only asked for if TMDB needs a film's title and year. */
+    /** [animeId]'s art. Its [card] is only asked for if TMDB needs the show's title and year. */
     internal suspend fun art(
         animeId: Int,
         card: suspend () -> AnimeCard?,

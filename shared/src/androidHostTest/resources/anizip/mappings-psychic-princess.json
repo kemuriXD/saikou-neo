@@ -1,0 +1,26 @@
+{
+  "titles": {
+    "x-zht": "Tong Ling Fei",
+    "en": "Psychic Princess",
+    "ja": "通霊姫",
+    "zh": "通灵妃",
+    "ru": "Принцесса-медиум"
+  },
+  "episodeCount": 16,
+  "specialCount": 0,
+  "images": [],
+  "mappings": {
+    "animeplanet_id": "psychic-princess",
+    "kitsu_id": 42065,
+    "mal_id": 38917,
+    "type": "ONA",
+    "anilist_id": 99935,
+    "anisearch_id": 14394,
+    "anidb_id": 14963,
+    "notifymoe_id": null,
+    "livechart_id": 9671,
+    "thetvdb_id": null,
+    "imdb_id": null,
+    "themoviedb_id": null
+  }
+}

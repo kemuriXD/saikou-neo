@@ -40,7 +40,8 @@ internal suspend fun showArt(
 /**
  * [animeId]'s art. Its logo is TMDB's, else fanart.tv's, and its backdrop is TMDB's, fanart.tv's or AniZip's, full HD
  * or more. AniZip tells TMDB and fanart.tv which show it is, and a film is looked up on TMDB by its IMDb id, or by the
- * title and year on its [card], which is only asked for when needed. A show without ids of its own, such as a season
+ * title and year on its [card], which is only asked for when needed. A series AniZip has no TMDB id for is looked up by
+ * its title and year too. A show without ids of its own, such as a season
  * too new for AniZip, takes the logo of the series AniList says it belongs to, follows or comes from. A show without a
  * backdrop of its own borrows the series' too. Callers fall back to AniList's banner or cover.
  */
@@ -71,7 +72,11 @@ private suspend fun ArtSources.ids(
     card: suspend () -> AnimeCard?,
 ): ShowIds {
     val film = aniZip?.film ?: (card()?.format == "MOVIE")
-    if (!film) return ShowIds(aniZip?.tmdbId?.let { TmdbId(it, film = false) }, aniZip?.tvDbId?.let(FanartTvId::Series))
+    if (!film) {
+        // AniZip has no TMDB id for some series, such as Chinese ONAs, so TMDB is searched for them.
+        val tmdbSeries = aniZip?.tmdbId ?: card()?.let { searchSeries(it) }
+        return ShowIds(tmdbSeries?.let { TmdbId(it, film = false) }, aniZip?.tvDbId?.let(FanartTvId::Series))
+    }
     // AniZip's TMDB id for a film is sometimes the id of its TV series, so the film is found again.
     val tmdbFilm = aniZip?.imdbId?.let { tmdb.findFilm(it) } ?: card()?.let { searchFilm(it) }
     val fanartTvFilm = tmdbFilm?.toString() ?: aniZip?.imdbId
@@ -81,6 +86,11 @@ private suspend fun ArtSources.ids(
 private suspend fun ArtSources.searchFilm(card: AnimeCard): Int? {
     val title = card.title.english ?: card.title.romaji ?: return null
     return tmdb.searchFilm(title, card.seasonYear)
+}
+
+private suspend fun ArtSources.searchSeries(card: AnimeCard): Int? {
+    val title = card.title.english ?: card.title.romaji ?: return null
+    return tmdb.searchSeries(title, card.seasonYear)
 }
 
 /** Asks TMDB and fanart.tv at once, so a slow answer from one doesn't hold up the other. */

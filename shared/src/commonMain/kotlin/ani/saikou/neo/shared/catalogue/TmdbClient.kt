@@ -48,6 +48,15 @@ public class TmdbClient internal constructor(
         year: Int?,
     ): Int? = get("/search/movie?query=${encode(title)}${year?.let { "&year=$it" }.orEmpty()}") { firstId("results") }
 
+    /**
+     * The series called [title] that first aired in [year], or null when none has that name. TV search matches loosely,
+     * so only a series with that exact name, in any case, is taken.
+     */
+    public suspend fun searchSeries(
+        title: String,
+        year: Int?,
+    ): Int? = get("/search/tv?query=${encode(title)}${year?.let { "&first_air_date_year=$it" }.orEmpty()}") { firstNamed(title) }
+
     private suspend fun <T> get(
         path: String,
         read: JsonReader.() -> T?,
@@ -131,6 +140,27 @@ private fun JsonReader.firstId(field: String): Int? {
         while (hasNext()) {
             val found = readFields()["id"]?.toIntOrNull()
             if (id == null) id = found
+        }
+        endArray()
+    }
+    endObject()
+    return id
+}
+
+/** The id of the first series in `results` whose name or original name is [title], ignoring case. */
+private fun JsonReader.firstNamed(title: String): Int? {
+    var id: Int? = null
+    beginObject()
+    while (hasNext()) {
+        if (nextName() != "results" || peek() != JsonReader.Token.BEGIN_ARRAY) {
+            skipValue()
+            continue
+        }
+        beginArray()
+        while (hasNext()) {
+            val fields = readFields()
+            val named = listOfNotNull(fields["name"], fields["original_name"]).any { it.equals(title, ignoreCase = true) }
+            if (id == null && named) id = fields["id"]?.toIntOrNull()
         }
         endArray()
     }

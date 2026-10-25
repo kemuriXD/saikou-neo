@@ -103,6 +103,25 @@ class ShowArtTest {
             assertTrue(fanartTv.requests.isEmpty())
         }
 
+    // AniZip has no ids for Psychic Princess, but TMDB knows it by its title.
+    @Test
+    fun aSeriesWithoutIdsIsFoundByItsTitle() =
+        runTest {
+            val tmdb = TmdbEngine { if ("/search/" in it) "search-tv" else "tv-images-psychic-princess" }
+
+            val art = showArt(sources(AniZipEngine("mappings-psychic-princess"), tmdb = tmdb), card(99935, "Psychic Princess", "ONA"))
+
+            assertEquals(
+                listOf(
+                    "https://api.themoviedb.org/3/search/tv?query=Psychic%20Princess&api_key=$KEY",
+                    "https://api.themoviedb.org/3/tv/84737/images?api_key=$KEY",
+                ),
+                tmdb.urls,
+            )
+            assertEquals(Logo.Image("https://image.tmdb.org/t/p/original/3IDpuaF9Vx3U86cVACspyee5lVT.png"), art.logo)
+            assertEquals("https://image.tmdb.org/t/p/original/jzeavatG8IStoIOk0UfPy1UTTfR.jpg", art.backdrop)
+        }
+
     // Dragon Ball Super: Beerus has no ids, but it belongs to Dragon Ball Super, which has.
     @Test
     fun aShowWithoutIdsUsesItsSeriesLogo() =

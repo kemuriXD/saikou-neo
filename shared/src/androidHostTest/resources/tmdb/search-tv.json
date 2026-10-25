@@ -1,0 +1,50 @@
+{
+  "page": 1,
+  "results": [
+    {
+      "adult": false,
+      "backdrop_path": "/jzeavatG8IStoIOk0UfPy1UTTfR.jpg",
+      "genre_ids": [
+        16
+      ],
+      "id": 84737,
+      "origin_country": [
+        "CN"
+      ],
+      "original_language": "zh",
+      "original_name": "通灵妃",
+      "overview": "Qian Yunxi, the oldest daughter of the prime minister was born with a special ability. Because of this she was deemed 'abnormal' and was raised at Mt. Lin Yun. Upon turning 16, she took her younger sister's place to marry into the royal family of Ye. Rumors say Ye Youming is strange, cold and cruel. Just how will Qian Yunxi's fate play out?\n\n(Source: Baka-Updates Manga)",
+      "popularity": 8.7816,
+      "poster_path": "/gtZClfDpfgSgeoOg0eLhxoGvmNE.jpg",
+      "first_air_date": "2018-11-30",
+      "softcore": false,
+      "name": "Psychic Princess",
+      "vote_average": 7.886,
+      "vote_count": 35
+    },
+    {
+      "adult": false,
+      "backdrop_path": null,
+      "genre_ids": [
+        35,
+        10765
+      ],
+      "id": 272880,
+      "origin_country": [
+        "CN"
+      ],
+      "original_language": "zh",
+      "original_name": "通灵妃",
+      "overview": "A substitute bride returns to a prince's residence as his attendant and gradually falls for the seemingly cold-hearted prince. As their relationship grows, a mysterious figure begins plotting in the shadows.",
+      "popularity": 0.923,
+      "poster_path": "/pmcoFPCrpQNN4sZMT4eT99CsOXG.jpg",
+      "first_air_date": "2019-11-18",
+      "softcore": false,
+      "name": "Psychic Princess",
+      "vote_average": 0.0,
+      "vote_count": 0
+    }
+  ],
+  "total_pages": 1,
+  "total_results": 2
+}

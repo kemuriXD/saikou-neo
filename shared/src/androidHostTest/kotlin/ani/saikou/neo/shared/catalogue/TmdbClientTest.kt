@@ -99,6 +99,38 @@ class TmdbClientTest {
     fun aSearchWithNoResultsFindsNoFilm() =
         runTest { assertNull(TmdbClient(KEY, TmdbEngine { "find-none" }).searchFilm("Nothing like it", 2016)) }
 
+    // Psychic Princess has no ids on AniZip.
+    @Test
+    fun aSeriesIsFoundByItsTitle() =
+        runTest {
+            val engine = TmdbEngine { "search-tv" }
+
+            assertEquals(84737, TmdbClient(KEY, engine).searchSeries("Psychic Princess", null))
+            assertEquals("https://api.themoviedb.org/3/search/tv?query=Psychic%20Princess&api_key=$KEY", engine.urls.single())
+        }
+
+    @Test
+    fun aSeriesSearchNarrowsByTheFirstYear() =
+        runTest {
+            val engine = TmdbEngine { "search-tv" }
+
+            TmdbClient(KEY, engine).searchSeries("Psychic Princess", 2018)
+
+            assertEquals(
+                "https://api.themoviedb.org/3/search/tv?query=Psychic%20Princess&first_air_date_year=2018&api_key=$KEY",
+                engine.urls.single(),
+            )
+        }
+
+    // A series search matches loosely, and a wrong show's art is worse than none.
+    @Test
+    fun aSeriesWithAnotherNameIsNotTaken() =
+        runTest { assertNull(TmdbClient(KEY, TmdbEngine { "search-tv" }).searchSeries("Princess", null)) }
+
+    @Test
+    fun aSeriesNameMatchesWhateverItsCase() =
+        runTest { assertEquals(84737, TmdbClient(KEY, TmdbEngine { "search-tv" }).searchSeries("psychic princess", null)) }
+
     // The engine blocks, and Android stops network calls on the main thread.
     @Test
     fun asksOffTheCallersThread() =
