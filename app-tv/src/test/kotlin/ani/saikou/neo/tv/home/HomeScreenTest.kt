@@ -134,7 +134,7 @@ class HomeScreenTest {
     @Test
     fun theTitleIsTheLogoWhenThereIsOne() {
         val spotlight = loaded.spotlight!!
-        show(loaded.copy(spotlight = spotlight.copy(logos = mapOf(0 to Logo.Image("https://anizip.test/logo.png")))))
+        show(loaded.copy(spotlight = spotlight.copy(logos = mapOf(0 to Logo.Image("https://logos.test/logo.png")))))
 
         compose.onNodeWithTag(SPOTLIGHT_LOGO_TAG).assertContentDescriptionEquals("Show 0").assertHeightIsEqualTo(80.dp)
     }

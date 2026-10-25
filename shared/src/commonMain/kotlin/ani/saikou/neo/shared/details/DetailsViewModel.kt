@@ -4,10 +4,12 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
-import ani.saikou.neo.shared.catalogue.AniZipArt
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeDetails
+import ani.saikou.neo.shared.catalogue.ArtSources
 import ani.saikou.neo.shared.catalogue.FanartTvClient
+import ani.saikou.neo.shared.catalogue.ShowArt
+import ani.saikou.neo.shared.catalogue.TmdbClient
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.catalogue.showArt
 import ani.saikou.neo.shared.home.Logo
@@ -24,29 +26,35 @@ public sealed interface DetailsState {
     public data class Loaded(
         val details: AnimeDetails,
         val synopsis: Synopsis = parseSynopsis(details.description),
-        /** The show's fan art, or AniList's art without any. Null until AniZip answers, so it fades in once. */
+        /** The show's backdrop, or AniList's art without one. Null until its art is found, so it fades in once. */
         val backdrop: String? = null,
-        /** The title logo, from the same AniZip answer as the backdrop. */
+        /** The title logo, found with the backdrop. */
         val logo: Logo = Logo.Loading,
     ) : DetailsState
 
     public data object Failed : DetailsState
 }
 
-/** Loads one anime's details from AniList, and its fan art and logo from [aniZip] or [fanartTv] at the same time. */
+/** Loads one anime's details from AniList, and its backdrop and logo from [tmdb], [fanartTv] and [aniZip] at the same time. */
 public class DetailsViewModel(
     private val client: AniListClient,
     private val aniZip: AniZipClient,
     private val fanartTv: FanartTvClient,
+    private val tmdb: TmdbClient,
     private val animeId: Int,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
     public val state: StateFlow<DetailsState> = mutableState.asStateFlow()
 
     init {
-        val art = viewModelScope.async { showArt(client, aniZip, fanartTv, animeId) }
+        val details = viewModelScope.async { client.details(animeId) }
+        // A film's title is only needed when TMDB can't find it by its IMDb id.
+        val art =
+            viewModelScope.async {
+                showArt(ArtSources(client, aniZip, fanartTv, tmdb), animeId) { (details.await() as? AniListResult.Success)?.value?.card }
+            }
         viewModelScope.launch {
-            val result = client.details(animeId)
+            val result = details.await()
             if (result !is AniListResult.Success) {
                 art.cancel()
                 mutableState.value = DetailsState.Failed
@@ -64,5 +72,4 @@ public class DetailsViewModel(
     }
 }
 
-private fun DetailsState.Loaded.withArt(art: AniZipArt?) =
-    copy(backdrop = art?.fanArt ?: details.card.art, logo = art?.logo?.let(Logo::Image) ?: Logo.None)
+private fun DetailsState.Loaded.withArt(art: ShowArt) = copy(backdrop = art.backdrop ?: details.card.art, logo = art.logo)

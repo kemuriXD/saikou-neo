@@ -262,24 +262,23 @@ class DetailsScreenTest {
         compose.onNodeWithText("TV · FALL 2026").assertTopPositionInRootIsEqualTo(150.dp)
     }
 
-    // Some of AniZip's logos are square key art, which would crowd out the details.
+    // :shared picks logos from the sizes the artwork sites report, so the TV app shows any shape it's given.
     @Test
-    fun keyArtFiledAsALogoLeavesTheTitleInWords() {
+    fun aSquareLogoIsShown() {
         imagesAre(680, 680)
         show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
 
-        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_LOGO_TAG).fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertExists()
     }
 
-    // Others are wide key art, a solid rectangle where a logo would be mostly see-through.
     @Test
-    fun opaqueKeyArtFiledAsALogoLeavesTheTitleInWords() {
+    fun aSolidLogoIsShown() {
         imagesAre(800, 310, color = Color.DKGRAY)
         show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
 
-        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_LOGO_TAG).fetchSemanticsNodes().isEmpty() }
-        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        compose.onNodeWithTag(DETAILS_LOGO_TAG).assertExists()
     }
 
     @Test
@@ -291,7 +290,7 @@ class DetailsScreenTest {
     }
 
     @Test
-    fun theTitleIsInWordsWhileAniZipAnswers() {
+    fun theTitleIsInWordsWhileTheArtIsFound() {
         show(DetailsState.Loaded(details, logo = Logo.Loading))
 
         compose.onNodeWithTag(DETAILS_TITLE_TAG).assertTextEquals("Show 7")
@@ -347,7 +346,7 @@ class DetailsScreenTest {
     }
 
     private companion object {
-        const val LOGO = "https://anizip.test/logo.png"
+        const val LOGO = "https://logos.test/logo.png"
 
         val details =
             AnimeDetails(

@@ -8,6 +8,7 @@ import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
 import ani.saikou.neo.shared.catalogue.SilentEngine
+import ani.saikou.neo.shared.catalogue.TmdbClient
 import ani.saikou.neo.shared.catalogue.clientFor
 import ani.saikou.neo.shared.home.Logo
 import com.apollographql.apollo.network.http.HttpEngine
@@ -45,7 +46,8 @@ class DetailsViewModelTest {
         engine: HttpEngine = RecordedEngine("details"),
         aniZip: AniZipClient = this.aniZip,
         fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
-    ) = DetailsViewModel(clientFor(engine, main), aniZip, fanartTv, animeId = 195516)
+        tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
+    ) = DetailsViewModel(clientFor(engine, main), aniZip, fanartTv, tmdb, animeId = 195516)
 
     @Test
     fun startsLoading() {
@@ -128,18 +130,18 @@ class DetailsViewModelTest {
     @Test
     fun theTitleIsTheShowsLogo() =
         runTest(main) {
-            val viewModel = detailsViewModel()
+            val viewModel = detailsViewModel(fanartTv = FanartTvClient("test-project-key", FanartTvEngine("tv"), main))
 
             val loaded = viewModel.withLogo()
-            assertEquals(Logo.Image("https://artworks.thetvdb.com/banners/v4/series/423732/icons/6687c76dcbad1.png"), loaded.logo)
-            // The logo comes in the same AniZip answer as the fan art.
+            assertEquals(Logo.Image("https://assets.fanart.tv/fanart/sakamoto-days-66866dc54d0e7.png"), loaded.logo)
+            // AniZip is asked once, for the ids and fan art together.
             assertEquals("https://api.ani.zip/mappings?anilist_id=195516", aniZipEngine.urls.single())
         }
 
     @Test
-    fun withoutALogoTheTitleStaysText() =
+    fun withoutALogoFromTmdbOrFanartTvTheTitleStaysText() =
         runTest(main) {
-            val viewModel = detailsViewModel(aniZip = AniZipClient(AniZipEngine("mappings-no-logo"), main))
+            val viewModel = detailsViewModel()
 
             val loaded = viewModel.withLogo()
             assertEquals(Logo.None, loaded.logo)
@@ -175,7 +177,7 @@ class DetailsViewModelTest {
 /** Waits until loading ends. */
 private suspend fun DetailsViewModel.settled() = state.first { it != DetailsState.Loading }
 
-/** Waits until AniZip has answered. */
+/** Waits until the art has been found. */
 private suspend fun DetailsViewModel.withLogo() =
     state.first {
         it is DetailsState.Loaded && it.logo != Logo.Loading

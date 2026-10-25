@@ -138,7 +138,7 @@ internal fun SpotlightShow(
     }
 }
 
-/** The show's logo, or its title in words when there's no logo, or it won't load or isn't one. */
+/** The show's logo, or its title in words when there's no logo or it won't load. */
 @Composable
 private fun SpotlightTitle(
     title: String,

@@ -8,6 +8,7 @@ import ani.saikou.neo.shared.catalogue.FanartTvEngine
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
 import ani.saikou.neo.shared.catalogue.SilentEngine
+import ani.saikou.neo.shared.catalogue.TmdbClient
 import ani.saikou.neo.shared.catalogue.clientFor
 import com.apollographql.apollo.api.http.HttpRequest
 import com.apollographql.apollo.api.http.HttpResponse
@@ -48,7 +49,8 @@ class HomeViewModelTest {
         engine: HttpEngine = HomeEngine(),
         aniZip: AniZipClient = this.aniZip,
         fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
-    ) = HomeViewModel(clientFor(engine, main), aniZip, fanartTv, AnimeSeason.FALL, 2026)
+        tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
+    ) = HomeViewModel(clientFor(engine, main), aniZip, fanartTv, tmdb, AnimeSeason.FALL, 2026)
 
     @Test
     fun startsWithEveryRowLoading() {
@@ -75,6 +77,7 @@ class HomeViewModelTest {
                 clientFor(engine, main),
                 aniZip,
                 FanartTvClient(null, OfflineEngine, main),
+                TmdbClient(null, OfflineEngine, main),
                 AnimeSeason.SPRING,
                 2027,
             ).settledRows()
@@ -127,10 +130,10 @@ class HomeViewModelTest {
     @Test
     fun eachFeaturedShowGetsItsLogo() =
         runTest(main) {
-            val viewModel = homeViewModel()
+            val viewModel = homeViewModel(fanartTv = FanartTvClient("test-project-key", FanartTvEngine("tv"), main))
 
             val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
-            val logo = Logo.Image("https://artworks.thetvdb.com/banners/v4/series/423732/icons/6687c76dcbad1.png")
+            val logo = Logo.Image("https://assets.fanart.tv/fanart/sakamoto-days-66866dc54d0e7.png")
             spotlight.shows.forEach { assertEquals(logo, spotlight.logo(it.id)) }
         }
 

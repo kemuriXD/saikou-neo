@@ -13,7 +13,7 @@ import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
 import okio.IOException
 
-/** Reads extra artwork from AniZip, which maps AniList ids to TheTVDB's art. */
+/** Reads fan art from AniZip, which maps AniList ids to TheTVDB's art and to other sites' ids. */
 public class AniZipClient internal constructor(
     private val engine: HttpEngine,
     private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -42,21 +42,21 @@ public class AniZipClient internal constructor(
     }
 }
 
-/** A show's art from AniZip, and the ids fanart.tv knows it by. Any of them can be missing. */
+/** A show's fan art from AniZip, and the ids other sites know it by. Any of them can be missing. */
 public data class AniZipArt(
-    /** The title logo, a transparent image. */
-    val logo: String?,
     /** 1920 × 1080 art for the backdrop. It belongs to the whole series, so every season shows the same art. */
     val fanArt: String?,
-    /** The film's TMDB id. Series have none here, since TMDB numbers its series apart from its films. */
-    val movieDbId: Int? = null,
+    /** A film rather than a series. TMDB numbers the two apart. */
+    val film: Boolean,
     /** The series' TheTVDB id. */
     val tvDbId: Int? = null,
+    /** The show's TMDB id. A film's is sometimes its TV series', so films are looked up again by [imdbId]. */
+    val tmdbId: Int? = null,
+    val imdbId: String? = null,
 )
 
-/** Reads the `Clearlogo` and `Fanart` urls from `images` and the ids from `mappings`, and skips everything else. */
+/** Reads the `Fanart` url from `images` and the ids from `mappings`, and skips everything else. */
 private fun JsonReader.art(): AniZipArt {
-    var logo: String? = null
     var fanArt: String? = null
     var mappings = emptyMap<String, String>()
     beginObject()
@@ -73,17 +73,17 @@ private fun JsonReader.art(): AniZipArt {
         beginArray()
         while (hasNext()) {
             val fields = readFields()
-            if (fields["coverType"] == "Clearlogo" && logo == null) logo = fields["url"]
             if (fields["coverType"] == "Fanart" && fanArt == null) fanArt = fields["url"]
         }
         endArray()
     }
     endObject()
     return AniZipArt(
-        logo = logo,
         fanArt = fanArt,
-        movieDbId = mappings["themoviedb_id"]?.toIntOrNull()?.takeIf { it > 0 && mappings["type"] == "MOVIE" },
+        film = mappings["type"] == "MOVIE",
         tvDbId = mappings["thetvdb_id"]?.toIntOrNull()?.takeIf { it > 0 },
+        tmdbId = mappings["themoviedb_id"]?.toIntOrNull()?.takeIf { it > 0 },
+        imdbId = mappings["imdb_id"]?.takeIf { it.startsWith("tt") },
     )
 }
 

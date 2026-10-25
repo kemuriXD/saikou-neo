@@ -12,14 +12,15 @@ import kotlin.test.assertNull
 
 class AniZipClientTest {
     @Test
-    fun findsTheClearLogoAndFanArtInOneRequest() =
+    fun findsTheFanArtAndIdsInOneRequest() =
         runTest {
             val engine = AniZipEngine("mappings")
 
             val art = AniZipClient(engine).art(177709)
 
-            assertEquals("https://artworks.thetvdb.com/banners/v4/series/423732/icons/6687c76dcbad1.png", art?.logo)
             assertEquals("https://artworks.thetvdb.com/banners/v4/series/423732/backgrounds/6654700131bab.jpg", art?.fanArt)
+            assertEquals(423732, art?.tvDbId)
+            assertEquals(false, art?.film)
             assertEquals("https://api.ani.zip/mappings?anilist_id=177709", engine.urls.single())
         }
 
@@ -34,43 +35,42 @@ class AniZipClientTest {
             assertNotEquals(Thread.currentThread(), engine.threads.single())
         }
 
-    @Test
-    fun aShowWithoutALogoHasNone() =
-        runTest {
-            val art = AniZipClient(AniZipEngine("mappings-no-logo")).art(177709)
-
-            assertNull(art?.logo)
-        }
-
     // AniZip's art belongs to the whole series, so a later season shows the same art as the first.
     @Test
     fun aLaterSeasonGetsTheSeriesArt() =
         runTest {
             val art = AniZipClient(AniZipEngine("mappings-second-season")).art(145064)
 
-            assertEquals("https://artworks.thetvdb.com/banners/v4/series/377543/icons/60735d109b705.png", art?.logo)
             assertEquals("https://artworks.thetvdb.com/banners/v4/series/377543/backgrounds/609cba7794bab.jpg", art?.fanArt)
         }
 
-    // Spirited Away: a film, so fanart.tv knows it by its TMDB id.
+    // One Piece: a series' TMDB id is TMDB's series.
     @Test
-    fun aFilmHasItsTmdbId() =
+    fun aSeriesHasItsTmdbAndImdbIds() =
+        runTest {
+            val art = AniZipClient(AniZipEngine("mappings-one-piece")).art(21)
+
+            assertEquals(AniZipArt(fanArt = ONE_PIECE_FAN_ART, film = false, tvDbId = 81797, tmdbId = 37854, imdbId = "tt0388629"), art)
+        }
+
+    // Spirited Away: a film, so its ids are the film's.
+    @Test
+    fun aFilmHasItsIds() =
         runTest {
             val art = AniZipClient(AniZipEngine("mappings-movie")).art(199)
 
-            assertEquals(129, art?.movieDbId)
+            assertEquals(true, art?.film)
+            assertEquals(129, art?.tmdbId)
+            assertEquals("tt0245429", art?.imdbId)
             assertNull(art?.tvDbId)
             assertNull(art?.fanArt)
         }
 
-    // Sakamoto Days has a TMDB id too, but it's for TMDB's series, so only TheTVDB's id is kept.
+    // Kizumonogatari: AniZip knows the film but has no ids for it.
     @Test
-    fun aSeriesHasOnlyItsTheTvdbId() =
+    fun aFilmWithoutIdsHasNone() =
         runTest {
-            val art = AniZipClient(AniZipEngine("mappings")).art(177709)
-
-            assertEquals(423732, art?.tvDbId)
-            assertNull(art?.movieDbId)
+            assertEquals(AniZipArt(fanArt = null, film = true), AniZipClient(AniZipEngine("mappings-no-ids")).art(9260))
         }
 
     @Test
@@ -81,6 +81,10 @@ class AniZipClientTest {
 
     @Test
     fun noConnectionMeansNoArt() = runTest { assertNull(AniZipClient(OfflineEngine).art(177709)) }
+
+    private companion object {
+        const val ONE_PIECE_FAN_ART = "https://artworks.thetvdb.com/banners/v4/series/81797/backgrounds/616009a8bd688.jpg"
+    }
 }
 
 /** Answers with a recorded AniZip response from `resources/anizip`, or an empty body. */

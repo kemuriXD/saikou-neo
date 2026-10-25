@@ -8,7 +8,9 @@ import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimePage
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.ArtSources
 import ani.saikou.neo.shared.catalogue.FanartTvClient
+import ani.saikou.neo.shared.catalogue.TmdbClient
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.catalogue.showArt
 import ani.saikou.neo.shared.details.parseSynopsis
@@ -50,9 +52,9 @@ public data class HomeState(
 public data class Spotlight(
     val shows: List<AnimeCard>,
     val index: Int = 0,
-    /** Each show's logo, by anime id, once AniZip has answered. */
+    /** Each show's logo, by anime id, once its art has been found. */
     val logos: Map<Int, Logo> = emptyMap(),
-    /** Each show's fan art, or its series' when it has none, by anime id. Shows without any are left out. */
+    /** Each show's backdrop, or its series' when it has none, by anime id. Shows without any are left out. */
     val fanArt: Map<Int, String> = emptyMap(),
     /**
      * Each show's story as one paragraph, by anime id, once AniList has sent it. The spotlight shows only a few lines,
@@ -66,7 +68,7 @@ public data class Spotlight(
 
     public fun logo(animeId: Int): Logo = logos[animeId] ?: Logo.Loading
 
-    /** The art behind [card]: its fan art, or AniList's art without any. Null until AniZip answers, so it fades in once. */
+    /** The art behind [card]: its backdrop, or AniList's art without one. Null until its art is found, so it fades in once. */
     public fun backdrop(card: AnimeCard): String? = if (card.id in logos) fanArt[card.id] ?: card.art else null
 }
 
@@ -83,13 +85,14 @@ public sealed interface Logo {
 
 /**
  * Loads Home's rows from AniList. This season is [season] of [year]. The spotlight features the first shows of the
- * first row that loads, with logos and fan art from [aniZip], or backgrounds from [fanartTv] without fan art. While it's
- * in view it moves on every 10 seconds, until the viewer picks a show.
+ * first row that loads, with logos and backdrops from [tmdb], [fanartTv] and [aniZip]. While it's in view it moves on
+ * every 10 seconds, until the viewer picks a show.
  */
 public class HomeViewModel(
     private val client: AniListClient,
     private val aniZip: AniZipClient,
     private val fanartTv: FanartTvClient,
+    private val tmdb: TmdbClient,
     private val season: AnimeSeason,
     private val year: Int,
 ) : ViewModel() {
@@ -140,12 +143,11 @@ public class HomeViewModel(
         }
         shows.forEach { show ->
             viewModelScope.launch {
-                val art = showArt(client, aniZip, fanartTv, show.id)
-                val logo = art?.logo?.let(Logo::Image) ?: Logo.None
+                val art = showArt(ArtSources(client, aniZip, fanartTv, tmdb), show)
                 updateSpotlight { spotlight ->
                     spotlight.copy(
-                        logos = spotlight.logos + (show.id to logo),
-                        fanArt = art?.fanArt?.let { spotlight.fanArt + (show.id to it) } ?: spotlight.fanArt,
+                        logos = spotlight.logos + (show.id to art.logo),
+                        fanArt = art.backdrop?.let { spotlight.fanArt + (show.id to it) } ?: spotlight.fanArt,
                     )
                 }
             }
