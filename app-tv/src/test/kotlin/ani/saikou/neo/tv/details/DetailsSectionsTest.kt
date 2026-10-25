@@ -53,7 +53,7 @@ class DetailsSectionsTest {
                     NeoButton("Main", onClick = {}, modifier = Modifier.focusRequester(main))
                     DetailsSections(
                         sections = listOf(OVERVIEW, EPISODES, RELATED),
-                        selected = selected,
+                        selected = { selected },
                         onSelect = { selected = it },
                         onInside = { inside = it },
                     ) { section -> NeoButton("${section.name} content", onClick = {}) }

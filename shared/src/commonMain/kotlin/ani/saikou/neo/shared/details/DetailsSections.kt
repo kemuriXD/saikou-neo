@@ -18,4 +18,5 @@ public val DetailsState.Loaded.sections: List<DetailsSection>
             DetailsSection.RELATED.takeIf { details.related.isNotEmpty() },
             // A watch order belongs to a franchise. It will come from an extension; until then the tab says so.
             DetailsSection.WATCH_ORDER.takeIf { details.related.isNotEmpty() },
+            DetailsSection.RECOMMENDATIONS.takeIf { details.recommendations.isNotEmpty() },
         )

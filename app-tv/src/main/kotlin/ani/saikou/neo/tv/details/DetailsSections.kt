@@ -40,24 +40,28 @@ private val sectionNames =
  * A row of tabs for [sections] with the [selected] one's [content] under it. Moving along the tabs selects each one
  * with nothing to press. Up or down into the row lands on the selected tab. [onInside] says whether focus is in the
  * content, which lifts Details.
+ *
+ * [selected] is read again as each key moves focus, since a quick remote can press the next key before the screen
+ * redraws. Focus never goes into a section that's about to be replaced, and Left and Right never leave one.
  */
 @Composable
 internal fun DetailsSections(
     sections: List<DetailsSection>,
-    selected: DetailsSection,
+    selected: () -> DetailsSection,
     onSelect: (DetailsSection) -> Unit,
     onInside: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
     content: @Composable (DetailsSection) -> Unit,
 ) {
     val tabs = remember { DetailsSection.entries.associateWith { FocusRequester() } }
+    val shown = selected()
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(
             Modifier
                 .focusProperties {
                     onEnter = {
                         if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
-                            tabs.getValue(selected).requestFocus()
+                            tabs.getValue(selected()).requestFocus()
                         }
                     }
                 }.focusGroup()
@@ -67,7 +71,7 @@ internal fun DetailsSections(
             for (section in sections) {
                 NeoSectionTab(
                     text = stringResource(sectionNames.getValue(section)),
-                    selected = section == selected,
+                    selected = section == shown,
                     modifier =
                         Modifier
                             .focusRequester(tabs.getValue(section))
@@ -76,6 +80,17 @@ internal fun DetailsSections(
                 )
             }
         }
-        Box(Modifier.onFocusChanged { onInside(it.hasFocus) }) { content(selected) }
+        Box(
+            Modifier
+                .onFocusChanged { onInside(it.hasFocus) }
+                .focusProperties {
+                    onEnter = { if (selected() != shown) cancelFocusChange() }
+                    onExit = {
+                        if (requestedFocusDirection == FocusDirection.Left || requestedFocusDirection == FocusDirection.Right) {
+                            cancelFocusChange()
+                        }
+                    }
+                }.focusGroup(),
+        ) { content(shown) }
     }
 }

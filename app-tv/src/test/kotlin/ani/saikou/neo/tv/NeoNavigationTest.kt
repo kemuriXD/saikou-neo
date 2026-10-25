@@ -52,7 +52,7 @@ class NeoNavigationTest {
                     seeMore = { row, openDetails ->
                         SeeMoreScreen(row, seeMoreState, openDetails, onLoadMore = {}, onRetry = {})
                     },
-                    details = { animeId, _ -> Text("Details for $animeId") },
+                    details = { animeId, _, _ -> Text("Details for $animeId") },
                 )
             }
         }

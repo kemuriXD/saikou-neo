@@ -231,6 +231,233 @@
             }
           }
         ]
+      },
+      "recommendations": {
+        "pageInfo": {
+          "hasNextPage": true
+        },
+        "nodes": [
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 188139,
+              "title": {
+                "romaji": "Futsutsuka na Akujo de wa Gozaimasu ga: Suuguu Chouso Torikae Den",
+                "english": "Though I Am an Inept Villainess",
+                "native": "ふつつかな悪女ではございますが ~雛宮蝶鼠とりかえ伝~"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx188139-1qIJfWxym8FX.jpg",
+                "color": "#0d86fe"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/188139-pS4GAV0Am2Wi.jpg",
+              "format": "TV",
+              "episodes": 11,
+              "averageScore": 81,
+              "season": "SUMMER",
+              "seasonYear": 2026,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 161645,
+              "title": {
+                "romaji": "Kusuriya no Hitorigoto",
+                "english": "The Apothecary Diaries",
+                "native": "薬屋のひとりごと"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx161645-QLbzHXiYRgV2.jpg",
+                "color": "#f1865d"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/161645-oqzTZYIvviWI.jpg",
+              "format": "TV",
+              "episodes": 24,
+              "averageScore": 88,
+              "season": "FALL",
+              "seasonYear": 2023,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 190569,
+              "title": {
+                "romaji": "Tenmaku no Jaadugar",
+                "english": "Jaadugar: A Witch in Mongolia",
+                "native": "天幕のジャードゥーガル"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx190569-KnCQLI3Z8hPX.jpg",
+                "color": "#50a1e4"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/190569-fQrApHKs9PIz.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 83,
+              "season": "SUMMER",
+              "seasonYear": 2026,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 142701,
+              "title": {
+                "romaji": "Koukyuu no Karasu",
+                "english": "Raven of the Inner Palace",
+                "native": "後宮の烏"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx142701-jyjYorMpj3lf.jpg",
+                "color": "#f1d65d"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/142701-rZzG4VtrvwsG.jpg",
+              "format": "TV",
+              "episodes": 13,
+              "averageScore": 73,
+              "season": "FALL",
+              "seasonYear": 2022,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 154587,
+              "title": {
+                "romaji": "Sousou no Frieren",
+                "english": "Frieren: Beyond Journey’s End",
+                "native": "葬送のフリーレン"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx154587-qQTzQnEJJ3oB.jpg",
+                "color": "#bbf1a1"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/154587-ivXNJ23SM1xB.jpg",
+              "format": "TV",
+              "episodes": 28,
+              "averageScore": 91,
+              "season": "FALL",
+              "seasonYear": 2023,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 20770,
+              "title": {
+                "romaji": "Akatsuki no Yona",
+                "english": "Yona of the Dawn",
+                "native": "暁のヨナ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20770-brCDvhTXlums.png",
+                "color": "#f1bb50"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20770-tZZMsglzAUAe.jpg",
+              "format": "TV",
+              "episodes": 24,
+              "averageScore": 79,
+              "season": "FALL",
+              "seasonYear": 2014,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 170503,
+              "title": {
+                "romaji": "Karasu wa Aruji wo Erabanai",
+                "english": "YATAGARASU: The Raven Does Not Choose Its Master",
+                "native": "烏は主を選ばない"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx170503-PCr24JL8F8f9.jpg",
+                "color": "#ae5035"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/170503-oFeGjPss0HIZ.jpg",
+              "format": "TV",
+              "episodes": 20,
+              "averageScore": 78,
+              "season": "SPRING",
+              "seasonYear": 2024,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 957,
+              "title": {
+                "romaji": "Saiunkoku Monogatari",
+                "english": "The Story of Saiunkoku",
+                "native": "彩雲国物語"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx957-FgHMLrokWm4x.png",
+                "color": "#f1c95d"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/957-32D80KxLXqaD.jpg",
+              "format": "TV",
+              "episodes": 39,
+              "averageScore": 74,
+              "season": "SPRING",
+              "seasonYear": 2006,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 1914,
+              "title": {
+                "romaji": "Saiunkoku Monogatari 2nd Season",
+                "english": "The Story of Saiunkoku Second Series",
+                "native": "彩雲国物語 第2シリーズ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx1914-VmmTPSjufwMs.png",
+                "color": "#e4436b"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/1914-BVpwiTOPaChv.jpg",
+              "format": "TV",
+              "episodes": 39,
+              "averageScore": 75,
+              "season": "SPRING",
+              "seasonYear": 2007,
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 99935,
+              "title": {
+                "romaji": "Tongling Fei",
+                "english": "Psychic Princess",
+                "native": "通灵妃"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx99935-lQ2IPS31bJSK.jpg",
+                "color": "#e4c95d"
+              },
+              "bannerImage": null,
+              "format": "ONA",
+              "episodes": 16,
+              "averageScore": 75,
+              "season": null,
+              "seasonYear": null,
+              "isAdult": false
+            }
+          }
+        ]
       }
     }
   }

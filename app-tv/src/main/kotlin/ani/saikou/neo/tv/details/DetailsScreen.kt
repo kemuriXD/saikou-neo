@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv.details
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
@@ -128,12 +129,13 @@ fun DetailsScreen(
     state: DetailsState,
     modifier: Modifier = Modifier,
     onOpen: (animeId: Int) -> Unit = {},
+    onRecommendations: () -> Unit = {},
 ) {
     var reading by rememberSaveable { mutableStateOf(false) }
     var hasRead by rememberSaveable { mutableStateOf(false) }
     var lifted by rememberSaveable { mutableStateOf(false) }
     var section by rememberSaveable { mutableStateOf(DetailsSection.OVERVIEW) }
-    // The related show opened from here, so Back returns to its poster.
+    // The poster or See more opened from here, so Back returns to it.
     var returnTo by rememberSaveable { mutableStateOf<Int?>(null) }
     // Taken as Details is composed, so only coming back to it returns focus to the poster.
     val returningTo = remember { returnTo }
@@ -154,6 +156,11 @@ fun DetailsScreen(
             hasEpisodes -> mainFocus.requestFocus()
             else -> tabFocus.requestFocus()
         }
+    }
+    // Down in a section, Back first brings the page back to the top. Back again leaves Details.
+    BackHandler(enabled = lifted && !reading) {
+        (if (hasEpisodes) mainFocus else tabFocus).requestFocus()
+        lifted = false
     }
     val dimensions = NeoTheme.dimensions
     val lift by animateDpAsState(
@@ -190,7 +197,7 @@ fun DetailsScreen(
                     val sections = state.sections
                     DetailsSections(
                         sections = sections,
-                        selected = section.takeIf { it in sections } ?: sections.first(),
+                        selected = { section.takeIf { it in sections } ?: sections.first() },
                         onSelect = { section = it },
                         // The reader and a related show's Details take focus from the page without lowering it.
                         onInside = { inside -> if (!reading && returnTo == null) lifted = inside },
@@ -247,7 +254,26 @@ fun DetailsScreen(
                                 )
                             }
 
-                            else -> {}
+                            DetailsSection.RECOMMENDATIONS -> {
+                                PosterRowSection(
+                                    posters = state.details.recommendations.map { Poster(it) },
+                                    onOpen = {
+                                        returnTo = it
+                                        onOpen(it)
+                                    },
+                                    returnTo = returningTo,
+                                    onReturned = { returnTo = null },
+                                    seeMore =
+                                        if (state.details.moreRecommendations) {
+                                            {
+                                                returnTo = SEE_MORE
+                                                onRecommendations()
+                                            }
+                                        } else {
+                                            null
+                                        },
+                                )
+                            }
                         }
                     }
                 }

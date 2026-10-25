@@ -33,6 +33,17 @@ class DetailsSectionsTest {
         assertFalse(DetailsSection.WATCH_ORDER in DetailsState.Loaded(details()).sections)
     }
 
+    @Test
+    fun recommendationsHaveATabOnlyWhenThereAreSome() {
+        val recommended = details().card.copy(id = 3)
+
+        assertEquals(
+            DetailsSection.RECOMMENDATIONS,
+            DetailsState.Loaded(details().copy(recommendations = listOf(recommended))).sections.last(),
+        )
+        assertFalse(DetailsSection.RECOMMENDATIONS in DetailsState.Loaded(details()).sections)
+    }
+
     private fun details() =
         AnimeDetails(
             card = AnimeCard(1, AnimeTitle("Show", null, null), null, null, null, "TV", 12, null, null, null),

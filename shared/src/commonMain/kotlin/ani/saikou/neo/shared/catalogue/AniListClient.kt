@@ -1,6 +1,7 @@
 package ani.saikou.neo.shared.catalogue
 
 import ani.saikou.neo.shared.catalogue.anilist.AnimeDetailsQuery
+import ani.saikou.neo.shared.catalogue.anilist.AnimeRecommendationsQuery
 import ani.saikou.neo.shared.catalogue.anilist.AnimeRelationsQuery
 import ani.saikou.neo.shared.catalogue.anilist.AnimeSynopsesQuery
 import ani.saikou.neo.shared.catalogue.anilist.BrowseAnimeQuery
@@ -85,6 +86,35 @@ public class AniListClient internal constructor(
                 .mapNotNull { it.node?.id }
         }
 
+    /** One page of the anime AniList's users recommend for [id], best rated first. */
+    public suspend fun recommendations(
+        id: Int,
+        page: Int = 1,
+        perPage: Int = DEFAULT_PER_PAGE,
+    ): AniListResult<RecommendationsPage> =
+        fetch(AnimeRecommendationsQuery(id = id, page = page, perPage = perPage)) { data ->
+            data.Media?.let { media ->
+                RecommendationsPage(
+                    show = AnimeTitle(romaji = media.title?.romaji, english = media.title?.english, native = media.title?.native),
+                    page =
+                        AnimePage(
+                            items =
+                                media.recommendations
+                                    ?.nodes
+                                    .orEmpty()
+                                    .mapNotNull { node ->
+                                        node
+                                            ?.mediaRecommendation
+                                            ?.takeIf { it.isAdult != true }
+                                            ?.animeCardFields
+                                            ?.toCard()
+                                    },
+                            hasNextPage = media.recommendations?.pageInfo?.hasNextPage == true,
+                        ),
+                )
+            }
+        }
+
     public suspend fun details(id: Int): AniListResult<AnimeDetails> =
         fetch(AnimeDetailsQuery(id = id)) { data ->
             data.Media?.let { media ->
@@ -106,6 +136,18 @@ public class AniListClient internal constructor(
                             .orEmpty()
                             .mapNotNull { it?.toRelated() }
                             .sortedBy { it.relation },
+                    recommendations =
+                        media.recommendations
+                            ?.nodes
+                            .orEmpty()
+                            .mapNotNull { node ->
+                                node
+                                    ?.mediaRecommendation
+                                    ?.takeIf { it.isAdult != true }
+                                    ?.animeCardFields
+                                    ?.toCard()
+                            },
+                    moreRecommendations = media.recommendations?.pageInfo?.hasNextPage == true,
                 )
             }
         }

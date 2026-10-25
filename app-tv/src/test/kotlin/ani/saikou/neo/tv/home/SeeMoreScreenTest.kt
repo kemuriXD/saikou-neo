@@ -62,6 +62,19 @@ class SeeMoreScreenTest {
         }
     }
 
+    // A show's recommendations name the show above the heading.
+    @Test
+    fun aListForAShowNamesTheShowAboveItsHeading() {
+        compose.setContent {
+            NeoTheme {
+                SeeMoreScreen(title = "Recommendations", state = ready, onOpen = {}, onLoadMore = {}, onRetry = {}, eyebrow = "Death Note")
+            }
+        }
+
+        compose.onNodeWithText("DEATH NOTE").assertExists()
+        compose.onNodeWithText("Recommendations").assertExists()
+    }
+
     @Test
     fun focusSaysWhichPosterItIsOn() {
         show()

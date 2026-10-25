@@ -166,7 +166,34 @@ class AniListClientTest {
         runTest {
             val engine = RecordedEngine("details", change = { it.replace("\"isAdult\": false", "\"isAdult\": true") })
 
-            assertEquals(emptyList(), clientFor(engine).details(195516).success().related)
+            val details = clientFor(engine).details(195516).success()
+            assertEquals(emptyList(), details.related)
+            assertEquals(emptyList(), details.recommendations)
+        }
+
+    @Test
+    fun detailsHasTheTenBestRatedRecommendations() =
+        runTest {
+            val details = clientFor(RecordedEngine("details")).details(195516).success()
+
+            assertEquals(
+                listOf(188139, 161645, 190569, 142701, 154587, 20770, 170503, 957, 1914, 99935),
+                details.recommendations.map { it.id },
+            )
+            assertTrue(details.moreRecommendations)
+        }
+
+    @Test
+    fun recommendationsComeAPageAtATimeWithTheShowsTitle() =
+        runTest {
+            val engine = RecordedEngine("recommendations")
+
+            val page = clientFor(engine).recommendations(1535, page = 2).success()
+
+            assertEquals("Death Note", page.show.english)
+            assertEquals(20, page.page.items.size)
+            assertTrue(page.page.hasNextPage)
+            assertTrue(engine.requestBodies.single().let { "\"id\":1535" in it && "\"page\":2" in it })
         }
 }
 

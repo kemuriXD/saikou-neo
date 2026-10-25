@@ -67,6 +67,41 @@ query AnimeDetails($id: Int!) {
         }
       }
     }
+
+    # The ones AniList's users rate best first. More can be paged with AnimeRecommendations.
+    recommendations(sort: [RATING_DESC], perPage: 10) {
+      pageInfo {
+        hasNextPage
+      }
+      nodes {
+        mediaRecommendation {
+          ...AnimeCardFields
+          isAdult
+        }
+      }
+    }
+  }
+}
+
+# All of an anime's recommendations, a page at a time, and its title to head them.
+query AnimeRecommendations($id: Int!, $page: Int!, $perPage: Int!) {
+  Media(id: $id, type: ANIME) {
+    title {
+      romaji
+      english
+      native
+    }
+    recommendations(sort: [RATING_DESC], page: $page, perPage: $perPage) {
+      pageInfo {
+        hasNextPage
+      }
+      nodes {
+        mediaRecommendation {
+          ...AnimeCardFields
+          isAdult
+        }
+      }
+    }
   }
 }
 

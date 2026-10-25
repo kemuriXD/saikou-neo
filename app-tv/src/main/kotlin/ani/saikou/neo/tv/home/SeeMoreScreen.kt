@@ -57,11 +57,9 @@ private val GridTop = 104.dp
 // Rows scrolled up pass under the title, which keeps solid ink behind it.
 private val TitleBand = 88.dp
 private val TitleFade = 12.dp
+private val EyebrowGap = 2.dp
 
-/**
- * All of a Home [row] as a grid of posters. Selecting one calls [onOpen]. Focus nearing the end calls [onLoadMore];
- * Try again after a failed page calls [onRetry].
- */
+/** All of a Home [row] as a grid of posters, headed by the row's name. */
 @Composable
 fun SeeMoreScreen(
     row: HomeRow,
@@ -71,6 +69,22 @@ fun SeeMoreScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     onRest: (card: AnimeCard?) -> Unit = {},
+) = SeeMoreScreen(stringResource(rowTitles.getValue(row)), state, onOpen, onLoadMore, onRetry, modifier, onRest)
+
+/**
+ * A whole list as a grid of posters under its [title], with the show it's for as an [eyebrow] above, if any. Selecting
+ * a poster calls [onOpen]. Focus nearing the end calls [onLoadMore]; Try again after a failed page calls [onRetry].
+ */
+@Composable
+fun SeeMoreScreen(
+    title: String,
+    state: SeeMoreState,
+    onOpen: (animeId: Int) -> Unit,
+    onLoadMore: () -> Unit,
+    onRetry: () -> Unit,
+    modifier: Modifier = Modifier,
+    onRest: (card: AnimeCard?) -> Unit = {},
+    eyebrow: String? = null,
 ) {
     val dimensions = NeoTheme.dimensions
     val ink = NeoTheme.colors.ink
@@ -150,12 +164,16 @@ fun SeeMoreScreen(
                 .height(TitleBand + TitleFade)
                 .background(Brush.verticalGradient(0f to ink, TitleBand / (TitleBand + TitleFade) to ink, 1f to ink.copy(alpha = 0f))),
         )
-        Text(
-            text = stringResource(rowTitles.getValue(row)),
-            style = NeoTheme.typography.headline,
-            color = NeoTheme.colors.paper,
-            modifier = Modifier.padding(start = dimensions.gridMargin, top = TitleTop),
-        )
+        // An eyebrow takes the top of the band, so the title moves down under it.
+        Column(
+            Modifier.padding(start = dimensions.gridMargin, top = if (eyebrow == null) TitleTop else dimensions.safeY),
+            verticalArrangement = Arrangement.spacedBy(EyebrowGap),
+        ) {
+            eyebrow?.let {
+                Text(text = it.uppercase(), style = NeoTheme.typography.overline, color = NeoTheme.colors.pink)
+            }
+            Text(text = title, style = NeoTheme.typography.headline, color = NeoTheme.colors.paper)
+        }
     }
 }
 

@@ -2,24 +2,38 @@ package ani.saikou.neo.tv.details
 
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import ani.saikou.neo.shared.catalogue.AnimeCard
+import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.PosterCard
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.NeoButton
+import ani.saikou.neo.tv.ui.NeoIcons
+import ani.saikou.neo.tv.ui.outToTheScreenEdge
 
 internal fun relatedPosterTag(animeId: Int) = "related-$animeId"
+
+internal const val DETAILS_SEE_MORE_TAG = "details-see-more"
+internal const val DETAILS_POSTER_ROW_TAG = "details-poster-row"
+
+/** Where focus returns to the See more button rather than a poster. */
+internal const val SEE_MORE = -1
 
 /** A poster and the line under its title. */
 internal data class Poster(
@@ -28,8 +42,9 @@ internal data class Poster(
 )
 
 /**
- * A row of posters, as on See more. Selecting one calls [onOpen]. Coming back from the show it opened, focus returns to
- * the poster [returnTo], and [onReturned] is called.
+ * A row of posters, as on See more, ending in a [seeMore] button when there are more to see. Selecting a poster calls
+ * [onOpen]. Coming back from what it opened, focus returns to the poster [returnTo], or to See more for [SEE_MORE], and
+ * [onReturned] is called.
  */
 @Composable
 internal fun PosterRowSection(
@@ -38,6 +53,7 @@ internal fun PosterRowSection(
     returnTo: Int?,
     onReturned: () -> Unit,
     modifier: Modifier = Modifier,
+    seeMore: (() -> Unit)? = null,
 ) {
     val dimensions = NeoTheme.dimensions
     val requesters = remember(posters) { posters.associate { it.card.id to FocusRequester() } }
@@ -45,7 +61,8 @@ internal fun PosterRowSection(
     LazyRow(
         // Up or down into the row lands on its first poster, not the one nearest the tab above.
         modifier
-            .fillMaxWidth()
+            .outToTheScreenEdge(dimensions.gridMargin)
+            .testTag(DETAILS_POSTER_ROW_TAG)
             .focusProperties {
                 onEnter = {
                     if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
@@ -53,7 +70,13 @@ internal fun PosterRowSection(
                     }
                 }
             }.focusGroup(),
-        contentPadding = PaddingValues(top = dimensions.space4, bottom = dimensions.space4, end = dimensions.gridMargin),
+        contentPadding =
+            PaddingValues(
+                start = dimensions.gridMargin,
+                top = dimensions.space4,
+                end = dimensions.gridMargin,
+                bottom = dimensions.space4,
+            ),
         horizontalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
     ) {
         items(posters, key = { it.card.id }) { poster ->
@@ -70,6 +93,26 @@ internal fun PosterRowSection(
                 modifier = Modifier.focusRequester(requester).testTag(relatedPosterTag(poster.card.id)),
                 caption = poster.caption,
             )
+        }
+        if (seeMore != null) {
+            item(key = SEE_MORE) {
+                val requester = remember { FocusRequester() }
+                if (returnTo == SEE_MORE) {
+                    LaunchedEffect(Unit) {
+                        requester.requestFocus()
+                        onReturned()
+                    }
+                }
+                // Level with the middle of the posters, as at the end of a Home row.
+                Box(Modifier.height(dimensions.cardPosterHeight), contentAlignment = Alignment.Center) {
+                    NeoButton(
+                        text = stringResource(R.string.home_see_more),
+                        onClick = seeMore,
+                        trailingIcon = NeoIcons.Arrow,
+                        modifier = Modifier.focusRequester(requester).testTag(DETAILS_SEE_MORE_TAG),
+                    )
+                }
+            }
         }
     }
 }
