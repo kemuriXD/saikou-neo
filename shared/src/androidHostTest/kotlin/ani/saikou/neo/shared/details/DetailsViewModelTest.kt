@@ -136,6 +136,18 @@ class DetailsViewModelTest {
             assertEquals("https://api.ani.zip/mappings?anilist_id=195516", aniZipEngine.urls.single())
         }
 
+    // Spirited Away: AniZip has no logo for it, fanart.tv does.
+    @Test
+    fun withoutAnAniZipLogoTheTitleIsFanartTvs() =
+        runTest(main) {
+            val engine = QueryEngine("details", mapOf("AnimeRelations" to "relations"))
+            val aniZip = AniZipClient(AniZipEngine("mappings-movie"), main)
+            val viewModel = detailsViewModel(engine, aniZip, FanartTvClient("test-project-key", FanartTvEngine("movie"), main))
+
+            val loaded = viewModel.withLogo()
+            assertEquals(Logo.Image(aniZip = null, fanartTv = "https://assets.fanart.tv/fanart/spirited-away-5e6dbe495c04b.png"), loaded.logo)
+        }
+
     @Test
     fun withoutALogoTheTitleStaysText() =
         runTest(main) {

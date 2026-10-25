@@ -50,7 +50,7 @@ public data class HomeState(
 public data class Spotlight(
     val shows: List<AnimeCard>,
     val index: Int = 0,
-    /** Each show's logo, by anime id, once AniZip has answered. */
+    /** Each show's logo, by anime id, once AniZip and fanart.tv have answered. */
     val logos: Map<Int, Logo> = emptyMap(),
     /** Each show's fan art, or its series' when it has none, by anime id. Shows without any are left out. */
     val fanArt: Map<Int, String> = emptyMap(),
@@ -76,14 +76,18 @@ public sealed interface Logo {
 
     public data object None : Logo
 
+    /** A logo from AniZip, fanart.tv or both. At least one is set. */
     public data class Image(
-        val url: String,
+        /** AniZip files some pictures of a character as logos, so the app checks this one's shape. */
+        val aniZip: String?,
+        /** Picked by people as the show's title logo. Shown when AniZip has none, or its own isn't a logo. */
+        val fanartTv: String? = null,
     ) : Logo
 }
 
 /**
  * Loads Home's rows from AniList. This season is [season] of [year]. The spotlight features the first shows of the
- * first row that loads, with logos and fan art from [aniZip], or backgrounds from [fanartTv] without fan art. While it's
+ * first row that loads, with logos and fan art from [aniZip] and [fanartTv]. While it's
  * in view it moves on every 10 seconds, until the viewer picks a show.
  */
 public class HomeViewModel(
@@ -141,11 +145,10 @@ public class HomeViewModel(
         shows.forEach { show ->
             viewModelScope.launch {
                 val art = showArt(client, aniZip, fanartTv, show.id)
-                val logo = art?.logo?.let(Logo::Image) ?: Logo.None
                 updateSpotlight { spotlight ->
                     spotlight.copy(
-                        logos = spotlight.logos + (show.id to logo),
-                        fanArt = art?.fanArt?.let { spotlight.fanArt + (show.id to it) } ?: spotlight.fanArt,
+                        logos = spotlight.logos + (show.id to art.logo),
+                        fanArt = art.fanArt?.let { spotlight.fanArt + (show.id to it) } ?: spotlight.fanArt,
                     )
                 }
             }

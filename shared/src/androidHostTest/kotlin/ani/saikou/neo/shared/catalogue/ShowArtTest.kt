@@ -1,5 +1,6 @@
 package ani.saikou.neo.shared.catalogue
 
+import ani.saikou.neo.shared.home.Logo
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -10,8 +11,9 @@ class ShowArtTest {
     private val dragonBallSuperFanArt = "https://artworks.thetvdb.com/banners/fanart/original/295068-1.jpg"
     private val noFanartTv = FanartTvClient(null, OfflineEngine)
 
+    // AniZip files some pictures of a character as logos, so fanart.tv's logo comes along in case the app rejects it.
     @Test
-    fun aShowWithFanArtNeedsNothingMore() =
+    fun aShowWithFanArtAndALogoStillGetsFanartTvsLogo() =
         runTest {
             val aniList = QueryEngine("relations", emptyMap())
             val aniZip = AniZipEngine("mappings")
@@ -19,10 +21,19 @@ class ShowArtTest {
 
             val art = showArt(clientFor(aniList), AniZipClient(aniZip), FanartTvClient(KEY, fanartTv), 177709)
 
-            assertEquals("https://artworks.thetvdb.com/banners/v4/series/423732/backgrounds/6654700131bab.jpg", art?.fanArt)
+            assertEquals("https://artworks.thetvdb.com/banners/v4/series/423732/backgrounds/6654700131bab.jpg", art.fanArt)
             assertTrue(aniList.requestBodies.isEmpty())
             assertEquals(1, aniZip.urls.size)
-            assertTrue(fanartTv.requests.isEmpty())
+            assertEquals(Logo.Image(SAKAMOTO_DAYS_LOGO, "https://assets.fanart.tv/fanart/sakamoto-days-66866dc54d0e7.png"), art.logo)
+            assertEquals("https://webservice.fanart.tv/v3.2/tv/423732", fanartTv.requests.single().url)
+        }
+
+    @Test
+    fun withoutFanartTvALogoIsAniZipsAlone() =
+        runTest {
+            val art = showArt(clientFor(OfflineEngine), AniZipClient(AniZipEngine("mappings")), noFanartTv, 177709)
+
+            assertEquals(Logo.Image(SAKAMOTO_DAYS_LOGO), art.logo)
         }
 
     // Spirited Away: AniZip has no fan art for films, so fanart.tv's background comes before any related series'.
@@ -34,7 +45,9 @@ class ShowArtTest {
 
             val art = showArt(clientFor(aniList), AniZipClient(AniZipEngine("mappings-movie")), FanartTvClient(KEY, fanartTv), 199)
 
-            assertEquals("https://assets.fanart.tv/fanart/spirited-away-50f0c9c556cad.jpg", art?.fanArt)
+            assertEquals("https://assets.fanart.tv/fanart/spirited-away-50f0c9c556cad.jpg", art.fanArt)
+            // Its logo comes from the same answer.
+            assertEquals(Logo.Image(aniZip = null, fanartTv = "https://assets.fanart.tv/fanart/spirited-away-5e6dbe495c04b.png"), art.logo)
             assertEquals("https://webservice.fanart.tv/v3.2/movies/129", fanartTv.requests.single().url)
             assertTrue(aniList.requestBodies.isEmpty())
         }
@@ -47,7 +60,7 @@ class ShowArtTest {
 
             val art = showArt(clientFor(RecordedEngine("relations")), aniZip, fanartTv, 199)
 
-            assertEquals(dragonBallSuperFanArt, art?.fanArt)
+            assertEquals(dragonBallSuperFanArt, art.fanArt)
         }
 
     // Dragon Ball Super: Beerus is too new for AniZip, but it belongs to Dragon Ball Super, which AniZip knows.
@@ -58,9 +71,9 @@ class ShowArtTest {
 
             val art = showArt(clientFor(RecordedEngine("relations")), AniZipClient(aniZip), noFanartTv, 206814)
 
-            assertEquals(dragonBallSuperFanArt, art?.fanArt)
+            assertEquals(dragonBallSuperFanArt, art.fanArt)
             // The logo stays the show's own. Beerus has none.
-            assertNull(art?.logo)
+            assertEquals(Logo.None, art.logo)
             assertEquals(
                 listOf("https://api.ani.zip/mappings?anilist_id=206814", "https://api.ani.zip/mappings?anilist_id=21175"),
                 aniZip.urls,
@@ -74,7 +87,7 @@ class ShowArtTest {
 
             val art = showArt(clientFor(RecordedEngine("relations-none")), AniZipClient(aniZip), noFanartTv, 21519)
 
-            assertNull(art?.fanArt)
+            assertNull(art.fanArt)
             assertEquals(1, aniZip.urls.size)
         }
 
@@ -83,10 +96,11 @@ class ShowArtTest {
         runTest {
             val fanartTv = FanartTvClient(KEY, OfflineEngine)
 
-            assertNull(showArt(clientFor(OfflineEngine), AniZipClient(OfflineEngine), fanartTv, 206814)?.fanArt)
+            assertNull(showArt(clientFor(OfflineEngine), AniZipClient(OfflineEngine), fanartTv, 206814).fanArt)
         }
 
     private companion object {
         const val KEY = "test-project-key"
+        const val SAKAMOTO_DAYS_LOGO = "https://artworks.thetvdb.com/banners/v4/series/423732/icons/6687c76dcbad1.png"
     }
 }

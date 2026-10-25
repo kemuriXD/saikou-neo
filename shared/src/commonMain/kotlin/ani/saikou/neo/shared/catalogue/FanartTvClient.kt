@@ -14,7 +14,7 @@ import kotlinx.coroutines.withContext
 import okio.IOException
 
 /**
- * Reads backgrounds from fanart.tv, for shows AniZip has no fan art for. [apiKey] is the app's fanart.tv project key.
+ * Reads backgrounds and title logos from fanart.tv. [apiKey] is the app's fanart.tv project key.
  * Without one, it asks nothing.
  */
 public class FanartTvClient internal constructor(
@@ -25,15 +25,15 @@ public class FanartTvClient internal constructor(
     public constructor(apiKey: String?) : this(apiKey, DefaultHttpEngine(TIMEOUT_MILLIS))
 
     /**
-     * The most liked background for the show AniZip described in [art]: a film by its TMDB id, a series by its
-     * TheTVDB id. Null without a key or an id, or when fanart.tv has none or can't be reached.
+     * The art fanart.tv has for the show AniZip described in [art]: a film by its TMDB id, a series by its TheTVDB id.
+     * Null without a key or an id, or when fanart.tv doesn't know the show or can't be reached.
      */
-    public suspend fun background(art: AniZipArt): String? {
+    public suspend fun art(art: AniZipArt): FanartTvArt? {
         if (apiKey.isNullOrBlank()) return null
-        val (path, field) =
+        val (path, fields) =
             when {
-                art.movieDbId != null -> "movies/${art.movieDbId}" to "moviebackground"
-                art.tvDbId != null -> "tv/${art.tvDbId}" to "showbackground"
+                art.movieDbId != null -> "movies/${art.movieDbId}" to MOVIE_FIELDS
+                art.tvDbId != null -> "tv/${art.tvDbId}" to SERIES_FIELDS
                 else -> return null
             }
         // The engine blocks while it waits for the network, so keep it off the main thread, as ApolloClient does.
@@ -43,7 +43,7 @@ public class FanartTvClient internal constructor(
                 val request = HttpRequest.Builder(HttpMethod.Get, "$FANART_TV_URL/$path").addHeader("api-key", apiKey).build()
                 val response = engine.execute(request)
                 val body = response.body
-                if (response.statusCode != 200 || body == null) null else body.use { it.jsonReader().firstUrl(field) }
+                if (response.statusCode != 200 || body == null) null else body.use { it.jsonReader().art(fields) }
             } catch (_: ApolloException) {
                 null
             } catch (_: IOException) {
@@ -56,26 +56,61 @@ public class FanartTvClient internal constructor(
     private companion object {
         const val FANART_TV_URL = "https://webservice.fanart.tv/v3.2"
         const val TIMEOUT_MILLIS = 15_000L
+        val MOVIE_FIELDS = ArtFields(background = "moviebackground", logo = "hdmovielogo")
+        val SERIES_FIELDS = ArtFields(background = "showbackground", logo = "hdtvlogo")
     }
 }
 
-/** The first https image url in the [field] list, which fanart.tv sorts by likes. */
-private fun JsonReader.firstUrl(field: String): String? {
-    var url: String? = null
+/** A show's background and title logo on fanart.tv. Either may be missing. */
+public data class FanartTvArt(
+    /** The most liked background. */
+    val background: String?,
+    /** A title logo with clear edges, chosen by people as the show's own. */
+    val logo: String?,
+)
+
+private class ArtFields(
+    val background: String,
+    val logo: String,
+)
+
+/** One image from a fanart.tv list. Lists come sorted by likes. */
+private class ArtImage(
+    val url: String,
+    val language: String?,
+)
+
+private fun JsonReader.art(fields: ArtFields): FanartTvArt {
+    var backgrounds = emptyList<ArtImage>()
+    var logos = emptyList<ArtImage>()
     beginObject()
     while (hasNext()) {
-        if (nextName() != field || peek() != JsonReader.Token.BEGIN_ARRAY) {
-            skipValue()
-            continue
+        when (nextName()) {
+            fields.background -> backgrounds = images()
+            fields.logo -> logos = images()
+            else -> skipValue()
         }
-        beginArray()
-        while (hasNext()) {
-            // Android 7 and 8 still allow plain http, so only https art is used.
-            val image = readFields()["url"]?.takeIf { it.startsWith("https://") }
-            if (url == null) url = image
-        }
-        endArray()
     }
     endObject()
-    return url
+    // An English logo first, then one with no words in any one language, which fanart.tv marks "00", then the most liked.
+    val logo = logos.firstOrNull { it.language == "en" } ?: logos.firstOrNull { it.language.isNullOrEmpty() || it.language == "00" }
+    return FanartTvArt(background = backgrounds.firstOrNull()?.url, logo = (logo ?: logos.firstOrNull())?.url)
+}
+
+/** The https images in a list, in fanart.tv's order. Anything that isn't a list reads as none. */
+private fun JsonReader.images(): List<ArtImage> {
+    if (peek() != JsonReader.Token.BEGIN_ARRAY) {
+        skipValue()
+        return emptyList()
+    }
+    val images = mutableListOf<ArtImage>()
+    beginArray()
+    while (hasNext()) {
+        val fields = readFields()
+        // Android 7 and 8 still allow plain http, so only https art is used.
+        val url = fields["url"]?.takeIf { it.startsWith("https://") } ?: continue
+        images += ArtImage(url, fields["lang"])
+    }
+    endArray()
+    return images
 }

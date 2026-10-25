@@ -4,10 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
-import ani.saikou.neo.shared.catalogue.AniZipArt
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.FanartTvClient
+import ani.saikou.neo.shared.catalogue.ShowArt
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.catalogue.showArt
 import ani.saikou.neo.shared.home.Logo
@@ -26,7 +26,7 @@ public sealed interface DetailsState {
         val synopsis: Synopsis = parseSynopsis(details.description),
         /** The show's fan art, or AniList's art without any. Null until AniZip answers, so it fades in once. */
         val backdrop: String? = null,
-        /** The title logo, from the same AniZip answer as the backdrop. */
+        /** The title logo, from the same AniZip and fanart.tv answers as the backdrop. */
         val logo: Logo = Logo.Loading,
     ) : DetailsState
 
@@ -64,5 +64,4 @@ public class DetailsViewModel(
     }
 }
 
-private fun DetailsState.Loaded.withArt(art: AniZipArt?) =
-    copy(backdrop = art?.fanArt ?: details.card.art, logo = art?.logo?.let(Logo::Image) ?: Logo.None)
+private fun DetailsState.Loaded.withArt(art: ShowArt) = copy(backdrop = art.fanArt ?: details.card.art, logo = art.logo)

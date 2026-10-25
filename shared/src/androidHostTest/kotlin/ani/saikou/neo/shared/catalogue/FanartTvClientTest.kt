@@ -20,7 +20,7 @@ class FanartTvClientTest {
         runTest {
             val engine = FanartTvEngine("movie")
 
-            val background = FanartTvClient(KEY, engine).background(spiritedAway)
+            val background = FanartTvClient(KEY, engine).art(spiritedAway)?.background
 
             // The most liked background comes first.
             assertEquals("https://assets.fanart.tv/fanart/spirited-away-50f0c9c556cad.jpg", background)
@@ -41,7 +41,7 @@ class FanartTvClientTest {
         runTest {
             val engine = FanartTvEngine("tv")
 
-            val background = FanartTvClient(KEY, engine).background(sakamotoDays)
+            val background = FanartTvClient(KEY, engine).art(sakamotoDays)?.background
 
             assertEquals("https://assets.fanart.tv/fanart/sakamoto-days-66866dfcc9fd5.jpg", background)
             assertEquals("https://webservice.fanart.tv/v3.2/tv/423732", engine.requests.single().url)
@@ -53,7 +53,7 @@ class FanartTvClientTest {
         runTest {
             val engine = FanartTvEngine("movie")
 
-            FanartTvClient(KEY, engine).background(spiritedAway)
+            FanartTvClient(KEY, engine).art(spiritedAway)
 
             assertNotEquals(Thread.currentThread(), engine.threads.single())
         }
@@ -64,8 +64,8 @@ class FanartTvClientTest {
         runTest {
             val engine = FanartTvEngine("movie")
 
-            assertNull(FanartTvClient(null, engine).background(spiritedAway))
-            assertNull(FanartTvClient("", engine).background(spiritedAway))
+            assertNull(FanartTvClient(null, engine).art(spiritedAway)?.background)
+            assertNull(FanartTvClient("", engine).art(spiritedAway)?.background)
             assertTrue(engine.requests.isEmpty())
         }
 
@@ -74,13 +74,13 @@ class FanartTvClientTest {
         runTest {
             val engine = FanartTvEngine("movie")
 
-            assertNull(FanartTvClient(KEY, engine).background(AniZipArt(logo = null, fanArt = null)))
+            assertNull(FanartTvClient(KEY, engine).art(AniZipArt(logo = null, fanArt = null))?.background)
             assertTrue(engine.requests.isEmpty())
         }
 
     @Test
     fun aFilmFanartTvDoesNotKnowHasNoBackground() =
-        runTest { assertNull(FanartTvClient(KEY, FanartTvEngine("not-found", status = 404)).background(spiritedAway)) }
+        runTest { assertNull(FanartTvClient(KEY, FanartTvEngine("not-found", status = 404)).art(spiritedAway)?.background) }
 
     // Android 7 and 8 still allow plain http, so only https art is used.
     @Test
@@ -93,15 +93,64 @@ class FanartTvClientTest {
 
             assertEquals(
                 "https://assets.fanart.tv/fanart/spirited-away-5cfb4c72ccd34.jpg",
-                FanartTvClient(KEY, engine).background(spiritedAway),
+                FanartTvClient(KEY, engine).art(spiritedAway)?.background,
             )
         }
 
+    // Spirited Away's most liked logo is in Spanish, but an English one comes first.
     @Test
-    fun aDroppedConnectionMeansNoBackground() = runTest { assertNull(FanartTvClient(KEY, DroppedEngine).background(spiritedAway)) }
+    fun theLogoIsEnglishFirst() =
+        runTest {
+            val art = FanartTvClient(KEY, FanartTvEngine("movie")).art(spiritedAway)
+
+            assertEquals("https://assets.fanart.tv/fanart/spirited-away-5e6dbe495c04b.png", art?.logo)
+        }
 
     @Test
-    fun noConnectionMeansNoBackground() = runTest { assertNull(FanartTvClient(KEY, OfflineEngine).background(spiritedAway)) }
+    fun aSeriesLogoIsItsHdTvLogo() =
+        runTest {
+            val art = FanartTvClient(KEY, FanartTvEngine("tv")).art(sakamotoDays)
+
+            assertEquals("https://assets.fanart.tv/fanart/sakamoto-days-66866dc54d0e7.png", art?.logo)
+        }
+
+    // fanart.tv marks a logo without words in any one language with "00".
+    @Test
+    fun withoutAnEnglishLogoOneWithNoLanguageComesNext() =
+        runTest {
+            val engine =
+                FanartTvEngine("movie") {
+                    // The French logo, liked less than the Spanish one, loses its language.
+                    it.replace("\"lang\": \"en\"", "\"lang\": \"ja\"").replace("\"lang\": \"fr\"", "\"lang\": \"00\"")
+                }
+
+            assertEquals("https://assets.fanart.tv/fanart/spirited-away-51e26b5dd706e.png", FanartTvClient(KEY, engine).art(spiritedAway)?.logo)
+        }
+
+    @Test
+    fun otherwiseTheMostLikedLogo() =
+        runTest {
+            val engine = FanartTvEngine("movie") { it.replace("\"lang\": \"en\"", "\"lang\": \"ja\"") }
+
+            assertEquals("https://assets.fanart.tv/fanart/spirited-away-581cdc4963a71.png", FanartTvClient(KEY, engine).art(spiritedAway)?.logo)
+        }
+
+    @Test
+    fun onlyHttpsLogosAreUsed() =
+        runTest {
+            val engine =
+                FanartTvEngine("movie") {
+                    it.replace("https://assets.fanart.tv/fanart/spirited-away-5e6d", "http://assets.fanart.tv/fanart/spirited-away-5e6d")
+                }
+
+            assertEquals("https://assets.fanart.tv/fanart/spirited-away-50569b75d10d6.png", FanartTvClient(KEY, engine).art(spiritedAway)?.logo)
+        }
+
+    @Test
+    fun aDroppedConnectionMeansNoBackground() = runTest { assertNull(FanartTvClient(KEY, DroppedEngine).art(spiritedAway)?.background) }
+
+    @Test
+    fun noConnectionMeansNoBackground() = runTest { assertNull(FanartTvClient(KEY, OfflineEngine).art(spiritedAway)?.background) }
 
     private companion object {
         const val KEY = "test-project-key"

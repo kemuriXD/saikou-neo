@@ -184,6 +184,18 @@ class HomeViewModelTest {
             assertEquals("https://assets.fanart.tv/fanart/spirited-away-50f0c9c556cad.jpg", spotlight.backdrop(spotlight.show))
         }
 
+    // The rows hold dozens of shows. Only the few in the spotlight show a logo or fan art.
+    @Test
+    fun onlyFeaturedShowsAskFanartTv() =
+        runTest(main) {
+            val engine = FanartTvEngine("tv")
+            val viewModel = homeViewModel(fanartTv = FanartTvClient("test-project-key", engine, main))
+
+            val spotlight = viewModel.state.first { it.spotlight?.logos?.size == 2 }.spotlight!!
+            viewModel.settledRows()
+            assertEquals(spotlight.shows.size, engine.requests.size)
+        }
+
     @Test
     fun withoutFanArtTheBackdropIsTheBanner() =
         runTest(main) {
