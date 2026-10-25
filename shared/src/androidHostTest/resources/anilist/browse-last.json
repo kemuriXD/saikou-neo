@@ -1,0 +1,68 @@
+{
+  "data": {
+    "Page": {
+      "pageInfo": {
+        "hasNextPage": false
+      },
+      "media": [
+        {
+          "__typename": "Media",
+          "id": 3285,
+          "title": {
+            "romaji": "Himitsu no Akko-chan",
+            "english": null,
+            "native": "ひみつのアッコちゃん"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/3285.jpg",
+            "color": "#fed650"
+          },
+          "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/3285-LEE0pWQWYqAV.jpg",
+          "format": "TV",
+          "episodes": 94,
+          "averageScore": 65,
+          "season": "WINTER",
+          "seasonYear": 1969
+        },
+        {
+          "__typename": "Media",
+          "id": 8899,
+          "title": {
+            "romaji": "Kaitei Shounen Marine",
+            "english": "Marine Boy",
+            "native": "海底少年マリン"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx8899-JL0symtDuS8b.png",
+            "color": "#e49335"
+          },
+          "bannerImage": null,
+          "format": "TV",
+          "episodes": 65,
+          "averageScore": 56,
+          "season": "WINTER",
+          "seasonYear": 1969
+        },
+        {
+          "__typename": "Media",
+          "id": 12807,
+          "title": {
+            "romaji": "Wonder-kun no Hatsu Yume Uchuu Ryokou",
+            "english": null,
+            "native": "ワンダー君の初夢宇宙旅行"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/12807.jpg",
+            "color": "#ffc943"
+          },
+          "bannerImage": null,
+          "format": "SPECIAL",
+          "episodes": 1,
+          "averageScore": 42,
+          "season": "WINTER",
+          "seasonYear": 1969
+        }
+      ]
+    }
+  }
+}

@@ -99,7 +99,7 @@ public class HomeViewModel(
     init {
         HomeRow.entries.forEach { row ->
             viewModelScope.launch {
-                val result = load(row)
+                val result = client.row(row, season, year)
                 val rowState = if (result is AniListResult.Success) RowState.Loaded(result.value.items) else RowState.Failed
                 val hadSpotlight = state.value.spotlight != null
                 // The spotlight arrives with the row it comes from, so the screen never sees one without the other.
@@ -168,14 +168,20 @@ public class HomeViewModel(
     private fun updateSpotlight(change: (Spotlight) -> Spotlight) {
         mutableState.update { state -> state.copy(spotlight = state.spotlight?.let(change)) }
     }
-
-    private suspend fun load(row: HomeRow): AniListResult<AnimePage> =
-        when (row) {
-            HomeRow.TRENDING -> client.trending()
-            HomeRow.THIS_SEASON -> client.season(season, year)
-            HomeRow.POPULAR -> client.popular()
-        }
 }
+
+/** One page of [row]'s list. This season is [season] of [year]. */
+internal suspend fun AniListClient.row(
+    row: HomeRow,
+    season: AnimeSeason,
+    year: Int,
+    page: Int = 1,
+): AniListResult<AnimePage> =
+    when (row) {
+        HomeRow.TRENDING -> trending(page)
+        HomeRow.THIS_SEASON -> season(season, year, page)
+        HomeRow.POPULAR -> popular(page)
+    }
 
 /** The first shows of the first row that loaded, waiting for the rows above it. Null while waiting or if none did. */
 private fun HomeState.featured(): List<AnimeCard>? {
