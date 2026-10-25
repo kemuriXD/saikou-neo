@@ -41,6 +41,10 @@
     <string name="details_season_summer">Summer %1$d</string>
     <string name="details_season_fall">Fall %1$d</string>
     <string name="details_overview">Overview</string>
+    <string name="details_episodes">Episodes</string>
+    <string name="details_related">Related</string>
+    <string name="details_watch_order">Watch order</string>
+    <string name="details_recommendations">Recommendations</string>
     <string name="details_fact_format">Format</string>
     <string name="details_fact_released">Released</string>
     <string name="details_fact_studio">Studio</string>

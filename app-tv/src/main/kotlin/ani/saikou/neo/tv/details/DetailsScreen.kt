@@ -60,15 +60,15 @@ import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.scoreOutOfTen
+import ani.saikou.neo.shared.details.sections
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.theme.NeoTheme
-import ani.saikou.neo.tv.ui.NeoTab
-import ani.saikou.neo.tv.ui.NeoTabPadding
 import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
 import coil3.compose.AsyncImage
@@ -78,7 +78,7 @@ internal const val DETAILS_GENRES_TAG = "details-genres"
 internal const val DETAILS_HERO_TAG = "details-hero"
 internal const val DETAILS_SYNOPSIS_TAG = "details-synopsis"
 internal const val DETAILS_LOADING_TAG = "details-loading"
-internal const val DETAILS_OVERVIEW_TAB_TAG = "details-overview-tab"
+internal const val DETAILS_OVERVIEW_TAB_TAG = "details-tab-overview"
 internal const val DETAILS_COMPACT_TITLE_TAG = "details-compact-title"
 internal const val DETAILS_TITLE_TAG = "details-title"
 internal const val DETAILS_LOGO_TAG = "details-logo"
@@ -91,7 +91,6 @@ private val HeroWidth = 580.dp
 private val OverviewTop = 420.dp
 private val OverviewLift = 348.dp
 private val CompactTitleTop = 27.dp
-private val TabHeight = 36.dp
 private val SynopsisBorder = 2.dp
 
 private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
@@ -124,11 +123,12 @@ fun DetailsScreen(
     var reading by rememberSaveable { mutableStateOf(false) }
     var hasRead by rememberSaveable { mutableStateOf(false) }
     var lifted by rememberSaveable { mutableStateOf(false) }
+    var section by rememberSaveable { mutableStateOf(DetailsSection.OVERVIEW) }
     val loaded = state as? DetailsState.Loaded
     val tabFocus = remember { FocusRequester() }
     val synopsisFocus = remember { FocusRequester() }
-    // Focus starts on the Overview tab until the actions arrive (#69), and returns to the synopsis when the reader
-    // closes. The page stays composed under the reader, so the synopsis is listening when focus comes back.
+    // Focus starts on the tabs until the actions arrive (#69), and returns to the synopsis when the reader closes. The
+    // page stays composed under the reader, so the synopsis is listening when focus comes back.
     LaunchedEffect(loaded != null, reading) {
         if (loaded == null || reading) return@LaunchedEffect
         if (hasRead) synopsisFocus.requestFocus() else tabFocus.requestFocus()
@@ -150,19 +150,36 @@ fun DetailsScreen(
             is DetailsState.Loaded -> {
                 Box(Modifier.fillMaxSize().offset { IntOffset(0, lift.roundToPx()) }) {
                     Hero(state.details, state.logo, margin.padding(top = HeroTop).width(HeroWidth))
-                    Overview(
-                        state = state,
-                        reading = reading,
-                        tabFocus = tabFocus,
-                        synopsisFocus = synopsisFocus,
-                        onSynopsisFocused = { focused -> if (!reading) lifted = focused },
-                        onRead = {
-                            reading = true
-                            hasRead = true
-                        },
+                    val sections = state.sections
+                    DetailsSections(
+                        sections = sections,
+                        selected = section.takeIf { it in sections } ?: sections.first(),
+                        onSelect = { section = it },
+                        // The reader takes focus from the page without lowering it.
+                        onInside = { inside -> if (!reading) lifted = inside },
                         // Measured at full height, so it runs past the bottom of the screen until the page lifts.
-                        modifier = margin.padding(top = OverviewTop).wrapContentHeight(Alignment.Top, unbounded = true),
-                    )
+                        modifier =
+                            margin
+                                .padding(top = OverviewTop)
+                                .wrapContentHeight(Alignment.Top, unbounded = true)
+                                .focusRequester(tabFocus),
+                    ) { shown ->
+                        when (shown) {
+                            DetailsSection.OVERVIEW -> {
+                                Overview(
+                                    state = state,
+                                    reading = reading,
+                                    synopsisFocus = synopsisFocus,
+                                    onRead = {
+                                        reading = true
+                                        hasRead = true
+                                    },
+                                )
+                            }
+
+                            else -> {}
+                        }
+                    }
                 }
                 AnimatedVisibility(visible = lifted, enter = fadeIn(), exit = fadeOut()) {
                     Text(
@@ -245,13 +262,12 @@ private fun Hero(
     }
 }
 
+/** A short synopsis and the facts. */
 @Composable
 private fun Overview(
     state: DetailsState.Loaded,
     reading: Boolean,
-    tabFocus: FocusRequester,
     synopsisFocus: FocusRequester,
-    onSynopsisFocused: (Boolean) -> Unit,
     onRead: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -259,30 +275,16 @@ private fun Overview(
     // The synopsis box sits a padding's width left, so its text lines up with the grid margin.
     val outdent = Modifier.offset(x = -dimensions.space4)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        OverviewTab(Modifier.focusRequester(tabFocus))
         state.synopsis.story?.let { story ->
             SynopsisPreview(
                 story = story,
                 enabled = !reading,
                 onRead = onRead,
-                modifier = outdent.focusRequester(synopsisFocus).onFocusChanged { onSynopsisFocused(it.isFocused) },
+                modifier = outdent.focusRequester(synopsisFocus),
             )
         }
         Facts(state.details, Modifier.padding(top = dimensions.space1))
     }
-}
-
-/** The current Overview tab. Related joins it later; until then it's where focus starts. */
-@Composable
-private fun OverviewTab(modifier: Modifier = Modifier) {
-    NeoTab(
-        text = stringResource(R.string.details_overview),
-        selected = true,
-        onClick = {},
-        // Outdented so the label lines up with the grid margin.
-        modifier = modifier.offset(x = -NeoTabPadding).testTag(DETAILS_OVERVIEW_TAB_TAG),
-        height = TabHeight,
-    )
 }
 
 /** The start of the synopsis, with no box of its own until focus outlines it. Selecting it opens the reader. */
