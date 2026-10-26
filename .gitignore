@@ -26,7 +26,6 @@ service-account*.json
 *.hprof
 *.log
 logcat*.txt
-local-evidence/
 .DS_Store
 Thumbs.db
 Desktop.ini
