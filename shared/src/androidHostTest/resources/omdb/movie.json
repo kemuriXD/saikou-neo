@@ -1,0 +1,30 @@
+{
+  "Title": "Spirited Away",
+  "Year": "2003",
+  "Rated": "PG",
+  "Released": "28 Mar 2003",
+  "Runtime": "124 min",
+  "Genre": "Animation, Adventure, Family",
+  "Language": "Japanese, English",
+  "Country": "Japan, United States",
+  "Ratings": [
+    {
+      "Source": "Internet Movie Database",
+      "Value": "8.6/10"
+    },
+    {
+      "Source": "Rotten Tomatoes",
+      "Value": "96%"
+    },
+    {
+      "Source": "Metacritic",
+      "Value": "96/100"
+    }
+  ],
+  "Metascore": "96",
+  "imdbRating": "8.6",
+  "imdbVotes": "988,028",
+  "imdbID": "tt0245429",
+  "Type": "movie",
+  "Response": "True"
+}

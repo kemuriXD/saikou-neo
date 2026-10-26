@@ -165,6 +165,7 @@ class AniListClientTest {
             val details = clientFor(RecordedEngine("details")).details(195516).success()
 
             assertEquals(195516, details.card.id)
+            assertEquals(61987, details.malId)
             assertEquals("RELEASING", details.status)
             assertEquals(24, details.episodeMinutes)
             assertEquals(listOf("Drama", "Mystery"), details.genres)

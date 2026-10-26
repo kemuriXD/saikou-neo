@@ -1,0 +1,6 @@
+{
+  "status": 429,
+  "type": "RateLimitException",
+  "message": "Too Many Requests",
+  "error": null
+}

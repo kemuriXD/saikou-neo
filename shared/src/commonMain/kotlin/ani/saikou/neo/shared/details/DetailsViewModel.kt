@@ -35,6 +35,8 @@ public sealed interface DetailsState {
         val logo: Logo = Logo.Loading,
         /** Null until AniZip has answered, or couldn't be reached. */
         val episodes: EpisodeList? = null,
+        /** AniList's score at first. The other sites' join as they answer. */
+        val ratings: Ratings = Ratings(details.card.averageScore),
     ) : DetailsState
 
     public data object Failed : DetailsState
@@ -45,12 +47,13 @@ public sealed interface DetailsState {
  * viewer rested on the show's card is there at once; otherwise Details waits up to [ART_WAIT] for it. The title is the
  * logo only if the art came by then, so the title never swaps in front of the viewer. A backdrop found later still fades
  * in. The episodes come from AniZip once AniList's details are in, or as plain numbers without it. Those after [today]
- * haven't aired.
+ * haven't aired. The [raters] are asked once AniList's details are in, and for IMDb once AniZip gives its id.
  */
 public class DetailsViewModel(
     private val client: AniListClient,
     private val library: ArtLibrary,
     private val aniZip: AniZipClient,
+    private val raters: Raters,
     private val animeId: Int,
     private val today: AirDate,
 ) : ViewModel() {
@@ -71,15 +74,25 @@ public class DetailsViewModel(
                 mutableState.value = DetailsState.Failed
                 return@launch
             }
-            // The episodes can come before or after Details shows, so they're kept here as well as in the state.
+            // The episodes and ratings can come before or after Details shows, so they're kept here as well as in the state.
             var episodes: EpisodeList? = null
+            var ratings = Ratings(result.value.card.averageScore)
+
+            fun rate(change: (Ratings) -> Ratings) {
+                ratings = change(ratings)
+                mutableState.update { (it as? DetailsState.Loaded)?.copy(ratings = ratings) ?: it }
+            }
+            launch { raters.mal(result.value)?.let { score -> rate { it.copy(mal = score) } } }
             launch {
-                val found = episodeList(result.value, aniZip.episodes(animeId), today)
+                val aniZipEpisodes = aniZip.episodes(animeId)
+                val found = episodeList(result.value, aniZipEpisodes, today)
                 episodes = found
                 mutableState.update { (it as? DetailsState.Loaded)?.copy(episodes = found) ?: it }
+                val omdb = aniZipEpisodes?.imdbId?.let { raters.omdb(result.value, it) } ?: return@launch
+                rate { it.copy(imdb = omdb.imdb, rottenTomatoes = omdb.rottenTomatoes) }
             }
             val found = withTimeoutOrNull(ART_WAIT) { art.await() }
-            val loaded = DetailsState.Loaded(result.value, episodes = episodes)
+            val loaded = DetailsState.Loaded(result.value, episodes = episodes, ratings = ratings)
             if (found != null) {
                 mutableState.value = loaded.withArt(found)
                 return@launch

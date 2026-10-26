@@ -154,6 +154,7 @@ public class AniListClient internal constructor(
                                     ?.toCard()
                             },
                     moreRecommendations = media.recommendations?.pageInfo?.hasNextPage == true,
+                    malId = media.idMal,
                 )
             }
         }

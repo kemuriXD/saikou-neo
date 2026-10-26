@@ -46,6 +46,7 @@ query SearchAnime($page: Int!, $perPage: Int!, $search: String!, $statusNot: Med
 query AnimeDetails($id: Int!) {
   Media(id: $id, type: ANIME) {
     ...AnimeCardFields
+    idMal
     description(asHtml: false)
     status
     duration
