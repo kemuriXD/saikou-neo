@@ -206,7 +206,11 @@ fun DetailsScreen(
                             },
                         mainFocus = mainFocus,
                         ratings = state.ratings,
-                        modifier = margin.padding(top = HeroTop).width(HeroWidth),
+                        modifier =
+                            margin
+                                .padding(top = HeroTop)
+                                .width(HeroWidth)
+                                .graphicsLayer { alpha = 1f - lift / -OverviewLift },
                     )
                     val sections = state.sections
                     DetailsSections(
@@ -372,7 +376,7 @@ private fun Hero(
                 modifier = Modifier.testTag(DETAILS_GENRES_TAG),
             )
         }
-        ratings.mean?.let { MeanRating(it) }
+        if (ratings.mean != null) TopRatings(ratings)
         onMain?.let {
             NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
                 NeoButton(
@@ -385,26 +389,48 @@ private fun Hero(
     }
 }
 
-/** The mean of the show's ratings out of 10, with a star, such as "★ 8.6". */
+/** The mean of the show's ratings out of 10 with a star, such as "★ 8.6/10", then a film's Rotten Tomatoes beside it. */
+@Composable
+private fun TopRatings(ratings: Ratings) {
+    Row(
+        modifier = Modifier.padding(top = ButtonsGap),
+        horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space6),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ratings.mean?.let { MeanRating(it) }
+        ratings.rottenTomatoes?.let { SiteRating(R.string.rating_rotten_tomatoes, R.drawable.rating_rotten_tomatoes, it) }
+    }
+}
+
 @Composable
 private fun MeanRating(mean: Int) {
     val score = scoreOutOfTen(mean).orEmpty()
     val description = stringResource(R.string.details_rating, score)
     Row(
-        modifier =
-            Modifier
-                .padding(top = ButtonsGap)
-                .testTag(DETAILS_RATING_TAG)
-                .clearAndSetSemantics { contentDescription = description },
+        modifier = Modifier.testTag(DETAILS_RATING_TAG).clearAndSetSemantics { contentDescription = description },
         horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space2),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(NeoIcons.Star, contentDescription = null, tint = NeoTheme.colors.pink, modifier = Modifier.size(18.dp))
-        Text(text = score, style = NeoTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold), color = NeoTheme.colors.paper)
+        // The score and "/10" differ in size, so they share a baseline rather than a bottom edge.
+        Row {
+            Text(
+                text = score,
+                style = NeoTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = NeoTheme.colors.paper,
+                modifier = Modifier.alignByBaseline(),
+            )
+            Text(
+                text = stringResource(R.string.details_out_of_ten),
+                style = NeoTheme.typography.label,
+                color = NeoTheme.colors.textMuted,
+                modifier = Modifier.alignByBaseline(),
+            )
+        }
     }
 }
 
-/** A short synopsis and the facts. */
+/** The facts and ratings, then a short synopsis. */
 @Composable
 private fun Overview(
     state: DetailsState.Loaded,
@@ -417,6 +443,7 @@ private fun Overview(
     // The synopsis box sits a padding's width left, so its text lines up with the grid margin.
     val outdent = Modifier.offset(x = -dimensions.space4)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Facts(state.details, state.ratings, Modifier.padding(top = dimensions.space1))
         state.synopsis.story?.let { story ->
             SynopsisPreview(
                 story = story,
@@ -425,7 +452,6 @@ private fun Overview(
                 modifier = outdent.focusRequester(synopsisFocus),
             )
         }
-        Facts(state.details, state.ratings, Modifier.padding(top = dimensions.space1))
     }
 }
 
@@ -492,8 +518,8 @@ private fun SynopsisPreview(
 }
 
 /**
- * Format, release and studio, side by side, then past a thin line each site's logo with its rating under it. Any
- * that isn't known is left out.
+ * Format, release and studio, side by side, then past a thin line AniList's, MAL's and IMDb's logos with their ratings
+ * beside them. Any that isn't known is left out. A film's Rotten Tomatoes sits by the star instead.
  */
 @Composable
 private fun Facts(
@@ -517,7 +543,6 @@ private fun Facts(
             ratings.aniList?.let { Triple(R.string.rating_anilist, R.drawable.rating_anilist, it) },
             ratings.mal?.let { Triple(R.string.rating_mal, R.drawable.rating_mal, it) },
             ratings.imdb?.let { Triple(R.string.rating_imdb, R.drawable.rating_imdb, it) },
-            ratings.rottenTomatoes?.let { Triple(R.string.rating_rotten_tomatoes, R.drawable.rating_rotten_tomatoes, it) },
         )
     Row(modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space8)) {
         for ((label, value) in facts) {
@@ -528,22 +553,35 @@ private fun Facts(
         }
         if (sites.isNotEmpty()) {
             if (facts.isNotEmpty()) Box(Modifier.width(1.dp).fillMaxHeight().background(NeoTheme.colors.paper.copy(alpha = RULE)))
-            Row(Modifier.testTag(DETAILS_RATINGS_TAG), horizontalArrangement = Arrangement.spacedBy(RatingsGap)) {
-                for ((site, logo, rating) in sites) {
-                    val name = stringResource(site)
-                    val score = scoreOutOfTen(rating).orEmpty()
-                    val description = stringResource(R.string.details_site_rating, name, score)
-                    // Each logo keeps its own shape, 16 tall, and its score starts at its left edge.
-                    Column(
-                        modifier = Modifier.testTag(ratingTag(name)).clearAndSetSemantics { contentDescription = description },
-                        verticalArrangement = Arrangement.spacedBy(2.dp),
-                    ) {
-                        Image(painterResource(logo), contentDescription = null)
-                        Text(text = score, style = NeoTheme.typography.label, color = NeoTheme.colors.paper)
-                    }
-                }
+            Row(
+                Modifier.align(Alignment.CenterVertically).testTag(DETAILS_RATINGS_TAG),
+                horizontalArrangement = Arrangement.spacedBy(RatingsGap),
+                // Logos differ in height, so each site is centred and every score sits on the same line.
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                for ((site, logo, rating) in sites) SiteRating(site, logo, rating)
             }
         }
+    }
+}
+
+/** One site's logo with its rating out of 10 beside it. Each logo keeps its own shape, centred on the score. */
+@Composable
+private fun SiteRating(
+    site: Int,
+    logo: Int,
+    rating: Int,
+) {
+    val name = stringResource(site)
+    val score = scoreOutOfTen(rating).orEmpty()
+    val description = stringResource(R.string.details_site_rating, name, score)
+    Row(
+        modifier = Modifier.testTag(ratingTag(name)).clearAndSetSemantics { contentDescription = description },
+        horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space2),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Image(painterResource(logo), contentDescription = null)
+        Text(text = score, style = NeoTheme.typography.label, color = NeoTheme.colors.paper)
     }
 }
 

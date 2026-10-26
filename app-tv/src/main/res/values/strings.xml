@@ -88,6 +88,8 @@
     <string name="details_failed">Couldn\'t load this anime.</string>
     <!-- The mean of a show's ratings, such as "Rated 8.6 out of 10", for screen readers. -->
     <string name="details_rating">Rated %1$s out of 10</string>
+    <!-- After the mean rating, such as the "/10" in "8.6/10". -->
+    <string name="details_out_of_ten">/10</string>
     <!-- One site's rating, such as "IMDb 8.9", for screen readers. -->
     <string name="details_site_rating">%1$s %2$s</string>
     <string name="rating_anilist" translatable="false">AniList</string>

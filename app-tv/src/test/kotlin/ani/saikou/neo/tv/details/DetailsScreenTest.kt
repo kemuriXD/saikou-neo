@@ -312,6 +312,7 @@ class DetailsScreenTest {
         show(DetailsState.Loaded(details, ratings = Ratings(aniList = 84, mal = 86, imdb = 89)))
 
         val rating = compose.onNodeWithTag(DETAILS_RATING_TAG).assertContentDescriptionEquals("Rated 8.6 out of 10")
+        compose.onNodeWithText("/10", useUnmergedTree = true).assertExists()
         val button = compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).getUnclippedBoundsInRoot()
         assertTrue(rating.getUnclippedBoundsInRoot().bottom <= button.top)
     }
@@ -327,24 +328,33 @@ class DetailsScreenTest {
     }
 
     @Test
-    fun aFilmAlsoShowsRottenTomatoes() {
+    fun aFilmShowsRottenTomatoesBesideTheStar() {
         show(DetailsState.Loaded(details, ratings = Ratings(aniList = 86, mal = 88, imdb = 86, rottenTomatoes = 96)))
 
-        compose.onNodeWithTag(DETAILS_RATING_TAG).assertContentDescriptionEquals("Rated 8.9 out of 10")
-        compose
-            .onNodeWithTag(ratingTag("Rotten Tomatoes"), useUnmergedTree = true)
-            .assertContentDescriptionEquals("Rotten Tomatoes 9.6")
+        val star = compose.onNodeWithTag(DETAILS_RATING_TAG).assertContentDescriptionEquals("Rated 8.9 out of 10")
+        val tomatoes =
+            compose
+                .onNodeWithTag(ratingTag("Rotten Tomatoes"), useUnmergedTree = true)
+                .assertContentDescriptionEquals("Rotten Tomatoes 9.6")
+        val starBounds = star.getUnclippedBoundsInRoot()
+        val tomatoBounds = tomatoes.getUnclippedBoundsInRoot()
+        assertTrue(tomatoBounds.left > starBounds.right)
+        assertTrue(tomatoBounds.top < compose.onNodeWithTag(DETAILS_RATINGS_TAG).getUnclippedBoundsInRoot().top)
     }
 
-    // The logos are as wide as their shapes, so each score starts at its logo's left edge.
+    // Each logo has its score beside it, and the sites follow one another on the same line.
     @Test
-    fun eachScoreLinesUpWithItsLogo() {
+    fun theSitesSitSideBySide() {
         show(DetailsState.Loaded(details, ratings = Ratings(aniList = 84, mal = 86, imdb = 89)))
 
-        val ratings = compose.onNodeWithTag(DETAILS_RATINGS_TAG).getUnclippedBoundsInRoot()
+        val aniList = compose.onNodeWithTag(ratingTag("AniList"), useUnmergedTree = true).getUnclippedBoundsInRoot()
         val imdb = compose.onNodeWithTag(ratingTag("IMDb"), useUnmergedTree = true).getUnclippedBoundsInRoot()
-        assertTrue(imdb.left > ratings.left)
-        assertEquals(ratings.top, imdb.top)
+        val mal = compose.onNodeWithTag(ratingTag("MyAnimeList"), useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertTrue(imdb.left > aniList.right)
+        // Centred on one line, though MAL's letters are taller than AniList's mark.
+        assertEquals(((aniList.top + aniList.bottom) / 2).value, ((mal.top + mal.bottom) / 2).value, 1f)
+        // One line: the logo and its score beside it.
+        assertTrue(imdb.bottom - imdb.top < 24.dp)
     }
 
     @Test

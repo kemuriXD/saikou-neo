@@ -102,6 +102,15 @@ class EpisodeListTest {
         assertEquals(4, list.aired)
     }
 
+    // AniZip dated episode 5 a day after AniList said it was out.
+    @Test
+    fun aniListsNextEpisodeOutweighsAniZipsDates() {
+        val list = episodeList(details(episodes = null, next = 6), airing(*Array(5) { AirDate(2026, 10, 27) }), today)
+
+        assertEquals(5, list.count)
+        assertEquals(5, list.aired)
+    }
+
     @Test
     fun aShowWithNothingLeftToAirHasAiredEveryEpisode() {
         val list = episodeList(details(episodes = 2), airing(AirDate(2006, 10, 4), AirDate(2006, 10, 11)), today)

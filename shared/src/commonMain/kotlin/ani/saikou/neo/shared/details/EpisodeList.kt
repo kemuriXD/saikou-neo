@@ -38,8 +38,8 @@ public fun episodeCount(
         ?: 0
 
 /**
- * The Episodes tab's list: AniList's count, with whatever [aniZip] knows of each episode. An episode dated after [today]
- * hasn't aired, nor has AniList's next episode or any after it.
+ * The Episodes tab's list: AniList's count, with whatever [aniZip] knows of each episode. AniList's next episode and
+ * those after it haven't aired. Without one, an episode dated after [today] hasn't.
  */
 public fun episodeList(
     details: AnimeDetails,
@@ -61,10 +61,11 @@ public fun episodeList(
     )
 }
 
+// AniList knows which episode is next. AniZip's dates can be a day out, so they only count without it.
 private fun AniZipEpisode.hasAired(
     today: AirDate,
     next: Int?,
-): Boolean = (next == null || number < next) && (airDate == null || airDate <= today)
+): Boolean = if (next != null) number < next else airDate == null || airDate <= today
 
 /**
  * Ranges of 50 to jump between, such as 1–50 and 51–100, for a show with more than 50 episodes. A few left over join
