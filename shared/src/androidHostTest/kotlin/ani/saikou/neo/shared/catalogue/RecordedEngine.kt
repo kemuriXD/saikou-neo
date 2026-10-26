@@ -63,6 +63,7 @@ internal class QueryEngine(
 internal fun clientFor(
     engine: HttpEngine,
     dispatcher: CoroutineDispatcher? = null,
+    showUnreleased: () -> Boolean = { false },
 ): AniListClient =
     AniListClient(
         ApolloClient
@@ -71,6 +72,7 @@ internal fun clientFor(
             .httpEngine(engine)
             .dispatcher(dispatcher)
             .build(),
+        showUnreleased,
     )
 
 /** Fails every request the way Apollo reports a dropped connection. */

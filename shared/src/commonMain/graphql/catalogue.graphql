@@ -1,4 +1,5 @@
-# Adult titles are left out of every catalogue query for now.
+# Adult titles are left out of every catalogue query for now. Lists also leave out the status in $statusNot, which is
+# NOT_YET_RELEASED unless anime not out yet are wanted.
 
 fragment AnimeCardFields on Media {
   id
@@ -20,23 +21,23 @@ fragment AnimeCardFields on Media {
   countryOfOrigin
 }
 
-query BrowseAnime($page: Int!, $perPage: Int!, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int) {
+query BrowseAnime($page: Int!, $perPage: Int!, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int, $statusNot: MediaStatus) {
   Page(page: $page, perPage: $perPage) {
     pageInfo {
       hasNextPage
     }
-    media(type: ANIME, isAdult: false, sort: $sort, season: $season, seasonYear: $seasonYear) {
+    media(type: ANIME, isAdult: false, sort: $sort, season: $season, seasonYear: $seasonYear, status_not: $statusNot) {
       ...AnimeCardFields
     }
   }
 }
 
-query SearchAnime($page: Int!, $perPage: Int!, $search: String!) {
+query SearchAnime($page: Int!, $perPage: Int!, $search: String!, $statusNot: MediaStatus) {
   Page(page: $page, perPage: $perPage) {
     pageInfo {
       hasNextPage
     }
-    media(type: ANIME, isAdult: false, search: $search, sort: [SEARCH_MATCH]) {
+    media(type: ANIME, isAdult: false, search: $search, sort: [SEARCH_MATCH], status_not: $statusNot) {
       ...AnimeCardFields
     }
   }
