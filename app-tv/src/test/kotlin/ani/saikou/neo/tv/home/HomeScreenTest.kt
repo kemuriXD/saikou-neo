@@ -347,16 +347,19 @@ class HomeScreenTest {
 
         compose.onNodeWithTag(SPOTLIGHT_TAG).assert(hidden)
         compose.onNodeWithTag(SPOTLIGHT_DOTS_TAG).assert(hidden)
-        // Heading at 104 dp, cards 34 dp below it, from the 58 dp grid margin, 20 dp apart.
+        // Heading at 30 dp, cards 34 dp below it, from the 58 dp grid margin, 20 dp apart.
         // Card 1 is unfocused, so its bounds aren't scaled.
-        compose.onNodeWithText("Trending").assertTopPositionInRootIsEqualTo(104.dp)
+        compose.onNodeWithText("Trending").assertTopPositionInRootIsEqualTo(30.dp)
         compose
             .onNodeWithTag(homeCardTag(HomeRow.TRENDING, 1))
-            .assertTopPositionInRootIsEqualTo(138.dp)
+            .assertTopPositionInRootIsEqualTo(64.dp)
             .assertLeftPositionInRootIsEqualTo((58 + 196 + 20).dp)
             .assertWidthIsEqualTo(196.dp)
             .assertHeightIsEqualTo(110.dp)
-        compose.onNodeWithText("This season").assertTopPositionInRootIsEqualTo(282.dp)
+        // Three whole rows, 24 dp apart, with Popular's cards ending at 510 dp.
+        compose.onNodeWithText("This season").assertTopPositionInRootIsEqualTo(198.dp)
+        compose.onNodeWithText("Popular").assertTopPositionInRootIsEqualTo(366.dp)
+        compose.onNodeWithTag(homeCardTag(HomeRow.POPULAR, 1)).assertTopPositionInRootIsEqualTo(400.dp)
     }
 
     @Test
@@ -385,25 +388,26 @@ class HomeScreenTest {
     }
 
     @Test
-    fun downMovesToTheNextRowAndBringsItUp() {
+    fun downMovesToTheNextRowWithoutScrolling() {
         show()
 
         enterRows()
         press(Key.DirectionDown)
 
         compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 0)).assertIsFocused()
-        compose.onNodeWithText("This season").assertTopPositionInRootIsEqualTo(104.dp)
+        compose.onNodeWithText("This season").assertTopPositionInRootIsEqualTo(198.dp)
     }
 
     @Test
-    fun theLastRowAlsoReachesTheTop() {
+    fun theLastRowLeavesAllThreeRowsOnScreen() {
         show()
 
         enterRows()
         press(Key.DirectionDown, times = 2)
 
         compose.onNodeWithTag(homeCardTag(HomeRow.POPULAR, 0)).assertIsFocused()
-        compose.onNodeWithText("Popular").assertTopPositionInRootIsEqualTo(104.dp)
+        compose.onNodeWithText("Trending").assertTopPositionInRootIsEqualTo(30.dp)
+        compose.onNodeWithText("Popular").assertTopPositionInRootIsEqualTo(366.dp)
     }
 
     @Test
@@ -419,12 +423,11 @@ class HomeScreenTest {
     }
 
     @Test
-    fun aRowThatScrolledOffScreenReturnsToTheCardYouLeft() {
+    fun aRowTwoRowsAwayReturnsToTheCardYouLeft() {
         show()
 
         enterRows()
         press(Key.DirectionRight, times = 5)
-        // Two rows down, Trending is off screen and its cards are disposed.
         press(Key.DirectionDown, times = 2)
         press(Key.DirectionUp, times = 2)
 
@@ -478,7 +481,7 @@ class HomeScreenTest {
         compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 5)).assertIsFocused()
         // Card 5 rests on the grid margin, so card 4 ends one gutter before it.
         compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 4)).assertLeftPositionInRootIsEqualTo((58 - 20 - 196).dp)
-        compose.onNodeWithText("This season").assertTopPositionInRootIsEqualTo(104.dp)
+        compose.onNodeWithText("This season").assertTopPositionInRootIsEqualTo(198.dp)
     }
 
     @Test
@@ -565,7 +568,7 @@ class HomeScreenTest {
         enterRows()
         press(Key.DirectionRight, times = 12)
 
-        // The button is shorter than a card, but the row rests where it does for a card: cards 34 dp under 104 dp.
-        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 11)).assertTopPositionInRootIsEqualTo(138.dp)
+        // The button is shorter than a card, but the row rests where it does for a card: cards 34 dp under 30 dp.
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 11)).assertTopPositionInRootIsEqualTo(64.dp)
     }
 }
