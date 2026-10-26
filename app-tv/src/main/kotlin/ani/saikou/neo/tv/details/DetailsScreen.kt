@@ -224,7 +224,7 @@ fun DetailsScreen(
                             DetailsSection.EPISODES -> {
                                 val episodes = state.episodes
                                 if (episodes != null) {
-                                    EpisodesSection(episodes, Modifier.focusRequester(episodesFocus))
+                                    EpisodesSection(episodes, state.backdrop, Modifier.focusRequester(episodesFocus))
                                     LaunchedEffect(toEpisodes) {
                                         if (toEpisodes) episodesFocus.requestFocus()
                                         toEpisodes = false
