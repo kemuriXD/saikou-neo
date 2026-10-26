@@ -185,7 +185,8 @@ public class AniListClient internal constructor(
         }
     }
 
-    private fun statusNot(): Optional<MediaStatus?> = if (showUnreleased()) Optional.absent() else Optional.present(MediaStatus.NOT_YET_RELEASED)
+    private fun statusNot(): Optional<MediaStatus?> =
+        if (showUnreleased()) Optional.absent() else Optional.present(MediaStatus.NOT_YET_RELEASED)
 
     /** Runs [query] and maps its data, or explains why there's nothing to map. */
     private suspend fun <D : Query.Data, T : Any> fetch(
