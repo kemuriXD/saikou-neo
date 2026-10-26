@@ -29,7 +29,9 @@ public data class AirDate(
     val year: Int,
     val month: Int,
     val day: Int,
-)
+) : Comparable<AirDate> {
+    override fun compareTo(other: AirDate): Int = compareValuesBy(this, other, AirDate::year, AirDate::month, AirDate::day)
+}
 
 /**
  * Reads `episodes`, which AniZip keys by number. Specials are keyed `S1`, `S2` and so on, and become extras. Other

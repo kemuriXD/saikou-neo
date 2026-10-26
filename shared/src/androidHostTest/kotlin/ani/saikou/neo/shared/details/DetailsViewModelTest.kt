@@ -1,5 +1,6 @@
 package ani.saikou.neo.shared.details
 
+import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.ArtLibrary
@@ -58,7 +59,7 @@ class DetailsViewModelTest {
         tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
         library: ArtLibrary = library(engine, aniZip, fanartTv, tmdb),
         episodes: AniZipClient = AniZipClient(AniZipEngine("episodes-new"), main),
-    ) = DetailsViewModel(clientFor(engine, main), library, episodes, animeId = 195516)
+    ) = DetailsViewModel(clientFor(engine, main), library, episodes, animeId = 195516, today = AirDate(2026, 10, 26))
 
     private fun library(
         engine: HttpEngine = RecordedEngine("details"),

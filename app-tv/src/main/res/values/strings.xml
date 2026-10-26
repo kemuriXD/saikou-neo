@@ -54,6 +54,7 @@
         <item quantity="other">%1$,d known episodes</item>
     </plurals>
     <string name="details_episodes_missing">Titles and air dates unavailable</string>
+    <string name="details_episodes_aired">%1$,d aired</string>
     <string name="details_film">Film</string>
     <plurals name="details_extras">
         <item quantity="one">%d extra</item>

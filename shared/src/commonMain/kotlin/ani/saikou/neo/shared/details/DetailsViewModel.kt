@@ -2,6 +2,7 @@ package ani.saikou.neo.shared.details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AniZipClient
@@ -43,13 +44,15 @@ public sealed interface DetailsState {
  * Loads one anime's details from AniList, and its backdrop and logo from [library] at the same time. Art found while the
  * viewer rested on the show's card is there at once; otherwise Details waits up to [ART_WAIT] for it. The title is the
  * logo only if the art came by then, so the title never swaps in front of the viewer. A backdrop found later still fades
- * in. The episodes come from AniZip once AniList's details are in, or as plain numbers without it.
+ * in. The episodes come from AniZip once AniList's details are in, or as plain numbers without it. Those after [today]
+ * haven't aired.
  */
 public class DetailsViewModel(
     private val client: AniListClient,
     private val library: ArtLibrary,
     private val aniZip: AniZipClient,
     private val animeId: Int,
+    private val today: AirDate,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
     public val state: StateFlow<DetailsState> = mutableState.asStateFlow()
@@ -71,7 +74,7 @@ public class DetailsViewModel(
             // The episodes can come before or after Details shows, so they're kept here as well as in the state.
             var episodes: EpisodeList? = null
             launch {
-                val found = episodeList(result.value, aniZip.episodes(animeId))
+                val found = episodeList(result.value, aniZip.episodes(animeId), today)
                 episodes = found
                 mutableState.update { (it as? DetailsState.Loaded)?.copy(episodes = found) ?: it }
             }

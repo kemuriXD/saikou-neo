@@ -196,7 +196,7 @@ internal fun EpisodesSection(
     }
 }
 
-/** Such as "37 episodes", or "201 known episodes · Titles and air dates unavailable". */
+/** Such as "37 episodes", "12 episodes · 4 aired", or "201 known episodes · Titles and air dates unavailable". */
 @Composable
 private fun EpisodeList.header(): String {
     val count =
@@ -217,7 +217,12 @@ private fun EpisodeList.header(): String {
                 pluralStringResource(R.plurals.details_episode_count, count, count)
             }
         }
-    return if (detailsMissing && !film) count + " · " + stringResource(R.string.details_episodes_missing) else count
+    return when {
+        film -> count
+        detailsMissing -> count + " · " + stringResource(R.string.details_episodes_missing)
+        aired < this.count -> count + " · " + stringResource(R.string.details_episodes_aired, aired)
+        else -> count
+    }
 }
 
 /** What an episode's tile shows: its still, or else the show's backdrop, dimmed so it isn't taken for a still. */

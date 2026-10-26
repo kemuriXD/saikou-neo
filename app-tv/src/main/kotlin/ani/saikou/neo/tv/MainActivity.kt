@@ -16,6 +16,7 @@ import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Surface
+import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeSeason
@@ -84,7 +85,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         details = { animeId, openDetails, openRecommendations ->
-                            val details = viewModel { DetailsViewModel(client, library, aniZip, animeId) }
+                            val details = viewModel { DetailsViewModel(client, library, aniZip, animeId, today()) }
                             val state by details.state.collectAsStateWithLifecycle()
                             DetailsScreen(state, onOpen = openDetails, onRecommendations = { openRecommendations(animeId) })
                         },
@@ -111,4 +112,8 @@ class MainActivity : ComponentActivity() {
     private fun season() = AnimeSeason.forMonth(Calendar.getInstance().get(Calendar.MONTH) + 1)
 
     private fun year() = Calendar.getInstance().get(Calendar.YEAR)
+
+    // Today on this TV, to tell the episodes out from those still to air.
+    private fun today() =
+        Calendar.getInstance().let { AirDate(it.get(Calendar.YEAR), it.get(Calendar.MONTH) + 1, it.get(Calendar.DAY_OF_MONTH)) }
 }

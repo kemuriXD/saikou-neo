@@ -17,10 +17,11 @@ import kotlin.test.assertTrue
 class EpisodeListTest {
     private val rebirth = AniZipEpisode(1, "Rebirth", "A notebook falls.", "https://img.test/1.jpg", AirDate(2006, 10, 4), 23)
     private val aniZip = AniZipEpisodes(listOf(rebirth), listOf(AniZipExtra("Special", 25)))
+    private val today = AirDate(2026, 10, 26)
 
     @Test
     fun theCountComesFromAniListAndAniZipFillsInWhatItKnows() {
-        val list = episodeList(details(episodes = 37), aniZip)
+        val list = episodeList(details(episodes = 37), aniZip, today)
 
         assertEquals(37, list.count)
         assertFalse(list.countSoFar)
@@ -32,7 +33,7 @@ class EpisodeListTest {
 
     @Test
     fun aShowStillAiringCountsTheEpisodesOutSoFar() {
-        val list = episodeList(details(episodes = null, next = 5), aniZip)
+        val list = episodeList(details(episodes = null, next = 5), aniZip, today)
 
         assertEquals(4, list.count)
         assertTrue(list.countSoFar)
@@ -40,12 +41,12 @@ class EpisodeListTest {
 
     @Test
     fun withoutAnyCountFromAniListAniZipsEpisodesCount() {
-        assertEquals(1, episodeList(details(episodes = null), aniZip).count)
+        assertEquals(1, episodeList(details(episodes = null), aniZip, today).count)
     }
 
     @Test
     fun withoutAniZipEpisodesAreJustNumbers() {
-        val list = episodeList(details(episodes = 201), null)
+        val list = episodeList(details(episodes = 201), null, today)
 
         assertEquals(201, list.episodes.size)
         assertTrue(list.episodes.all { it.title == null })
@@ -56,12 +57,12 @@ class EpisodeListTest {
     fun episodesWithNoTitlesOrDatesAreMissingTheirDetails() {
         val blank = AniZipEpisodes(listOf(AniZipEpisode(1, null, null, null, null, 24)), emptyList())
 
-        assertTrue(episodeList(details(episodes = 12), blank).detailsMissing)
+        assertTrue(episodeList(details(episodes = 12), blank, today).detailsMissing)
     }
 
     @Test
     fun aFilmShowsItsExtras() {
-        val list = episodeList(details(episodes = 1, format = "MOVIE"), aniZip)
+        val list = episodeList(details(episodes = 1, format = "MOVIE"), aniZip, today)
 
         assertTrue(list.film)
         assertEquals(listOf(AniZipExtra("Special", 25)), list.extras)
@@ -70,7 +71,42 @@ class EpisodeListTest {
     // A series' specials are mostly interviews and recaps, so only films list them.
     @Test
     fun aSeriesLeavesItsSpecialsOut() {
-        assertEquals(emptyList(), episodeList(details(episodes = 37), aniZip).extras)
+        assertEquals(emptyList(), episodeList(details(episodes = 37), aniZip, today).extras)
+    }
+
+    @Test
+    fun episodesAfterTodayHaveNotAired() {
+        val list = episodeList(details(episodes = 12), airing(AirDate(2026, 10, 12), AirDate(2026, 10, 19), AirDate(2026, 11, 2)), today)
+
+        assertEquals(12, list.count)
+        assertEquals(11, list.aired)
+    }
+
+    @Test
+    fun anEpisodeOutTodayHasAired() {
+        assertEquals(2, episodeList(details(episodes = 2), airing(AirDate(2026, 10, 19), today), today).aired)
+    }
+
+    @Test
+    fun episodesWithoutAnAirDateCountAsAired() {
+        assertEquals(37, episodeList(details(episodes = 37), aniZip, today).aired)
+        assertEquals(201, episodeList(details(episodes = 201), null, today).aired)
+    }
+
+    // AniZip may only know the first few episodes, so AniList's next episode marks where the unaired ones start.
+    @Test
+    fun aniListsNextEpisodeHasNotAiredNorHaveTheOnesAfterIt() {
+        val list = episodeList(details(episodes = 12, next = 5), airing(AirDate(2026, 10, 5)), today)
+
+        assertEquals(12, list.count)
+        assertEquals(4, list.aired)
+    }
+
+    @Test
+    fun aShowWithNothingLeftToAirHasAiredEveryEpisode() {
+        val list = episodeList(details(episodes = 2), airing(AirDate(2006, 10, 4), AirDate(2006, 10, 11)), today)
+
+        assertEquals(list.count, list.aired)
     }
 
     @Test
@@ -86,6 +122,9 @@ class EpisodeListTest {
         assertTrue(DetailsSection.EPISODES in DetailsState.Loaded(details(episodes = 12)).sections)
         assertFalse(DetailsSection.EPISODES in DetailsState.Loaded(details(episodes = null)).sections)
     }
+
+    private fun airing(vararg dates: AirDate) =
+        AniZipEpisodes(dates.mapIndexed { index, date -> AniZipEpisode(index + 1, null, null, null, date, 24) }, emptyList())
 
     private fun details(
         episodes: Int?,

@@ -79,6 +79,7 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class DetailsScreenTest {
     private val hidden = SemanticsMatcher.keyIsDefined(SemanticsProperties.HideFromAccessibility)
+    private val today = AirDate(2026, 10, 26)
 
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
@@ -195,7 +196,7 @@ class DetailsScreenTest {
     // Down straight after the main button goes towards the episodes it chose, not back to the Overview.
     @Test
     fun quickDownAfterTheMainButtonStaysWithTheEpisodes() {
-        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote)))
+        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today)))
 
         pressQuickly(listOf(Key.DirectionCenter, Key.DirectionDown, Key.DirectionDown))
         compose.waitForIdle()
@@ -343,7 +344,7 @@ class DetailsScreenTest {
 
     @Test
     fun theMainButtonGoesToTheEpisodes() {
-        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote)))
+        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today)))
 
         press(Key.DirectionCenter)
 
@@ -354,7 +355,7 @@ class DetailsScreenTest {
 
     @Test
     fun anEpisodeShowsItsTitleDateLengthAndSynopsis() {
-        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, deathNote)))
+        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today)))
 
         compose.onNodeWithText("12 episodes").assertExists()
         compose.onNodeWithText("1 · Rebirth").assertExists()
@@ -365,8 +366,16 @@ class DetailsScreenTest {
     }
 
     @Test
+    fun theHeaderSaysHowManyHaveAiredWhileSomeAreStillToCome() {
+        val airing = AniZipEpisodes(listOf(AniZipEpisode(4, null, null, null, AirDate(2026, 11, 2), 24)), emptyList())
+        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, airing, today)))
+
+        compose.onNodeWithText("12 episodes · 11 aired").assertExists()
+    }
+
+    @Test
     fun withoutEpisodeDataTheRowsAreNumberedAndTheHeaderSaysWhatIsMissing() {
-        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, null)))
+        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, null, today)))
 
         compose.onNodeWithText("12 episodes · Titles and air dates unavailable").assertExists()
         compose.onNodeWithText("Episode 1").assertExists()
@@ -375,7 +384,7 @@ class DetailsScreenTest {
     @Test
     fun aLongSeriesJumpsInRangesOfFifty() {
         val long = details.copy(card = details.card.copy(episodes = null), nextEpisode = NextEpisode(202, 0))
-        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
 
         compose.onNodeWithText("201 known episodes · Titles and air dates unavailable").assertExists()
         compose.onNodeWithText("151–201").assertExists()
@@ -390,7 +399,7 @@ class DetailsScreenTest {
     @Test
     fun theRangesHaveRoomToGrowAtBothEnds() {
         val long = details.copy(card = details.card.copy(episodes = 1180))
-        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
 
         compose.onNodeWithTag(EPISODE_RANGES_TAG).assertLeftPositionInRootIsEqualTo(0.dp).assertWidthIsEqualTo(960.dp)
         // The chip, which holds its label, starts on the grid margin.
@@ -401,7 +410,7 @@ class DetailsScreenTest {
     @Test
     fun aRangeShowsOnceFocusRestsOnIt() {
         val long = details.copy(card = details.card.copy(episodes = 201))
-        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
         press(Key.DirectionDown)
         compose.mainClock.autoAdvance = false
 
@@ -420,7 +429,7 @@ class DetailsScreenTest {
     @Test
     fun theChosenRangeMovesWithFocusAtOnce() {
         val long = details.copy(card = details.card.copy(episodes = 201))
-        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
         press(Key.DirectionDown)
         compose.mainClock.autoAdvance = false
 
@@ -436,7 +445,7 @@ class DetailsScreenTest {
     @Test
     fun downBeforeARangeShowsGoesIntoThatRange() {
         val long = details.copy(card = details.card.copy(episodes = 201))
-        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
         press(Key.DirectionDown)
         compose.mainClock.autoAdvance = false
 
@@ -457,7 +466,7 @@ class DetailsScreenTest {
                 listOf(AniZipEpisode(1, "Complete Movie", null, null, AirDate(2001, 7, 20), 125)),
                 listOf(AniZipExtra("Behind the microphone", 6)),
             )
-        showEpisodes(DetailsState.Loaded(film, episodes = episodeList(film, aniZip)))
+        showEpisodes(DetailsState.Loaded(film, episodes = episodeList(film, aniZip, today)))
 
         compose.onNodeWithText("Film · 1 extra").assertExists()
         compose.onNodeWithText("Complete Movie").assertExists()
@@ -469,7 +478,7 @@ class DetailsScreenTest {
     @Test
     fun theSectionShownSurvivesRecreation() {
         val restoration = StateRestorationTester(compose)
-        restoration.setContent { NeoTheme { DetailsScreen(DetailsState.Loaded(details, episodes = episodeList(details, null))) } }
+        restoration.setContent { NeoTheme { DetailsScreen(DetailsState.Loaded(details, episodes = episodeList(details, null, today))) } }
         press(Key.DirectionDown)
         press(Key.DirectionRight)
 
