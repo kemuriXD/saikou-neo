@@ -99,6 +99,15 @@ jobs:
           :app-companion:lint${VARIANT}Debug :app-companion:test${VARIANT}DebugUnitTest
           :app-companion:assemble${VARIANT}Debug
 
+      # Release builds go through R8, which can break a build that debug
+      # builds miss. PRs skip this to stay quick; main runs catch it.
+      - name: Build release APKs
+        if: github.event_name != 'pull_request'
+        env:
+          FANART_TV_API_KEY: ${{ secrets.FANART_TV_API_KEY }}
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: ./gradlew :app-tv:assemble${VARIANT}Release :app-companion:assemble${VARIANT}Release
+
       # Lock files would stop the next run from reusing the cache.
       - name: Prepare Gradle cache
         if: success() && github.ref == 'refs/heads/main'
