@@ -9,12 +9,14 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -44,8 +46,11 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -56,6 +61,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
+import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
@@ -65,6 +71,7 @@ import ani.saikou.neo.shared.catalogue.RelatedAnime
 import ani.saikou.neo.shared.catalogue.Relation
 import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
+import ani.saikou.neo.shared.details.Ratings
 import ani.saikou.neo.shared.details.scoreOutOfTen
 import ani.saikou.neo.shared.details.sections
 import ani.saikou.neo.shared.home.Logo
@@ -74,6 +81,7 @@ import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoButtonRow
+import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
 import coil3.compose.AsyncImage
@@ -88,6 +96,11 @@ internal const val DETAILS_COMPACT_TITLE_TAG = "details-compact-title"
 internal const val DETAILS_TITLE_TAG = "details-title"
 internal const val DETAILS_LOGO_TAG = "details-logo"
 internal const val DETAILS_MAIN_BUTTON_TAG = "details-main-button"
+internal const val DETAILS_RATING_TAG = "details-rating"
+internal const val DETAILS_RATINGS_TAG = "details-ratings"
+
+/** One site's rating in the facts, by the site's name, such as "IMDb". */
+internal fun ratingTag(site: String) = "details-rating-$site"
 
 // From the design: the title block starts 150 dp down and the Overview tabs rest at 420 dp, with the
 // synopsis peeking below the screen. Focus on the synopsis lifts the page so the tabs sit at 72 dp,
@@ -192,7 +205,12 @@ fun DetailsScreen(
                                 null
                             },
                         mainFocus = mainFocus,
-                        modifier = margin.padding(top = HeroTop).width(HeroWidth),
+                        ratings = state.ratings,
+                        modifier =
+                            margin
+                                .padding(top = HeroTop)
+                                .width(HeroWidth)
+                                .graphicsLayer { alpha = 1f - lift / -OverviewLift },
                     )
                     val sections = state.sections
                     DetailsSections(
@@ -311,6 +329,7 @@ private fun Hero(
     logo: Logo,
     onMain: (() -> Unit)?,
     mainFocus: FocusRequester,
+    ratings: Ratings,
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
@@ -357,6 +376,7 @@ private fun Hero(
                 modifier = Modifier.testTag(DETAILS_GENRES_TAG),
             )
         }
+        if (ratings.mean != null) TopRatings(ratings)
         onMain?.let {
             NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
                 NeoButton(
@@ -369,7 +389,48 @@ private fun Hero(
     }
 }
 
-/** A short synopsis and the facts. */
+/** The mean of the show's ratings out of 10 with a star, such as "★ 8.6/10", then a film's Rotten Tomatoes beside it. */
+@Composable
+private fun TopRatings(ratings: Ratings) {
+    Row(
+        modifier = Modifier.padding(top = ButtonsGap),
+        horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space6),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        ratings.mean?.let { MeanRating(it) }
+        ratings.rottenTomatoes?.let { SiteRating(R.string.rating_rotten_tomatoes, R.drawable.rating_rotten_tomatoes, it) }
+    }
+}
+
+@Composable
+private fun MeanRating(mean: Int) {
+    val score = scoreOutOfTen(mean).orEmpty()
+    val description = stringResource(R.string.details_rating, score)
+    Row(
+        modifier = Modifier.testTag(DETAILS_RATING_TAG).clearAndSetSemantics { contentDescription = description },
+        horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space2),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(NeoIcons.Star, contentDescription = null, tint = NeoTheme.colors.pink, modifier = Modifier.size(18.dp))
+        // The score and "/10" differ in size, so they share a baseline rather than a bottom edge.
+        Row {
+            Text(
+                text = score,
+                style = NeoTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                color = NeoTheme.colors.paper,
+                modifier = Modifier.alignByBaseline(),
+            )
+            Text(
+                text = stringResource(R.string.details_out_of_ten),
+                style = NeoTheme.typography.label,
+                color = NeoTheme.colors.textMuted,
+                modifier = Modifier.alignByBaseline(),
+            )
+        }
+    }
+}
+
+/** The facts and ratings, then a short synopsis. */
 @Composable
 private fun Overview(
     state: DetailsState.Loaded,
@@ -382,6 +443,7 @@ private fun Overview(
     // The synopsis box sits a padding's width left, so its text lines up with the grid margin.
     val outdent = Modifier.offset(x = -dimensions.space4)
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Facts(state.details, state.ratings, Modifier.padding(top = dimensions.space1))
         state.synopsis.story?.let { story ->
             SynopsisPreview(
                 story = story,
@@ -390,7 +452,6 @@ private fun Overview(
                 modifier = outdent.focusRequester(synopsisFocus),
             )
         }
-        Facts(state.details, Modifier.padding(top = dimensions.space1))
     }
 }
 
@@ -456,10 +517,14 @@ private fun SynopsisPreview(
     }
 }
 
-/** Format, release, studio and score, side by side. Any AniList doesn't know is left out. */
+/**
+ * Format, release and studio, side by side, then past a thin line AniList's, MAL's and IMDb's logos with their ratings
+ * beside them. Any that isn't known is left out. A film's Rotten Tomatoes sits by the star instead.
+ */
 @Composable
 private fun Facts(
     details: AnimeDetails,
+    ratings: Ratings,
     modifier: Modifier = Modifier,
 ) {
     val card = details.card
@@ -472,17 +537,57 @@ private fun Facts(
                 .joinToString(", ")
                 .ifEmpty { null }
                 ?.let { R.string.details_fact_studio to it },
-            scoreOutOfTen(card.averageScore)?.let { R.string.details_fact_score to it },
         )
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space8)) {
+    val sites =
+        listOfNotNull(
+            ratings.aniList?.let { Triple(R.string.rating_anilist, R.drawable.rating_anilist, it) },
+            ratings.mal?.let { Triple(R.string.rating_mal, R.drawable.rating_mal, it) },
+            ratings.imdb?.let { Triple(R.string.rating_imdb, R.drawable.rating_imdb, it) },
+        )
+    Row(modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space8)) {
         for ((label, value) in facts) {
             Column {
                 Text(text = stringResource(label), style = NeoTheme.typography.caption, color = NeoTheme.colors.textFaint)
                 Text(text = value, style = NeoTheme.typography.label, color = NeoTheme.colors.paper)
             }
         }
+        if (sites.isNotEmpty()) {
+            if (facts.isNotEmpty()) Box(Modifier.width(1.dp).fillMaxHeight().background(NeoTheme.colors.paper.copy(alpha = RULE)))
+            Row(
+                Modifier.align(Alignment.CenterVertically).testTag(DETAILS_RATINGS_TAG),
+                horizontalArrangement = Arrangement.spacedBy(RatingsGap),
+                // Logos differ in height, so each site is centred and every score sits on the same line.
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                for ((site, logo, rating) in sites) SiteRating(site, logo, rating)
+            }
+        }
     }
 }
+
+/** One site's logo with its rating out of 10 beside it. Each logo keeps its own shape, centred on the score. */
+@Composable
+private fun SiteRating(
+    site: Int,
+    logo: Int,
+    rating: Int,
+) {
+    val name = stringResource(site)
+    val score = scoreOutOfTen(rating).orEmpty()
+    val description = stringResource(R.string.details_site_rating, name, score)
+    Row(
+        modifier = Modifier.testTag(ratingTag(name)).clearAndSetSemantics { contentDescription = description },
+        horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space2),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Image(painterResource(logo), contentDescription = null)
+        Text(text = score, style = NeoTheme.typography.label, color = NeoTheme.colors.paper)
+    }
+}
+
+// The line between the facts and the ratings, and the space between sites.
+private const val RULE = 0.24f
+private val RatingsGap = 20.dp
 
 /** Placeholders where the title block, the Overview tab, the synopsis and the facts will be, sized as in the design. */
 @Composable

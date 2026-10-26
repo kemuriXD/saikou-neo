@@ -23,6 +23,13 @@ class AniZipEpisodesTest {
             assertEquals(listOf(1, 2, 3), episodes?.episodes?.map { it.number })
         }
 
+    // OMDb finds the show's IMDb rating by it.
+    @Test
+    fun theImdbIdComesWithTheEpisodes() =
+        runTest {
+            assertEquals("tt0877057", AniZipClient(AniZipEngine("episodes-death-note")).episodes(1535)?.imdbId)
+        }
+
     @Test
     fun specialsAreExtras() =
         runTest {

@@ -53,6 +53,8 @@ public data class AnimeDetails(
     val recommendations: List<AnimeCard> = emptyList(),
     /** AniList has more recommendations than [recommendations] holds. */
     val moreRecommendations: Boolean = false,
+    /** The show's id on MyAnimeList, for its MAL score. */
+    val malId: Int? = null,
 )
 
 /** One page of an anime's recommendations, and the [show] they're for. */

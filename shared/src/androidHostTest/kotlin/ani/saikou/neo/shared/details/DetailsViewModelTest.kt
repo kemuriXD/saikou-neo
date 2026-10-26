@@ -1,15 +1,19 @@
 package ani.saikou.neo.shared.details
 
+import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.ArtSources
 import ani.saikou.neo.shared.catalogue.FanartTvClient
 import ani.saikou.neo.shared.catalogue.FanartTvEngine
+import ani.saikou.neo.shared.catalogue.MalClient
 import ani.saikou.neo.shared.catalogue.OfflineEngine
+import ani.saikou.neo.shared.catalogue.OmdbClient
 import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
 import ani.saikou.neo.shared.catalogue.SilentEngine
+import ani.saikou.neo.shared.catalogue.SiteEngine
 import ani.saikou.neo.shared.catalogue.TmdbClient
 import ani.saikou.neo.shared.catalogue.card
 import ani.saikou.neo.shared.catalogue.clientFor
@@ -25,6 +29,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -58,7 +63,16 @@ class DetailsViewModelTest {
         tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
         library: ArtLibrary = library(engine, aniZip, fanartTv, tmdb),
         episodes: AniZipClient = AniZipClient(AniZipEngine("episodes-new"), main),
-    ) = DetailsViewModel(clientFor(engine, main), library, episodes, animeId = 195516)
+        mal: MalClient = MalClient(OfflineEngine, main),
+        omdb: OmdbClient = OmdbClient(null, OfflineEngine, main),
+    ) = DetailsViewModel(
+        clientFor(engine, main),
+        library,
+        episodes,
+        Raters(mal, omdb),
+        animeId = 195516,
+        today = AirDate(2026, 10, 26),
+    )
 
     private fun library(
         engine: HttpEngine = RecordedEngine("details"),
@@ -107,6 +121,43 @@ class DetailsViewModelTest {
             val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.episodes != null } as DetailsState.Loaded
             assertTrue(loaded.episodes!!.detailsMissing)
             assertEquals(loaded.details.card.episodes, loaded.episodes.episodes.size)
+        }
+
+    @Test
+    fun aniListsScoreIsThereFromTheStart() =
+        runTest(main) {
+            val loaded = assertIs<DetailsState.Loaded>(detailsViewModel().settled())
+
+            assertEquals(85, loaded.ratings.aniList)
+        }
+
+    @Test
+    fun malAndImdbRatingsJoinAsTheyCome() =
+        runTest(main) {
+            val malEngine = SiteEngine("mal") { "anime" }
+            val omdbEngine = SiteEngine("omdb") { "series" }
+            val viewModel =
+                detailsViewModel(mal = MalClient(malEngine, main), omdb = OmdbClient("key", omdbEngine, main))
+
+            advanceUntilIdle()
+
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.state.value)
+            assertEquals(Ratings(aniList = 85, mal = 87, imdb = 86), loaded.ratings)
+            assertEquals("https://api.tenrai.org/v1/anime/61987", malEngine.urls.single())
+            // The IMDb id is AniZip's, from the same answer as the episodes.
+            assertTrue(omdbEngine.urls.single().startsWith("https://www.omdbapi.com/?i=tt"))
+        }
+
+    // AniZip sometimes gives a season or film the id of another entry, which OMDb then calls a film or a series.
+    @Test
+    fun anImdbEntryOfTheWrongKindIsLeftOut() =
+        runTest(main) {
+            val viewModel = detailsViewModel(omdb = OmdbClient("key", SiteEngine("omdb") { "movie" }, main))
+
+            advanceUntilIdle()
+
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.state.value)
+            assertEquals(Ratings(aniList = 85), loaded.ratings)
         }
 
     @Test

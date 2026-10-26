@@ -6,6 +6,8 @@ import com.apollographql.apollo.api.json.JsonReader
 public data class AniZipEpisodes(
     val episodes: List<AniZipEpisode>,
     val extras: List<AniZipExtra>,
+    /** The show's IMDb id, for its IMDb rating. */
+    val imdbId: String? = null,
 )
 
 /** One episode. AniZip lists episodes before they air, with only their date. */
@@ -29,18 +31,26 @@ public data class AirDate(
     val year: Int,
     val month: Int,
     val day: Int,
-)
+) : Comparable<AirDate> {
+    override fun compareTo(other: AirDate): Int = compareValuesBy(this, other, AirDate::year, AirDate::month, AirDate::day)
+}
 
 /**
- * Reads `episodes`, which AniZip keys by number. Specials are keyed `S1`, `S2` and so on, and become extras. Other
- * keys, such as `O1` for a film's subtitles, are left out.
+ * Reads `episodes`, which AniZip keys by number, and the IMDb id from `mappings`. Specials are keyed `S1`, `S2` and so
+ * on, and become extras. Other keys, such as `O1` for a film's subtitles, are left out.
  */
 internal fun JsonReader.episodes(): AniZipEpisodes {
     val episodes = mutableListOf<AniZipEpisode>()
     val extras = mutableListOf<Pair<Int, AniZipExtra>>()
+    var imdbId: String? = null
     beginObject()
     while (hasNext()) {
-        if (nextName() != "episodes" || peek() != JsonReader.Token.BEGIN_OBJECT) {
+        val name = nextName()
+        if (name == "mappings") {
+            imdbId = readFields()["imdb_id"]?.takeIf { it.matches(imdbIdFormat) }
+            continue
+        }
+        if (name != "episodes" || peek() != JsonReader.Token.BEGIN_OBJECT) {
             skipValue()
             continue
         }
@@ -68,7 +78,7 @@ internal fun JsonReader.episodes(): AniZipEpisodes {
         endObject()
     }
     endObject()
-    return AniZipEpisodes(episodes.sortedBy { it.number }, extras.sortedBy { it.first }.map { it.second })
+    return AniZipEpisodes(episodes.sortedBy { it.number }, extras.sortedBy { it.first }.map { it.second }, imdbId)
 }
 
 private val specialKey = Regex("""S(\d+)""")

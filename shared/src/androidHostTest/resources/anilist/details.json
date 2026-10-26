@@ -3,6 +3,7 @@
     "Media": {
       "__typename": "Media",
       "id": 195516,
+      "idMal": 61987,
       "title": {
         "romaji": "Kusuriya no Hitorigoto 3rd Season",
         "english": "The Apothecary Diaries Season 3",

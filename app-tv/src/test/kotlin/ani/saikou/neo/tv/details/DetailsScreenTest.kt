@@ -50,6 +50,7 @@ import ani.saikou.neo.shared.catalogue.RelatedAnime
 import ani.saikou.neo.shared.catalogue.Relation
 import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
+import ani.saikou.neo.shared.details.Ratings
 import ani.saikou.neo.shared.details.episodeList
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.tv.NeoNavigation
@@ -79,6 +80,7 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 class DetailsScreenTest {
     private val hidden = SemanticsMatcher.keyIsDefined(SemanticsProperties.HideFromAccessibility)
+    private val today = AirDate(2026, 10, 26)
 
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
@@ -135,7 +137,8 @@ class DetailsScreenTest {
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertExists()
         compose.onNodeWithText("Fall 2026").assertExists()
         compose.onNodeWithText("OLM").assertExists()
-        compose.onNodeWithText("8.5").assertExists()
+        // AniList's score is there before the other sites answer.
+        compose.onNodeWithTag(ratingTag("AniList"), useUnmergedTree = true).assertContentDescriptionEquals("AniList 8.5")
         // The editors' note waits for the reader.
         compose.onNodeWithText("Streamed early.").assertDoesNotExist()
     }
@@ -195,7 +198,7 @@ class DetailsScreenTest {
     // Down straight after the main button goes towards the episodes it chose, not back to the Overview.
     @Test
     fun quickDownAfterTheMainButtonStaysWithTheEpisodes() {
-        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote)))
+        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today)))
 
         pressQuickly(listOf(Key.DirectionCenter, Key.DirectionDown, Key.DirectionDown))
         compose.waitForIdle()
@@ -300,7 +303,58 @@ class DetailsScreenTest {
         compose.onAllNodesWithText("2026").assertCountEquals(2)
         compose.onNodeWithTag(DETAILS_GENRES_TAG).assertDoesNotExist()
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertDoesNotExist()
-        compose.onNodeWithText("Score").assertDoesNotExist()
+        compose.onNodeWithTag(DETAILS_RATING_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(DETAILS_RATINGS_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun theMeanRatingSitsAboveTheMainButtonWithAStar() {
+        show(DetailsState.Loaded(details, ratings = Ratings(aniList = 84, mal = 86, imdb = 89)))
+
+        val rating = compose.onNodeWithTag(DETAILS_RATING_TAG).assertContentDescriptionEquals("Rated 8.6 out of 10")
+        compose.onNodeWithText("/10", useUnmergedTree = true).assertExists()
+        val button = compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).getUnclippedBoundsInRoot()
+        assertTrue(rating.getUnclippedBoundsInRoot().bottom <= button.top)
+    }
+
+    @Test
+    fun eachSiteShowsItsLogoAndItsRatingOutOfTen() {
+        show(DetailsState.Loaded(details, ratings = Ratings(aniList = 84, mal = 86, imdb = 89)))
+
+        compose.onNodeWithTag(ratingTag("AniList"), useUnmergedTree = true).assertContentDescriptionEquals("AniList 8.4")
+        compose.onNodeWithTag(ratingTag("MyAnimeList"), useUnmergedTree = true).assertContentDescriptionEquals("MyAnimeList 8.6")
+        compose.onNodeWithTag(ratingTag("IMDb"), useUnmergedTree = true).assertContentDescriptionEquals("IMDb 8.9")
+        compose.onNodeWithTag(ratingTag("Rotten Tomatoes"), useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun aFilmShowsRottenTomatoesBesideTheStar() {
+        show(DetailsState.Loaded(details, ratings = Ratings(aniList = 86, mal = 88, imdb = 86, rottenTomatoes = 96)))
+
+        val star = compose.onNodeWithTag(DETAILS_RATING_TAG).assertContentDescriptionEquals("Rated 8.9 out of 10")
+        val tomatoes =
+            compose
+                .onNodeWithTag(ratingTag("Rotten Tomatoes"), useUnmergedTree = true)
+                .assertContentDescriptionEquals("Rotten Tomatoes 9.6")
+        val starBounds = star.getUnclippedBoundsInRoot()
+        val tomatoBounds = tomatoes.getUnclippedBoundsInRoot()
+        assertTrue(tomatoBounds.left > starBounds.right)
+        assertTrue(tomatoBounds.top < compose.onNodeWithTag(DETAILS_RATINGS_TAG).getUnclippedBoundsInRoot().top)
+    }
+
+    // Each logo has its score beside it, and the sites follow one another on the same line.
+    @Test
+    fun theSitesSitSideBySide() {
+        show(DetailsState.Loaded(details, ratings = Ratings(aniList = 84, mal = 86, imdb = 89)))
+
+        val aniList = compose.onNodeWithTag(ratingTag("AniList"), useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val imdb = compose.onNodeWithTag(ratingTag("IMDb"), useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val mal = compose.onNodeWithTag(ratingTag("MyAnimeList"), useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertTrue(imdb.left > aniList.right)
+        // Centred on one line, though MAL's letters are taller than AniList's mark.
+        assertEquals(((aniList.top + aniList.bottom) / 2).value, ((mal.top + mal.bottom) / 2).value, 1f)
+        // One line: the logo and its score beside it.
+        assertTrue(imdb.bottom - imdb.top < 24.dp)
     }
 
     @Test
@@ -343,7 +397,7 @@ class DetailsScreenTest {
 
     @Test
     fun theMainButtonGoesToTheEpisodes() {
-        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote)))
+        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today)))
 
         press(Key.DirectionCenter)
 
@@ -354,7 +408,7 @@ class DetailsScreenTest {
 
     @Test
     fun anEpisodeShowsItsTitleDateLengthAndSynopsis() {
-        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, deathNote)))
+        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today)))
 
         compose.onNodeWithText("12 episodes").assertExists()
         compose.onNodeWithText("1 · Rebirth").assertExists()
@@ -365,8 +419,16 @@ class DetailsScreenTest {
     }
 
     @Test
+    fun theHeaderSaysHowManyHaveAiredWhileSomeAreStillToCome() {
+        val airing = AniZipEpisodes(listOf(AniZipEpisode(4, null, null, null, AirDate(2026, 11, 2), 24)), emptyList())
+        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, airing, today)))
+
+        compose.onNodeWithText("12 episodes · 11 aired").assertExists()
+    }
+
+    @Test
     fun withoutEpisodeDataTheRowsAreNumberedAndTheHeaderSaysWhatIsMissing() {
-        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, null)))
+        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, null, today)))
 
         compose.onNodeWithText("12 episodes · Titles and air dates unavailable").assertExists()
         compose.onNodeWithText("Episode 1").assertExists()
@@ -375,7 +437,7 @@ class DetailsScreenTest {
     @Test
     fun aLongSeriesJumpsInRangesOfFifty() {
         val long = details.copy(card = details.card.copy(episodes = null), nextEpisode = NextEpisode(202, 0))
-        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
 
         compose.onNodeWithText("201 known episodes · Titles and air dates unavailable").assertExists()
         compose.onNodeWithText("151–201").assertExists()
@@ -390,7 +452,7 @@ class DetailsScreenTest {
     @Test
     fun theRangesHaveRoomToGrowAtBothEnds() {
         val long = details.copy(card = details.card.copy(episodes = 1180))
-        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
 
         compose.onNodeWithTag(EPISODE_RANGES_TAG).assertLeftPositionInRootIsEqualTo(0.dp).assertWidthIsEqualTo(960.dp)
         // The chip, which holds its label, starts on the grid margin.
@@ -401,7 +463,7 @@ class DetailsScreenTest {
     @Test
     fun aRangeShowsOnceFocusRestsOnIt() {
         val long = details.copy(card = details.card.copy(episodes = 201))
-        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
         press(Key.DirectionDown)
         compose.mainClock.autoAdvance = false
 
@@ -420,7 +482,7 @@ class DetailsScreenTest {
     @Test
     fun theChosenRangeMovesWithFocusAtOnce() {
         val long = details.copy(card = details.card.copy(episodes = 201))
-        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
         press(Key.DirectionDown)
         compose.mainClock.autoAdvance = false
 
@@ -436,7 +498,7 @@ class DetailsScreenTest {
     @Test
     fun downBeforeARangeShowsGoesIntoThatRange() {
         val long = details.copy(card = details.card.copy(episodes = 201))
-        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null)))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
         press(Key.DirectionDown)
         compose.mainClock.autoAdvance = false
 
@@ -457,7 +519,7 @@ class DetailsScreenTest {
                 listOf(AniZipEpisode(1, "Complete Movie", null, null, AirDate(2001, 7, 20), 125)),
                 listOf(AniZipExtra("Behind the microphone", 6)),
             )
-        showEpisodes(DetailsState.Loaded(film, episodes = episodeList(film, aniZip)))
+        showEpisodes(DetailsState.Loaded(film, episodes = episodeList(film, aniZip, today)))
 
         compose.onNodeWithText("Film · 1 extra").assertExists()
         compose.onNodeWithText("Complete Movie").assertExists()
@@ -469,7 +531,7 @@ class DetailsScreenTest {
     @Test
     fun theSectionShownSurvivesRecreation() {
         val restoration = StateRestorationTester(compose)
-        restoration.setContent { NeoTheme { DetailsScreen(DetailsState.Loaded(details, episodes = episodeList(details, null))) } }
+        restoration.setContent { NeoTheme { DetailsScreen(DetailsState.Loaded(details, episodes = episodeList(details, null, today))) } }
         press(Key.DirectionDown)
         press(Key.DirectionRight)
 

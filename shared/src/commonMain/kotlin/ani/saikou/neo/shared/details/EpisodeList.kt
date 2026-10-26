@@ -1,5 +1,6 @@
 package ani.saikou.neo.shared.details
 
+import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipEpisode
 import ani.saikou.neo.shared.catalogue.AniZipEpisodes
 import ani.saikou.neo.shared.catalogue.AniZipExtra
@@ -19,6 +20,8 @@ public data class EpisodeList(
     val extras: List<AniZipExtra>,
     /** No episode has a title or an air date, so the list says they're unavailable. */
     val detailsMissing: Boolean,
+    /** How many of [episodes] are out by today. One without an air date counts as out. */
+    val aired: Int = count,
 )
 
 /**
@@ -34,10 +37,14 @@ public fun episodeCount(
         ?: aniZip?.episodes?.size
         ?: 0
 
-/** The Episodes tab's list: AniList's count, with whatever [aniZip] knows of each episode. */
+/**
+ * The Episodes tab's list: AniList's count, with whatever [aniZip] knows of each episode. AniList's next episode and
+ * those after it haven't aired. Without one, an episode dated after [today] hasn't.
+ */
 public fun episodeList(
     details: AnimeDetails,
     aniZip: AniZipEpisodes?,
+    today: AirDate,
 ): EpisodeList {
     val count = episodeCount(details, aniZip)
     val known = aniZip?.episodes.orEmpty().associateBy { it.number }
@@ -50,8 +57,15 @@ public fun episodeList(
         episodes = episodes,
         extras = if (film) aniZip?.extras.orEmpty() else emptyList(),
         detailsMissing = episodes.none { it.title != null || it.airDate != null },
+        aired = episodes.count { it.hasAired(today, details.nextEpisode?.number) },
     )
 }
+
+// AniList knows which episode is next. AniZip's dates can be a day out, so they only count without it.
+private fun AniZipEpisode.hasAired(
+    today: AirDate,
+    next: Int?,
+): Boolean = if (next != null) number < next else airDate == null || airDate <= today
 
 /**
  * Ranges of 50 to jump between, such as 1–50 and 51–100, for a show with more than 50 episodes. A few left over join

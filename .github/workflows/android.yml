@@ -85,13 +85,14 @@ jobs:
 
       # Runs spotless, lint and the JVM tests, and builds the debug APKs for
       # testing, all for the active channel only. `check` and `assembleDebug`
-      # would cover every channel and take much longer. The fanart.tv and TMDB
-      # keys are only built into the APKs (ADR 0011, ADR 0012); tests and PRs
-      # without them still pass.
+      # would cover every channel and take much longer. The fanart.tv, TMDB and
+      # OMDb keys are only built into the APKs (ADR 0011, ADR 0012, ADR 0014);
+      # tests and PRs without them still pass.
       - name: Build
         env:
           FANART_TV_API_KEY: ${{ secrets.FANART_TV_API_KEY }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
         run: >-
           ./gradlew spotlessCheck :shared:check :extension-api:check
           :app-tv:lint${VARIANT}Debug :app-tv:test${VARIANT}DebugUnitTest
@@ -106,6 +107,7 @@ jobs:
         env:
           FANART_TV_API_KEY: ${{ secrets.FANART_TV_API_KEY }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+          OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
         run: ./gradlew :app-tv:assemble${VARIANT}Release :app-companion:assemble${VARIANT}Release
 
       # Lock files would stop the next run from reusing the cache.

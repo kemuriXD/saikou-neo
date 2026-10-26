@@ -65,6 +65,32 @@ class AniListClientTest {
             assertTrue("\"seasonYear\":2026" in body)
         }
 
+    // A show is left out until its first episode is out, and a film until it's released.
+    @Test
+    fun rowsAndSearchLeaveOutAnimeNotYetReleased() =
+        runTest {
+            val engine = RecordedEngine("browse-trending")
+            val client = clientFor(engine)
+
+            client.trending().success()
+            client.popular().success()
+            client.season(AnimeSeason.FALL, 2026).success()
+            client.search("frieren").success()
+
+            assertEquals(4, engine.requestBodies.size)
+            assertTrue(engine.requestBodies.all { "\"statusNot\":\"NOT_YET_RELEASED\"" in it })
+        }
+
+    @Test
+    fun animeNotYetReleasedShowWhenSwitchedOn() =
+        runTest {
+            val engine = RecordedEngine("browse-trending")
+
+            clientFor(engine, showUnreleased = { true }).trending().success()
+
+            assertFalse("\"statusNot\":" in engine.requestBodies.single())
+        }
+
     @Test
     fun searchSendsTheTextAndMapsMatches() =
         runTest {
@@ -139,6 +165,7 @@ class AniListClientTest {
             val details = clientFor(RecordedEngine("details")).details(195516).success()
 
             assertEquals(195516, details.card.id)
+            assertEquals(61987, details.malId)
             assertEquals("RELEASING", details.status)
             assertEquals(24, details.episodeMinutes)
             assertEquals(listOf("Drama", "Mystery"), details.genres)

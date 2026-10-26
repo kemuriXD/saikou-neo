@@ -54,6 +54,10 @@
         <item quantity="other">%1$,d known episodes</item>
     </plurals>
     <string name="details_episodes_missing">Titles and air dates unavailable</string>
+    <plurals name="details_episodes_aired">
+        <item quantity="one">%1$,d aired</item>
+        <item quantity="other">%1$,d aired</item>
+    </plurals>
     <string name="details_film">Film</string>
     <plurals name="details_extras">
         <item quantity="one">%d extra</item>
@@ -77,10 +81,19 @@
     <string name="details_fact_format">Format</string>
     <string name="details_fact_released">Released</string>
     <string name="details_fact_studio">Studio</string>
-    <string name="details_fact_score">Score</string>
     <!-- An editors' note from AniList, shown after the synopsis. -->
     <string name="details_note">Note</string>
     <!-- Where AniList's synopsis came from, such as "Source: Crunchyroll". -->
     <string name="details_source">Source: %1$s</string>
     <string name="details_failed">Couldn\'t load this anime.</string>
+    <!-- The mean of a show's ratings, such as "Rated 8.6 out of 10", for screen readers. -->
+    <string name="details_rating">Rated %1$s out of 10</string>
+    <!-- After the mean rating, such as the "/10" in "8.6/10". -->
+    <string name="details_out_of_ten">/10</string>
+    <!-- One site's rating, such as "IMDb 8.9", for screen readers. -->
+    <string name="details_site_rating">%1$s %2$s</string>
+    <string name="rating_anilist" translatable="false">AniList</string>
+    <string name="rating_mal" translatable="false">MyAnimeList</string>
+    <string name="rating_imdb" translatable="false">IMDb</string>
+    <string name="rating_rotten_tomatoes" translatable="false">Rotten Tomatoes</string>
 </resources>

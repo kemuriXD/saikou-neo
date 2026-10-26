@@ -11,6 +11,7 @@ import ani.saikou.neo.shared.catalogue.anilist.type.MediaFormat
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaRelation
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaSeason
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaSort
+import ani.saikou.neo.shared.catalogue.anilist.type.MediaStatus
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaType
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.Optional
@@ -23,11 +24,16 @@ import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
-/** Reads the anime catalogue from AniList. */
+/**
+ * Reads the anime catalogue from AniList. Lists and search leave out anime not released yet, such as a show before its
+ * first episode or a film before it opens, unless [showUnreleased] says to show them.
+ */
 public class AniListClient internal constructor(
     private val apollo: ApolloClient,
+    private val showUnreleased: () -> Boolean = { false },
 ) {
-    public constructor() : this(ApolloClient.Builder().serverUrl(ANILIST_URL).build())
+    public constructor(showUnreleased: () -> Boolean = { false }) :
+        this(ApolloClient.Builder().serverUrl(ANILIST_URL).build(), showUnreleased)
 
     public suspend fun trending(
         page: Int = 1,
@@ -52,7 +58,7 @@ public class AniListClient internal constructor(
         page: Int = 1,
         perPage: Int = DEFAULT_PER_PAGE,
     ): AniListResult<AnimePage> =
-        fetch(SearchAnimeQuery(page = page, perPage = perPage, search = text)) { data ->
+        fetch(SearchAnimeQuery(page = page, perPage = perPage, search = text, statusNot = statusNot())) { data ->
             data.Page?.let { result ->
                 AnimePage(
                     items = result.media.orEmpty().mapNotNull { it?.animeCardFields?.toCard() },
@@ -148,6 +154,7 @@ public class AniListClient internal constructor(
                                     ?.toCard()
                             },
                     moreRecommendations = media.recommendations?.pageInfo?.hasNextPage == true,
+                    malId = media.idMal,
                 )
             }
         }
@@ -166,6 +173,7 @@ public class AniListClient internal constructor(
                 sort = Optional.present(listOf(sort)),
                 season = Optional.presentIfNotNull(season),
                 seasonYear = Optional.presentIfNotNull(seasonYear),
+                statusNot = statusNot(),
             )
         return fetch(query) { data ->
             data.Page?.let { result ->
@@ -176,6 +184,9 @@ public class AniListClient internal constructor(
             }
         }
     }
+
+    private fun statusNot(): Optional<MediaStatus?> =
+        if (showUnreleased()) Optional.absent() else Optional.present(MediaStatus.NOT_YET_RELEASED)
 
     /** Runs [query] and maps its data, or explains why there's nothing to map. */
     private suspend fun <D : Query.Data, T : Any> fetch(
