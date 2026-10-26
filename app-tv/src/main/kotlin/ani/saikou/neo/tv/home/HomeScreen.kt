@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -49,6 +50,7 @@ import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
@@ -60,6 +62,7 @@ import ani.saikou.neo.shared.home.Spotlight
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.KeylineScrolling
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.theme.WindowScrolling
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.PreloadLogo
@@ -89,9 +92,9 @@ internal val rowTitles =
         HomeRow.POPULAR to R.string.home_row_popular,
     )
 
-// From the design: the spotlight's dots sit at 388 dp and the rows at 420 dp. Once focus is in the rows they move up,
-// and the focused row's heading rests at 104 dp. The spotlight may reach up to 120 dp, room for an 80 dp logo, the
-// meta line, three lines of story and the buttons.
+// From the design: the spotlight's dots sit at 388 dp and the rows at 420 dp. Once focus is in the rows they move up
+// so the first heading is at 30 dp, and three whole rows fill the screen. The spotlight may reach up to 120 dp, room
+// for an 80 dp logo, the meta line, three lines of story and the buttons.
 private val SpotlightTop = 120.dp
 
 // The spotlight's buttons end 16 dp above the dots, with its text stacked on top of them.
@@ -99,17 +102,18 @@ private val SpotlightBottom = 372.dp
 private val SpotlightWidth = 440.dp
 private val DotsTop = 388.dp
 private val RowsTop = 420.dp
-private val FocusedRowTop = 104.dp
+private val BrowseTop = 30.dp
 
 // How dark the art gets behind the rows.
 private const val DIM_ALPHA = 0.55f
 
-// A row is its 24 dp heading, a 10 dp gap and a 110 dp card. The next row's heading peeks at 478 dp.
+// A row is its 24 dp heading, a 10 dp gap and a 110 dp card.
 private val HeadingToCards = 34.dp
-private val RowGap = 34.dp
+private val RowGap = 24.dp
 
-// Room below the last row so it can scroll up to the same line: 540 - 104 - (34 + 110).
-private val LastRowRoom = 292.dp
+// Room below the last row's cards, which end at 510 dp: 540 - 30 - 3 * (34 + 110) - 2 * 24.
+private val LastRowRoom = 30.dp
+private const val ROWS_ON_SCREEN = 3
 
 private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
 
@@ -170,7 +174,7 @@ fun HomeScreen(
         label = "spotlight",
     )
     val rowsTop by animateDpAsState(
-        targetValue = if (inRows) FocusedRowTop else RowsTop,
+        targetValue = if (inRows) BrowseTop else RowsTop,
         animationSpec = tween(dimensions.durationBackdropMillis, easing = dimensions.easeStandard),
         label = "rows",
     )
@@ -183,10 +187,10 @@ fun HomeScreen(
     val hide =
         Modifier.graphicsLayer { alpha = shown }.then(if (inRows) Modifier.semantics { hideFromAccessibility() } else Modifier)
     val shownRows = HomeRow.entries.filter { state.rows[it].let { rowState -> rowState != null && rowState != RowState.Failed } }
-    // A row that failed after recreation can shift the restored scroll, so bring the target's row up first.
+    // A row that failed after recreation can shift the restored scroll, so bring the target's row on screen first.
     LaunchedEffect(target?.row) {
         val row = target?.row ?: return@LaunchedEffect
-        columnState.scrollToItem(shownRows.indexOf(row))
+        columnState.scrollToItem((shownRows.indexOf(row) - (ROWS_ON_SCREEN - 1)).coerceAtLeast(0))
     }
 
     Box(modifier.fillMaxSize().background(NeoTheme.colors.ink)) {
@@ -214,10 +218,16 @@ fun HomeScreen(
                 SpotlightDots(spotlight, dots, play, onPick, Modifier.align(Alignment.TopCenter).padding(top = DotsTop).then(hide))
             }
         }
-        KeylineScrolling(keyline = HeadingToCards, itemSize = dimensions.cardWideHeight) {
+        // Scrolls only to show the focused row whole. The list keeps its size and is moved down under the spotlight,
+        // so the space it scrolls in doesn't change while the rows come up.
+        WindowScrolling(leading = HeadingToCards, trailing = LastRowRoom) {
             LazyColumn(
                 state = columnState,
-                modifier = Modifier.fillMaxSize().padding(top = rowsTop),
+                modifier =
+                    Modifier
+                        .offset { IntOffset(0, (rowsTop - BrowseTop).roundToPx()) }
+                        .fillMaxSize()
+                        .padding(top = BrowseTop),
                 verticalArrangement = Arrangement.spacedBy(RowGap),
                 contentPadding = PaddingValues(bottom = LastRowRoom),
             ) {
