@@ -1,11 +1,15 @@
 package ani.saikou.neo.tv
 
 import android.os.Bundle
+import android.provider.Settings
+import android.view.Choreographer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -32,12 +36,19 @@ class MainActivity : ComponentActivity() {
     private val library by lazy {
         ArtLibrary(client, aniZip, FanartTvClient(BuildConfig.FANART_TV_API_KEY), TmdbClient(BuildConfig.TMDB_API_KEY))
     }
+    private val heldKeys =
+        HeldKeys(
+            systemScale = { Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) },
+            afterNextFrame = { drawn -> Choreographer.getInstance().postFrameCallback { drawn() } },
+        )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
+        // The window's animations run at the speed HeldKeys sets.
+        setContent(parent = window.decorView.createLifecycleAwareWindowRecomposer(heldKeys, lifecycle)) {
             NeoTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                // Every key passes through HeldKeys before it can move focus.
+                Surface(modifier = Modifier.fillMaxSize().onPreviewKeyEvent { heldKeys.drop(it.nativeKeyEvent) }) {
                     NeoNavigation(
                         home = { openDetails, openSeeMore ->
                             val home = viewModel { HomeViewModel(client, library, season(), year()) }
