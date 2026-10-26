@@ -11,6 +11,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Surface
@@ -47,8 +49,15 @@ class MainActivity : ComponentActivity() {
         // The window's animations run at the speed HeldKeys sets.
         setContent(parent = window.decorView.createLifecycleAwareWindowRecomposer(heldKeys, lifecycle)) {
             NeoTheme {
-                // Every key passes through HeldKeys before it can move focus.
-                Surface(modifier = Modifier.fillMaxSize().onPreviewKeyEvent { heldKeys.drop(it.nativeKeyEvent) }) {
+                // Every key passes through HeldKeys before it can move focus. Test tags double as resource IDs, so
+                // :benchmark-tv can find the cards.
+                Surface(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .semantics { testTagsAsResourceId = true }
+                            .onPreviewKeyEvent { heldKeys.drop(it.nativeKeyEvent) },
+                ) {
                     NeoNavigation(
                         home = { openDetails, openSeeMore ->
                             val home = viewModel { HomeViewModel(client, library, season(), year()) }

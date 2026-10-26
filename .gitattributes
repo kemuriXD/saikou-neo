@@ -16,3 +16,6 @@
 
 # Downloaded from AniList; refresh with :shared:downloadAnilistApolloSchemaFromIntrospection.
 shared/src/commonMain/graphql/schema.graphqls linguist-generated
+
+# Recorded by :benchmark-tv; refresh with :app-tv:generateBaselineProfile.
+app-tv/src/main/generated/baselineProfiles/baseline-prof.txt linguist-generated

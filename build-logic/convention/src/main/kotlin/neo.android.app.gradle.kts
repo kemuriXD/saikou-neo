@@ -32,6 +32,11 @@ android {
             // Many TV sticks are still 32-bit ARM. Debug builds keep every ABI
             // so they also install on 32-bit x86 emulators.
             ndk { abiFilters += listOf("armeabi-v7a", "arm64-v8a", "x86_64") }
+            // R8 drops unused library code and resources, and optimises what's left. On a Fire TV Stick, Compose
+            // spends about a third less time a frame with it (#157).
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"))
         }
     }
 
