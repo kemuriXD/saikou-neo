@@ -33,8 +33,12 @@ added for it.
 ## Artwork
 
 The Signal icon and TV banner are original Saikou Neo artwork. They are covered
-by the project licence. Preview builds use the same artwork in green. No anime artwork, third-party logos or stock images are
-used.
+by the project licence. Preview builds use the same artwork in green. No anime artwork or stock images are bundled.
+
+The Details screen shows the AniList, MyAnimeList, IMDb and Rotten Tomatoes
+logos beside their ratings. They're trademarks of their owners, drawn from each
+site's own logo, and used only to say where a rating comes from. See
+[CREDITS.md](CREDITS.md).
 
 ## Build tools
 
