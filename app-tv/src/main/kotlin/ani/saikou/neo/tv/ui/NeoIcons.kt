@@ -45,6 +45,24 @@ object NeoIcons {
         }
     }
 
+    val Star: ImageVector by lazy {
+        icon("Star") {
+            path(fill = SolidColor(Color.Black)) {
+                moveTo(12f, 2.5f)
+                lineTo(14.9f, 8.6f)
+                lineTo(21.5f, 9.4f)
+                lineTo(16.6f, 13.9f)
+                lineTo(17.9f, 20.5f)
+                lineTo(12f, 17.2f)
+                lineTo(6.1f, 20.5f)
+                lineTo(7.4f, 13.9f)
+                lineTo(2.5f, 9.4f)
+                lineTo(9.1f, 8.6f)
+                close()
+            }
+        }
+    }
+
     val Info: ImageVector by lazy {
         icon("Info") {
             stroke(2f) {

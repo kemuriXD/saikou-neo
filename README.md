@@ -45,7 +45,11 @@ Multiplatform core. Video sources come from separately installed extensions.
 
 ## Credits
 
-Anime information comes from [AniList](https://anilist.co). Title logos and
+Anime information comes from [AniList](https://anilist.co). Ratings come from
+AniList, [MyAnimeList](https://myanimelist.net) through
+[Tenrai](https://api.tenrai.org), and IMDb and Rotten Tomatoes through
+[OMDb](https://www.omdbapi.com), whose data is licensed under
+[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Title logos and
 backgrounds come from [TMDB](https://www.themoviedb.org) and
 [fanart.tv](https://fanart.tv), and more fan art from [AniZip](https://ani.zip)
 and [TheTVDB](https://thetvdb.com).

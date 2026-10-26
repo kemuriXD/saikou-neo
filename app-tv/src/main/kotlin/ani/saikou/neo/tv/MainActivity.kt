@@ -22,8 +22,11 @@ import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.FanartTvClient
+import ani.saikou.neo.shared.catalogue.MalClient
+import ani.saikou.neo.shared.catalogue.OmdbClient
 import ani.saikou.neo.shared.catalogue.TmdbClient
 import ani.saikou.neo.shared.details.DetailsViewModel
+import ani.saikou.neo.shared.details.Raters
 import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
@@ -39,6 +42,7 @@ class MainActivity : ComponentActivity() {
     private val library by lazy {
         ArtLibrary(client, aniZip, FanartTvClient(BuildConfig.FANART_TV_API_KEY), TmdbClient(BuildConfig.TMDB_API_KEY))
     }
+    private val raters by lazy { Raters(MalClient(), OmdbClient(BuildConfig.OMDB_API_KEY)) }
     private val heldKeys =
         HeldKeys(
             systemScale = { Settings.Global.getFloat(contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) },
@@ -85,7 +89,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         details = { animeId, openDetails, openRecommendations ->
-                            val details = viewModel { DetailsViewModel(client, library, aniZip, animeId, today()) }
+                            val details = viewModel { DetailsViewModel(client, library, aniZip, raters, animeId, today()) }
                             val state by details.state.collectAsStateWithLifecycle()
                             DetailsScreen(state, onOpen = openDetails, onRecommendations = { openRecommendations(animeId) })
                         },

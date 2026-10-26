@@ -220,7 +220,7 @@ private fun EpisodeList.header(): String {
     return when {
         film -> count
         detailsMissing -> count + " · " + stringResource(R.string.details_episodes_missing)
-        aired < this.count -> count + " · " + stringResource(R.string.details_episodes_aired, aired)
+        aired < this.count -> count + " · " + pluralStringResource(R.plurals.details_episodes_aired, aired, aired)
         else -> count
     }
 }

@@ -50,6 +50,7 @@ import ani.saikou.neo.shared.catalogue.RelatedAnime
 import ani.saikou.neo.shared.catalogue.Relation
 import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
+import ani.saikou.neo.shared.details.Ratings
 import ani.saikou.neo.shared.details.episodeList
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.tv.NeoNavigation
@@ -136,7 +137,8 @@ class DetailsScreenTest {
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertExists()
         compose.onNodeWithText("Fall 2026").assertExists()
         compose.onNodeWithText("OLM").assertExists()
-        compose.onNodeWithText("8.5").assertExists()
+        // AniList's score is there before the other sites answer.
+        compose.onNodeWithTag(ratingTag("AniList"), useUnmergedTree = true).assertContentDescriptionEquals("AniList 8.5")
         // The editors' note waits for the reader.
         compose.onNodeWithText("Streamed early.").assertDoesNotExist()
     }
@@ -301,7 +303,48 @@ class DetailsScreenTest {
         compose.onAllNodesWithText("2026").assertCountEquals(2)
         compose.onNodeWithTag(DETAILS_GENRES_TAG).assertDoesNotExist()
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertDoesNotExist()
-        compose.onNodeWithText("Score").assertDoesNotExist()
+        compose.onNodeWithTag(DETAILS_RATING_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(DETAILS_RATINGS_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun theMeanRatingSitsAboveTheMainButtonWithAStar() {
+        show(DetailsState.Loaded(details, ratings = Ratings(aniList = 84, mal = 86, imdb = 89)))
+
+        val rating = compose.onNodeWithTag(DETAILS_RATING_TAG).assertContentDescriptionEquals("Rated 8.6 out of 10")
+        val button = compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).getUnclippedBoundsInRoot()
+        assertTrue(rating.getUnclippedBoundsInRoot().bottom <= button.top)
+    }
+
+    @Test
+    fun eachSiteShowsItsLogoAndItsRatingOutOfTen() {
+        show(DetailsState.Loaded(details, ratings = Ratings(aniList = 84, mal = 86, imdb = 89)))
+
+        compose.onNodeWithTag(ratingTag("AniList"), useUnmergedTree = true).assertContentDescriptionEquals("AniList 8.4")
+        compose.onNodeWithTag(ratingTag("MyAnimeList"), useUnmergedTree = true).assertContentDescriptionEquals("MyAnimeList 8.6")
+        compose.onNodeWithTag(ratingTag("IMDb"), useUnmergedTree = true).assertContentDescriptionEquals("IMDb 8.9")
+        compose.onNodeWithTag(ratingTag("Rotten Tomatoes"), useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun aFilmAlsoShowsRottenTomatoes() {
+        show(DetailsState.Loaded(details, ratings = Ratings(aniList = 86, mal = 88, imdb = 86, rottenTomatoes = 96)))
+
+        compose.onNodeWithTag(DETAILS_RATING_TAG).assertContentDescriptionEquals("Rated 8.9 out of 10")
+        compose
+            .onNodeWithTag(ratingTag("Rotten Tomatoes"), useUnmergedTree = true)
+            .assertContentDescriptionEquals("Rotten Tomatoes 9.6")
+    }
+
+    // The logos are as wide as their shapes, so each score starts at its logo's left edge.
+    @Test
+    fun eachScoreLinesUpWithItsLogo() {
+        show(DetailsState.Loaded(details, ratings = Ratings(aniList = 84, mal = 86, imdb = 89)))
+
+        val ratings = compose.onNodeWithTag(DETAILS_RATINGS_TAG).getUnclippedBoundsInRoot()
+        val imdb = compose.onNodeWithTag(ratingTag("IMDb"), useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertTrue(imdb.left > ratings.left)
+        assertEquals(ratings.top, imdb.top)
     }
 
     @Test
