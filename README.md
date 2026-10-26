@@ -1,13 +1,19 @@
-<!-- markdownlint-disable MD033 -->
-
-# Saikou Neo
+<!-- markdownlint-disable MD033 MD041 -->
 
 <div align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/saikou-neo-dark.png">
     <img src=".github/assets/saikou-neo-light.png" alt="Saikou Neo" width="520">
   </picture>
+  <h1>Saikou Neo</h1>
   <p><strong>Anime, made for your TV.</strong></p>
+  <p>
+    <a href="https://github.com/kemuriXD/saikou-neo/actions/workflows/android.yml"><img src="https://github.com/kemuriXD/saikou-neo/actions/workflows/android.yml/badge.svg?branch=main" alt="Android build status"></a>
+    <a href="LICENSE"><img src="https://img.shields.io/badge/licence-GPL--3.0--only-blue" alt="Licence: GPL-3.0-only"></a>
+    <img src="https://img.shields.io/badge/platform-Android%20TV%20%7C%20Fire%20TV-3DDC84?logo=android&amp;logoColor=white" alt="Platform: Android TV and Fire TV">
+    <img src="https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin Multiplatform">
+    <a href="https://github.com/kemuriXD/saikou-neo/commits/main"><img src="https://img.shields.io/github/last-commit/kemuriXD/saikou-neo" alt="Last commit"></a>
+  </p>
 </div>
 
 Saikou Neo is an anime app for Android TV and Fire TV. You browse and search on
@@ -26,17 +32,18 @@ separately.
 
 ## Status
 
-The app is being rebuilt from scratch, and there's no release yet. Progress is
-tracked in the [milestones](https://github.com/kemuriXD/saikou-neo/milestones).
-The first public release is **v0.1.0**.
+The app is being rebuilt from scratch, and there's no release yet. The first
+public release is **v0.1.0**. Follow the work on the
+[project board](https://github.com/users/kemuriXD/projects/2) or in the
+[milestones](https://github.com/kemuriXD/saikou-neo/milestones).
 
-| Milestone | What it adds |
-| --- | --- |
-| v0.0.1 Foundation | Project setup, CI and the TV design |
-| v0.0.2 Browse | Home, search, details and episode lists on the TV |
-| v0.0.3 Play | Extensions, the server chooser and the player |
-| v0.0.4 Sign in | Phone companion, AniList sign-in and TV pairing |
-| v0.1.0 Sync | Progress syncing and Continue Watching |
+| Milestone | What it adds | Progress |
+| --- | --- | --- |
+| [v0.0.1 Foundation](https://github.com/kemuriXD/saikou-neo/milestone/7) | Project setup, CI and the TV design | ![v0.0.1 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/7?label=) |
+| [v0.0.2 Browse](https://github.com/kemuriXD/saikou-neo/milestone/8) | Home, Discover, search, details, episode lists, the top bar and settings | ![v0.0.2 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/8?label=) |
+| [v0.0.3 Play](https://github.com/kemuriXD/saikou-neo/milestone/9) | Extensions, choosing a source and server, and the player | ![v0.0.3 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/9?label=) |
+| [v0.0.4 Sign in](https://github.com/kemuriXD/saikou-neo/milestone/10) | Phone companion, AniList sign-in and TV pairing | ![v0.0.4 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/10?label=) |
+| [v0.1.0 Sync](https://github.com/kemuriXD/saikou-neo/milestone/11) | Progress syncing and Continue Watching | ![v0.1.0 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/11?label=) |
 
 ## How it's built
 
@@ -45,20 +52,18 @@ Multiplatform core. Video sources come from separately installed extensions.
 
 ## Credits
 
-Anime information comes from [AniList](https://anilist.co). Ratings come from
-AniList, [MyAnimeList](https://myanimelist.net) through
-[Tenrai](https://api.tenrai.org), and IMDb and Rotten Tomatoes through
-[OMDb](https://www.omdbapi.com), whose data is licensed under
-[CC BY-NC 4.0](https://creativecommons.org/licenses/by-nc/4.0/). Title logos and
-backgrounds come from [TMDB](https://www.themoviedb.org) and
-[fanart.tv](https://fanart.tv), and more fan art from [AniZip](https://ani.zip)
-and [TheTVDB](https://thetvdb.com).
+| What | From |
+| --- | --- |
+| Anime information | [AniList](https://anilist.co) and [AniZip](https://ani.zip) |
+| Artwork | [TMDB](https://www.themoviedb.org), [fanart.tv](https://fanart.tv) and [TheTVDB](https://thetvdb.com) |
+| Ratings | AniList, [MyAnimeList](https://myanimelist.net) through [Tenrai](https://api.tenrai.org), and IMDb and Rotten Tomatoes through [OMDb](https://www.omdbapi.com) |
 
-This product uses the TMDB API but is not endorsed or certified by TMDB.
+This product uses the TMDB API but is not endorsed or certified by TMDB. See
+[CREDITS.md](CREDITS.md) for what each service provides and its terms.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md).
+Guidelines are still to be written. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licence
 

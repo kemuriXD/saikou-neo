@@ -36,12 +36,3 @@ tmp/
 
 # Optional local documentation tooling
 node_modules/
-
-# Local owner planning and evidence (never committed)
-.local-planning/
-
-# Local AI and development notes (kept outside the repo for now)
-AGENTS.md
-CLAUDE.md
-CLAUDE.local.md
-docs/dev/
