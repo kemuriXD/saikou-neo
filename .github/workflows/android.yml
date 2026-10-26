@@ -2,17 +2,10 @@ name: Android
 
 # PRs must be up to date with main before merging, so a run after the merge
 # would repeat a tested tree. Main only builds when the build setup changes,
-# plus once a week, to refresh the cache that PRs restore (ADR 0010).
+# plus once a week, to refresh the cache that PRs restore (ADR 0010). PRs that
+# only change docs skip the build but still report (ADR 0015).
 on:
   pull_request:
-    paths-ignore:
-      - "**.md"
-      - LICENSE
-      - licenses/**
-      - .markdownlint-cli2.jsonc
-      - .github/CODEOWNERS
-      - .github/ISSUE_TEMPLATE/**
-      - .github/workflows/repository-hygiene.yml
   push:
     branches: [main]
     paths:
@@ -33,8 +26,43 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides whether the app needs building. A PR that only changes docs,
+  # licences or GitHub templates doesn't. "Build and test" is a required check,
+  # so it's skipped rather than left out: a skipped job counts as passing.
+  changes:
+    name: Changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      build: ${{ steps.files.outputs.build }}
+    steps:
+      # The PR's merge commit and its first parent, the tip of main.
+      - name: Check out repository
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+
+      - name: Check changed files
+        id: files
+        env:
+          EVENT: ${{ github.event_name }}
+        run: |
+          if [ "$EVENT" != pull_request ]; then
+            echo "build=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          changed=$(git diff --name-only HEAD^1 HEAD)
+          echo "$changed"
+          docs='(\.md$|^LICENSE$|^licenses/|^\.markdownlint-cli2\.jsonc$|^\.github/CODEOWNERS$|^\.github/ISSUE_TEMPLATE/|^\.github/workflows/repository-hygiene\.yml$)'
+          if echo "$changed" | grep -qvE "$docs"; then build=true; else build=false; fi
+          echo "build=$build" | tee -a "$GITHUB_OUTPUT"
+
   build:
     name: Build and test
+    needs: changes
+    if: needs.changes.outputs.build == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     steps:
