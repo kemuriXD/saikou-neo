@@ -77,18 +77,22 @@ private val RowThumbHeight = 72.dp
 private val NumberedRowHeight = 56.dp
 private val NumberWidth = 56.dp
 private val ChipHeight = 36.dp
+
+// The backdrop in place of a still is dimmed by half.
+private const val PLACEHOLDER_DIM = 0.5f
 private const val ROW_FOCUS_SCALE = 1.025f
 private const val SYNOPSIS_LINES = 2
 private const val RANGE_REST_MILLIS = 150L
 
 /**
  * The show's episodes: a line on how many there are, ranges of 50 to jump between for a long series, then a row for
- * each. Rows have a still, a title, the date and a short synopsis when AniZip knows them, or just their number. A film
- * lists itself, then its extras.
+ * each. Rows have a still, a title, the date and a short synopsis when AniZip knows them, or just their number. An
+ * episode with no still shows the show's [backdrop], dimmed. A film lists itself, then its extras.
  */
 @Composable
 internal fun EpisodesSection(
     list: EpisodeList,
+    backdrop: String?,
     modifier: Modifier = Modifier,
 ) {
     val dimensions = NeoTheme.dimensions
@@ -165,7 +169,7 @@ internal fun EpisodesSection(
         ) {
             items(shown, key = { it.number }) { episode ->
                 if (rich) {
-                    EpisodeRow(episode)
+                    EpisodeRow(episode, backdrop)
                 } else {
                     NumberedRow(
                         number = episode.number.takeUnless { list.film },
@@ -216,25 +220,42 @@ private fun EpisodeList.header(): String {
     return if (detailsMissing && !film) count + " · " + stringResource(R.string.details_episodes_missing) else count
 }
 
+/** What an episode's tile shows: its still, or else the show's backdrop, dimmed so it isn't taken for a still. */
+internal data class EpisodeThumb(
+    val url: String,
+    val dimmed: Boolean,
+)
+
+internal fun AniZipEpisode.thumb(backdrop: String?): EpisodeThumb? =
+    thumbnail?.let { EpisodeThumb(it, dimmed = false) } ?: backdrop?.let { EpisodeThumb(it, dimmed = true) }
+
 /** An episode AniZip knows: its still, "1 · Rebirth", its length and date, and two lines of its synopsis. */
 @Composable
-private fun EpisodeRow(episode: AniZipEpisode) {
+private fun EpisodeRow(
+    episode: AniZipEpisode,
+    backdrop: String?,
+) {
     val dimensions = NeoTheme.dimensions
     RowSurface(Modifier.testTag(episodeTag(episode.number))) {
         Row(
             Modifier.padding(start = dimensions.space2, top = dimensions.space2, end = dimensions.space4, bottom = dimensions.space2),
             horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
         ) {
-            AsyncImage(
-                model = episode.thumbnail,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier =
-                    Modifier
-                        .size(RowThumbWidth, RowThumbHeight)
-                        .clip(RoundedCornerShape(dimensions.radiusSm))
-                        .background(NeoTheme.colors.surfaceRaised),
-            )
+            val thumb = episode.thumb(backdrop)
+            Box(
+                Modifier
+                    .size(RowThumbWidth, RowThumbHeight)
+                    .clip(RoundedCornerShape(dimensions.radiusSm))
+                    .background(NeoTheme.colors.surfaceRaised),
+            ) {
+                AsyncImage(
+                    model = thumb?.url,
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier.matchParentSize(),
+                )
+                if (thumb?.dimmed == true) Box(Modifier.matchParentSize().background(NeoTheme.colors.ink.copy(alpha = PLACEHOLDER_DIM)))
+            }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 val title = episode.title?.let { stringResource(R.string.details_episode_titled, episode.number, it) }
                 Text(
