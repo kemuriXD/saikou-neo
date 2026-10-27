@@ -65,6 +65,7 @@ class DetailsViewModelTest {
         episodes: AniZipClient = AniZipClient(AniZipEngine("episodes-new"), main),
         mal: MalClient = MalClient(OfflineEngine, main),
         omdb: OmdbClient = OmdbClient(null, OfflineEngine, main),
+        showUpcomingEpisodes: Boolean = true,
     ) = DetailsViewModel(
         clientFor(engine, main),
         library,
@@ -72,6 +73,7 @@ class DetailsViewModelTest {
         Raters(mal, omdb),
         animeId = 195516,
         today = AirDate(2026, 10, 26),
+        showUpcomingEpisodes = showUpcomingEpisodes,
     )
 
     private fun library(
@@ -111,6 +113,17 @@ class DetailsViewModelTest {
             assertEquals(loaded.details.card.episodes, episodes.count)
             assertEquals("Day of Atonement", episodes.episodes[3].title)
             assertEquals(false, episodes.detailsMissing)
+        }
+
+    @Test
+    fun upcomingEpisodesAreLeftOutWhenTheViewerChoseThat() =
+        runTest(main) {
+            val viewModel = detailsViewModel(showUpcomingEpisodes = false)
+
+            val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.episodes != null } as DetailsState.Loaded
+            val episodes = loaded.episodes!!
+            assertTrue(episodes.aired < episodes.count)
+            assertEquals(episodes.aired, episodes.episodes.size)
         }
 
     @Test

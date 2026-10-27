@@ -14,7 +14,10 @@ public data class EpisodeList(
     /** AniList doesn't say how many there will be, so [count] is how many are out so far. */
     val countSoFar: Boolean,
     val film: Boolean,
-    /** Every episode from 1 to [count]. One AniZip doesn't know has only its number. */
+    /**
+     * Every episode from 1 to [count], or only those out when upcoming ones are left out. One AniZip doesn't know has
+     * only its number.
+     */
     val episodes: List<AniZipEpisode>,
     /** A film's extras, such as its making-of. */
     val extras: List<AniZipExtra>,
@@ -39,25 +42,28 @@ public fun episodeCount(
 
 /**
  * The Episodes tab's list: AniList's count, with whatever [aniZip] knows of each episode. AniList's next episode and
- * those after it haven't aired. Without one, an episode dated after [today] hasn't.
+ * those after it haven't aired. Without one, an episode dated after [today] hasn't. Unless [showUpcoming], the list
+ * leaves out the episodes that haven't aired, though its count and how many have aired stay the same.
  */
 public fun episodeList(
     details: AnimeDetails,
     aniZip: AniZipEpisodes?,
     today: AirDate,
+    showUpcoming: Boolean = true,
 ): EpisodeList {
     val count = episodeCount(details, aniZip)
     val known = aniZip?.episodes.orEmpty().associateBy { it.number }
     val episodes = (1..count).map { known[it] ?: AniZipEpisode(it, null, null, null, null, null) }
     val film = details.card.format == "MOVIE"
+    val aired = episodes.filter { it.hasAired(today, details.nextEpisode?.number) }
     return EpisodeList(
         count = count,
         countSoFar = details.card.episodes == null,
         film = film,
-        episodes = episodes,
+        episodes = if (showUpcoming) episodes else aired,
         extras = if (film) aniZip?.extras.orEmpty() else emptyList(),
         detailsMissing = episodes.none { it.title != null || it.airDate != null },
-        aired = episodes.count { it.hasAired(today, details.nextEpisode?.number) },
+        aired = aired.size,
     )
 }
 

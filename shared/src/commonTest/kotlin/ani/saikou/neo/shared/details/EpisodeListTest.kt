@@ -119,6 +119,25 @@ class EpisodeListTest {
     }
 
     @Test
+    fun upcomingEpisodesCanBeLeftOut() {
+        val list = episodeList(details(episodes = 12, next = 5), airing(AirDate(2026, 10, 5)), today, showUpcoming = false)
+
+        assertEquals(listOf(1, 2, 3, 4), list.episodes.map { it.number })
+        // The line over the list still says how many there are and how many are out.
+        assertEquals(12, list.count)
+        assertEquals(4, list.aired)
+    }
+
+    @Test
+    fun aShowWithNothingOutHasNoEpisodesTabWhenUpcomingOnesAreLeftOut() {
+        val show = details(episodes = 12, next = 1)
+        val list = episodeList(show, null, today, showUpcoming = false)
+
+        assertEquals(emptyList(), list.episodes)
+        assertFalse(DetailsSection.EPISODES in DetailsState.Loaded(show, episodes = list).sections)
+    }
+
+    @Test
     fun longSeriesSplitIntoRangesOfFifty() {
         assertEquals(listOf(1..50, 51..100, 101..150, 151..201), episodeRanges(201))
         assertEquals(emptyList(), episodeRanges(50))

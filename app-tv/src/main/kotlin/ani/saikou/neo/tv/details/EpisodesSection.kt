@@ -107,7 +107,7 @@ internal fun EpisodesSection(
     modifier: Modifier = Modifier,
 ) {
     val dimensions = NeoTheme.dimensions
-    val ranges = remember(list.count) { episodeRanges(list.count) }
+    val ranges = remember(list.episodes.size) { episodeRanges(list.episodes.size) }
     var range by rememberSaveable { mutableIntStateOf(0) }
     // The range focus is on. It's marked as chosen at once, but its episodes show once focus rests there, so holding
     // Right doesn't rebuild the list for every range it passes.

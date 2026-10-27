@@ -47,7 +47,8 @@ public sealed interface DetailsState {
  * viewer rested on the show's card is there at once; otherwise Details waits up to [ART_WAIT] for it. The title is the
  * logo only if the art came by then, so the title never swaps in front of the viewer. A backdrop found later still fades
  * in. The episodes come from AniZip once AniList's details are in, or as plain numbers without it. Those after [today]
- * haven't aired. The [raters] are asked once AniList's details are in, and for IMDb once AniZip gives its id.
+ * haven't aired, and they're left out of the list unless [showUpcomingEpisodes]. The [raters] are asked once AniList's
+ * details are in, and for IMDb once AniZip gives its id.
  */
 public class DetailsViewModel(
     private val client: AniListClient,
@@ -56,6 +57,7 @@ public class DetailsViewModel(
     private val raters: Raters,
     private val animeId: Int,
     private val today: AirDate,
+    private val showUpcomingEpisodes: Boolean = true,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
     public val state: StateFlow<DetailsState> = mutableState.asStateFlow()
@@ -85,7 +87,7 @@ public class DetailsViewModel(
             launch { raters.mal(result.value)?.let { score -> rate { it.copy(mal = score) } } }
             launch {
                 val aniZipEpisodes = aniZip.episodes(animeId)
-                val found = episodeList(result.value, aniZipEpisodes, today)
+                val found = episodeList(result.value, aniZipEpisodes, today, showUpcomingEpisodes)
                 episodes = found
                 mutableState.update { (it as? DetailsState.Loaded)?.copy(episodes = found) ?: it }
                 val omdb = aniZipEpisodes?.imdbId?.let { raters.omdb(result.value, it) } ?: return@launch
