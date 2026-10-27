@@ -64,7 +64,7 @@ class MainActivity : ComponentActivity() {
                             .onPreviewKeyEvent { heldKeys.drop(it.nativeKeyEvent) },
                 ) {
                     NeoNavigation(
-                        home = { openDetails, openSeeMore ->
+                        home = { openDetails, openSeeMore, openTab ->
                             val home = viewModel { HomeViewModel(client, library, season(), year()) }
                             val state by home.state.collectAsStateWithLifecycle()
                             HomeScreen(
@@ -74,6 +74,7 @@ class MainActivity : ComponentActivity() {
                                 onSpotlightInView = home::watchSpotlight,
                                 onSeeMore = openSeeMore,
                                 onRest = home::rest,
+                                onTab = openTab,
                             )
                         },
                         seeMore = { row, openDetails ->

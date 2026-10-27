@@ -65,7 +65,10 @@ import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.theme.WindowScrolling
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoIcons
+import ani.saikou.neo.tv.ui.NeoTopBar
 import ani.saikou.neo.tv.ui.PreloadLogo
+import ani.saikou.neo.tv.ui.TopBarBottom
+import ani.saikou.neo.tv.ui.TopTab
 import ani.saikou.neo.tv.ui.logoRequest
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
@@ -148,6 +151,7 @@ fun HomeScreen(
     onSpotlightInView: (inView: Boolean) -> Unit = {},
     onSeeMore: (row: HomeRow) -> Unit = {},
     onRest: (card: AnimeCard?) -> Unit = {},
+    onTab: (tab: TopTab) -> Unit = {},
 ) {
     // The card with focus, or null while the spotlight has it.
     var focused by rememberSaveable { mutableStateOf<CardKey?>(null) }
@@ -256,6 +260,13 @@ fun HomeScreen(
                 }
             }
         }
+        // Slides up out of sight as the spotlight fades.
+        NeoTopBar(
+            current = TopTab.HOME,
+            onSelect = onTab,
+            modifier = Modifier.graphicsLayer { translationY = -(1f - shown) * TopBarBottom.toPx() }.then(hide),
+            down = play.takeIf { spotlight != null },
+        )
     }
 }
 

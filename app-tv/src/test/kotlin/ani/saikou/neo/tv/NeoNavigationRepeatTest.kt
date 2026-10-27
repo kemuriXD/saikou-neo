@@ -44,7 +44,7 @@ class NeoNavigationRepeatTest {
         restoration.setContent {
             NeoTheme {
                 NeoNavigation(
-                    home = { openDetails, _ -> Opener("Home", "new") { openDetails(1) } },
+                    home = { openDetails, _, _ -> Opener("Home", "new") { openDetails(1) } },
                     seeMore = { _, _ -> },
                     details = { animeId, openDetails, _ ->
                         var left by rememberSaveable { mutableStateOf(false) }
