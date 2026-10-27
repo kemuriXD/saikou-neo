@@ -63,6 +63,16 @@ object NeoIcons {
         }
     }
 
+    val Tick: ImageVector by lazy {
+        icon("Tick") {
+            stroke(2.6f) {
+                moveTo(5f, 12.5f)
+                lineTo(10f, 17f)
+                lineTo(19f, 7f)
+            }
+        }
+    }
+
     val Info: ImageVector by lazy {
         icon("Info") {
             stroke(2f) {
