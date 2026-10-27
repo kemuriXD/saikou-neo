@@ -12,9 +12,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +36,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -58,6 +61,7 @@ import ani.saikou.neo.shared.details.EpisodeList
 import ani.saikou.neo.shared.details.episodeRanges
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.theme.WindowScrolling
 import ani.saikou.neo.tv.ui.NeoTab
 import ani.saikou.neo.tv.ui.outToTheScreenEdge
 import coil3.compose.AsyncImage
@@ -127,37 +131,47 @@ internal fun EpisodesSection(
         if (ranges.isNotEmpty()) {
             // Resting on a range shows it, with nothing to press. Up or down into them lands on the one shown.
             val chips = remember(ranges.size) { List(ranges.size) { FocusRequester() } }
-            LazyRow(
-                modifier =
-                    Modifier
-                        .outToTheScreenEdge(dimensions.gridMargin)
-                        .testTag(EPISODE_RANGES_TAG)
-                        .onPreviewKeyEvent { event ->
-                            val pending = focusedRange?.takeIf { it != range }
-                            if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionDown || pending == null) {
-                                return@onPreviewKeyEvent false
-                            }
-                            range = pending
-                            intoList = true
-                            true
-                        }.focusProperties {
-                            onEnter = {
-                                if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
-                                    chips[range].requestFocus()
+            val chipsState = rememberLazyListState()
+            // The row runs to the screen's edges so focus can grow, but its chips keep to the margins: focus scrolls
+            // them inside, and one that doesn't fit whole there isn't drawn.
+            WindowScrolling(leading = dimensions.gridMargin, trailing = dimensions.gridMargin) {
+                LazyRow(
+                    state = chipsState,
+                    modifier =
+                        Modifier
+                            .outToTheScreenEdge(dimensions.gridMargin)
+                            .testTag(EPISODE_RANGES_TAG)
+                            .onPreviewKeyEvent { event ->
+                                val pending = focusedRange?.takeIf { it != range }
+                                if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionDown || pending == null) {
+                                    return@onPreviewKeyEvent false
                                 }
-                            }
-                        }.focusGroup(),
-                contentPadding = PaddingValues(horizontal = dimensions.gridMargin),
-                horizontalArrangement = Arrangement.spacedBy(dimensions.space2),
-            ) {
-                itemsIndexed(ranges) { index, episodes ->
-                    NeoTab(
-                        text = stringResource(R.string.details_episode_range, episodes.first, episodes.last),
-                        selected = index == (focusedRange ?: range),
-                        onClick = {},
-                        modifier = Modifier.focusRequester(chips[index]).onFocusChanged { if (it.isFocused) focusedRange = index },
-                        height = ChipHeight,
-                    )
+                                range = pending
+                                intoList = true
+                                true
+                            }.focusProperties {
+                                onEnter = {
+                                    if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
+                                        chips[range].requestFocus()
+                                    }
+                                }
+                            }.focusGroup(),
+                    contentPadding = PaddingValues(horizontal = dimensions.gridMargin),
+                    horizontalArrangement = Arrangement.spacedBy(dimensions.space2),
+                ) {
+                    itemsIndexed(ranges) { index, episodes ->
+                        NeoTab(
+                            text = stringResource(R.string.details_episode_range, episodes.first, episodes.last),
+                            selected = index == (focusedRange ?: range),
+                            onClick = {},
+                            modifier =
+                                Modifier
+                                    .focusRequester(chips[index])
+                                    .onFocusChanged { if (it.isFocused) focusedRange = index }
+                                    .graphicsLayer { alpha = if (chipsState.layoutInfo.fitsWhole(index)) 1f else 0f },
+                            height = ChipHeight,
+                        )
+                    }
                 }
             }
         }
@@ -194,6 +208,12 @@ internal fun EpisodesSection(
             }
         }
     }
+}
+
+/** Whether the item at [index] lies whole between the list's content padding. */
+private fun LazyListLayoutInfo.fitsWhole(index: Int): Boolean {
+    val item = visibleItemsInfo.firstOrNull { it.index == index } ?: return false
+    return item.offset >= 0 && item.offset + item.size <= viewportSize.width - beforeContentPadding - afterContentPadding
 }
 
 /** Such as "37 episodes", "12 episodes · 4 aired", or "201 known episodes · Titles and air dates unavailable". */

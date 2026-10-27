@@ -459,6 +459,71 @@ class DetailsScreenTest {
         compose.onNodeWithText("1–50").assertLeftPositionInRootIsEqualTo(58.dp)
     }
 
+    // Moving along the ranges keeps the focused one inside the margins, and the last ends on the right margin.
+    @Test
+    fun theFocusedRangeStaysInsideTheMargins() {
+        val long = details.copy(card = details.card.copy(episodes = 1180))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
+        press(Key.DirectionDown)
+
+        repeat(10) { press(Key.DirectionRight) }
+        compose.waitForIdle()
+        val eleventh = compose.onNodeWithText("501–550").getUnclippedBoundsInRoot()
+        assertTrue("the 11th range ends at ${eleventh.right}", eleventh.right <= 902.dp)
+
+        repeat(13) { press(Key.DirectionRight) }
+        compose.waitForIdle()
+        compose.onNode(hasText("1151–1180") and isFocused()).assertExists()
+        val last = compose.onNodeWithText("1151–1180").getUnclippedBoundsInRoot()
+        assertEquals(902f, last.right.value, 0.5f)
+
+        repeat(23) { press(Key.DirectionLeft) }
+        compose.waitForIdle()
+        compose.onNodeWithText("1–50").assertLeftPositionInRootIsEqualTo(58.dp)
+    }
+
+    // A range that doesn't fit whole between the margins isn't drawn, so none is cut off at the screen's edge.
+    @Test
+    fun noRangeIsDrawnInTheMargins() {
+        val long = details.copy(card = details.card.copy(episodes = 1180))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
+        press(Key.DirectionDown)
+        assertMarginIsEmpty(from = 903.dp, to = 959.dp)
+
+        repeat(23) { press(Key.DirectionRight) }
+        assertMarginIsEmpty(from = 0.dp, to = 57.dp)
+    }
+
+    /** Across the ranges' height, each column from [from] to [to] is the page's colour, as just above them. */
+    private fun assertMarginIsEmpty(
+        from: Dp,
+        to: Dp,
+    ) {
+        compose.mainClock.advanceTimeBy(1000)
+        compose.runOnUiThread {
+            compose.activity.window.decorView
+                .invalidate()
+        }
+        compose.waitForIdle()
+        val screen = compose.onRoot().captureToImage().toPixelMap()
+        val density = compose.density.density
+        val chip = compose.onNodeWithTag(EPISODE_RANGES_TAG).getUnclippedBoundsInRoot()
+        var x = from
+        while (x <= to) {
+            val column = (x.value * density).toInt()
+            // The page's shading only changes from left to right.
+            val page = screen[column, ((chip.top - 4.dp).value * density).toInt()]
+            var y = chip.top
+            while (y < chip.bottom) {
+                val pixel = screen[column, (y.value * density).toInt()]
+                assertEquals("red at $x, $y", page.red, pixel.red, 0.02f)
+                assertEquals("green at $x, $y", page.green, pixel.green, 0.02f)
+                y += 2.dp
+            }
+            x += 2.dp
+        }
+    }
+
     // Holding Right across a long series' ranges shouldn't rebuild the list for every range it passes.
     @Test
     fun aRangeShowsOnceFocusRestsOnIt() {
