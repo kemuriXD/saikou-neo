@@ -439,7 +439,7 @@ class DetailsScreenTest {
         val long = details.copy(card = details.card.copy(episodes = null), nextEpisode = NextEpisode(202, 0))
         showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
 
-        compose.onNodeWithText("201 known episodes · Titles and air dates unavailable").assertExists()
+        compose.onNodeWithText("201 episodes so far · Titles and air dates unavailable").assertExists()
         compose.onNodeWithText("151–201").assertExists()
         // Down from the tabs lands on the first range; Right moves to the next and shows it.
         press(Key.DirectionDown)
