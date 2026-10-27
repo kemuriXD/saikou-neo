@@ -5,13 +5,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeout
 import java.io.File
 import kotlin.io.path.createTempDirectory
 import kotlin.test.AfterTest
@@ -58,7 +58,12 @@ class SettingsViewModelTest {
 
             viewModel.toggle(Setting.UNAIRED_ANIME)
 
-            assertTrue(viewModel.state.filterNotNull().first { it.showUnairedAnime }.showUnairedAnime)
+            assertTrue(
+                viewModel.state
+                    .filterNotNull()
+                    .first { it.showUnairedAnime }
+                    .showUnairedAnime,
+            )
             assertTrue(store.settings.first().showUnairedAnime)
         }
 
