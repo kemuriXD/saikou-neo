@@ -2,6 +2,14 @@
 <resources>
     <string name="app_name" translatable="false">Saikou Neo</string>
 
+    <!-- The top bar's tabs. -->
+    <string name="tab_home">Home</string>
+    <string name="tab_discover">Discover</string>
+    <string name="tab_search">Search</string>
+    <string name="tab_settings">Settings</string>
+    <!-- Under the name of a tab whose screen isn't built yet. -->
+    <string name="tab_coming_soon">Coming in a future update.</string>
+
     <string name="home_row_trending">Trending</string>
     <string name="home_row_this_season">This season</string>
     <string name="home_row_popular">Popular</string>

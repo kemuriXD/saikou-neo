@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -28,6 +29,8 @@ import ani.saikou.neo.tv.home.loaded
 import ani.saikou.neo.tv.home.posterTag
 import ani.saikou.neo.tv.home.seeMoreTag
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.TopTab
+import ani.saikou.neo.tv.ui.topTabTag
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -48,7 +51,9 @@ class NeoNavigationTest {
         restoration.setContent {
             NeoTheme {
                 NeoNavigation(
-                    home = { openDetails, openSeeMore -> HomeScreen(loaded, onOpen = openDetails, onSeeMore = openSeeMore) },
+                    home = { openDetails, openSeeMore, openTab ->
+                        HomeScreen(loaded, onOpen = openDetails, onSeeMore = openSeeMore, onTab = openTab)
+                    },
                     seeMore = { row, openDetails ->
                         SeeMoreScreen(row, seeMoreState, openDetails, onLoadMore = {}, onRetry = {})
                     },
@@ -216,5 +221,70 @@ class NeoNavigationTest {
         back()
 
         compose.onNodeWithTag(seeMoreTag(HomeRow.TRENDING)).assertIsFocused()
+    }
+
+    /** From Play, up to the bar and along it to [tab], and opens it. */
+    private fun openTab(tab: TopTab) {
+        press(Key.DirectionUp)
+        press(Key.DirectionRight, times = tab.ordinal)
+        press(Key.DirectionCenter)
+    }
+
+    @Test
+    fun choosingATabOpensItWithItsTabFocused() {
+        show()
+
+        openTab(TopTab.SEARCH)
+
+        compose.onNodeWithText("Coming in a future update.").assertExists()
+        compose.onNodeWithTag(topTabTag(TopTab.SEARCH)).assertIsFocused().assertIsSelected()
+    }
+
+    @Test
+    fun backFromATabReturnsToHome() {
+        show()
+
+        openTab(TopTab.DISCOVER)
+        back()
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun aSecondTabReplacesTheFirst() {
+        show()
+
+        openTab(TopTab.DISCOVER)
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(topTabTag(TopTab.SEARCH)).assertIsFocused().assertIsSelected()
+        back()
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun choosingHomeFromATabReturnsHome() {
+        show()
+
+        openTab(TopTab.SETTINGS)
+        press(Key.DirectionLeft, times = 3)
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+        back()
+
+        compose.activityRule.scenario.onActivity { assertTrue(it.isFinishing) }
+    }
+
+    @Test
+    fun aTabStaysOpenAfterTheAppIsRecreated() {
+        show()
+
+        openTab(TopTab.SEARCH)
+        restoration.emulateSavedInstanceStateRestore()
+
+        compose.onNodeWithTag(topTabTag(TopTab.SEARCH)).assertIsSelected()
+        back()
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
     }
 }
