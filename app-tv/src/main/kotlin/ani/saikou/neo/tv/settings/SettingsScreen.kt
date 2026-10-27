@@ -77,7 +77,6 @@ private val Tick = 16.dp
 private val RowHeight = 62.dp
 private val RowPadding = 18.dp
 private val RowGap = 8.dp
-private val RowGlow = 20.dp
 private const val ROW_FOCUS_SCALE = 1.025f
 private val SelectedFill = Color.White.copy(alpha = 0.16f)
 private val FocusGlowColor = Color.White.copy(alpha = 0.32f)
@@ -237,7 +236,7 @@ private fun SettingRow(
                 pressedContentColor = colors.onFocus,
             ),
         scale = ClickableSurfaceDefaults.scale(focusedScale = ROW_FOCUS_SCALE),
-        glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(FocusGlowColor, RowGlow)),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(FocusGlowColor, NeoTheme.dimensions.glowFocus)),
     ) {
         Row(
             Modifier.fillMaxSize().padding(horizontal = RowPadding),
@@ -270,14 +269,25 @@ private class SettingText(
 
 private fun Setting.text() =
     when (this) {
-        Setting.UNAIRED_ANIME ->
-            SettingText(R.string.settings_unaired_anime, R.string.settings_unaired_anime_help, R.string.settings_shown, R.string.settings_hidden)
-        Setting.UPCOMING_EPISODES ->
+        Setting.UNAIRED_ANIME -> {
+            SettingText(
+                R.string.settings_unaired_anime,
+                R.string.settings_unaired_anime_help,
+                R.string.settings_shown,
+                R.string.settings_hidden,
+            )
+        }
+
+        Setting.UPCOMING_EPISODES -> {
             SettingText(
                 R.string.settings_upcoming_episodes,
                 R.string.settings_upcoming_episodes_help,
                 R.string.settings_shown,
                 R.string.settings_hidden,
             )
-        Setting.SLOW_TV -> SettingText(R.string.settings_slow_tv, R.string.settings_slow_tv_help, R.string.settings_on, R.string.settings_off)
+        }
+
+        Setting.SLOW_TV -> {
+            SettingText(R.string.settings_slow_tv, R.string.settings_slow_tv_help, R.string.settings_on, R.string.settings_off)
+        }
     }
