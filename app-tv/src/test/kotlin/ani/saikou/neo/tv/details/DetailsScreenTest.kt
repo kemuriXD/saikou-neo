@@ -494,6 +494,32 @@ class DetailsScreenTest {
         assertNothingDrawn(from = 0.dp, to = 2.dp)
     }
 
+    // The fade mustn't cut off the focused range's growth and glow above and below the row.
+    @Test
+    fun theFocusedRangeGlowsAboveAndBelowTheRow() {
+        val long = details.copy(card = details.card.copy(episodes = 1180))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+        compose.mainClock.advanceTimeBy(1000)
+        compose.runOnUiThread {
+            compose.activity.window.decorView
+                .invalidate()
+        }
+        compose.waitForIdle()
+        val screen = compose.onRoot().captureToImage().toPixelMap()
+        val density = compose.density.density
+        val chip = compose.onNodeWithText("101–150").getUnclippedBoundsInRoot()
+        val x = (((chip.left + chip.right) / 2).value * density).toInt()
+
+        fun brightness(y: Dp) = screen[x, (y.value * density).toInt()].red
+        // The page's shading only changes from left to right, and the glow is gone 30 dp out.
+        val page = brightness(chip.top - 30.dp)
+        assertTrue("just above the row", brightness(chip.top - 3.dp) > page + 0.03f)
+        assertTrue("just below the row", brightness(chip.bottom + 3.dp) > page + 0.03f)
+    }
+
     /** Across the ranges' height, each column from [from] to [to] is the page's colour, as just above them. */
     private fun assertNothingDrawn(
         from: Dp,

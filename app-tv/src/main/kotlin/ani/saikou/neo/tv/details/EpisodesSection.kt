@@ -45,6 +45,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -52,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.LocalContentColor
@@ -83,6 +85,9 @@ private val RowThumbHeight = 72.dp
 private val NumberedRowHeight = 56.dp
 private val NumberWidth = 56.dp
 private val ChipHeight = 36.dp
+
+// Room for a focused chip's growth and glow, which the ranges' fade would otherwise cut off.
+private val GlowRoom = 24.dp
 
 // The backdrop in place of a still is dimmed by half.
 private const val PLACEHOLDER_DIM = 0.5f
@@ -140,6 +145,7 @@ internal fun EpisodesSection(
                     modifier =
                         Modifier
                             .outToTheScreenEdge(dimensions.gridMargin)
+                            .roomAboveAndBelow(GlowRoom)
                             .fadeAtTheEdges(dimensions.gridMargin)
                             .testTag(EPISODE_RANGES_TAG)
                             .onPreviewKeyEvent { event ->
@@ -157,7 +163,7 @@ internal fun EpisodesSection(
                                     }
                                 }
                             }.focusGroup(),
-                    contentPadding = PaddingValues(horizontal = dimensions.gridMargin),
+                    contentPadding = PaddingValues(horizontal = dimensions.gridMargin, vertical = GlowRoom),
                     horizontalArrangement = Arrangement.spacedBy(dimensions.space2),
                 ) {
                     itemsIndexed(ranges) { index, episodes ->
@@ -206,6 +212,14 @@ internal fun EpisodesSection(
         }
     }
 }
+
+/** Lays out [room] taller at the top and bottom, without taking up the room, so what's drawn there isn't cut off. */
+private fun Modifier.roomAboveAndBelow(room: Dp) =
+    layout { measurable, constraints ->
+        val extra = room.roundToPx()
+        val placeable = measurable.measure(constraints.offset(vertical = 2 * extra))
+        layout(placeable.width, placeable.height - 2 * extra) { placeable.place(0, -extra) }
+    }
 
 /** Fades what's drawn out across the [width] at each side, to nothing at the edges. */
 private fun Modifier.fadeAtTheEdges(width: Dp) =
