@@ -482,20 +482,20 @@ class DetailsScreenTest {
         compose.onNodeWithText("1–50").assertLeftPositionInRootIsEqualTo(58.dp)
     }
 
-    // A range that doesn't fit whole between the margins isn't drawn, so none is cut off at the screen's edge.
+    // A range partly past a margin fades out across it, so none is cut off at the screen's edge.
     @Test
-    fun noRangeIsDrawnInTheMargins() {
+    fun rangesFadeOutBeforeTheScreensEdge() {
         val long = details.copy(card = details.card.copy(episodes = 1180))
         showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
         press(Key.DirectionDown)
-        assertMarginIsEmpty(from = 903.dp, to = 959.dp)
+        assertNothingDrawn(from = 957.dp, to = 959.dp)
 
         repeat(23) { press(Key.DirectionRight) }
-        assertMarginIsEmpty(from = 0.dp, to = 57.dp)
+        assertNothingDrawn(from = 0.dp, to = 2.dp)
     }
 
     /** Across the ranges' height, each column from [from] to [to] is the page's colour, as just above them. */
-    private fun assertMarginIsEmpty(
+    private fun assertNothingDrawn(
         from: Dp,
         to: Dp,
     ) {
@@ -520,7 +520,7 @@ class DetailsScreenTest {
                 assertEquals("green at $x, $y", page.green, pixel.green, 0.02f)
                 y += 2.dp
             }
-            x += 2.dp
+            x += 1.dp
         }
     }
 

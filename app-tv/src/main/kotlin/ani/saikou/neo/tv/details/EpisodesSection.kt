@@ -12,11 +12,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListLayoutInfo
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
-import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -30,12 +28,16 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -131,15 +133,14 @@ internal fun EpisodesSection(
         if (ranges.isNotEmpty()) {
             // Resting on a range shows it, with nothing to press. Up or down into them lands on the one shown.
             val chips = remember(ranges.size) { List(ranges.size) { FocusRequester() } }
-            val chipsState = rememberLazyListState()
             // The row runs to the screen's edges so focus can grow, but its chips keep to the margins: focus scrolls
-            // them inside, and one that doesn't fit whole there isn't drawn.
+            // them inside, and one partly past a margin fades out before the screen's edge.
             WindowScrolling(leading = dimensions.gridMargin, trailing = dimensions.gridMargin) {
                 LazyRow(
-                    state = chipsState,
                     modifier =
                         Modifier
                             .outToTheScreenEdge(dimensions.gridMargin)
+                            .fadeAtTheEdges(dimensions.gridMargin)
                             .testTag(EPISODE_RANGES_TAG)
                             .onPreviewKeyEvent { event ->
                                 val pending = focusedRange?.takeIf { it != range }
@@ -164,11 +165,7 @@ internal fun EpisodesSection(
                             text = stringResource(R.string.details_episode_range, episodes.first, episodes.last),
                             selected = index == (focusedRange ?: range),
                             onClick = {},
-                            modifier =
-                                Modifier
-                                    .focusRequester(chips[index])
-                                    .onFocusChanged { if (it.isFocused) focusedRange = index }
-                                    .graphicsLayer { alpha = if (chipsState.layoutInfo.fitsWhole(index)) 1f else 0f },
+                            modifier = Modifier.focusRequester(chips[index]).onFocusChanged { if (it.isFocused) focusedRange = index },
                             height = ChipHeight,
                         )
                     }
@@ -210,11 +207,23 @@ internal fun EpisodesSection(
     }
 }
 
-/** Whether the item at [index] lies whole between the list's content padding. */
-private fun LazyListLayoutInfo.fitsWhole(index: Int): Boolean {
-    val item = visibleItemsInfo.firstOrNull { it.index == index } ?: return false
-    return item.offset >= 0 && item.offset + item.size <= viewportSize.width - beforeContentPadding - afterContentPadding
-}
+/** Fades what's drawn out across the [width] at each side, to nothing at the edges. */
+private fun Modifier.fadeAtTheEdges(width: Dp) =
+    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val fade = width.toPx() / size.width
+            drawRect(
+                brush =
+                    Brush.horizontalGradient(
+                        0f to Color.Transparent,
+                        fade to Color.Black,
+                        1f - fade to Color.Black,
+                        1f to Color.Transparent,
+                    ),
+                blendMode = BlendMode.DstIn,
+            )
+        }
 
 /** Such as "37 episodes", "12 episodes · 4 aired", or "201 known episodes · Titles and air dates unavailable". */
 @Composable
