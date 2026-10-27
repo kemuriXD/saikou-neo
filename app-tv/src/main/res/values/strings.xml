@@ -49,9 +49,9 @@
         <item quantity="one">%1$,d episode</item>
         <item quantity="other">%1$,d episodes</item>
     </plurals>
-    <plurals name="details_known_episodes">
-        <item quantity="one">%1$,d known episode</item>
-        <item quantity="other">%1$,d known episodes</item>
+    <plurals name="details_episodes_so_far">
+        <item quantity="one">%1$,d episode so far</item>
+        <item quantity="other">%1$,d episodes so far</item>
     </plurals>
     <string name="details_episodes_missing">Titles and air dates unavailable</string>
     <plurals name="details_episodes_aired">

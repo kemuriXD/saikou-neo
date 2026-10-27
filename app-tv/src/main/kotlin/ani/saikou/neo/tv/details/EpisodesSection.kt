@@ -239,7 +239,7 @@ private fun Modifier.fadeAtTheEdges(width: Dp) =
             )
         }
 
-/** Such as "37 episodes", "12 episodes · 4 aired", or "201 known episodes · Titles and air dates unavailable". */
+/** Such as "37 episodes", "12 episodes · 4 aired", or "201 episodes so far · Titles and air dates unavailable". */
 @Composable
 private fun EpisodeList.header(): String {
     val count =
@@ -253,7 +253,7 @@ private fun EpisodeList.header(): String {
             }
 
             countSoFar -> {
-                pluralStringResource(R.plurals.details_known_episodes, count, count)
+                pluralStringResource(R.plurals.details_episodes_so_far, count, count)
             }
 
             else -> {
