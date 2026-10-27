@@ -11,6 +11,7 @@ kotlin {
     sourceSets {
         commonMain.dependencies {
             implementation(libs.apollo.runtime)
+            implementation(libs.datastore.preferences.core)
             api(libs.lifecycle.viewmodel)
         }
         commonTest.dependencies {
