@@ -28,18 +28,24 @@ import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -47,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.offset
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.LocalContentColor
@@ -58,6 +65,7 @@ import ani.saikou.neo.shared.details.EpisodeList
 import ani.saikou.neo.shared.details.episodeRanges
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.theme.WindowScrolling
 import ani.saikou.neo.tv.ui.NeoTab
 import ani.saikou.neo.tv.ui.outToTheScreenEdge
 import coil3.compose.AsyncImage
@@ -77,6 +85,9 @@ private val RowThumbHeight = 72.dp
 private val NumberedRowHeight = 56.dp
 private val NumberWidth = 56.dp
 private val ChipHeight = 36.dp
+
+// Room for a focused chip's growth and glow, which the ranges' fade would otherwise cut off.
+private val GlowRoom = 24.dp
 
 // The backdrop in place of a still is dimmed by half.
 private const val PLACEHOLDER_DIM = 0.5f
@@ -127,37 +138,43 @@ internal fun EpisodesSection(
         if (ranges.isNotEmpty()) {
             // Resting on a range shows it, with nothing to press. Up or down into them lands on the one shown.
             val chips = remember(ranges.size) { List(ranges.size) { FocusRequester() } }
-            LazyRow(
-                modifier =
-                    Modifier
-                        .outToTheScreenEdge(dimensions.gridMargin)
-                        .testTag(EPISODE_RANGES_TAG)
-                        .onPreviewKeyEvent { event ->
-                            val pending = focusedRange?.takeIf { it != range }
-                            if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionDown || pending == null) {
-                                return@onPreviewKeyEvent false
-                            }
-                            range = pending
-                            intoList = true
-                            true
-                        }.focusProperties {
-                            onEnter = {
-                                if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
-                                    chips[range].requestFocus()
+            // The row runs to the screen's edges so focus can grow, but its chips keep to the margins: focus scrolls
+            // them inside, and one partly past a margin fades out before the screen's edge.
+            WindowScrolling(leading = dimensions.gridMargin, trailing = dimensions.gridMargin) {
+                LazyRow(
+                    modifier =
+                        Modifier
+                            .outToTheScreenEdge(dimensions.gridMargin)
+                            .roomAboveAndBelow(GlowRoom)
+                            .fadeAtTheEdges(dimensions.gridMargin)
+                            .testTag(EPISODE_RANGES_TAG)
+                            .onPreviewKeyEvent { event ->
+                                val pending = focusedRange?.takeIf { it != range }
+                                if (event.type != KeyEventType.KeyDown || event.key != Key.DirectionDown || pending == null) {
+                                    return@onPreviewKeyEvent false
                                 }
-                            }
-                        }.focusGroup(),
-                contentPadding = PaddingValues(horizontal = dimensions.gridMargin),
-                horizontalArrangement = Arrangement.spacedBy(dimensions.space2),
-            ) {
-                itemsIndexed(ranges) { index, episodes ->
-                    NeoTab(
-                        text = stringResource(R.string.details_episode_range, episodes.first, episodes.last),
-                        selected = index == (focusedRange ?: range),
-                        onClick = {},
-                        modifier = Modifier.focusRequester(chips[index]).onFocusChanged { if (it.isFocused) focusedRange = index },
-                        height = ChipHeight,
-                    )
+                                range = pending
+                                intoList = true
+                                true
+                            }.focusProperties {
+                                onEnter = {
+                                    if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
+                                        chips[range].requestFocus()
+                                    }
+                                }
+                            }.focusGroup(),
+                    contentPadding = PaddingValues(horizontal = dimensions.gridMargin, vertical = GlowRoom),
+                    horizontalArrangement = Arrangement.spacedBy(dimensions.space2),
+                ) {
+                    itemsIndexed(ranges) { index, episodes ->
+                        NeoTab(
+                            text = stringResource(R.string.details_episode_range, episodes.first, episodes.last),
+                            selected = index == (focusedRange ?: range),
+                            onClick = {},
+                            modifier = Modifier.focusRequester(chips[index]).onFocusChanged { if (it.isFocused) focusedRange = index },
+                            height = ChipHeight,
+                        )
+                    }
                 }
             }
         }
@@ -195,6 +212,32 @@ internal fun EpisodesSection(
         }
     }
 }
+
+/** Lays out [room] taller at the top and bottom, without taking up the room, so what's drawn there isn't cut off. */
+private fun Modifier.roomAboveAndBelow(room: Dp) =
+    layout { measurable, constraints ->
+        val extra = room.roundToPx()
+        val placeable = measurable.measure(constraints.offset(vertical = 2 * extra))
+        layout(placeable.width, placeable.height - 2 * extra) { placeable.place(0, -extra) }
+    }
+
+/** Fades what's drawn out across the [width] at each side, to nothing at the edges. */
+private fun Modifier.fadeAtTheEdges(width: Dp) =
+    graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .drawWithContent {
+            drawContent()
+            val fade = width.toPx() / size.width
+            drawRect(
+                brush =
+                    Brush.horizontalGradient(
+                        0f to Color.Transparent,
+                        fade to Color.Black,
+                        1f - fade to Color.Black,
+                        1f to Color.Transparent,
+                    ),
+                blendMode = BlendMode.DstIn,
+            )
+        }
 
 /** Such as "37 episodes", "12 episodes · 4 aired", or "201 known episodes · Titles and air dates unavailable". */
 @Composable

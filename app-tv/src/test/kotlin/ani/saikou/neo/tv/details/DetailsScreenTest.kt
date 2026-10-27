@@ -459,6 +459,97 @@ class DetailsScreenTest {
         compose.onNodeWithText("1–50").assertLeftPositionInRootIsEqualTo(58.dp)
     }
 
+    // Moving along the ranges keeps the focused one inside the margins, and the last ends on the right margin.
+    @Test
+    fun theFocusedRangeStaysInsideTheMargins() {
+        val long = details.copy(card = details.card.copy(episodes = 1180))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
+        press(Key.DirectionDown)
+
+        repeat(10) { press(Key.DirectionRight) }
+        compose.waitForIdle()
+        val eleventh = compose.onNodeWithText("501–550").getUnclippedBoundsInRoot()
+        assertTrue("the 11th range ends at ${eleventh.right}", eleventh.right <= 902.dp)
+
+        repeat(13) { press(Key.DirectionRight) }
+        compose.waitForIdle()
+        compose.onNode(hasText("1151–1180") and isFocused()).assertExists()
+        val last = compose.onNodeWithText("1151–1180").getUnclippedBoundsInRoot()
+        assertEquals(902f, last.right.value, 0.5f)
+
+        repeat(23) { press(Key.DirectionLeft) }
+        compose.waitForIdle()
+        compose.onNodeWithText("1–50").assertLeftPositionInRootIsEqualTo(58.dp)
+    }
+
+    // A range partly past a margin fades out across it, so none is cut off at the screen's edge.
+    @Test
+    fun rangesFadeOutBeforeTheScreensEdge() {
+        val long = details.copy(card = details.card.copy(episodes = 1180))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
+        press(Key.DirectionDown)
+        assertNothingDrawn(from = 957.dp, to = 959.dp)
+
+        repeat(23) { press(Key.DirectionRight) }
+        assertNothingDrawn(from = 0.dp, to = 2.dp)
+    }
+
+    // The fade mustn't cut off the focused range's growth and glow above and below the row.
+    @Test
+    fun theFocusedRangeGlowsAboveAndBelowTheRow() {
+        val long = details.copy(card = details.card.copy(episodes = 1180))
+        showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+        compose.mainClock.advanceTimeBy(1000)
+        compose.runOnUiThread {
+            compose.activity.window.decorView
+                .invalidate()
+        }
+        compose.waitForIdle()
+        val screen = compose.onRoot().captureToImage().toPixelMap()
+        val density = compose.density.density
+        val chip = compose.onNodeWithText("101–150").getUnclippedBoundsInRoot()
+        val x = (((chip.left + chip.right) / 2).value * density).toInt()
+
+        fun brightness(y: Dp) = screen[x, (y.value * density).toInt()].red
+        // The page's shading only changes from left to right, and the glow is gone 30 dp out.
+        val page = brightness(chip.top - 30.dp)
+        assertTrue("just above the row", brightness(chip.top - 3.dp) > page + 0.03f)
+        assertTrue("just below the row", brightness(chip.bottom + 3.dp) > page + 0.03f)
+    }
+
+    /** Across the ranges' height, each column from [from] to [to] is the page's colour, as just above them. */
+    private fun assertNothingDrawn(
+        from: Dp,
+        to: Dp,
+    ) {
+        compose.mainClock.advanceTimeBy(1000)
+        compose.runOnUiThread {
+            compose.activity.window.decorView
+                .invalidate()
+        }
+        compose.waitForIdle()
+        val screen = compose.onRoot().captureToImage().toPixelMap()
+        val density = compose.density.density
+        val chip = compose.onNodeWithTag(EPISODE_RANGES_TAG).getUnclippedBoundsInRoot()
+        var x = from
+        while (x <= to) {
+            val column = (x.value * density).toInt()
+            // The page's shading only changes from left to right.
+            val page = screen[column, ((chip.top - 4.dp).value * density).toInt()]
+            var y = chip.top
+            while (y < chip.bottom) {
+                val pixel = screen[column, (y.value * density).toInt()]
+                assertEquals("red at $x, $y", page.red, pixel.red, 0.02f)
+                assertEquals("green at $x, $y", page.green, pixel.green, 0.02f)
+                y += 2.dp
+            }
+            x += 1.dp
+        }
+    }
+
     // Holding Right across a long series' ranges shouldn't rebuild the list for every range it passes.
     @Test
     fun aRangeShowsOnceFocusRestsOnIt() {
