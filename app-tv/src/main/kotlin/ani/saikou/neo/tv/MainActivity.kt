@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv
 
+import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Choreographer
@@ -56,8 +57,11 @@ class MainActivity : ComponentActivity() {
             afterNextFrame = { drawn -> Choreographer.getInstance().postFrameCallback { drawn() } },
         )
 
+    private val absence = LongAbsence()
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        // Opened again after a long time away, the app starts on Home rather than where it was left.
+        super.onCreate(absence.restore(savedInstanceState))
         // The window's animations run at the speed HeldKeys sets.
         setContent(parent = window.decorView.createLifecycleAwareWindowRecomposer(heldKeys, lifecycle)) {
             // The settings take a moment to read at start, and nothing shows until they're in.
@@ -134,6 +138,25 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStart() {
+        super.onStart()
+        // Still open after a long time away, the app starts over too, in a new screen with nothing kept.
+        if (absence.startedAgain()) {
+            startActivity(Intent.makeRestartActivityTask(componentName))
+            finish()
+        }
+    }
+
+    override fun onStop() {
+        super.onStop()
+        absence.stopped()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        absence.save(outState)
     }
 
     // This season, for the This season row and its page.

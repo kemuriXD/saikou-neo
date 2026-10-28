@@ -79,11 +79,14 @@ import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.FocusMemory
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoButtonRow
 import ani.saikou.neo.tv.ui.NeoIcons
+import ani.saikou.neo.tv.ui.RememberFocus
 import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
+import ani.saikou.neo.tv.ui.remembersFocus
 import coil3.compose.AsyncImage
 
 internal const val DETAILS_META_TAG = "details-meta"
@@ -143,15 +146,24 @@ fun DetailsScreen(
     modifier: Modifier = Modifier,
     onOpen: (animeId: Int) -> Unit = {},
     onRecommendations: () -> Unit = {},
+) = RememberFocus { focus -> DetailsPage(state, focus, modifier, onOpen, onRecommendations) }
+
+@Composable
+private fun DetailsPage(
+    state: DetailsState,
+    focus: FocusMemory,
+    modifier: Modifier,
+    onOpen: (animeId: Int) -> Unit,
+    onRecommendations: () -> Unit,
 ) {
     var reading by rememberSaveable { mutableStateOf(false) }
     var hasRead by rememberSaveable { mutableStateOf(false) }
     var lifted by rememberSaveable { mutableStateOf(false) }
     var section by rememberSaveable { mutableStateOf(DetailsSection.OVERVIEW) }
-    // The poster or See more opened from here, so Back returns to it.
-    var returnTo by rememberSaveable { mutableStateOf<Int?>(null) }
-    // Taken as Details is composed, so only coming back to it returns focus to the poster.
-    val returningTo = remember { returnTo }
+    // Set as a poster or See more opens another screen, so focus leaving for it doesn't lower the page. Coming back, focus
+    // returns to what opened it, and the page can lower again.
+    var opened by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) { opened = false }
     val loaded = state as? DetailsState.Loaded
     val mainFocus = remember { FocusRequester() }
     val tabFocus = remember { FocusRequester() }
@@ -160,14 +172,17 @@ fun DetailsScreen(
     // Set by the main button, for the Episodes section to take focus once it's shown.
     var toEpisodes by remember { mutableStateOf(false) }
     val hasEpisodes = loaded != null && DetailsSection.EPISODES in loaded.sections
-    // Focus starts on the main button, or on the tabs for a show with no episodes yet, and returns to the synopsis when
-    // the reader closes. The page stays composed under the reader, so the synopsis is listening when focus comes back.
+    // Coming back to Details, focus returns to what had it. Otherwise it starts on the main button, or on the tabs for a
+    // show with no episodes yet, and returns to the synopsis when the reader closes. The page stays composed under the
+    // reader, so the synopsis is listening when focus comes back.
     LaunchedEffect(loaded != null, reading) {
-        if (loaded == null || reading || returningTo != null) return@LaunchedEffect
-        when {
-            hasRead -> synopsisFocus.requestFocus()
-            hasEpisodes -> mainFocus.requestFocus()
-            else -> tabFocus.requestFocus()
+        if (loaded == null || reading) return@LaunchedEffect
+        focus.restoreOr {
+            when {
+                hasRead -> synopsisFocus.requestFocus()
+                hasEpisodes -> mainFocus.requestFocus()
+                else -> tabFocus.requestFocus()
+            }
         }
     }
     // Down in a section, Back first brings the page back to the top. Back again leaves Details.
@@ -218,7 +233,7 @@ fun DetailsScreen(
                         selected = { section.takeIf { it in sections } ?: sections.first() },
                         onSelect = { section = it },
                         // The reader and a related show's Details take focus from the page without lowering it.
-                        onInside = { inside -> if (!reading && returnTo == null) lifted = inside },
+                        onInside = { inside -> if (!reading && !opened) lifted = inside },
                         // Measured at full height, so it runs past the bottom of the screen until the page lifts.
                         modifier =
                             margin
@@ -254,11 +269,9 @@ fun DetailsScreen(
                                 PosterRowSection(
                                     posters = state.details.related.map { Poster(it.card, it.caption()) },
                                     onOpen = {
-                                        returnTo = it
+                                        opened = true
                                         onOpen(it)
                                     },
-                                    returnTo = returningTo,
-                                    onReturned = { returnTo = null },
                                 )
                             }
 
@@ -276,15 +289,13 @@ fun DetailsScreen(
                                 PosterRowSection(
                                     posters = state.details.recommendations.map { Poster(it) },
                                     onOpen = {
-                                        returnTo = it
+                                        opened = true
                                         onOpen(it)
                                     },
-                                    returnTo = returningTo,
-                                    onReturned = { returnTo = null },
                                     seeMore =
                                         if (state.details.moreRecommendations) {
                                             {
-                                                returnTo = SEE_MORE
+                                                opened = true
                                                 onRecommendations()
                                             }
                                         } else {
@@ -382,7 +393,7 @@ private fun Hero(
                 NeoButton(
                     text = stringResource(R.string.details_episodes),
                     onClick = it,
-                    modifier = Modifier.focusRequester(mainFocus).testTag(DETAILS_MAIN_BUTTON_TAG),
+                    modifier = Modifier.focusRequester(mainFocus).remembersFocus("main").testTag(DETAILS_MAIN_BUTTON_TAG),
                 )
             }
         }
@@ -449,7 +460,7 @@ private fun Overview(
                 story = story,
                 enabled = !reading,
                 onRead = onRead,
-                modifier = outdent.focusRequester(synopsisFocus),
+                modifier = outdent.focusRequester(synopsisFocus).remembersFocus("synopsis"),
             )
         }
     }
