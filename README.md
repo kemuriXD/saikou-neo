@@ -40,9 +40,10 @@ public release is **v0.1.0**. Follow the work on the
 | Milestone | What it adds | Progress |
 | --- | --- | --- |
 | [v0.0.1 Foundation](https://github.com/kemuriXD/saikou-neo/milestone/7) | Project setup, CI and the TV design | ![v0.0.1 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/7?label=) |
-| [v0.0.2 Browse](https://github.com/kemuriXD/saikou-neo/milestone/8) | Home, Discover, search, details, episode lists, the top bar and settings | ![v0.0.2 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/8?label=) |
-| [v0.0.3 Play](https://github.com/kemuriXD/saikou-neo/milestone/9) | Extensions, choosing a source and server, and the player | ![v0.0.3 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/9?label=) |
-| [v0.0.4 Sign in](https://github.com/kemuriXD/saikou-neo/milestone/10) | Phone companion, AniList sign-in and TV pairing | ![v0.0.4 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/10?label=) |
+| [v0.0.2 Browse](https://github.com/kemuriXD/saikou-neo/milestone/8) | Home, details, episode lists, the top bar and settings | ![v0.0.2 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/8?label=) |
+| [v0.0.3 Design v2](https://github.com/kemuriXD/saikou-neo/milestone/12) | A new TV look with a side rail and full-screen artwork, plus search and Discover | ![v0.0.3 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/12?label=) |
+| [v0.0.4 Play](https://github.com/kemuriXD/saikou-neo/milestone/9) | Extensions, choosing a source and server, and the player | ![v0.0.4 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/9?label=) |
+| [v0.0.5 Sign in](https://github.com/kemuriXD/saikou-neo/milestone/10) | Phone companion, AniList sign-in and TV pairing | ![v0.0.5 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/10?label=) |
 | [v0.1.0 Sync](https://github.com/kemuriXD/saikou-neo/milestone/11) | Progress syncing and Continue Watching | ![v0.1.0 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/11?label=) |
 
 ## How it's built
