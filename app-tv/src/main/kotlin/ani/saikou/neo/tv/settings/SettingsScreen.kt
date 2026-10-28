@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -162,9 +163,11 @@ fun SettingsScreen(
                 )
             }
         }
-        // Moving to another category fades its settings in as they rise a little, while the last ones fade out.
+        // Moving to another category fades the last settings out quickly, then fades the new ones in as they rise a little,
+        // so the two never show at once.
         val rise = with(LocalDensity.current) { CategoryRise.roundToPx() }
-        val change = tween<Float>(dimensions.durationPanelMillis, easing = dimensions.easeStandard)
+        val out = dimensions.durationPanelMillis / 3
+        val inMillis = dimensions.durationPanelMillis - out
         AnimatedContent(
             targetState = shown,
             modifier =
@@ -172,8 +175,10 @@ fun SettingsScreen(
                     .padding(start = SettingsStart, end = dimensions.gridMargin, top = PaneTop)
                     .focusGroup(),
             transitionSpec = {
-                (fadeIn(change) + slideInVertically(tween(dimensions.durationPanelMillis, easing = dimensions.easeStandard)) { rise })
-                    .togetherWith(fadeOut(tween(dimensions.durationPanelMillis / 2)))
+                (
+                    fadeIn(tween(inMillis, delayMillis = out, easing = dimensions.easeStandard)) +
+                        slideInVertically(tween(inMillis, delayMillis = out, easing = dimensions.easeStandard)) { rise }
+                ).togetherWith(fadeOut(tween(out))).using(SizeTransform(clip = false))
             },
             label = "category",
         ) { category ->
