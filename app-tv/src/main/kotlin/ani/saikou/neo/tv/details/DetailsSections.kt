@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.ui.NeoSectionTab
+import ani.saikou.neo.tv.ui.remembersFocus
 
 internal fun detailsTabTag(section: DetailsSection) = "details-tab-${section.name.lowercase()}"
 
@@ -75,6 +76,7 @@ internal fun DetailsSections(
                     modifier =
                         Modifier
                             .focusRequester(tabs.getValue(section))
+                            .remembersFocus("tab-${section.name}")
                             .onFocusChanged { if (it.isFocused) onSelect(section) }
                             .testTag(detailsTabTag(section)),
                 )

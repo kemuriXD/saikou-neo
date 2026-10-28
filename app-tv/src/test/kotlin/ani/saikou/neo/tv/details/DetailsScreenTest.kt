@@ -2,6 +2,11 @@ package ani.saikou.neo.tv.details
 
 import android.graphics.Color
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -629,6 +634,78 @@ class DetailsScreenTest {
         restoration.emulateSavedInstanceStateRestore()
 
         compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertIsSelected()
+    }
+
+    /** Shows [state], runs [before], then recreates Details as after the app was killed: loading first, then [reloaded]. */
+    private fun recreate(
+        state: DetailsState,
+        reloaded: DetailsState = state,
+        before: () -> Unit,
+    ) {
+        val restoration = StateRestorationTester(compose)
+        var compositions = 0
+        restoration.setContent {
+            // remember starts over in the recreated composition, so only that one loads again.
+            val first = remember { compositions++ == 0 }
+            var shown by remember { mutableStateOf(if (first) state else DetailsState.Loading) }
+            if (!first) LaunchedEffect(Unit) { shown = reloaded }
+            NeoTheme { DetailsScreen(shown) }
+        }
+        before()
+        compose.waitForIdle()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun focusStaysOnTheEpisodeAfterRecreation() {
+        recreate(DetailsState.Loaded(details, episodes = episodeList(details, null, today))) {
+            press(Key.DirectionCenter)
+            press(Key.DirectionDown)
+            press(Key.DirectionDown)
+            compose.onNodeWithTag(episodeTag(3)).assertIsFocused()
+        }
+
+        compose.onNodeWithTag(episodeTag(3)).assertIsFocused()
+    }
+
+    @Test
+    fun focusStaysOnASectionTabAfterRecreation() {
+        recreate(DetailsState.Loaded(franchise)) {
+            press(Key.DirectionDown)
+            press(Key.DirectionRight)
+            press(Key.DirectionRight)
+        }
+
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsFocused()
+    }
+
+    @Test
+    fun focusStaysOnARelatedPosterAfterRecreation() {
+        recreate(DetailsState.Loaded(franchise)) {
+            press(Key.DirectionDown)
+            press(Key.DirectionRight)
+            press(Key.DirectionRight)
+            press(Key.DirectionDown)
+            press(Key.DirectionRight)
+        }
+
+        compose.onNodeWithTag(relatedPosterTag(9)).assertIsFocused()
+    }
+
+    // The show reloaded without its related shows, so the poster that had focus isn't there to take it back.
+    @Test
+    fun focusStartsAsUsualWhenWhatHadItIsGoneAfterRecreation() {
+        recreate(DetailsState.Loaded(franchise), reloaded = DetailsState.Loaded(details)) {
+            press(Key.DirectionDown)
+            press(Key.DirectionRight)
+            press(Key.DirectionRight)
+            press(Key.DirectionDown)
+            press(Key.DirectionRight)
+            compose.onNodeWithTag(relatedPosterTag(9)).assertIsFocused()
+        }
+
+        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused()
     }
 
     @Test

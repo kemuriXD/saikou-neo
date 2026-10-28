@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -184,6 +185,42 @@ class SettingsScreenTest {
         press(Key.DirectionUp)
 
         compose.onNodeWithTag(topTabTag(TopTab.SETTINGS)).assertIsFocused()
+    }
+
+    /** Shows Settings, runs [before], then recreates it as after the app was killed. */
+    private fun recreate(before: () -> Unit) {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, onTab = {}) } }
+        before()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun focusStaysOnASettingAfterRecreation() {
+        recreate {
+            press(Key.DirectionDown, times = 2)
+            press(Key.DirectionRight)
+        }
+
+        setting(Setting.SLOW_TV).assertIsFocused()
+    }
+
+    @Test
+    fun focusStaysOnACategoryAfterRecreation() {
+        recreate { press(Key.DirectionDown, times = 2) }
+
+        category(SettingsCategory.DISPLAY).assertIsFocused()
+    }
+
+    @Test
+    fun anOpenPanelKeepsFocusAfterRecreation() {
+        recreate {
+            openFirstSetting()
+            press(Key.DirectionDown)
+        }
+
+        choice(Setting.UNAIRED_ANIME, on = false).assertIsFocused()
     }
 
     @Test

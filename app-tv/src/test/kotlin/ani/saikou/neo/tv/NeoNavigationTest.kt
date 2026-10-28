@@ -16,6 +16,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.More
@@ -155,6 +156,20 @@ class NeoNavigationTest {
         compose.onNodeWithText("Details for 105").assertExists()
         back()
         compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 5)).assertIsFocused()
+    }
+
+    // Pressing the remote's Home button stops the app without recreating it.
+    @Test
+    fun focusStaysOnTheCardWhenTheAppComesBackFromTheBackground() {
+        show()
+
+        enterRows()
+        press(Key.DirectionRight, times = 3)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+        compose.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 3)).assertIsFocused()
     }
 
     /** From Play to the end of Trending, and into its See more page. */

@@ -63,9 +63,12 @@ import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.isOn
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.FocusMemory
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.NeoTopBar
+import ani.saikou.neo.tv.ui.RememberFocus
 import ani.saikou.neo.tv.ui.TopTab
+import ani.saikou.neo.tv.ui.remembersFocus
 
 internal const val SETTINGS_PANEL_TAG = "settings-panel"
 
@@ -128,6 +131,14 @@ fun SettingsScreen(
     settings: Settings,
     onChoose: (Setting, on: Boolean) -> Unit,
     onTab: (TopTab) -> Unit,
+) = RememberFocus { focus -> SettingsPage(settings, focus, onChoose, onTab) }
+
+@Composable
+private fun SettingsPage(
+    settings: Settings,
+    focus: FocusMemory,
+    onChoose: (Setting, on: Boolean) -> Unit,
+    onTab: (TopTab) -> Unit,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
@@ -138,7 +149,7 @@ fun SettingsScreen(
     val currentTab = remember { FocusRequester() }
     val categories = remember { SettingsCategory.entries.associateWith { FocusRequester() } }
     val rows = remember { Setting.entries.associateWith { FocusRequester() } }
-    LaunchedEffect(Unit) { currentTab.requestFocus() }
+    LaunchedEffect(Unit) { focus.restoreOr { currentTab.requestFocus() } }
     LaunchedEffect(closed) {
         closed?.let { rows.getValue(it).requestFocus() }
         closed = null
@@ -159,6 +170,7 @@ fun SettingsScreen(
                     modifier =
                         Modifier
                             .focusRequester(categories.getValue(category))
+                            .remembersFocus("category-${category.name}")
                             .focusProperties { right = rows.getValue(category.settings.first()) },
                 )
             }
@@ -193,6 +205,7 @@ fun SettingsScreen(
                         modifier =
                             Modifier
                                 .focusRequester(rows.getValue(setting))
+                                .remembersFocus("setting-${setting.name}")
                                 .focusProperties { left = categories.getValue(category) },
                     )
                 }

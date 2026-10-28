@@ -68,6 +68,7 @@ import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.theme.WindowScrolling
 import ani.saikou.neo.tv.ui.NeoTab
 import ani.saikou.neo.tv.ui.outToTheScreenEdge
+import ani.saikou.neo.tv.ui.remembersFocus
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
@@ -171,7 +172,11 @@ internal fun EpisodesSection(
                             text = stringResource(R.string.details_episode_range, episodes.first, episodes.last),
                             selected = index == (focusedRange ?: range),
                             onClick = {},
-                            modifier = Modifier.focusRequester(chips[index]).onFocusChanged { if (it.isFocused) focusedRange = index },
+                            modifier =
+                                Modifier
+                                    .focusRequester(chips[index])
+                                    .remembersFocus("range-$index")
+                                    .onFocusChanged { if (it.isFocused) focusedRange = index },
                             height = ChipHeight,
                         )
                     }
@@ -192,7 +197,7 @@ internal fun EpisodesSection(
                         number = episode.number.takeUnless { list.film },
                         title = episode.title ?: stringResource(R.string.details_episode_number, episode.number),
                         meta = episode.meta(list.film),
-                        modifier = Modifier.testTag(episodeTag(episode.number)),
+                        modifier = Modifier.remembersFocus(episodeTag(episode.number)).testTag(episodeTag(episode.number)),
                     )
                 }
             }
@@ -284,7 +289,7 @@ private fun EpisodeRow(
     backdrop: String?,
 ) {
     val dimensions = NeoTheme.dimensions
-    RowSurface(Modifier.testTag(episodeTag(episode.number))) {
+    RowSurface(Modifier.remembersFocus(episodeTag(episode.number)).testTag(episodeTag(episode.number))) {
         Row(
             Modifier.padding(start = dimensions.space2, top = dimensions.space2, end = dimensions.space4, bottom = dimensions.space2),
             horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
