@@ -151,6 +151,64 @@ class SettingsScreenTest {
         setting(Setting.UNAIRED_ANIME).assertIsFocused()
     }
 
+    // Resting on another choice and pressing Back looks like a change the viewer didn't finish, so the app asks.
+    @Test
+    fun backFromAnotherChoiceAsksWhetherToSaveIt() {
+        show()
+
+        openFirstSetting()
+        press(Key.DirectionDown)
+        back()
+
+        compose.onNodeWithTag(SETTINGS_DIALOG_TAG).assertIsDisplayed()
+        compose.onNodeWithText("Change to Shown").assertIsFocused()
+        compose.onNodeWithText("Keep Hidden").assertIsDisplayed()
+        assertEquals(emptyList<Pair<Setting, Boolean>>(), chosen)
+    }
+
+    @Test
+    fun theDialogCanSaveTheChange() {
+        show()
+
+        openFirstSetting()
+        press(Key.DirectionDown)
+        back()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(Setting.UNAIRED_ANIME to true), chosen)
+        compose.onNodeWithTag(SETTINGS_DIALOG_TAG).assertDoesNotExist()
+        panel().assertDoesNotExist()
+        setting(Setting.UNAIRED_ANIME).assertIsFocused()
+    }
+
+    @Test
+    fun theDialogCanKeepTheValue() {
+        show()
+
+        openFirstSetting()
+        press(Key.DirectionDown)
+        back()
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+
+        assertEquals(emptyList<Pair<Setting, Boolean>>(), chosen)
+        panel().assertDoesNotExist()
+        setting(Setting.UNAIRED_ANIME).assertIsFocused()
+    }
+
+    @Test
+    fun backFromTheDialogGoesBackToTheChoices() {
+        show()
+
+        openFirstSetting()
+        press(Key.DirectionDown)
+        back()
+        back()
+
+        compose.onNodeWithTag(SETTINGS_DIALOG_TAG).assertDoesNotExist()
+        choice(Setting.UNAIRED_ANIME, on = true).assertIsFocused()
+    }
+
     @Test
     fun focusStaysInThePanelWhileItsOpen() {
         show()

@@ -51,11 +51,14 @@ import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.isOn
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.NeoDialogButton
+import ani.saikou.neo.tv.ui.NeoDialogButtons
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.NeoTopBar
 import ani.saikou.neo.tv.ui.TopTab
 
 internal const val SETTINGS_PANEL_TAG = "settings-panel"
+internal const val SETTINGS_DIALOG_TAG = "settings-dialog"
 
 internal fun settingsCategoryTag(category: SettingsCategory) = "settings-category-${category.name.lowercase()}"
 
@@ -99,6 +102,12 @@ private val ChoicePadding = 16.dp
 private val ChoiceGap = 4.dp
 private val Radio = 20.dp
 private const val SCRIM_ALPHA = 0.55f
+
+// The dialog is 480 dp wide and 96 dp down, as the other dialogs are.
+private val DialogTop = 96.dp
+private val DialogWidth = 480.dp
+private val DialogPadding = 28.dp
+private const val DIALOG_SCRIM_ALPHA = 0.88f
 
 /**
  * Settings: the top bar over categories on the left and the shown one's settings on the right, each with its value.
@@ -286,7 +295,7 @@ private fun SettingRow(
 
 /**
  * A setting's choices in a panel on the right, with focus on the current one. Focus stays in the panel until a choice
- * is selected, which calls [onChoose], or Back calls [onClose].
+ * is selected, which calls [onChoose], or Back calls [onClose]. Back while resting on another choice asks first.
  */
 @Composable
 private fun BoxScope.ChoicesPanel(
@@ -296,11 +305,15 @@ private fun BoxScope.ChoicesPanel(
     onClose: () -> Unit,
 ) {
     val colors = NeoTheme.colors
-    val current = remember { FocusRequester() }
+    val choices = remember { mapOf(false to FocusRequester(), true to FocusRequester()) }
     val text = setting.text()
-    LaunchedEffect(Unit) { current.requestFocus() }
+    // The choice focus is on, and whether the app is asking about it.
+    var resting by remember { mutableStateOf(on) }
+    var asking by remember { mutableStateOf(false) }
+    // Focus starts on the current choice, and comes back to the one it left when the dialog closes.
+    LaunchedEffect(asking) { if (!asking) choices.getValue(resting).requestFocus() }
     // Ahead of the navigation's own, so Back closes the panel and stays on Settings.
-    BackHandler(onBack = onClose)
+    BackHandler(enabled = !asking) { if (resting == on) onClose() else asking = true }
     Box(Modifier.fillMaxSize().background(colors.scrimPlayer.copy(alpha = SCRIM_ALPHA)))
     Column(
         Modifier
@@ -310,7 +323,7 @@ private fun BoxScope.ChoicesPanel(
             .width(PanelWidth)
             .background(colors.surface)
             .padding(start = PanelPadding, end = PanelPadding, top = PaneTop)
-            .focusProperties { onExit = { cancelFocusChange() } }
+            .focusProperties { onExit = { if (!asking) cancelFocusChange() } }
             .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(ChoiceGap),
     ) {
@@ -324,8 +337,64 @@ private fun BoxScope.ChoicesPanel(
                 modifier =
                     Modifier
                         .testTag(settingChoiceTag(setting, value))
-                        .then(if (value == on) Modifier.focusRequester(current) else Modifier),
+                        .focusRequester(choices.getValue(value))
+                        .onFocusChanged { if (it.isFocused) resting = value },
             )
+        }
+    }
+    if (asking) {
+        UnsavedDialog(
+            current = stringResource(text.value(on)),
+            moved = stringResource(text.value(resting)),
+            onChange = { onChoose(resting) },
+            onKeep = onClose,
+            onDismiss = { asking = false },
+        )
+    }
+}
+
+/**
+ * Asks whether to save a choice the viewer moved to but didn't select. Back calls [onDismiss], to choose again.
+ */
+@Composable
+private fun BoxScope.UnsavedDialog(
+    current: String,
+    moved: String,
+    onChange: () -> Unit,
+    onKeep: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val colors = NeoTheme.colors
+    val change = remember { FocusRequester() }
+    LaunchedEffect(Unit) { change.requestFocus() }
+    BackHandler(onBack = onDismiss)
+    Box(Modifier.fillMaxSize().background(colors.ink.copy(alpha = DIALOG_SCRIM_ALPHA)))
+    Column(
+        Modifier
+            .testTag(SETTINGS_DIALOG_TAG)
+            .align(Alignment.TopCenter)
+            .padding(top = DialogTop)
+            .width(DialogWidth)
+            .background(colors.surface, RoundedCornerShape(NeoTheme.dimensions.radiusXl))
+            .padding(DialogPadding)
+            .focusProperties { onExit = { cancelFocusChange() } }
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        Text(
+            stringResource(R.string.settings_unsaved_title),
+            style = NeoTheme.typography.titleLarge.copy(lineHeight = 30.sp),
+            color = colors.paper,
+        )
+        Text(
+            stringResource(R.string.settings_unsaved_body, moved),
+            style = NeoTheme.typography.body,
+            color = colors.textMuted,
+            modifier = Modifier.padding(bottom = 6.dp),
+        )
+        NeoDialogButtons {
+            NeoDialogButton(stringResource(R.string.settings_unsaved_change, moved), onChange, Modifier.focusRequester(change))
+            NeoDialogButton(stringResource(R.string.settings_unsaved_keep, current), onKeep)
         }
     }
 }

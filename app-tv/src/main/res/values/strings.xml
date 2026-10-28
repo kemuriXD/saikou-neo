@@ -119,4 +119,8 @@
     <string name="settings_hidden">Hidden</string>
     <string name="settings_on">On</string>
     <string name="settings_off">Off</string>
+    <string name="settings_unsaved_title">Save your change?</string>
+    <string name="settings_unsaved_body">You moved to %1$s but didn’t select it.</string>
+    <string name="settings_unsaved_change">Change to %1$s</string>
+    <string name="settings_unsaved_keep">Keep %1$s</string>
 </resources>
