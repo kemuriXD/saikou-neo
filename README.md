@@ -37,6 +37,12 @@ public release is **v0.1.0**. Follow the work on the
 [project board](https://github.com/users/kemuriXD/projects/2) or in the
 [milestones](https://github.com/kemuriXD/saikou-neo/milestones).
 
+[![Download the latest build](https://img.shields.io/badge/Download-latest%20build-FF4F91?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kemuriXD/saikou-neo/actions/workflows/android.yml?query=branch%3Amain+is%3Asuccess)
+
+Open the newest run and download `saikou-neo-tv-alpha-debug` for the TV or
+`saikou-neo-companion-alpha-debug` for the phone. You need to be signed in to
+GitHub. These are alpha debug builds, and each one expires after 7 days.
+
 | Milestone | What it adds | Progress |
 | --- | --- | --- |
 | [v0.0.1 Foundation](https://github.com/kemuriXD/saikou-neo/milestone/7) | Project setup, CI and the TV design | ![v0.0.1 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/7?label=) |
