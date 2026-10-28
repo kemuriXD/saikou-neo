@@ -29,15 +29,22 @@ import ani.saikou.neo.shared.details.DetailsViewModel
 import ani.saikou.neo.shared.details.Raters
 import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
+import ani.saikou.neo.shared.settings.SettingsViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SeeMoreScreen
 import ani.saikou.neo.tv.home.displayTitle
+import ani.saikou.neo.tv.settings.SettingsScreen
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.TabPlaceholder
+import ani.saikou.neo.tv.ui.TopTab
 import java.util.Calendar
 
 class MainActivity : ComponentActivity() {
-    private val client by lazy { AniListClient() }
+    private val app get() = application as NeoApp
+
+    // Asked on every request, so lists follow the setting from the next one on.
+    private val client by lazy { AniListClient { app.settings.value?.showUnairedAnime ?: false } }
     private val aniZip by lazy { AniZipClient() }
     private val library by lazy {
         ArtLibrary(client, aniZip, FanartTvClient(BuildConfig.FANART_TV_API_KEY), TmdbClient(BuildConfig.TMDB_API_KEY))
@@ -53,7 +60,9 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         // The window's animations run at the speed HeldKeys sets.
         setContent(parent = window.decorView.createLifecycleAwareWindowRecomposer(heldKeys, lifecycle)) {
-            NeoTheme {
+            // The settings take a moment to read at start, and nothing shows until they're in.
+            val settings = app.settings.collectAsStateWithLifecycle().value ?: return@setContent
+            NeoTheme(light = settings.slowTv) {
                 // Every key passes through HeldKeys before it can move focus. Test tags double as resource IDs, so
                 // :benchmark-tv can find the cards.
                 Surface(
@@ -65,7 +74,9 @@ class MainActivity : ComponentActivity() {
                 ) {
                     NeoNavigation(
                         home = { openDetails, openSeeMore, openTab ->
-                            val home = viewModel { HomeViewModel(client, library, season(), year()) }
+                            // Showing unaired anime or not changes the rows, so Home loads them again.
+                            val home =
+                                viewModel(key = "home-${settings.showUnairedAnime}") { HomeViewModel(client, library, season(), year()) }
                             val state by home.state.collectAsStateWithLifecycle()
                             HomeScreen(
                                 state = state,
@@ -90,7 +101,10 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         details = { animeId, openDetails, openRecommendations ->
-                            val details = viewModel { DetailsViewModel(client, library, aniZip, raters, animeId, today()) }
+                            val details =
+                                viewModel {
+                                    DetailsViewModel(client, library, aniZip, raters, animeId, today(), settings.showUpcomingEpisodes)
+                                }
                             val state by details.state.collectAsStateWithLifecycle()
                             DetailsScreen(state, onOpen = openDetails, onRecommendations = { openRecommendations(animeId) })
                         },
@@ -106,6 +120,15 @@ class MainActivity : ComponentActivity() {
                                 onRest = recommendations::rest,
                                 eyebrow = state.show?.displayTitle(),
                             )
+                        },
+                        tab = { tab, openTab ->
+                            if (tab == TopTab.SETTINGS) {
+                                val settingsScreen = viewModel { SettingsViewModel(app.settingsStore) }
+                                val state by settingsScreen.state.collectAsStateWithLifecycle()
+                                state?.let { SettingsScreen(it, onChoose = settingsScreen::choose, onTab = openTab) }
+                            } else {
+                                TabPlaceholder(tab, openTab)
+                            }
                         },
                     )
                 }

@@ -4,6 +4,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.unit.dp
 import androidx.tv.material3.MaterialTheme
 import androidx.tv.material3.Typography
 import androidx.tv.material3.darkColorScheme
@@ -12,15 +13,22 @@ private val LocalNeoColors = staticCompositionLocalOf { NeoColors() }
 private val LocalNeoTypography = staticCompositionLocalOf { NeoTypography() }
 private val LocalNeoDimensions = staticCompositionLocalOf { NeoDimensions() }
 
-/** Applies the Saikou Neo design system, and maps it onto TV Material so its components match. */
+/**
+ * Applies the Saikou Neo design system, and maps it onto TV Material so its components match. The [light] look, for
+ * slow TVs, has no glow around what's focused, and swaps art, screens and panels without fading them.
+ */
 @Composable
-fun NeoTheme(content: @Composable () -> Unit) {
+fun NeoTheme(
+    light: Boolean = false,
+    content: @Composable () -> Unit,
+) {
     val colors = NeoColors()
     val typography = NeoTypography()
+    val dimensions = if (light) NeoDimensions(glowFocus = 0.dp, durationBackdropMillis = 0, durationPanelMillis = 0) else NeoDimensions()
     CompositionLocalProvider(
         LocalNeoColors provides colors,
         LocalNeoTypography provides typography,
-        LocalNeoDimensions provides NeoDimensions(),
+        LocalNeoDimensions provides dimensions,
     ) {
         MaterialTheme(
             colorScheme =

@@ -39,6 +39,31 @@ class NeoThemeTest {
         assertEquals(48.dp, seen.safeX)
     }
 
+    // Slow TV mode: no glow around what's focused, and art and screens swap without fading.
+    @Test
+    fun theLightLookDropsTheGlowAndTheFades() {
+        lateinit var light: NeoDimensions
+        compose.setContent { NeoTheme(light = true) { light = NeoTheme.dimensions } }
+
+        assertEquals(0.dp, light.glowFocus)
+        assertEquals(0, light.durationBackdropMillis)
+        assertEquals(0, light.durationPanelMillis)
+        assertEquals(NeoDimensions().focusScale, light.focusScale, 0f)
+    }
+
+    @Test
+    fun panelsSlideInQuickly() {
+        assertEquals(250, NeoDimensions().durationPanelMillis)
+    }
+
+    @Test
+    fun theFullLookIsTheDefault() {
+        lateinit var full: NeoDimensions
+        compose.setContent { NeoTheme { full = NeoTheme.dimensions } }
+
+        assertEquals(NeoDimensions(), full)
+    }
+
     private data class Seen(
         val ink: androidx.compose.ui.graphics.Color,
         val background: androidx.compose.ui.graphics.Color,

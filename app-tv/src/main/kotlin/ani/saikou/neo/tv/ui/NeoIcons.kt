@@ -63,6 +63,16 @@ object NeoIcons {
         }
     }
 
+    val Chevron: ImageVector by lazy {
+        icon("Chevron") {
+            stroke(2.4f) {
+                moveTo(9f, 6f)
+                lineTo(15f, 12f)
+                lineTo(9f, 18f)
+            }
+        }
+    }
+
     val Info: ImageVector by lazy {
         icon("Info") {
             stroke(2f) {

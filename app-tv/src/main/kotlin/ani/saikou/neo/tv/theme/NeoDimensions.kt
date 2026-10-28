@@ -40,5 +40,6 @@ data class NeoDimensions(
     val durationFocusMillis: Int = 150,
     val durationIndicatorMillis: Int = 200,
     val durationBackdropMillis: Int = 400,
+    val durationPanelMillis: Int = 250,
     val easeStandard: Easing = CubicBezierEasing(0.2f, 0f, 0f, 1f),
 )

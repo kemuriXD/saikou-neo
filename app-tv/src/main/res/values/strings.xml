@@ -104,4 +104,19 @@
     <string name="rating_mal" translatable="false">MyAnimeList</string>
     <string name="rating_imdb" translatable="false">IMDb</string>
     <string name="rating_rotten_tomatoes" translatable="false">Rotten Tomatoes</string>
+    <!-- Settings -->
+    <string name="settings_browsing">Browsing</string>
+    <string name="settings_browsing_intro">What shows up in rows, search and episode lists.</string>
+    <string name="settings_display">Display</string>
+    <string name="settings_display_intro">How the app looks on this TV.</string>
+    <string name="settings_unaired_anime">Anime that haven\'t aired</string>
+    <string name="settings_unaired_anime_help">Shows them in rows and search before their first episode is out.</string>
+    <string name="settings_upcoming_episodes">Upcoming episodes</string>
+    <string name="settings_upcoming_episodes_help">Episode lists include episodes that haven\'t aired yet.</string>
+    <string name="settings_slow_tv">Slow TV mode</string>
+    <string name="settings_slow_tv_help">A lighter look with fewer effects, for TVs that stutter.</string>
+    <string name="settings_shown">Shown</string>
+    <string name="settings_hidden">Hidden</string>
+    <string name="settings_on">On</string>
+    <string name="settings_off">Off</string>
 </resources>
