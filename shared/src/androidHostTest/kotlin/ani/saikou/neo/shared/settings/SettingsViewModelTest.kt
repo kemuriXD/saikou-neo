@@ -4,9 +4,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.job
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -30,10 +31,12 @@ class SettingsViewModelTest {
     @BeforeTest
     fun useTestMain() = Dispatchers.setMain(UnconfinedTestDispatcher())
 
+    // The file's scope ends first, while Main is still the test's: ending it finishes any save a view model is waiting on,
+    // and that save carries on on Main.
     @AfterTest
     fun cleanUp() {
+        runBlocking { scope.coroutineContext.job.cancelAndJoin() }
         Dispatchers.resetMain()
-        scope.cancel()
         folder.deleteRecursively()
     }
 
