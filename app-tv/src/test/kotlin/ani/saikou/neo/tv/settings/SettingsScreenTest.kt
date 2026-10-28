@@ -7,7 +7,6 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -145,83 +144,12 @@ class SettingsScreenTest {
         show()
 
         openFirstSetting()
+        press(Key.DirectionDown)
         back()
 
         assertEquals(emptyList<Pair<Setting, Boolean>>(), chosen)
         panel().assertDoesNotExist()
         setting(Setting.UNAIRED_ANIME).assertIsFocused()
-    }
-
-    // Resting on another choice and pressing Back looks like a change the viewer didn't finish, so the app asks.
-    @Test
-    fun backFromAnotherChoiceAsksWhetherToSaveIt() {
-        show()
-
-        openFirstSetting()
-        press(Key.DirectionDown)
-        back()
-
-        compose.onNodeWithTag(SETTINGS_DIALOG_TAG).assertIsDisplayed()
-        compose.onNodeWithText("Save").assertIsFocused()
-        compose.onNodeWithText("Discard").assertIsDisplayed()
-        assertEquals(emptyList<Pair<Setting, Boolean>>(), chosen)
-    }
-
-    // The same dialog serves every setting, in the middle of the 960 x 540 screen.
-    @Test
-    fun theDialogIsInTheMiddleOfTheScreen() {
-        show()
-
-        openFirstSetting()
-        press(Key.DirectionDown)
-        back()
-
-        val bounds = compose.onNodeWithTag(SETTINGS_DIALOG_TAG).getUnclippedBoundsInRoot()
-        assertEquals(480f, ((bounds.left + bounds.right) / 2).value, 1f)
-        assertEquals(270f, ((bounds.top + bounds.bottom) / 2).value, 1f)
-    }
-
-    @Test
-    fun theDialogCanSaveTheChange() {
-        show()
-
-        openFirstSetting()
-        press(Key.DirectionDown)
-        back()
-        press(Key.DirectionCenter)
-
-        assertEquals(listOf(Setting.UNAIRED_ANIME to true), chosen)
-        compose.onNodeWithTag(SETTINGS_DIALOG_TAG).assertDoesNotExist()
-        panel().assertDoesNotExist()
-        setting(Setting.UNAIRED_ANIME).assertIsFocused()
-    }
-
-    @Test
-    fun theDialogCanKeepTheValue() {
-        show()
-
-        openFirstSetting()
-        press(Key.DirectionDown)
-        back()
-        press(Key.DirectionDown)
-        press(Key.DirectionCenter)
-
-        assertEquals(emptyList<Pair<Setting, Boolean>>(), chosen)
-        panel().assertDoesNotExist()
-        setting(Setting.UNAIRED_ANIME).assertIsFocused()
-    }
-
-    @Test
-    fun backFromTheDialogGoesBackToTheChoices() {
-        show()
-
-        openFirstSetting()
-        press(Key.DirectionDown)
-        back()
-        back()
-
-        compose.onNodeWithTag(SETTINGS_DIALOG_TAG).assertDoesNotExist()
-        choice(Setting.UNAIRED_ANIME, on = true).assertIsFocused()
     }
 
     @Test

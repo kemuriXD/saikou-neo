@@ -2,12 +2,15 @@ package ani.saikou.neo.tv.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
@@ -40,6 +43,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -58,14 +62,11 @@ import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.isOn
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
-import ani.saikou.neo.tv.ui.NeoDialogButton
-import ani.saikou.neo.tv.ui.NeoDialogButtons
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.NeoTopBar
 import ani.saikou.neo.tv.ui.TopTab
 
 internal const val SETTINGS_PANEL_TAG = "settings-panel"
-internal const val SETTINGS_DIALOG_TAG = "settings-dialog"
 
 internal fun settingsCategoryTag(category: SettingsCategory) = "settings-category-${category.name.lowercase()}"
 
@@ -110,13 +111,11 @@ private val ChoiceGap = 4.dp
 private val Radio = 20.dp
 private const val SCRIM_ALPHA = 0.55f
 
+// A category's settings rise this far as they fade in.
+private val CategoryRise = 12.dp
+
 // The panel slides in a quarter of its width as it fades in.
 private const val PANEL_SLIDE_PART = 4
-
-// The dialog is 480 dp wide, as the other dialogs are, in the middle of the screen.
-private val DialogWidth = 480.dp
-private val DialogPadding = 28.dp
-private const val DIALOG_SCRIM_ALPHA = 0.88f
 
 /**
  * Settings: the top bar over categories on the left and the shown one's settings on the right, each with its value.
@@ -163,24 +162,35 @@ fun SettingsScreen(
                 )
             }
         }
-        Column(
-            Modifier
-                .padding(start = SettingsStart, end = dimensions.gridMargin, top = PaneTop)
-                .focusGroup(),
-            verticalArrangement = Arrangement.spacedBy(RowGap),
-        ) {
-            Text(stringResource(shown.title), style = PaneTitle, color = colors.paper)
-            Text(stringResource(shown.intro), style = Help, color = colors.textMuted, modifier = Modifier.padding(bottom = 6.dp))
-            shown.settings.forEach { setting ->
-                SettingRow(
-                    setting,
-                    on = settings.isOn(setting),
-                    onClick = { open = setting },
-                    modifier =
-                        Modifier
-                            .focusRequester(rows.getValue(setting))
-                            .focusProperties { left = categories.getValue(shown) },
-                )
+        // Moving to another category fades its settings in as they rise a little, while the last ones fade out.
+        val rise = with(LocalDensity.current) { CategoryRise.roundToPx() }
+        val change = tween<Float>(dimensions.durationPanelMillis, easing = dimensions.easeStandard)
+        AnimatedContent(
+            targetState = shown,
+            modifier =
+                Modifier
+                    .padding(start = SettingsStart, end = dimensions.gridMargin, top = PaneTop)
+                    .focusGroup(),
+            transitionSpec = {
+                (fadeIn(change) + slideInVertically(tween(dimensions.durationPanelMillis, easing = dimensions.easeStandard)) { rise })
+                    .togetherWith(fadeOut(tween(dimensions.durationPanelMillis / 2)))
+            },
+            label = "category",
+        ) { category ->
+            Column(verticalArrangement = Arrangement.spacedBy(RowGap)) {
+                Text(stringResource(category.title), style = PaneTitle, color = colors.paper)
+                Text(stringResource(category.intro), style = Help, color = colors.textMuted, modifier = Modifier.padding(bottom = 6.dp))
+                category.settings.forEach { setting ->
+                    SettingRow(
+                        setting,
+                        on = settings.isOn(setting),
+                        onClick = { open = setting },
+                        modifier =
+                            Modifier
+                                .focusRequester(rows.getValue(setting))
+                                .focusProperties { left = categories.getValue(category) },
+                    )
+                }
             }
         }
         // The panel fades in with the screen dimming behind it and slides a little way in from the right, and back out.
@@ -319,8 +329,8 @@ private fun SettingRow(
 
 /**
  * A setting's choices in a panel on the right, with focus on the current one. Focus stays in the panel until a choice
- * is selected, which calls [onChoose], or Back calls [onClose]. Back while resting on another choice asks first. Once
- * it isn't [active], as while it slides away, it lets focus and Back go.
+ * is selected, which calls [onChoose], or Back calls [onClose]. Once it isn't [active], as while it slides away, it
+ * lets focus and Back go.
  */
 @Composable
 private fun BoxScope.ChoicesPanel(
@@ -334,13 +344,9 @@ private fun BoxScope.ChoicesPanel(
     val colors = NeoTheme.colors
     val choices = remember { mapOf(false to FocusRequester(), true to FocusRequester()) }
     val text = setting.text()
-    // The choice focus is on, and whether the app is asking about it.
-    var resting by remember { mutableStateOf(on) }
-    var asking by remember { mutableStateOf(false) }
-    // Focus starts on the current choice, and comes back to the one it left when the dialog closes.
-    LaunchedEffect(asking) { if (!asking) choices.getValue(resting).requestFocus() }
+    LaunchedEffect(Unit) { choices.getValue(on).requestFocus() }
     // Ahead of the navigation's own, so Back closes the panel and stays on Settings.
-    BackHandler(enabled = active && !asking) { if (resting == on) onClose() else asking = true }
+    BackHandler(enabled = active, onBack = onClose)
     Box(Modifier.fillMaxSize().background(colors.scrimPlayer.copy(alpha = SCRIM_ALPHA)))
     Column(
         modifier
@@ -350,7 +356,7 @@ private fun BoxScope.ChoicesPanel(
             .width(PanelWidth)
             .background(colors.surface)
             .padding(start = PanelPadding, end = PanelPadding, top = PaneTop)
-            .focusProperties { onExit = { if (active && !asking) cancelFocusChange() } }
+            .focusProperties { onExit = { if (active) cancelFocusChange() } }
             .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(ChoiceGap),
     ) {
@@ -364,53 +370,8 @@ private fun BoxScope.ChoicesPanel(
                 modifier =
                     Modifier
                         .testTag(settingChoiceTag(setting, value))
-                        .focusRequester(choices.getValue(value))
-                        .onFocusChanged { if (it.isFocused) resting = value },
+                        .focusRequester(choices.getValue(value)),
             )
-        }
-    }
-    if (asking && active) {
-        UnsavedDialog(onSave = { onChoose(resting) }, onDiscard = onClose, onDismiss = { asking = false })
-    }
-}
-
-/** Asks whether to save a choice the viewer moved to but didn't select. Back calls [onDismiss], to choose again. */
-@Composable
-private fun BoxScope.UnsavedDialog(
-    onSave: () -> Unit,
-    onDiscard: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val colors = NeoTheme.colors
-    val save = remember { FocusRequester() }
-    LaunchedEffect(Unit) { save.requestFocus() }
-    BackHandler(onBack = onDismiss)
-    Box(Modifier.fillMaxSize().background(colors.ink.copy(alpha = DIALOG_SCRIM_ALPHA)))
-    Column(
-        Modifier
-            .testTag(SETTINGS_DIALOG_TAG)
-            .align(Alignment.Center)
-            .width(DialogWidth)
-            .background(colors.surface, RoundedCornerShape(NeoTheme.dimensions.radiusXl))
-            .padding(DialogPadding)
-            .focusProperties { onExit = { cancelFocusChange() } }
-            .focusGroup(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(
-            stringResource(R.string.settings_unsaved_title),
-            style = NeoTheme.typography.titleLarge.copy(lineHeight = 30.sp),
-            color = colors.paper,
-        )
-        Text(
-            stringResource(R.string.settings_unsaved_body),
-            style = NeoTheme.typography.body,
-            color = colors.textMuted,
-            modifier = Modifier.padding(bottom = 6.dp),
-        )
-        NeoDialogButtons {
-            NeoDialogButton(stringResource(R.string.settings_unsaved_save), onSave, Modifier.focusRequester(save))
-            NeoDialogButton(stringResource(R.string.settings_unsaved_discard), onDiscard)
         }
     }
 }
