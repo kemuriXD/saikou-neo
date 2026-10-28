@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -161,9 +162,23 @@ class SettingsScreenTest {
         back()
 
         compose.onNodeWithTag(SETTINGS_DIALOG_TAG).assertIsDisplayed()
-        compose.onNodeWithText("Change to Shown").assertIsFocused()
-        compose.onNodeWithText("Keep Hidden").assertIsDisplayed()
+        compose.onNodeWithText("Save").assertIsFocused()
+        compose.onNodeWithText("Discard").assertIsDisplayed()
         assertEquals(emptyList<Pair<Setting, Boolean>>(), chosen)
+    }
+
+    // The same dialog serves every setting, in the middle of the 960 x 540 screen.
+    @Test
+    fun theDialogIsInTheMiddleOfTheScreen() {
+        show()
+
+        openFirstSetting()
+        press(Key.DirectionDown)
+        back()
+
+        val bounds = compose.onNodeWithTag(SETTINGS_DIALOG_TAG).getUnclippedBoundsInRoot()
+        assertEquals(480f, ((bounds.left + bounds.right) / 2).value, 1f)
+        assertEquals(270f, ((bounds.top + bounds.bottom) / 2).value, 1f)
     }
 
     @Test

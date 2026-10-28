@@ -113,8 +113,7 @@ private const val SCRIM_ALPHA = 0.55f
 // The panel slides in a quarter of its width as it fades in.
 private const val PANEL_SLIDE_PART = 4
 
-// The dialog is 480 dp wide and 96 dp down, as the other dialogs are.
-private val DialogTop = 96.dp
+// The dialog is 480 dp wide, as the other dialogs are, in the middle of the screen.
 private val DialogWidth = 480.dp
 private val DialogPadding = 28.dp
 private const val DIALOG_SCRIM_ALPHA = 0.88f
@@ -371,37 +370,26 @@ private fun BoxScope.ChoicesPanel(
         }
     }
     if (asking && active) {
-        UnsavedDialog(
-            current = stringResource(text.value(on)),
-            moved = stringResource(text.value(resting)),
-            onChange = { onChoose(resting) },
-            onKeep = onClose,
-            onDismiss = { asking = false },
-        )
+        UnsavedDialog(onSave = { onChoose(resting) }, onDiscard = onClose, onDismiss = { asking = false })
     }
 }
 
-/**
- * Asks whether to save a choice the viewer moved to but didn't select. Back calls [onDismiss], to choose again.
- */
+/** Asks whether to save a choice the viewer moved to but didn't select. Back calls [onDismiss], to choose again. */
 @Composable
 private fun BoxScope.UnsavedDialog(
-    current: String,
-    moved: String,
-    onChange: () -> Unit,
-    onKeep: () -> Unit,
+    onSave: () -> Unit,
+    onDiscard: () -> Unit,
     onDismiss: () -> Unit,
 ) {
     val colors = NeoTheme.colors
-    val change = remember { FocusRequester() }
-    LaunchedEffect(Unit) { change.requestFocus() }
+    val save = remember { FocusRequester() }
+    LaunchedEffect(Unit) { save.requestFocus() }
     BackHandler(onBack = onDismiss)
     Box(Modifier.fillMaxSize().background(colors.ink.copy(alpha = DIALOG_SCRIM_ALPHA)))
     Column(
         Modifier
             .testTag(SETTINGS_DIALOG_TAG)
-            .align(Alignment.TopCenter)
-            .padding(top = DialogTop)
+            .align(Alignment.Center)
             .width(DialogWidth)
             .background(colors.surface, RoundedCornerShape(NeoTheme.dimensions.radiusXl))
             .padding(DialogPadding)
@@ -415,14 +403,14 @@ private fun BoxScope.UnsavedDialog(
             color = colors.paper,
         )
         Text(
-            stringResource(R.string.settings_unsaved_body, moved),
+            stringResource(R.string.settings_unsaved_body),
             style = NeoTheme.typography.body,
             color = colors.textMuted,
             modifier = Modifier.padding(bottom = 6.dp),
         )
         NeoDialogButtons {
-            NeoDialogButton(stringResource(R.string.settings_unsaved_change, moved), onChange, Modifier.focusRequester(change))
-            NeoDialogButton(stringResource(R.string.settings_unsaved_keep, current), onKeep)
+            NeoDialogButton(stringResource(R.string.settings_unsaved_save), onSave, Modifier.focusRequester(save))
+            NeoDialogButton(stringResource(R.string.settings_unsaved_discard), onDiscard)
         }
     }
 }
