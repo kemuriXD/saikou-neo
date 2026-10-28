@@ -2,6 +2,12 @@ package ani.saikou.neo.tv.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
@@ -37,6 +43,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ClickableSurfaceDefaults
@@ -102,6 +109,9 @@ private val ChoicePadding = 16.dp
 private val ChoiceGap = 4.dp
 private val Radio = 20.dp
 private const val SCRIM_ALPHA = 0.55f
+
+// The panel slides in a quarter of its width as it fades in.
+private const val PANEL_SLIDE_PART = 4
 
 // The dialog is 480 dp wide and 96 dp down, as the other dialogs are.
 private val DialogTop = 96.dp
@@ -174,20 +184,35 @@ fun SettingsScreen(
                 )
             }
         }
-        open?.let { setting ->
+        // The panel fades in with the screen dimming behind it and slides a little way in from the right, and back out.
+        // It keeps showing the setting it was opened for while it goes.
+        var panelFor by remember { mutableStateOf(open) }
+        if (open != null) panelFor = open
+        val duration = tween<Float>(dimensions.durationPanelMillis, easing = dimensions.easeStandard)
+        val slide = tween<IntOffset>(dimensions.durationPanelMillis, easing = dimensions.easeStandard)
+        AnimatedVisibility(visible = open != null, modifier = Modifier.fillMaxSize(), enter = fadeIn(duration), exit = fadeOut(duration)) {
+            val setting = panelFor ?: return@AnimatedVisibility
             val close = {
                 open = null
                 closed = setting
             }
-            ChoicesPanel(
-                setting,
-                on = settings.isOn(setting),
-                onChoose = { on ->
-                    onChoose(setting, on)
-                    close()
-                },
-                onClose = close,
-            )
+            Box(Modifier.fillMaxSize()) {
+                ChoicesPanel(
+                    setting,
+                    on = settings.isOn(setting),
+                    active = open != null,
+                    onChoose = { on ->
+                        onChoose(setting, on)
+                        close()
+                    },
+                    onClose = close,
+                    modifier =
+                        Modifier.animateEnterExit(
+                            enter = slideInHorizontally(slide) { it / PANEL_SLIDE_PART },
+                            exit = slideOutHorizontally(slide) { it / PANEL_SLIDE_PART },
+                        ),
+                )
+            }
         }
     }
 }
@@ -295,7 +320,8 @@ private fun SettingRow(
 
 /**
  * A setting's choices in a panel on the right, with focus on the current one. Focus stays in the panel until a choice
- * is selected, which calls [onChoose], or Back calls [onClose]. Back while resting on another choice asks first.
+ * is selected, which calls [onChoose], or Back calls [onClose]. Back while resting on another choice asks first. Once
+ * it isn't [active], as while it slides away, it lets focus and Back go.
  */
 @Composable
 private fun BoxScope.ChoicesPanel(
@@ -303,6 +329,8 @@ private fun BoxScope.ChoicesPanel(
     on: Boolean,
     onChoose: (on: Boolean) -> Unit,
     onClose: () -> Unit,
+    active: Boolean,
+    modifier: Modifier,
 ) {
     val colors = NeoTheme.colors
     val choices = remember { mapOf(false to FocusRequester(), true to FocusRequester()) }
@@ -313,17 +341,17 @@ private fun BoxScope.ChoicesPanel(
     // Focus starts on the current choice, and comes back to the one it left when the dialog closes.
     LaunchedEffect(asking) { if (!asking) choices.getValue(resting).requestFocus() }
     // Ahead of the navigation's own, so Back closes the panel and stays on Settings.
-    BackHandler(enabled = !asking) { if (resting == on) onClose() else asking = true }
+    BackHandler(enabled = active && !asking) { if (resting == on) onClose() else asking = true }
     Box(Modifier.fillMaxSize().background(colors.scrimPlayer.copy(alpha = SCRIM_ALPHA)))
     Column(
-        Modifier
+        modifier
             .testTag(SETTINGS_PANEL_TAG)
             .align(Alignment.CenterEnd)
             .fillMaxHeight()
             .width(PanelWidth)
             .background(colors.surface)
             .padding(start = PanelPadding, end = PanelPadding, top = PaneTop)
-            .focusProperties { onExit = { if (!asking) cancelFocusChange() } }
+            .focusProperties { onExit = { if (active && !asking) cancelFocusChange() } }
             .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(ChoiceGap),
     ) {
@@ -342,7 +370,7 @@ private fun BoxScope.ChoicesPanel(
             )
         }
     }
-    if (asking) {
+    if (asking && active) {
         UnsavedDialog(
             current = stringResource(text.value(on)),
             moved = stringResource(text.value(resting)),

@@ -47,7 +47,13 @@ class NeoThemeTest {
 
         assertEquals(0.dp, light.glowFocus)
         assertEquals(0, light.durationBackdropMillis)
+        assertEquals(0, light.durationPanelMillis)
         assertEquals(NeoDimensions().focusScale, light.focusScale, 0f)
+    }
+
+    @Test
+    fun panelsSlideInQuickly() {
+        assertEquals(250, NeoDimensions().durationPanelMillis)
     }
 
     @Test

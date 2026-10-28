@@ -15,7 +15,7 @@ private val LocalNeoDimensions = staticCompositionLocalOf { NeoDimensions() }
 
 /**
  * Applies the Saikou Neo design system, and maps it onto TV Material so its components match. The [light] look, for
- * slow TVs, has no glow around what's focused, and swaps art and screens without fading them.
+ * slow TVs, has no glow around what's focused, and swaps art, screens and panels without fading them.
  */
 @Composable
 fun NeoTheme(
@@ -24,7 +24,7 @@ fun NeoTheme(
 ) {
     val colors = NeoColors()
     val typography = NeoTypography()
-    val dimensions = if (light) NeoDimensions(glowFocus = 0.dp, durationBackdropMillis = 0) else NeoDimensions()
+    val dimensions = if (light) NeoDimensions(glowFocus = 0.dp, durationBackdropMillis = 0, durationPanelMillis = 0) else NeoDimensions()
     CompositionLocalProvider(
         LocalNeoColors provides colors,
         LocalNeoTypography provides typography,
