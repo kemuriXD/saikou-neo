@@ -125,7 +125,7 @@ class MainActivity : ComponentActivity() {
                             if (tab == TopTab.SETTINGS) {
                                 val settingsScreen = viewModel { SettingsViewModel(app.settingsStore) }
                                 val state by settingsScreen.state.collectAsStateWithLifecycle()
-                                state?.let { SettingsScreen(it, onToggle = settingsScreen::toggle, onTab = openTab) }
+                                state?.let { SettingsScreen(it, onChoose = settingsScreen::choose, onTab = openTab) }
                             } else {
                                 TabPlaceholder(tab, openTab)
                             }

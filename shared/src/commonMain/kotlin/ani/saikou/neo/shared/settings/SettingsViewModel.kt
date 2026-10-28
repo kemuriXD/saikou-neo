@@ -17,11 +17,14 @@ public fun Settings.isOn(setting: Setting): Boolean =
         Setting.SLOW_TV -> slowTv
     }
 
-private fun Settings.toggled(setting: Setting): Settings =
+private fun Settings.with(
+    setting: Setting,
+    on: Boolean,
+): Settings =
     when (setting) {
-        Setting.UNAIRED_ANIME -> copy(showUnairedAnime = !showUnairedAnime)
-        Setting.UPCOMING_EPISODES -> copy(showUpcomingEpisodes = !showUpcomingEpisodes)
-        Setting.SLOW_TV -> copy(slowTv = !slowTv)
+        Setting.UNAIRED_ANIME -> copy(showUnairedAnime = on)
+        Setting.UPCOMING_EPISODES -> copy(showUpcomingEpisodes = on)
+        Setting.SLOW_TV -> copy(slowTv = on)
     }
 
 /** The Settings screen's state: the saved settings, or null until they're read. */
@@ -30,8 +33,11 @@ public class SettingsViewModel(
 ) : ViewModel() {
     public val state: StateFlow<Settings?> = store.settings.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    /** Switches [setting] on or off and saves it. */
-    public fun toggle(setting: Setting) {
-        viewModelScope.launch { store.update { it.toggled(setting) } }
+    /** Sets [setting] [on] or off, as the viewer chose, and saves it. */
+    public fun choose(
+        setting: Setting,
+        on: Boolean,
+    ) {
+        viewModelScope.launch { store.update { it.with(setting, on) } }
     }
 }

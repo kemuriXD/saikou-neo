@@ -5,9 +5,8 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.hasAnyAncestor
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -33,11 +32,13 @@ class SettingsScreenTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private val toggled = mutableListOf<Setting>()
+    private val chosen = mutableListOf<Pair<Setting, Boolean>>()
     private val tabs = mutableListOf<TopTab>()
 
     private fun show(settings: Settings = Settings()) =
-        compose.setContent { NeoTheme { SettingsScreen(settings, onToggle = { toggled += it }, onTab = { tabs += it }) } }
+        compose.setContent {
+            NeoTheme { SettingsScreen(settings, onChoose = { setting, on -> chosen += setting to on }, onTab = { tabs += it }) }
+        }
 
     private fun press(
         key: Key,
@@ -51,17 +52,28 @@ class SettingsScreenTest {
 
     private fun setting(setting: Setting) = compose.onNodeWithTag(settingTag(setting))
 
-    private fun tick(category: SettingsCategory) =
-        compose.onNode(hasTestTag(SETTINGS_TICK_TAG) and hasAnyAncestor(hasTestTag(settingsCategoryTag(category))), useUnmergedTree = true)
+    private fun choice(
+        setting: Setting,
+        on: Boolean,
+    ) = compose.onNodeWithTag(settingChoiceTag(setting, on))
+
+    private fun panel() = compose.onNodeWithTag(SETTINGS_PANEL_TAG)
+
+    // From the bar into Browsing, then Select on its first setting.
+    private fun openFirstSetting() {
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+    }
 
     @Test
-    fun opensOnTheSettingsTabWithBrowsingChosen() {
+    fun opensOnTheSettingsTabWithBrowsingShown() {
         show()
 
         compose.onNodeWithTag(topTabTag(TopTab.SETTINGS)).assertIsFocused().assertIsSelected()
         category(SettingsCategory.BROWSING).assertIsSelected()
-        tick(SettingsCategory.BROWSING).assertExists()
-        tick(SettingsCategory.DISPLAY).assertDoesNotExist()
+        category(SettingsCategory.DISPLAY).assertIsNotSelected()
+        panel().assertDoesNotExist()
     }
 
     @Test
@@ -76,7 +88,7 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun downFromTheBarReachesTheChosenCategory() {
+    fun downFromTheBarReachesTheShownCategory() {
         show()
 
         press(Key.DirectionDown)
@@ -85,30 +97,64 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun focusingACategoryShowsItsSettingsAndMovesTheTick() {
+    fun focusingACategoryShowsItsSettings() {
         show(Settings(slowTv = true))
 
         press(Key.DirectionDown, times = 2)
 
         category(SettingsCategory.DISPLAY).assertIsFocused().assertIsSelected()
-        tick(SettingsCategory.DISPLAY).assertExists()
-        tick(SettingsCategory.BROWSING).assertDoesNotExist()
+        category(SettingsCategory.BROWSING).assertIsNotSelected()
         compose.onNodeWithText("Slow TV mode").assertIsDisplayed()
         compose.onNodeWithText("On").assertIsDisplayed()
         setting(Setting.UNAIRED_ANIME).assertDoesNotExist()
     }
 
     @Test
-    fun selectSwitchesTheFocusedSetting() {
+    fun selectOpensEveryChoiceWithTheCurrentOneMarked() {
         show()
 
-        press(Key.DirectionDown)
-        press(Key.DirectionRight)
-        setting(Setting.UNAIRED_ANIME).assertIsFocused()
+        openFirstSetting()
+
+        panel().assertIsDisplayed()
+        choice(Setting.UNAIRED_ANIME, on = false).assertIsFocused().assertIsSelected()
+        choice(Setting.UNAIRED_ANIME, on = true).assertIsNotSelected()
+    }
+
+    @Test
+    fun selectingAChoiceSetsItAndClosesThePanel() {
+        show()
+
+        openFirstSetting()
         press(Key.DirectionDown)
         press(Key.DirectionCenter)
 
-        assertEquals(listOf(Setting.UPCOMING_EPISODES), toggled)
+        assertEquals(listOf(Setting.UNAIRED_ANIME to true), chosen)
+        panel().assertDoesNotExist()
+        setting(Setting.UNAIRED_ANIME).assertIsFocused()
+    }
+
+    @Test
+    fun backClosesThePanelWithoutChangingAnything() {
+        show()
+
+        openFirstSetting()
+        press(Key.DirectionDown)
+        press(Key.Back)
+
+        assertEquals(emptyList<Pair<Setting, Boolean>>(), chosen)
+        panel().assertDoesNotExist()
+        setting(Setting.UNAIRED_ANIME).assertIsFocused()
+    }
+
+    @Test
+    fun focusStaysInThePanelWhileItsOpen() {
+        show()
+
+        openFirstSetting()
+        press(Key.DirectionLeft)
+        press(Key.DirectionUp)
+
+        choice(Setting.UNAIRED_ANIME, on = false).assertIsFocused()
     }
 
     @Test

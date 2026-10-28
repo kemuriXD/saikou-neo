@@ -51,20 +51,29 @@ class SettingsViewModelTest {
         }
 
     @Test
-    fun togglingASettingSwitchesItAndSavesIt() =
+    fun choosingAValueSetsItAndSavesIt() =
         withinSeconds {
             val viewModel = SettingsViewModel(store)
             viewModel.state.filterNotNull().first()
 
-            viewModel.toggle(Setting.UNAIRED_ANIME)
+            viewModel.choose(Setting.UNAIRED_ANIME, on = true)
 
-            assertTrue(
-                viewModel.state
-                    .filterNotNull()
-                    .first { it.showUnairedAnime }
-                    .showUnairedAnime,
-            )
+            viewModel.state.filterNotNull().first { it.showUnairedAnime }
             assertTrue(store.settings.first().showUnairedAnime)
+        }
+
+    // Picking the value a setting already has leaves it as it is, rather than switching it.
+    @Test
+    fun choosingTheCurrentValueKeepsIt() =
+        withinSeconds {
+            val viewModel = SettingsViewModel(store)
+            viewModel.state.filterNotNull().first()
+
+            viewModel.choose(Setting.UPCOMING_EPISODES, on = true)
+            viewModel.choose(Setting.SLOW_TV, on = true)
+
+            viewModel.state.filterNotNull().first { it.slowTv }
+            assertEquals(Settings(showUpcomingEpisodes = true, slowTv = true), store.settings.first())
         }
 
     @Test

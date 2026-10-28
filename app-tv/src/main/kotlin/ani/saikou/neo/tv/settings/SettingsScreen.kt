@@ -1,13 +1,16 @@
 package ani.saikou.neo.tv.settings
 
 import androidx.annotation.StringRes
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +32,12 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -50,11 +59,16 @@ import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.NeoTopBar
 import ani.saikou.neo.tv.ui.TopTab
 
-internal const val SETTINGS_TICK_TAG = "settings-tick"
+internal const val SETTINGS_PANEL_TAG = "settings-panel"
 
 internal fun settingsCategoryTag(category: SettingsCategory) = "settings-category-${category.name.lowercase()}"
 
 internal fun settingTag(setting: Setting) = "setting-${setting.name.lowercase()}"
+
+internal fun settingChoiceTag(
+    setting: Setting,
+    on: Boolean,
+) = "setting-${setting.name.lowercase()}-${if (on) "on" else "off"}"
 
 /** The groups on the left of Settings, each with a line on what it covers and its settings. */
 enum class SettingsCategory(
@@ -73,33 +87,50 @@ private val SettingsStart = 318.dp
 private val CategoryHeight = 40.dp
 private val CategoryPadding = 14.dp
 private val CategoryGap = 4.dp
-private val Tick = 16.dp
 private val RowHeight = 62.dp
 private val RowPadding = 18.dp
 private val RowGap = 8.dp
+private val Chevron = 16.dp
 private const val ROW_FOCUS_SCALE = 1.025f
 private val SelectedFill = Color.White.copy(alpha = 0.16f)
 private val FocusGlowColor = Color.White.copy(alpha = 0.32f)
 
+// The choices panel is 340 dp wide on the right, over a dimmed screen. Its choices are 48 dp tall with a 20 dp radio.
+private val PanelWidth = 340.dp
+private val PanelPadding = 28.dp
+private val ChoiceHeight = 48.dp
+private val ChoicePadding = 16.dp
+private val ChoiceGap = 4.dp
+private val Radio = 20.dp
+private const val SCRIM_ALPHA = 0.55f
+
 /**
- * Settings: the top bar over categories on the left and the chosen one's settings on the right. Resting on a category
- * shows its settings; Right goes into them and Left comes back. Selecting a setting calls [onToggle].
+ * Settings: the top bar over categories on the left and the shown one's settings on the right, each with its value.
+ * Resting on a category shows its settings; Right goes into them and Left comes back. Selecting a setting opens its
+ * choices in a panel, and selecting one there calls [onChoose].
  */
 @Composable
 fun SettingsScreen(
     settings: Settings,
-    onToggle: (Setting) -> Unit,
+    onChoose: (Setting, on: Boolean) -> Unit,
     onTab: (TopTab) -> Unit,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
-    var chosen by rememberSaveable { mutableStateOf(SettingsCategory.BROWSING) }
+    var shown by rememberSaveable { mutableStateOf(SettingsCategory.BROWSING) }
+    var open by rememberSaveable { mutableStateOf<Setting?>(null) }
+    // The setting whose panel just closed, to take focus back.
+    var closed by remember { mutableStateOf<Setting?>(null) }
     val currentTab = remember { FocusRequester() }
     val categories = remember { SettingsCategory.entries.associateWith { FocusRequester() } }
-    val firstSetting = remember { FocusRequester() }
+    val rows = remember { Setting.entries.associateWith { FocusRequester() } }
     LaunchedEffect(Unit) { currentTab.requestFocus() }
+    LaunchedEffect(closed) {
+        closed?.let { rows.getValue(it).requestFocus() }
+        closed = null
+    }
     Box(Modifier.fillMaxSize().background(colors.ink)) {
-        NeoTopBar(TopTab.SETTINGS, onTab, currentTab = currentTab, down = categories.getValue(chosen))
+        NeoTopBar(TopTab.SETTINGS, onTab, currentTab = currentTab, down = categories.getValue(shown))
         Column(
             Modifier.padding(start = dimensions.gridMargin, top = PaneTop).width(CategoryWidth),
             verticalArrangement = Arrangement.spacedBy(CategoryGap),
@@ -109,12 +140,12 @@ fun SettingsScreen(
             SettingsCategory.entries.forEach { category ->
                 Category(
                     category,
-                    selected = category == chosen,
-                    onFocused = { chosen = category },
+                    selected = category == shown,
+                    onFocused = { shown = category },
                     modifier =
                         Modifier
                             .focusRequester(categories.getValue(category))
-                            .focusProperties { right = firstSetting },
+                            .focusProperties { right = rows.getValue(category.settings.first()) },
                 )
             }
         }
@@ -124,24 +155,34 @@ fun SettingsScreen(
                 .focusGroup(),
             verticalArrangement = Arrangement.spacedBy(RowGap),
         ) {
-            Text(stringResource(chosen.title), style = PaneTitle, color = colors.paper)
-            Text(
-                stringResource(chosen.intro),
-                style = NeoTheme.typography.caption.copy(fontSize = 13.sp, lineHeight = 18.sp),
-                color = colors.textMuted,
-                modifier = Modifier.padding(bottom = 6.dp),
-            )
-            chosen.settings.forEachIndexed { index, setting ->
+            Text(stringResource(shown.title), style = PaneTitle, color = colors.paper)
+            Text(stringResource(shown.intro), style = Help, color = colors.textMuted, modifier = Modifier.padding(bottom = 6.dp))
+            shown.settings.forEach { setting ->
                 SettingRow(
                     setting,
                     on = settings.isOn(setting),
-                    onClick = { onToggle(setting) },
+                    onClick = { open = setting },
                     modifier =
                         Modifier
-                            .then(if (index == 0) Modifier.focusRequester(firstSetting) else Modifier)
-                            .focusProperties { left = categories.getValue(chosen) },
+                            .focusRequester(rows.getValue(setting))
+                            .focusProperties { left = categories.getValue(shown) },
                 )
             }
+        }
+        open?.let { setting ->
+            val close = {
+                open = null
+                closed = setting
+            }
+            ChoicesPanel(
+                setting,
+                on = settings.isOn(setting),
+                onChoose = { on ->
+                    onChoose(setting, on)
+                    close()
+                },
+                onClose = close,
+            )
         }
     }
 }
@@ -149,7 +190,10 @@ fun SettingsScreen(
 private val PaneTitle
     @Composable get() = NeoTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp)
 
-/** A category: a fill and a pink tick when it's the one shown, paper when focused. */
+private val Help
+    @Composable get() = NeoTheme.typography.caption.copy(fontSize = 13.sp, lineHeight = 18.sp)
+
+/** A category: a soft fill when it's the one shown, paper when focused. */
 @Composable
 private fun Category(
     category: SettingsCategory,
@@ -158,7 +202,6 @@ private fun Category(
     modifier: Modifier,
 ) {
     val colors = NeoTheme.colors
-    var focused by remember { mutableStateOf(false) }
     Surface(
         selected = selected,
         onClick = onFocused,
@@ -167,10 +210,7 @@ private fun Category(
                 .testTag(settingsCategoryTag(category))
                 .fillMaxWidth()
                 .height(CategoryHeight)
-                .onFocusChanged {
-                    focused = it.isFocused
-                    if (it.isFocused) onFocused()
-                },
+                .onFocusChanged { if (it.isFocused) onFocused() },
         shape = SelectableSurfaceDefaults.shape(RoundedCornerShape(NeoTheme.dimensions.radiusMd)),
         colors =
             SelectableSurfaceDefaults.colors(
@@ -185,28 +225,16 @@ private fun Category(
             ),
         scale = SelectableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
-        Row(
-            Modifier.fillMaxSize().padding(horizontal = CategoryPadding),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+        Box(Modifier.fillMaxSize().padding(horizontal = CategoryPadding), contentAlignment = Alignment.CenterStart) {
             Text(
                 stringResource(category.title),
                 style = NeoTheme.typography.bodyLarge.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium),
             )
-            if (selected) {
-                Icon(
-                    NeoIcons.Tick,
-                    contentDescription = null,
-                    tint = if (focused) colors.pinkDeep else colors.pink,
-                    modifier = Modifier.size(Tick).testTag(SETTINGS_TICK_TAG),
-                )
-            }
         }
     }
 }
 
-/** A setting: its name with a help line under it, and its value on the right. */
+/** A setting: its name with a help line under it, and its value with an arrow on the right. */
 @Composable
 private fun SettingRow(
     setting: Setting,
@@ -245,16 +273,117 @@ private fun SettingRow(
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(stringResource(text.title), style = NeoTheme.typography.labelLarge)
+                Text(stringResource(text.help), style = Help, color = LocalContentColor.current.copy(alpha = 0.72f))
+            }
+            val value = if (focused) colors.pinkDeep else colors.pink
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    stringResource(text.help),
-                    style = NeoTheme.typography.caption.copy(fontSize = 13.sp, lineHeight = 18.sp),
-                    color = LocalContentColor.current.copy(alpha = 0.72f),
+                    stringResource(text.value(on)),
+                    style = NeoTheme.typography.label.copy(fontWeight = FontWeight.SemiBold),
+                    color = value,
                 )
+                Icon(NeoIcons.Chevron, contentDescription = null, tint = value, modifier = Modifier.size(Chevron))
+            }
+        }
+    }
+}
+
+/**
+ * A setting's choices in a panel on the right, with focus on the current one. Focus stays in the panel until a choice
+ * is selected, which calls [onChoose], or Back calls [onClose].
+ */
+@Composable
+private fun BoxScope.ChoicesPanel(
+    setting: Setting,
+    on: Boolean,
+    onChoose: (on: Boolean) -> Unit,
+    onClose: () -> Unit,
+) {
+    val colors = NeoTheme.colors
+    val current = remember { FocusRequester() }
+    val text = setting.text()
+    LaunchedEffect(Unit) { current.requestFocus() }
+    Box(Modifier.fillMaxSize().background(colors.scrimPlayer.copy(alpha = SCRIM_ALPHA)))
+    Column(
+        Modifier
+            .testTag(SETTINGS_PANEL_TAG)
+            .align(Alignment.CenterEnd)
+            .fillMaxHeight()
+            .width(PanelWidth)
+            .background(colors.surface)
+            .padding(start = PanelPadding, end = PanelPadding, top = PaneTop)
+            .onKeyEvent {
+                if (it.key != Key.Back) return@onKeyEvent false
+                if (it.type == KeyEventType.KeyUp) onClose()
+                true
+            }.focusProperties { onExit = { cancelFocusChange() } }
+            .focusGroup(),
+        verticalArrangement = Arrangement.spacedBy(ChoiceGap),
+    ) {
+        Text(stringResource(text.title), style = PaneTitle, color = colors.paper)
+        Text(stringResource(text.help), style = Help, color = colors.textMuted, modifier = Modifier.padding(top = 4.dp, bottom = 10.dp))
+        listOf(false, true).forEach { value ->
+            Choice(
+                stringResource(text.value(value)),
+                selected = value == on,
+                onClick = { onChoose(value) },
+                modifier =
+                    Modifier
+                        .testTag(settingChoiceTag(setting, value))
+                        .then(if (value == on) Modifier.focusRequester(current) else Modifier),
+            )
+        }
+    }
+}
+
+/** One choice: a radio, filled when it's the current value, and its name. */
+@Composable
+private fun Choice(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    val colors = NeoTheme.colors
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        selected = selected,
+        onClick = onClick,
+        modifier = modifier.fillMaxWidth().height(ChoiceHeight).onFocusChanged { focused = it.isFocused },
+        shape = SelectableSurfaceDefaults.shape(RoundedCornerShape(NeoTheme.dimensions.radiusLg)),
+        colors =
+            SelectableSurfaceDefaults.colors(
+                containerColor = Color.Transparent,
+                contentColor = colors.paper,
+                selectedContainerColor = Color.Transparent,
+                selectedContentColor = colors.paper,
+                focusedContainerColor = colors.focus,
+                focusedContentColor = colors.onFocus,
+                focusedSelectedContainerColor = colors.focus,
+                focusedSelectedContentColor = colors.onFocus,
+            ),
+        scale = SelectableSurfaceDefaults.scale(focusedScale = ROW_FOCUS_SCALE),
+        glow = SelectableSurfaceDefaults.glow(focusedGlow = Glow(FocusGlowColor, NeoTheme.dimensions.glowFocus)),
+    ) {
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = ChoicePadding),
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val ring =
+                when {
+                    selected && focused -> colors.pinkDeep
+                    selected -> colors.pink
+                    focused -> colors.onFocusMuted
+                    else -> colors.textFaint
+                }
+            Canvas(Modifier.size(Radio)) {
+                drawCircle(ring, radius = 8.dp.toPx(), style = Stroke(2.dp.toPx()))
+                if (selected) drawCircle(ring, radius = 4.5.dp.toPx())
             }
             Text(
-                stringResource(if (on) text.on else text.off),
-                style = NeoTheme.typography.label.copy(fontWeight = FontWeight.SemiBold),
-                color = if (focused) colors.pinkDeep else colors.pink,
+                label,
+                style = NeoTheme.typography.bodyLarge.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium),
             )
         }
     }
@@ -265,7 +394,10 @@ private class SettingText(
     @param:StringRes val help: Int,
     @param:StringRes val on: Int,
     @param:StringRes val off: Int,
-)
+) {
+    @StringRes
+    fun value(on: Boolean) = if (on) this.on else off
+}
 
 private fun Setting.text() =
     when (this) {
