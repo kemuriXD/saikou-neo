@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -33,11 +34,6 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -303,6 +299,8 @@ private fun BoxScope.ChoicesPanel(
     val current = remember { FocusRequester() }
     val text = setting.text()
     LaunchedEffect(Unit) { current.requestFocus() }
+    // Ahead of the navigation's own, so Back closes the panel and stays on Settings.
+    BackHandler(onBack = onClose)
     Box(Modifier.fillMaxSize().background(colors.scrimPlayer.copy(alpha = SCRIM_ALPHA)))
     Column(
         Modifier
@@ -312,11 +310,7 @@ private fun BoxScope.ChoicesPanel(
             .width(PanelWidth)
             .background(colors.surface)
             .padding(start = PanelPadding, end = PanelPadding, top = PaneTop)
-            .onKeyEvent {
-                if (it.key != Key.Back) return@onKeyEvent false
-                if (it.type == KeyEventType.KeyUp) onClose()
-                true
-            }.focusProperties { onExit = { cancelFocusChange() } }
+            .focusProperties { onExit = { cancelFocusChange() } }
             .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(ChoiceGap),
     ) {

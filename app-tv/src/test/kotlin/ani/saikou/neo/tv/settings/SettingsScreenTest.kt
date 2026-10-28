@@ -59,6 +59,12 @@ class SettingsScreenTest {
 
     private fun panel() = compose.onNodeWithTag(SETTINGS_PANEL_TAG)
 
+    // The remote's Back reaches the activity's back handlers, as Details and the navigation use, not just the focused key.
+    private fun back() {
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+    }
+
     // From the bar into Browsing, then Select on its first setting.
     private fun openFirstSetting() {
         press(Key.DirectionDown)
@@ -138,8 +144,7 @@ class SettingsScreenTest {
         show()
 
         openFirstSetting()
-        press(Key.DirectionDown)
-        press(Key.Back)
+        back()
 
         assertEquals(emptyList<Pair<Setting, Boolean>>(), chosen)
         panel().assertDoesNotExist()
