@@ -65,9 +65,7 @@ import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.FocusMemory
 import ani.saikou.neo.tv.ui.NeoIcons
-import ani.saikou.neo.tv.ui.NeoTopBar
 import ani.saikou.neo.tv.ui.RememberFocus
-import ani.saikou.neo.tv.ui.TopTab
 import ani.saikou.neo.tv.ui.remembersFocus
 
 internal const val SETTINGS_PANEL_TAG = "settings-panel"
@@ -122,7 +120,7 @@ private val CategoryRise = 12.dp
 private const val PANEL_SLIDE_PART = 4
 
 /**
- * Settings: the top bar over categories on the left and the shown one's settings on the right, each with its value.
+ * Settings: categories on the left and the shown one's settings on the right, each with its value.
  * Resting on a category shows its settings; Right goes into them and Left comes back. Selecting a setting opens its
  * choices in a panel, and selecting one there calls [onChoose].
  */
@@ -130,15 +128,13 @@ private const val PANEL_SLIDE_PART = 4
 fun SettingsScreen(
     settings: Settings,
     onChoose: (Setting, on: Boolean) -> Unit,
-    onTab: (TopTab) -> Unit,
-) = RememberFocus { focus -> SettingsPage(settings, focus, onChoose, onTab) }
+) = RememberFocus { focus -> SettingsPage(settings, focus, onChoose) }
 
 @Composable
 private fun SettingsPage(
     settings: Settings,
     focus: FocusMemory,
     onChoose: (Setting, on: Boolean) -> Unit,
-    onTab: (TopTab) -> Unit,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
@@ -146,21 +142,19 @@ private fun SettingsPage(
     var open by rememberSaveable { mutableStateOf<Setting?>(null) }
     // The setting whose panel just closed, to take focus back.
     var closed by remember { mutableStateOf<Setting?>(null) }
-    val currentTab = remember { FocusRequester() }
     val categories = remember { SettingsCategory.entries.associateWith { FocusRequester() } }
     val rows = remember { Setting.entries.associateWith { FocusRequester() } }
-    LaunchedEffect(Unit) { focus.restoreOr { currentTab.requestFocus() } }
+    LaunchedEffect(Unit) { focus.restoreOr { categories.getValue(shown).requestFocus() } }
     LaunchedEffect(closed) {
         closed?.let { rows.getValue(it).requestFocus() }
         closed = null
     }
     Box(Modifier.fillMaxSize().background(colors.ink)) {
-        NeoTopBar(TopTab.SETTINGS, onTab, currentTab = currentTab, down = categories.getValue(shown))
         Column(
             Modifier.padding(start = dimensions.gridMargin, top = PaneTop).width(CategoryWidth),
             verticalArrangement = Arrangement.spacedBy(CategoryGap),
         ) {
-            Text(stringResource(R.string.tab_settings), style = NeoTheme.typography.headline, color = colors.paper)
+            Text(stringResource(R.string.section_settings), style = NeoTheme.typography.headline, color = colors.paper)
             Spacer(Modifier.height(10.dp - CategoryGap))
             SettingsCategory.entries.forEach { category ->
                 Category(

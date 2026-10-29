@@ -30,8 +30,11 @@ import ani.saikou.neo.tv.home.loaded
 import ani.saikou.neo.tv.home.posterTag
 import ani.saikou.neo.tv.home.seeMoreTag
 import ani.saikou.neo.tv.theme.NeoTheme
-import ani.saikou.neo.tv.ui.TopTab
-import ani.saikou.neo.tv.ui.topTabTag
+import ani.saikou.neo.tv.ui.RAIL_SCRIM_TAG
+import ani.saikou.neo.tv.ui.RAIL_TAG
+import ani.saikou.neo.tv.ui.Section
+import ani.saikou.neo.tv.ui.railTag
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -52,8 +55,8 @@ class NeoNavigationTest {
         restoration.setContent {
             NeoTheme {
                 NeoNavigation(
-                    home = { openDetails, openSeeMore, openTab ->
-                        HomeScreen(loaded, onOpen = openDetails, onSeeMore = openSeeMore, onTab = openTab)
+                    home = { openDetails, openSeeMore ->
+                        HomeScreen(loaded, onOpen = openDetails, onSeeMore = openSeeMore)
                     },
                     seeMore = { row, openDetails ->
                         SeeMoreScreen(row, seeMoreState, openDetails, onLoadMore = {}, onRetry = {})
@@ -238,52 +241,99 @@ class NeoNavigationTest {
         compose.onNodeWithTag(seeMoreTag(HomeRow.TRENDING)).assertIsFocused()
     }
 
-    /** From Play, up to the bar and along it to [tab], and opens it. */
-    private fun openTab(tab: TopTab) {
-        press(Key.DirectionUp)
-        press(Key.DirectionRight, times = tab.ordinal)
+    /** Presses Back on the remote, which the rail sees before Android does. */
+    private fun backKey() = press(Key.Back)
+
+    @Test
+    fun leftFromPlayOpensTheRailOnHome() {
+        show()
+
+        press(Key.DirectionLeft)
+
+        compose.onNodeWithTag(railTag(Section.HOME)).assertIsFocused().assertIsSelected()
+        compose.onNodeWithTag(RAIL_SCRIM_TAG).assertExists()
+    }
+
+    @Test
+    fun leftFromARowsFirstCardOpensTheRail() {
+        show()
+
+        enterRows()
+        press(Key.DirectionLeft)
+
+        compose.onNodeWithTag(railTag(Section.HOME)).assertIsFocused()
+    }
+
+    @Test
+    fun rightClosesTheRailBackToWhereFocusWasNotTheNearestItem() {
+        show()
+
+        press(Key.DirectionLeft)
+        press(Key.DirectionDown, times = 3)
+        press(Key.DirectionRight)
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+        compose.onNodeWithTag(RAIL_SCRIM_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun backClosesTheRailBeforeLeavingTheApp() {
+        show()
+
+        press(Key.DirectionLeft)
+        backKey()
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+        compose.activityRule.scenario.onActivity { assertFalse(it.isFinishing) }
+    }
+
+    /** From Play, left into the rail and along it to [section], and opens it. */
+    private fun openSection(section: Section) {
+        press(Key.DirectionLeft)
+        val steps = section.ordinal - Section.HOME.ordinal
+        press(if (steps < 0) Key.DirectionUp else Key.DirectionDown, times = kotlin.math.abs(steps))
         press(Key.DirectionCenter)
     }
 
     @Test
-    fun choosingATabOpensItWithItsTabFocused() {
+    fun choosingASectionOpensItWithTheRailOnIt() {
         show()
 
-        openTab(TopTab.SEARCH)
+        openSection(Section.SCHEDULE)
 
         compose.onNodeWithText("Coming in a future update.").assertExists()
-        compose.onNodeWithTag(topTabTag(TopTab.SEARCH)).assertIsFocused().assertIsSelected()
+        compose.onNodeWithTag(railTag(Section.SCHEDULE)).assertIsFocused().assertIsSelected()
     }
 
     @Test
-    fun backFromATabReturnsToHome() {
+    fun backFromASectionReturnsToHome() {
         show()
 
-        openTab(TopTab.DISCOVER)
+        openSection(Section.DISCOVER)
         back()
 
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
     }
 
     @Test
-    fun aSecondTabReplacesTheFirst() {
+    fun aSecondSectionReplacesTheFirst() {
         show()
 
-        openTab(TopTab.DISCOVER)
-        press(Key.DirectionRight)
+        openSection(Section.DISCOVER)
+        press(Key.DirectionUp, times = 2)
         press(Key.DirectionCenter)
-        compose.onNodeWithTag(topTabTag(TopTab.SEARCH)).assertIsFocused().assertIsSelected()
+        compose.onNodeWithTag(railTag(Section.SEARCH)).assertIsFocused().assertIsSelected()
         back()
 
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
     }
 
     @Test
-    fun choosingHomeFromATabReturnsHome() {
+    fun choosingHomeFromASectionReturnsHome() {
         show()
 
-        openTab(TopTab.SETTINGS)
-        press(Key.DirectionLeft, times = 3)
+        openSection(Section.LIBRARY)
+        press(Key.DirectionUp, times = 3)
         press(Key.DirectionCenter)
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
         back()
@@ -292,14 +342,47 @@ class NeoNavigationTest {
     }
 
     @Test
-    fun aTabStaysOpenAfterTheAppIsRecreated() {
+    fun aSectionStaysOpenAfterTheAppIsRecreated() {
         show()
 
-        openTab(TopTab.SEARCH)
+        openSection(Section.SEARCH)
         restoration.emulateSavedInstanceStateRestore()
 
-        compose.onNodeWithTag(topTabTag(TopTab.SEARCH)).assertIsSelected()
+        compose.onNodeWithTag(railTag(Section.SEARCH)).assertIsSelected()
         back()
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun seeMoreHasTheRailWithHomeCurrent() {
+        show()
+
+        openTrendingSeeMore()
+        press(Key.DirectionLeft)
+
+        compose.onNodeWithTag(railTag(Section.HOME)).assertIsFocused()
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(posterTag(0)).assertIsFocused()
+    }
+
+    @Test
+    fun choosingASectionFromSeeMoreLeavesIt() {
+        show()
+
+        openTrendingSeeMore()
+        openSection(Section.SEARCH)
+        back()
+
+        compose.onNodeWithTag(seeMoreTag(HomeRow.TRENDING)).assertIsFocused()
+    }
+
+    @Test
+    fun detailsHasNoRail() {
+        show()
+
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithText("Details for 0").assertExists()
+        compose.onNodeWithTag(RAIL_TAG).assertDoesNotExist()
     }
 }

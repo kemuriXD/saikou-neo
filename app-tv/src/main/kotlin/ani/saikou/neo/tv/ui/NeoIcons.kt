@@ -86,6 +86,112 @@ object NeoIcons {
             }
         }
     }
+
+    // The rail's sections.
+
+    val Search: ImageVector by lazy {
+        icon("Search") {
+            stroke(2f) {
+                circle(11f, 11f, 6f)
+                moveTo(16f, 16f)
+                lineTo(20f, 20f)
+            }
+        }
+    }
+
+    val Home: ImageVector by lazy {
+        icon("Home") {
+            stroke(2f) {
+                moveTo(4f, 11f)
+                lineTo(12f, 4f)
+                lineTo(20f, 11f)
+                lineTo(20f, 20f)
+                lineTo(14f, 20f)
+                lineTo(14f, 14f)
+                lineTo(10f, 14f)
+                lineTo(10f, 20f)
+                lineTo(4f, 20f)
+                close()
+            }
+        }
+    }
+
+    val Discover: ImageVector by lazy {
+        icon("Discover") {
+            stroke(2f) {
+                circle(12f, 12f, 9f)
+                moveTo(15.5f, 8.5f)
+                lineTo(13.5f, 13.5f)
+                lineTo(8.5f, 15.5f)
+                lineTo(10.5f, 10.5f)
+                close()
+            }
+        }
+    }
+
+    val Schedule: ImageVector by lazy {
+        icon("Schedule") {
+            stroke(2f) {
+                moveTo(6f, 5f)
+                lineTo(18f, 5f)
+                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, dx1 = 2f, dy1 = 2f)
+                lineTo(20f, 18f)
+                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, dx1 = -2f, dy1 = 2f)
+                lineTo(6f, 20f)
+                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, dx1 = -2f, dy1 = -2f)
+                lineTo(4f, 7f)
+                arcToRelative(2f, 2f, 0f, isMoreThanHalf = false, isPositiveArc = true, dx1 = 2f, dy1 = -2f)
+                close()
+                moveTo(4f, 10f)
+                lineTo(20f, 10f)
+                moveTo(9f, 3f)
+                lineTo(9f, 7f)
+                moveTo(15f, 3f)
+                lineTo(15f, 7f)
+            }
+        }
+    }
+
+    val Library: ImageVector by lazy {
+        icon("Library") {
+            stroke(2f) {
+                moveTo(6f, 4f)
+                lineTo(18f, 4f)
+                lineTo(18f, 20f)
+                lineTo(12f, 16f)
+                lineTo(6f, 20f)
+                close()
+            }
+        }
+    }
+
+    val Settings: ImageVector by lazy {
+        icon("Settings") {
+            stroke(2f) {
+                moveTo(4f, 7f)
+                lineTo(13f, 7f)
+                moveTo(19f, 7f)
+                lineTo(20f, 7f)
+                circle(16f, 7f, 2.5f)
+                moveTo(4f, 17f)
+                lineTo(5f, 17f)
+                moveTo(11f, 17f)
+                lineTo(20f, 17f)
+                circle(8f, 17f, 2.5f)
+            }
+        }
+    }
+}
+
+/** A circle around ([x], [y]), drawn as two half arcs. */
+private fun PathBuilder.circle(
+    x: Float,
+    y: Float,
+    radius: Float,
+) {
+    moveTo(x - radius, y)
+    arcToRelative(radius, radius, 0f, isMoreThanHalf = true, isPositiveArc = true, dx1 = radius * 2, dy1 = 0f)
+    arcToRelative(radius, radius, 0f, isMoreThanHalf = true, isPositiveArc = true, dx1 = -radius * 2, dy1 = 0f)
 }
 
 private fun icon(

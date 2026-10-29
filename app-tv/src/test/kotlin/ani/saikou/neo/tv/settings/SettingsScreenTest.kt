@@ -17,8 +17,6 @@ import androidx.compose.ui.test.pressKey
 import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.tv.theme.NeoTheme
-import ani.saikou.neo.tv.ui.TopTab
-import ani.saikou.neo.tv.ui.topTabTag
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -34,11 +32,10 @@ class SettingsScreenTest {
     val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val chosen = mutableListOf<Pair<Setting, Boolean>>()
-    private val tabs = mutableListOf<TopTab>()
 
     private fun show(settings: Settings = Settings()) =
         compose.setContent {
-            NeoTheme { SettingsScreen(settings, onChoose = { setting, on -> chosen += setting to on }, onTab = { tabs += it }) }
+            NeoTheme { SettingsScreen(settings, onChoose = { setting, on -> chosen += setting to on }) }
         }
 
     private fun press(
@@ -66,19 +63,17 @@ class SettingsScreenTest {
         compose.waitForIdle()
     }
 
-    // From the bar into Browsing, then Select on its first setting.
+    // From Browsing, Select on its first setting.
     private fun openFirstSetting() {
-        press(Key.DirectionDown)
         press(Key.DirectionRight)
         press(Key.DirectionCenter)
     }
 
     @Test
-    fun opensOnTheSettingsTabWithBrowsingShown() {
+    fun opensOnBrowsing() {
         show()
 
-        compose.onNodeWithTag(topTabTag(TopTab.SETTINGS)).assertIsFocused().assertIsSelected()
-        category(SettingsCategory.BROWSING).assertIsSelected()
+        category(SettingsCategory.BROWSING).assertIsFocused().assertIsSelected()
         category(SettingsCategory.DISPLAY).assertIsNotSelected()
         panel().assertDoesNotExist()
     }
@@ -95,19 +90,10 @@ class SettingsScreenTest {
     }
 
     @Test
-    fun downFromTheBarReachesTheShownCategory() {
-        show()
-
-        press(Key.DirectionDown)
-
-        category(SettingsCategory.BROWSING).assertIsFocused()
-    }
-
-    @Test
     fun focusingACategoryShowsItsSettings() {
         show(Settings(slowTv = true))
 
-        press(Key.DirectionDown, times = 2)
+        press(Key.DirectionDown)
 
         category(SettingsCategory.DISPLAY).assertIsFocused().assertIsSelected()
         category(SettingsCategory.BROWSING).assertIsNotSelected()
@@ -168,7 +154,7 @@ class SettingsScreenTest {
     fun leftFromASettingGoesBackToItsCategory() {
         show()
 
-        press(Key.DirectionDown, times = 2)
+        press(Key.DirectionDown)
         press(Key.DirectionRight)
         setting(Setting.SLOW_TV).assertIsFocused()
         press(Key.DirectionLeft)
@@ -176,21 +162,10 @@ class SettingsScreenTest {
         category(SettingsCategory.DISPLAY).assertIsFocused()
     }
 
-    @Test
-    fun upFromTheFirstSettingReachesTheBar() {
-        show()
-
-        press(Key.DirectionDown)
-        press(Key.DirectionRight)
-        press(Key.DirectionUp)
-
-        compose.onNodeWithTag(topTabTag(TopTab.SETTINGS)).assertIsFocused()
-    }
-
     /** Shows Settings, runs [before], then recreates it as after the app was killed. */
     private fun recreate(before: () -> Unit) {
         val restoration = StateRestorationTester(compose)
-        restoration.setContent { NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, onTab = {}) } }
+        restoration.setContent { NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }) } }
         before()
         restoration.emulateSavedInstanceStateRestore()
         compose.waitForIdle()
@@ -199,7 +174,7 @@ class SettingsScreenTest {
     @Test
     fun focusStaysOnASettingAfterRecreation() {
         recreate {
-            press(Key.DirectionDown, times = 2)
+            press(Key.DirectionDown)
             press(Key.DirectionRight)
         }
 
@@ -208,7 +183,7 @@ class SettingsScreenTest {
 
     @Test
     fun focusStaysOnACategoryAfterRecreation() {
-        recreate { press(Key.DirectionDown, times = 2) }
+        recreate { press(Key.DirectionDown) }
 
         category(SettingsCategory.DISPLAY).assertIsFocused()
     }
@@ -221,15 +196,5 @@ class SettingsScreenTest {
         }
 
         choice(Setting.UNAIRED_ANIME, on = false).assertIsFocused()
-    }
-
-    @Test
-    fun theBarOpensOtherTabs() {
-        show()
-
-        press(Key.DirectionLeft)
-        press(Key.DirectionCenter)
-
-        assertEquals(listOf(TopTab.SEARCH), tabs)
     }
 }
