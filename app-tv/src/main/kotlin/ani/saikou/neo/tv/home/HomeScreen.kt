@@ -59,6 +59,7 @@ import ani.saikou.neo.shared.home.HomeState
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.RowState
 import ani.saikou.neo.shared.home.Spotlight
+import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.KeylineScrolling
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -88,6 +89,7 @@ internal fun homeCardTag(
 
 internal val rowTitles =
     mapOf(
+        HomeRow.CONTINUE_WATCHING to R.string.home_row_continue_watching,
         HomeRow.TRENDING to R.string.home_row_trending,
         HomeRow.THIS_SEASON to R.string.home_row_this_season,
         HomeRow.POPULAR to R.string.home_row_popular,
@@ -192,7 +194,13 @@ fun HomeScreen(
     // Behind the rows, the spotlight fades out and TalkBack skips it.
     val hide =
         Modifier.graphicsLayer { alpha = shown }.then(if (inRows) Modifier.semantics { hideFromAccessibility() } else Modifier)
-    val shownRows = HomeRow.entries.filter { state.rows[it].let { rowState -> rowState != null && rowState != RowState.Failed } }
+    // Continue watching is left out with nothing in it.
+    val nothingToContinue = state.rows[HomeRow.CONTINUE_WATCHING] == RowState.Loaded(emptyList())
+    val shownRows =
+        HomeRow.entries.filter {
+            state.rows[it].let { rowState -> rowState != null && rowState != RowState.Failed } &&
+                !(it == HomeRow.CONTINUE_WATCHING && nothingToContinue)
+        }
     // A row that failed after recreation can shift the restored scroll, so bring the target's row on screen first.
     LaunchedEffect(target?.row) {
         val row = target?.row ?: return@LaunchedEffect
@@ -251,6 +259,7 @@ fun HomeScreen(
                         HomeRowSection(
                             row = row,
                             rowState = rowState,
+                            progress = state.progress,
                             listState = rowStates.getValue(row),
                             isFocusedRow = hasFocus && focused?.row == row,
                             initialFocus = target?.takeIf { it.row == row }?.animeId,
@@ -278,6 +287,7 @@ fun HomeScreen(
 private fun HomeRowSection(
     row: HomeRow,
     rowState: RowState,
+    progress: Map<Int, WatchProgress>,
     listState: LazyListState,
     isFocusedRow: Boolean,
     initialFocus: Int?,
@@ -332,20 +342,25 @@ private fun HomeRowSection(
                         .onFocusChanged { if (it.isFocused) onCardFocused(animeId, index) }
                 }
                 itemsIndexed(rowState.items, key = { _, card -> card.id }) { index, card ->
-                    HomeCard(
-                        card = card,
-                        onClick = { onOpen(card.id) },
-                        modifier = Modifier.testTag(homeCardTag(row, index)).rowItem(card.id, index),
-                    )
+                    val cardModifier = Modifier.testTag(homeCardTag(row, index)).rowItem(card.id, index)
+                    val watched = progress[card.id]
+                    if (watched != null) {
+                        ContinueCard(card, watched, onClick = { onOpen(card.id) }, modifier = cardModifier)
+                    } else {
+                        HomeCard(card = card, onClick = { onOpen(card.id) }, modifier = cardModifier)
+                    }
                 }
-                item(key = SEE_MORE) {
-                    Box(Modifier.height(dimensions.cardWideHeight), contentAlignment = Alignment.Center) {
-                        NeoButton(
-                            text = stringResource(R.string.home_see_more),
-                            onClick = onSeeMore,
-                            trailingIcon = NeoIcons.Arrow,
-                            modifier = Modifier.testTag(seeMoreTag(row)).rowItem(SEE_MORE, rowState.items.size),
-                        )
+                // Continue watching is all there is, so it has no See more.
+                if (row != HomeRow.CONTINUE_WATCHING) {
+                    item(key = SEE_MORE) {
+                        Box(Modifier.height(dimensions.cardWideHeight), contentAlignment = Alignment.Center) {
+                            NeoButton(
+                                text = stringResource(R.string.home_see_more),
+                                onClick = onSeeMore,
+                                trailingIcon = NeoIcons.Arrow,
+                                modifier = Modifier.testTag(seeMoreTag(row)).rowItem(SEE_MORE, rowState.items.size),
+                            )
+                        }
                     }
                 }
             }

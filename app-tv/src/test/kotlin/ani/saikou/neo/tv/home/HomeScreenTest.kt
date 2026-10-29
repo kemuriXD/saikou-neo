@@ -485,6 +485,56 @@ class HomeScreenTest {
     }
 
     @Test
+    fun continueWatchingShowsTheEpisodeTheTitleAndTimeLeft() {
+        show(continuing)
+
+        compose.onNodeWithText("Continue watching").assertExists()
+        compose.onNodeWithText("Show 900").assertExists()
+        compose.onNodeWithText("E7 · 14 min left").assertExists()
+        // The large number behind the title is only decoration.
+        compose.onNodeWithText("07", useUnmergedTree = true).assert(hidden)
+    }
+
+    @Test
+    fun continueWatchingIsLeftOutWithNothingToContinue() {
+        show()
+
+        compose.onNodeWithText("Continue watching").assertDoesNotExist()
+        compose.onNodeWithText("Trending").assertExists()
+    }
+
+    @Test
+    fun downFromTheDotsGoesToContinueWatching() {
+        show(continuing)
+
+        enterRows()
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.CONTINUE_WATCHING, 0)).assertIsFocused()
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 0)).assertIsFocused()
+    }
+
+    @Test
+    fun continueWatchingHasNoSeeMore() {
+        show(continuing)
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.CONTINUE_WATCHING, 2)).assertExists()
+        compose.onNodeWithTag(seeMoreTag(HomeRow.CONTINUE_WATCHING)).assertDoesNotExist()
+    }
+
+    @Test
+    fun aContinueWatchingCardKeepsFocusWhenHomeIsRecreated() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { NeoTheme { HomeScreen(continuing) } }
+        enterRows()
+        press(Key.DirectionRight)
+
+        restoration.emulateSavedInstanceStateRestore()
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.CONTINUE_WATCHING, 1)).assertIsFocused()
+    }
+
+    @Test
     fun focusWaitsForTheSpotlightEvenIfARowLoadsFirst() {
         var state by mutableStateOf(HomeState(loaded.rows + (HomeRow.TRENDING to RowState.Loading)))
         compose.setContent { NeoTheme { HomeScreen(state) } }

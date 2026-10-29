@@ -26,13 +26,12 @@ fun MacrobenchmarkScope.coldStartFromHome() {
     waitForHome()
 }
 
-/** Waits until Trending's first card is on screen. */
-fun MacrobenchmarkScope.waitForHome() = waitFor("trending-card-0")
+/** Waits until the spotlight's Play button has focus. Trending may still be below the screen. */
+fun MacrobenchmarkScope.waitForHome() = waitFor("spotlight-play", focused = true)
 
-/** From the spotlight's Play button, down past its dots to Trending's first card. */
+/** From the spotlight's Play button, down past its dots and the alpha build's Continue watching to Trending's first card. */
 fun MacrobenchmarkScope.enterTrending() {
-    repeat(2) { press { device.pressDPadDown() } }
-    waitFor("trending-card-0", focused = true)
+    pressUntilFocused("trending-card-0") { device.pressDPadDown() }
 }
 
 /** Moves focus along a row and back, as the remote would. */

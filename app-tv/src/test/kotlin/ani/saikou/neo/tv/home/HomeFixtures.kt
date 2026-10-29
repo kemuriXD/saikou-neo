@@ -8,11 +8,17 @@ import ani.saikou.neo.shared.home.HomeState
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.RowState
 import ani.saikou.neo.shared.home.Spotlight
+import ani.saikou.neo.shared.home.WatchProgress
+import kotlin.time.Duration.Companion.minutes
 
-private val rows = HomeRow.entries.associateWith { row -> RowState.Loaded(List(12) { card(row.ordinal * 100 + it) }) }
+private val aniListRows = HomeRow.entries - HomeRow.CONTINUE_WATCHING
+private val rows =
+    mapOf(HomeRow.CONTINUE_WATCHING to RowState.Loaded(emptyList())) +
+        aniListRows.associateWith { row -> RowState.Loaded(List(12) { card(aniListRows.indexOf(row) * 100 + it) }) }
 
 /**
- * Every row loaded with 12 cards. A card's id is its row's ordinal times 100, plus its index.
+ * Nothing to continue, and every AniList row loaded with 12 cards. A card's id is its row's place among them times 100,
+ * plus its index.
  * The spotlight features the first six trending shows, none with a logo.
  */
 internal val loaded =
@@ -29,6 +35,13 @@ internal val loaded =
                         },
                 )
             },
+    )
+
+/** [loaded], with three shows to continue: ids 900 to 902, on episodes 7 to 9, each 10 of 24 minutes in. */
+internal val continuing =
+    loaded.copy(
+        rows = loaded.rows + (HomeRow.CONTINUE_WATCHING to RowState.Loaded(List(3) { card(900 + it) })),
+        progress = List(3) { 900 + it to WatchProgress(7 + it, 10.minutes, 24.minutes, still = null) }.toMap(),
     )
 
 internal fun card(id: Int) =
