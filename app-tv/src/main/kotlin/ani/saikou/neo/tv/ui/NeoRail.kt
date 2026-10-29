@@ -48,6 +48,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
@@ -153,7 +154,7 @@ fun NeoRail(
             )
             Box(
                 Modifier
-                    .offset(x = width)
+                    .offset { IntOffset(width.roundToPx(), 0) }
                     .width(ShadowWidth)
                     .fillMaxHeight()
                     .alpha(opened)
