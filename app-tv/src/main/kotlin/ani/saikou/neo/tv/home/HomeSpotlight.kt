@@ -68,6 +68,7 @@ internal const val SPOTLIGHT_SYNOPSIS_TAG = "spotlight-synopsis"
 // From the design: dots are 6 dp, the current one 18 dp wide.
 
 // The design puts the buttons 8 dp further down than the 10 dp between lines of text.
+// While loading, still bars stand in for the text: the design's eyebrow, logo, meta line and two lines of story.
 private val ButtonsGap = 18.dp
 private val Dot = 6.dp
 private val CurrentDot = 18.dp
@@ -75,7 +76,9 @@ private val DotGap = 7.dp
 private const val OTHER_DOT_ALPHA = 0.45f
 private const val SYNOPSIS_ALPHA = 0.78f
 
-private const val SYNOPSIS_LINES = 3
+private const val SYNOPSIS_LINES = 2
+private val PlaceholderBars = listOf(150.dp to 14.dp, 400.dp to 64.dp, 260.dp to 18.dp, 420.dp to 16.dp, 340.dp to 16.dp)
+private val PlaceholderDots = listOf(CurrentDot, Dot, Dot, Dot)
 
 // Logos are preloaded with the shows' art, but a slow one gets this long before the title shows in words instead.
 private const val LOGO_WAIT_MILLIS = 1_000L
@@ -87,17 +90,18 @@ private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHei
 /**
  * The featured show's title, details and actions. The text sits on the buttons and fades from one show to the next,
  * while the buttons stay put, so focus never moves under the viewer. Down from any button goes to the dots.
+ * Until [spotlight] arrives, still bars hold the text's place and Play waits for the show.
  */
 @Composable
 internal fun SpotlightShow(
-    spotlight: Spotlight,
+    spotlight: Spotlight?,
     play: FocusRequester,
     dots: FocusRequester,
     onOpen: (animeId: Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val show = spotlight.show
-    val toDots = Modifier.focusProperties { down = dots }
+    val show = spotlight?.show
+    val toDots = if (spotlight != null) Modifier.focusProperties { down = dots } else Modifier
     val dimensions = NeoTheme.dimensions
     Column(modifier.testTag(SPOTLIGHT_TAG)) {
         // The old text fades out before the new fades in, as overlapping lines of text are hard to read.
@@ -108,6 +112,12 @@ internal fun SpotlightShow(
             transitionSpec = { fadeIn(tween(half, delayMillis = half)) togetherWith fadeOut(tween(half)) using null },
             label = "show",
         ) { shown ->
+            if (spotlight == null || shown == null) {
+                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(12.dp, Alignment.Bottom)) {
+                    PlaceholderBars.forEach { (width, height) -> Skeleton(width, height) }
+                }
+                return@AnimatedContent
+            }
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)) {
                 SpotlightTitle(shown.displayTitle(), spotlight.logo(shown.id))
                 Text(
@@ -132,13 +142,15 @@ internal fun SpotlightShow(
         NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
             NeoButton(
                 text = stringResource(R.string.home_play),
-                onClick = { onOpen(show.id) },
+                onClick = { show?.let { onOpen(it.id) } },
                 icon = NeoIcons.Play,
                 modifier = toDots.focusRequester(play).testTag(SPOTLIGHT_PLAY_TAG),
             )
-            // Lists arrive with AniList sign-in, so this does nothing yet.
-            NeoIconButton(NeoIcons.Add, stringResource(R.string.home_add_to_list), onClick = {}, modifier = toDots)
-            NeoIconButton(NeoIcons.Info, stringResource(R.string.home_details), onClick = { onOpen(show.id) }, modifier = toDots)
+            if (show != null) {
+                // Lists arrive with AniList sign-in, so this does nothing yet.
+                NeoIconButton(NeoIcons.Add, stringResource(R.string.home_add_to_list), onClick = {}, modifier = toDots)
+                NeoIconButton(NeoIcons.Info, stringResource(R.string.home_details), onClick = { onOpen(show.id) }, modifier = toDots)
+            }
         }
     }
 }
@@ -166,6 +178,14 @@ private fun SpotlightTitle(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.testTag(SPOTLIGHT_TITLE_TAG),
         )
+    }
+}
+
+/** Still dots in the dots' place while the spotlight loads. */
+@Composable
+internal fun SpotlightDotsPlaceholder(modifier: Modifier = Modifier) {
+    Row(modifier.padding(horizontal = 14.dp, vertical = 9.dp), horizontalArrangement = Arrangement.spacedBy(DotGap)) {
+        PlaceholderDots.forEach { width -> Box(Modifier.size(width, Dot).background(NeoTheme.colors.line, RoundedCornerShape(Dot / 2))) }
     }
 }
 

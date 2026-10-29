@@ -81,7 +81,7 @@ class HomeScreenTest {
     }
 
     /**
-     * [loaded], with a story for the first show far longer than three lines. Robolectric barely measures text, so long
+     * [loaded], with a story for the first show far longer than two lines. Robolectric barely measures text, so long
      * lines don't wrap; the story is six short lines instead.
      */
     private fun withStory() =
@@ -132,12 +132,23 @@ class HomeScreenTest {
             .assertTextEquals("Show 0")
             .assertLeftPositionInRootIsEqualTo(96.dp)
             .assertHeightIsEqualTo(38.dp)
-        // The buttons end 16 dp above the dots, and the text sits on top of them.
-        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertLeftPositionInRootIsEqualTo(96.dp).assertTopPositionInRootIsEqualTo(328.dp)
+        // The buttons end 24 dp above the dots, and the text sits on top of them.
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertLeftPositionInRootIsEqualTo(96.dp).assertTopPositionInRootIsEqualTo(276.dp)
         compose.onNodeWithContentDescription("Add to list").assertWidthIsEqualTo(44.dp)
         compose.onNodeWithContentDescription("Details").assertWidthIsEqualTo(44.dp)
-        compose.onNodeWithTag(SPOTLIGHT_DOTS_TAG).assertTopPositionInRootIsEqualTo(388.dp)
-        compose.onNodeWithText("Trending").assertTopPositionInRootIsEqualTo(420.dp)
+        compose.onNodeWithTag(SPOTLIGHT_DOTS_TAG).assertTopPositionInRootIsEqualTo(344.dp)
+        compose.onNodeWithText("Trending").assertTopPositionInRootIsEqualTo(382.dp)
+    }
+
+    @Test
+    fun theFirstRowsCardsFitWholeUnderTheSpotlight() {
+        show(continuing)
+
+        // 382 + 34 + 110 = 526, inside the 540 dp screen.
+        compose
+            .onNodeWithTag(homeCardTag(HomeRow.CONTINUE_WATCHING, 1))
+            .assertTopPositionInRootIsEqualTo(416.dp)
+            .assertHeightIsEqualTo(110.dp)
     }
 
     @Test
@@ -234,31 +245,31 @@ class HomeScreenTest {
     fun forgetImages() = forgetFakeImages()
 
     @Test
-    fun theStoryTakesThreeLinesUnderTheDetails() {
+    fun theStoryTakesTwoLinesUnderTheDetails() {
         show(withStory())
 
-        // Three 22 dp lines, cut short with an ellipsis.
-        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(66.dp)
+        // Two 22 dp lines, cut short with an ellipsis.
+        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(44.dp)
     }
 
     @Test
-    fun aLogoStillLeavesThreeLinesForTheStory() {
+    fun aLogoStillLeavesTwoLinesForTheStory() {
         // A logo that's still loading keeps its full 80 dp box.
         val spotlight = withStory().spotlight!!
         show(loaded.copy(spotlight = spotlight.copy(logos = spotlight.logos + (0 to Logo.Loading))))
 
-        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(66.dp)
+        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(44.dp)
     }
 
     @Test
-    fun aTitleOnTwoLinesStillLeavesThreeLinesForTheStory() {
+    fun aTitleOnTwoLinesStillLeavesTwoLinesForTheStory() {
         val long = loaded.spotlight!!.shows[0].let { it.copy(title = it.title.copy(english = "A title on\ntwo lines")) }
         val spotlight = withStory().spotlight!!
         show(loaded.copy(spotlight = spotlight.copy(shows = listOf(long) + spotlight.shows.drop(1))))
 
         compose.onNodeWithTag(SPOTLIGHT_TITLE_TAG).assertHeightIsEqualTo(76.dp)
-        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(66.dp)
-        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertTopPositionInRootIsEqualTo(328.dp)
+        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(44.dp)
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertTopPositionInRootIsEqualTo(276.dp)
     }
 
     // Coil skips its own crossfade for art already in memory, which preloaded art always is.
@@ -294,7 +305,7 @@ class HomeScreenTest {
         compose.onAllNodesWithTag(SPOTLIGHT_TITLE_TAG).assertCountEquals(2)
         compose.mainClock.advanceTimeBy(1_000)
         compose.onNodeWithTag(SPOTLIGHT_TITLE_TAG).assertTextEquals("Show 1")
-        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused().assertTopPositionInRootIsEqualTo(328.dp)
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused().assertTopPositionInRootIsEqualTo(276.dp)
     }
 
     @Test
@@ -371,7 +382,7 @@ class HomeScreenTest {
 
         compose.onNodeWithTag(SPOTLIGHT_DOTS_TAG).assertIsFocused()
         compose.onNodeWithTag(SPOTLIGHT_TAG).assert(!hidden)
-        compose.onNodeWithText("Trending").assertTopPositionInRootIsEqualTo(420.dp)
+        compose.onNodeWithText("Trending").assertTopPositionInRootIsEqualTo(382.dp)
         press(Key.DirectionUp)
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
     }
@@ -535,21 +546,41 @@ class HomeScreenTest {
     }
 
     @Test
-    fun focusWaitsForTheSpotlightEvenIfARowLoadsFirst() {
-        var state by mutableStateOf(HomeState(loaded.rows + (HomeRow.TRENDING to RowState.Loading)))
-        compose.setContent { NeoTheme { HomeScreen(state) } }
+    fun playIsReadyWhileHomeLoads() {
+        show(HomeState(HomeRow.entries.associateWith { RowState.Loading }))
 
-        compose.onAllNodes(isFocused()).assertCountEquals(0)
-
-        state = loaded
+        // In the same place as once the show is in, with only Play to press.
+        compose
+            .onNodeWithTag(SPOTLIGHT_PLAY_TAG)
+            .assertIsFocused()
+            .assertTextEquals("Play")
+            .assertTopPositionInRootIsEqualTo(276.dp)
+        compose.onNodeWithContentDescription("Details").assertDoesNotExist()
+        compose.onNodeWithText("Continue watching").assertTopPositionInRootIsEqualTo(382.dp)
+        press(Key.DirectionDown)
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
     }
 
     @Test
-    fun withNoSpotlightFocusStartsOnTheFirstCard() {
+    fun playOpensTheShowOnceItArrives() {
+        val opened = mutableListOf<Int>()
+        var state by mutableStateOf(HomeState(loaded.rows + (HomeRow.TRENDING to RowState.Loading)))
+        compose.setContent { NeoTheme { HomeScreen(state, onOpen = { opened += it }) } }
+
+        press(Key.DirectionCenter)
+        state = loaded
+        compose.waitForIdle()
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+        assertEquals(listOf(0), opened)
+    }
+
+    @Test
+    fun withNoSpotlightPlayKeepsFocus() {
         show(loaded.copy(spotlight = null))
 
-        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 0)).assertIsFocused()
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
     }
 
     @Test

@@ -95,19 +95,19 @@ internal val rowTitles =
         HomeRow.POPULAR to R.string.home_row_popular,
     )
 
-// From the design: the spotlight's dots sit at 388 dp and the rows at 420 dp. Once focus is in the rows they move up
-// so the first heading is at 30 dp, and three whole rows fill the screen. The spotlight may reach up to 120 dp, room
-// for an 80 dp logo, the meta line, three lines of story and the buttons.
-private val SpotlightTop = 120.dp
+// From the design: the spotlight's dots sit at 344 dp and the rows at 382 dp, so the first row's cards fit whole under
+// it. Once focus is in the rows they move up so the first heading is at 30 dp, and three whole rows fill the screen.
+// The spotlight may reach up to 76 dp, room for an 80 dp logo, the meta line, two lines of story and the buttons.
+private val SpotlightTop = 76.dp
 
-// The spotlight's buttons end 16 dp above the dots, with its text stacked on top of them.
-private val SpotlightBottom = 372.dp
+// The spotlight's buttons end 24 dp above the dots, with its text stacked on top of them.
+private val SpotlightBottom = 320.dp
 
 // Content starts 24 dp clear of the closed rail.
 private val ContentStart = RailWidth + 24.dp
 private val SpotlightWidth = 440.dp
-private val DotsTop = 388.dp
-private val RowsTop = 420.dp
+private val DotsTop = 344.dp
+private val RowsTop = 382.dp
 private val BrowseTop = 30.dp
 
 // How dark the art gets behind the rows.
@@ -169,9 +169,9 @@ fun HomeScreen(
     val spotlight = state.spotlight
     val play = remember { FocusRequester() }
     val dots = remember { FocusRequester() }
-    // Where focus goes when nothing has it yet: the spotlight's Play button, or the saved card if focus was in the rows.
-    // Null while what it belongs in is still loading.
-    val focusPlay = !hasFocus && focused == null && spotlight != null
+    // Where focus goes when nothing has it yet: the spotlight's Play button, there even while loading, or the saved card
+    // if focus was in the rows. Null while the saved card's row is still loading.
+    val focusPlay = !hasFocus && focused == null
     val target = if (hasFocus || focusPlay) null else state.focusTarget(focused)
     if (focusPlay) LaunchedEffect(Unit) { play.requestFocus() }
     val inRows = focused != null
@@ -223,13 +223,15 @@ fun HomeScreen(
                 Modifier
                     .padding(start = ContentStart, top = SpotlightTop)
                     .size(SpotlightWidth, SpotlightBottom - SpotlightTop)
+            SpotlightShow(spotlight, play, dots, onOpen, place.then(hide))
+            // Centred beside the rail, as in the design.
+            val dotsPlace = Modifier.align(Alignment.TopCenter).padding(start = RailWidth, top = DotsTop)
             if (spotlight == null) {
-                SpotlightSkeleton(place)
+                SpotlightDotsPlaceholder(dotsPlace)
             } else {
                 PreloadSpotlight(spotlight)
                 PreloadLogo(state.restingLogo)
-                SpotlightShow(spotlight, play, dots, onOpen, place.then(hide))
-                SpotlightDots(spotlight, dots, play, onPick, Modifier.align(Alignment.TopCenter).padding(top = DotsTop).then(hide))
+                SpotlightDots(spotlight, dots, play, onPick, dotsPlace.then(hide))
             }
         }
         // Scrolls only to show the focused row whole. The list keeps its size and is moved down under the spotlight,
@@ -389,15 +391,6 @@ internal fun Skeleton(
     modifier: Modifier = Modifier,
     radius: Dp = 6.dp,
 ) = Box(modifier.size(width, height).background(NeoTheme.colors.surfaceRaised, RoundedCornerShape(radius)))
-
-/** In the spotlight's place while the rows it comes from load. */
-@Composable
-private fun SpotlightSkeleton(modifier: Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Skeleton(300.dp, 56.dp, radius = NeoTheme.dimensions.radiusSm)
-        Skeleton(200.dp, 16.dp)
-    }
-}
 
 /** Starts loading every featured show's art and logo, so each fades in as soon as the spotlight moves on. */
 @Composable
