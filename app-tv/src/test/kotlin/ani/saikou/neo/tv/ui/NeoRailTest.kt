@@ -100,13 +100,19 @@ class NeoRailTest {
     fun theSectionsSitCentredBetweenTheLogoAndTheProfile() {
         show()
 
-        val logo = compose.onNodeWithTag(RAIL_LOGO_TAG, useUnmergedTree = true).assertWidthIsEqualTo(36.dp).getUnclippedBoundsInRoot()
+        // The logo's box is just its artwork, which is wider than it is tall, so its height matches the picture's.
+        val logo =
+            compose
+                .onNodeWithTag(RAIL_LOGO_TAG, useUnmergedTree = true)
+                .assertHeightIsEqualTo(36.dp)
+                .assertWidthIsEqualTo((36f * 246 / 228).dp)
+                .getUnclippedBoundsInRoot()
         val avatar = compose.onNodeWithTag(RAIL_AVATAR_TAG, useUnmergedTree = true).getUnclippedBoundsInRoot()
-        assertEquals(logo.left, avatar.left)
-        assertEquals(logo.top, 540.dp - avatar.bottom)
+        assertEquals(((logo.left + logo.right) / 2).value, ((avatar.left + avatar.right) / 2).value, 0.5f)
+        assertEquals(logo.top.value, (540.dp - avatar.bottom).value, 0.5f)
         val above = item(Section.SEARCH).getUnclippedBoundsInRoot().top - logo.bottom
         val below = avatar.top - item(Section.SETTINGS).getUnclippedBoundsInRoot().bottom
-        assertEquals(above.value, below.value, 1f)
+        assertEquals(above.value, below.value, 0.5f)
     }
 
     @Test

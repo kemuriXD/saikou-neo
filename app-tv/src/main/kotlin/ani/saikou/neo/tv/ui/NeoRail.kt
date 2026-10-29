@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -102,6 +103,9 @@ private val ItemPadding = 12.dp
 private val LabelGap = 14.dp
 private val PictureSize = 36.dp
 private val PicturePadding = 4.dp
+
+// The logo's artwork is 246 wide by 228 tall.
+private const val LOGO_ASPECT = 246f / 228f
 private val MarkWidth = 4.dp
 private val MarkHeight = 12.dp
 private val DotSize = 6.dp
@@ -179,16 +183,19 @@ fun NeoRail(
                 .focusGroup()
                 .padding(horizontal = RailPaddingX, vertical = dimensions.safeY),
         ) {
+            // The logo is as tall as the picture and centred over it, so the gaps either side of the sections match.
             Row(
-                Modifier.height(ItemHeight).padding(start = PicturePadding),
-                horizontalArrangement = Arrangement.spacedBy(LabelGap),
+                Modifier.height(ItemHeight),
+                horizontalArrangement = Arrangement.spacedBy(LabelGap - PicturePadding),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Image(
-                    painterResource(R.drawable.saikou_neo_symbol),
-                    contentDescription = null,
-                    modifier = Modifier.testTag(RAIL_LOGO_TAG).size(PictureSize),
-                )
+                Box(Modifier.size(ItemHeight), contentAlignment = Alignment.Center) {
+                    Image(
+                        painterResource(R.drawable.saikou_neo_symbol),
+                        contentDescription = null,
+                        modifier = Modifier.testTag(RAIL_LOGO_TAG).height(PictureSize).aspectRatio(LOGO_ASPECT),
+                    )
+                }
                 if (open) {
                     Text(
                         stringResource(R.string.app_name),
