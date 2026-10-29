@@ -19,6 +19,7 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -507,6 +508,13 @@ class HomeScreenTest {
     }
 
     @Test
+    fun aShowYouAreWatchingKeepsItsUsualCardInOtherRows() {
+        show(continuing.copy(progress = continuing.progress + (0 to continuing.progress.getValue(900))))
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 0)).assert(hasText("TV · 2026 · 12 episodes"))
+    }
+
+    @Test
     fun continueWatchingIsLeftOutWithNothingToContinue() {
         show()
 
@@ -574,6 +582,33 @@ class HomeScreenTest {
 
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
         assertEquals(listOf(0), opened)
+    }
+
+    @Test
+    fun playKeepsFocusUntilTheSpotlightArrivesEvenIfLowerRowsLoadFirst() {
+        show(HomeState(loaded.rows + (HomeRow.TRENDING to RowState.Loading)))
+
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun rightOnTheDetailsButtonKeepsFocusOnIt() {
+        show()
+
+        press(Key.DirectionRight, times = 3)
+
+        compose.onNodeWithContentDescription("Details").assertIsFocused()
+    }
+
+    @Test
+    fun theMetaLineStartsWithTheRating() {
+        val spotlight = loaded.spotlight!!
+        show(loaded.copy(spotlight = spotlight.copy(shows = listOf(spotlight.show.copy(averageScore = 84)) + spotlight.shows.drop(1))))
+
+        compose.onNodeWithTag(SPOTLIGHT_META_TAG).assertTextEquals("★ 8.4 · TV · 2026 · 12 episodes")
     }
 
     @Test

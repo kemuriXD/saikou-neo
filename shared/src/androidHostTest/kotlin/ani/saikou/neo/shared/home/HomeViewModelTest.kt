@@ -99,6 +99,15 @@ class HomeViewModelTest {
         }
 
     @Test
+    fun continueWatchingIsEmptyWhenEveryRowFailsWithSamples() =
+        runTest(main) {
+            val viewModel = homeViewModel(OfflineEngine, sampleProgress = true)
+
+            assertEquals(RowState.Loaded(emptyList()), viewModel.settledRows()[HomeRow.CONTINUE_WATCHING])
+            assertEquals(emptyMap(), viewModel.state.value.progress)
+        }
+
+    @Test
     fun loadsTheRowsInOrder() =
         runTest(main) {
             val viewModel = homeViewModel()

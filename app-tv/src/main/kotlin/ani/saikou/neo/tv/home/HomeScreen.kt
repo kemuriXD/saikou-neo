@@ -345,7 +345,7 @@ private fun HomeRowSection(
                 }
                 itemsIndexed(rowState.items, key = { _, card -> card.id }) { index, card ->
                     val cardModifier = Modifier.testTag(homeCardTag(row, index)).rowItem(card.id, index)
-                    val watched = progress[card.id]
+                    val watched = progress[card.id]?.takeIf { row == HomeRow.CONTINUE_WATCHING }
                     if (watched != null) {
                         ContinueCard(card, watched, onClick = { onOpen(card.id) }, modifier = cardModifier)
                     } else {

@@ -44,6 +44,7 @@ import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.Spotlight
 import ani.saikou.neo.tv.R
@@ -101,7 +102,12 @@ internal fun SpotlightShow(
     modifier: Modifier = Modifier,
 ) {
     val show = spotlight?.show
-    val toDots = if (spotlight != null) Modifier.focusProperties { down = dots } else Modifier
+    // Until the show is in, Play keeps focus, even if rows below have loaded.
+    val toDots =
+        Modifier.focusProperties {
+            down = if (spotlight != null) dots else FocusRequester.Cancel
+            if (spotlight == null) right = FocusRequester.Cancel
+        }
     val dimensions = NeoTheme.dimensions
     Column(modifier.testTag(SPOTLIGHT_TAG)) {
         // The old text fades out before the new fades in, as overlapping lines of text are hard to read.
@@ -121,7 +127,7 @@ internal fun SpotlightShow(
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)) {
                 SpotlightTitle(shown.displayTitle(), spotlight.logo(shown.id))
                 Text(
-                    text = shown.meta(),
+                    text = listOfNotNull(shown.rating(), shown.meta()).joinToString(" · "),
                     style = NeoTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
                     color = NeoTheme.colors.paper,
                     modifier = Modifier.testTag(SPOTLIGHT_META_TAG),
@@ -149,11 +155,21 @@ internal fun SpotlightShow(
             if (show != null) {
                 // Lists arrive with AniList sign-in, so this does nothing yet.
                 NeoIconButton(NeoIcons.Add, stringResource(R.string.home_add_to_list), onClick = {}, modifier = toDots)
-                NeoIconButton(NeoIcons.Info, stringResource(R.string.home_details), onClick = { onOpen(show.id) }, modifier = toDots)
+                // Nothing is to its right, so Right stays here rather than jumping to the dots.
+                NeoIconButton(
+                    NeoIcons.Info,
+                    stringResource(R.string.home_details),
+                    onClick = { onOpen(show.id) },
+                    modifier = toDots.focusProperties { right = FocusRequester.Cancel },
+                )
             }
         }
     }
 }
+
+/** AniList's average score out of 10, such as "★ 8.4", or null without one. */
+@Composable
+private fun AnimeCard.rating(): String? = averageScore?.let { stringResource(R.string.home_rating, it / 10, it % 10) }
 
 /** The show's logo, or its title in words when there's no logo or it won't load. */
 @Composable

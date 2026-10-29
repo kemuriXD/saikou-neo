@@ -23,6 +23,8 @@
     <string name="home_play">Play</string>
     <string name="home_add_to_list">Add to list</string>
     <string name="home_details">Details</string>
+    <!-- AniList's average score out of 10, such as "★ 8.4". -->
+    <string name="home_rating">★ %1$d.%2$d</string>
     <!-- The dots under the spotlight, read out such as "Featured shows, 2 of 6: Frieren". -->
     <string name="home_featured_shows">Featured shows</string>
     <string name="home_featured_position">%1$d of %2$d: %3$s</string>
