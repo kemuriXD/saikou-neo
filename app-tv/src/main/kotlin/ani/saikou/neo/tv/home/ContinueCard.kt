@@ -3,12 +3,13 @@ package ani.saikou.neo.tv.home
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,6 +33,10 @@ import coil3.compose.AsyncImage
 private const val EPISODE_ALPHA = 0.28f
 private const val TRACK_ALPHA = 0.2f
 private val ProgressHeight = 4.dp
+private val ProgressBottom = 10.dp
+
+// The title and time left sit 8 dp above the progress line.
+private val TextBottom = ProgressBottom + ProgressHeight + 8.dp
 
 /** A show to carry on with: the episode's still and number, the title, the time left and how far in it is. */
 @Composable
@@ -61,7 +66,7 @@ internal fun ContinueCard(
                     Brush.horizontalGradient(0f to colors.ink.copy(alpha = 0.85f), 0.7f to colors.ink.copy(alpha = 0.2f)),
                 ),
             )
-            Column(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, end = 60.dp, bottom = 14.dp)) {
+            Column(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, end = 60.dp, bottom = TextBottom)) {
                 Text(
                     text = card.displayTitle(),
                     style = NeoTheme.typography.label.copy(fontWeight = FontWeight.SemiBold, lineHeight = 18.sp),
@@ -76,21 +81,17 @@ internal fun ContinueCard(
                     maxLines = 1,
                 )
             }
+            // Inset and round at both ends, so it doesn't run into the card's rounded corners.
             Box(
                 Modifier
                     .align(Alignment.BottomStart)
+                    .padding(start = 12.dp, end = 12.dp, bottom = ProgressBottom)
                     .fillMaxWidth()
                     .height(ProgressHeight)
-                    .background(colors.paper.copy(alpha = TRACK_ALPHA)),
-            )
-            Box(
-                Modifier
-                    .align(Alignment.BottomStart)
-                    .fillMaxWidth(progress.fraction)
-                    .height(ProgressHeight)
-                    // A round end, as a square one looks cut off; the card's corner already rounds the start.
-                    .background(colors.pink, RoundedCornerShape(topEndPercent = 50, bottomEndPercent = 50)),
-            )
+                    .background(colors.paper.copy(alpha = TRACK_ALPHA), CircleShape),
+            ) {
+                Box(Modifier.fillMaxHeight().fillMaxWidth(progress.fraction).background(colors.pink, CircleShape))
+            }
         }
     }
 }
