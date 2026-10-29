@@ -80,7 +80,10 @@ class MainActivity : ComponentActivity() {
                         home = { openDetails, openSeeMore ->
                             // Showing unaired anime or not changes the rows, so Home loads them again.
                             val home =
-                                viewModel(key = "home-${settings.showUnairedAnime}") { HomeViewModel(client, library, season(), year()) }
+                                viewModel(key = "home-${settings.showUnairedAnime}") {
+                                    // Only alpha builds show sample progress, until the player saves real progress.
+                                    HomeViewModel(client, library, season(), year(), sampleProgress = BuildConfig.FLAVOR == "alpha")
+                                }
                             val state by home.state.collectAsStateWithLifecycle()
                             HomeScreen(
                                 state = state,

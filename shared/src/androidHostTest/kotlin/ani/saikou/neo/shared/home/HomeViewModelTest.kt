@@ -57,17 +57,55 @@ class HomeViewModelTest {
         aniZip: AniZipClient = this.aniZip,
         fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
         tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
+        sampleProgress: Boolean = false,
     ): HomeViewModel {
         val client = clientFor(engine, main)
-        return HomeViewModel(client, ArtLibrary(ArtSources(client, aniZip, fanartTv, tmdb), CoroutineScope(main)), AnimeSeason.FALL, 2026)
+        val library = ArtLibrary(ArtSources(client, aniZip, fanartTv, tmdb), CoroutineScope(main))
+        return HomeViewModel(client, library, AnimeSeason.FALL, 2026, sampleProgress)
+    }
+
+    private val aniListRows = listOf(HomeRow.TRENDING, HomeRow.THIS_SEASON, HomeRow.POPULAR)
+
+    @Test
+    fun startsWithEveryAniListRowLoading() {
+        val viewModel = homeViewModel()
+
+        assertEquals(aniListRows.map { RowState.Loading }, aniListRows.map { viewModel.state.value.rows[it] })
     }
 
     @Test
-    fun startsWithEveryRowLoading() {
-        val viewModel = homeViewModel()
+    fun continueWatchingIsEmptyWithoutSamples() =
+        runTest(main) {
+            val viewModel = homeViewModel()
 
-        assertEquals(HomeRow.entries.map { RowState.Loading }, HomeRow.entries.map { viewModel.state.value.rows[it] })
-    }
+            assertEquals(RowState.Loaded(emptyList()), viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING])
+            viewModel.settledRows()
+            assertEquals(RowState.Loaded(emptyList()), viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING])
+            assertEquals(emptyMap(), viewModel.state.value.progress)
+        }
+
+    @Test
+    fun continueWatchingLoadsWithTheSpotlightWithSamples() =
+        runTest(main) {
+            val viewModel = homeViewModel(RecordedEngine("browse-eight"), sampleProgress = true)
+
+            assertEquals(RowState.Loading, viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING])
+            val spotlight = viewModel.settledSpotlight()
+            val state = viewModel.state.value
+            val shows = assertIs<RowState.Loaded>(state.rows[HomeRow.CONTINUE_WATCHING]).items
+            assertEquals(spotlight.shows.take(5), shows)
+            assertEquals(shows.map { it.id }.toSet(), state.progress.keys)
+            assertEquals(7, state.progress.getValue(shows.first().id).episode)
+        }
+
+    @Test
+    fun continueWatchingIsEmptyWhenEveryRowFailsWithSamples() =
+        runTest(main) {
+            val viewModel = homeViewModel(OfflineEngine, sampleProgress = true)
+
+            assertEquals(RowState.Loaded(emptyList()), viewModel.settledRows()[HomeRow.CONTINUE_WATCHING])
+            assertEquals(emptyMap(), viewModel.state.value.progress)
+        }
 
     @Test
     fun loadsTheRowsInOrder() =
@@ -75,8 +113,8 @@ class HomeViewModelTest {
             val viewModel = homeViewModel()
 
             val rows = viewModel.settledRows()
-            assertEquals(listOf(HomeRow.TRENDING, HomeRow.THIS_SEASON, HomeRow.POPULAR), rows.keys.toList())
-            rows.values.forEach { assertEquals(195516, assertIs<RowState.Loaded>(it).items.first().id) }
+            assertEquals(HomeRow.entries, rows.keys.toList())
+            aniListRows.map(rows::getValue).forEach { assertEquals(195516, assertIs<RowState.Loaded>(it).items.first().id) }
         }
 
     @Test

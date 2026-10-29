@@ -40,21 +40,9 @@ internal fun HomeCard(
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
-    val dimensions = NeoTheme.dimensions
-    val shape = RoundedCornerShape(dimensions.radiusMd)
     val placeholder = remember(card.coverColor) { parseColour(card.coverColor) ?: colors.surfaceRaised }
 
-    Card(
-        onClick = onClick,
-        modifier = modifier.size(width = dimensions.cardWideWidth, height = dimensions.cardWideHeight),
-        shape = CardDefaults.shape(shape),
-        scale = CardDefaults.scale(focusedScale = dimensions.focusScale),
-        border =
-            CardDefaults.border(
-                focusedBorder = Border(BorderStroke(dimensions.focusRing, colors.focus), shape = shape),
-            ),
-        glow = CardDefaults.glow(focusedGlow = Glow(Color.White.copy(alpha = 0.28f), dimensions.glowFocus)),
-    ) {
+    WideCard(onClick, modifier) {
         Box(Modifier.fillMaxSize().background(placeholder)) {
             // AsyncImage decodes at the card's size, not the source's.
             AsyncImage(
@@ -93,6 +81,28 @@ internal fun HomeCard(
             }
         }
     }
+}
+
+/** A Home row's card frame: wide, and lifted with a ring and glow while focused. */
+@Composable
+internal fun WideCard(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    val dimensions = NeoTheme.dimensions
+    val shape = RoundedCornerShape(dimensions.radiusMd)
+    Card(
+        onClick = onClick,
+        modifier = modifier.size(width = dimensions.cardWideWidth, height = dimensions.cardWideHeight),
+        shape = CardDefaults.shape(shape),
+        scale = CardDefaults.scale(focusedScale = dimensions.focusScale),
+        border =
+            CardDefaults.border(
+                focusedBorder = Border(BorderStroke(dimensions.focusRing, NeoTheme.colors.focus), shape = shape),
+            ),
+        glow = CardDefaults.glow(focusedGlow = Glow(Color.White.copy(alpha = 0.28f), dimensions.glowFocus)),
+    ) { content() }
 }
 
 /** The English title where AniList has one, as most viewers here read English. */
