@@ -130,10 +130,10 @@ class HomeScreenTest {
         compose
             .onNodeWithTag(SPOTLIGHT_TITLE_TAG)
             .assertTextEquals("Show 0")
-            .assertLeftPositionInRootIsEqualTo(58.dp)
+            .assertLeftPositionInRootIsEqualTo(96.dp)
             .assertHeightIsEqualTo(38.dp)
         // The buttons end 16 dp above the dots, and the text sits on top of them.
-        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertLeftPositionInRootIsEqualTo(58.dp).assertTopPositionInRootIsEqualTo(328.dp)
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertLeftPositionInRootIsEqualTo(96.dp).assertTopPositionInRootIsEqualTo(328.dp)
         compose.onNodeWithContentDescription("Add to list").assertWidthIsEqualTo(44.dp)
         compose.onNodeWithContentDescription("Details").assertWidthIsEqualTo(44.dp)
         compose.onNodeWithTag(SPOTLIGHT_DOTS_TAG).assertTopPositionInRootIsEqualTo(388.dp)
@@ -347,13 +347,13 @@ class HomeScreenTest {
 
         compose.onNodeWithTag(SPOTLIGHT_TAG).assert(hidden)
         compose.onNodeWithTag(SPOTLIGHT_DOTS_TAG).assert(hidden)
-        // Heading at 30 dp, cards 34 dp below it, from the 58 dp grid margin, 20 dp apart.
+        // Heading at 30 dp, cards 34 dp below it, from 96 dp, clear of the rail, 20 dp apart.
         // Card 1 is unfocused, so its bounds aren't scaled.
         compose.onNodeWithText("Trending").assertTopPositionInRootIsEqualTo(30.dp)
         compose
             .onNodeWithTag(homeCardTag(HomeRow.TRENDING, 1))
             .assertTopPositionInRootIsEqualTo(64.dp)
-            .assertLeftPositionInRootIsEqualTo((58 + 196 + 20).dp)
+            .assertLeftPositionInRootIsEqualTo((96 + 196 + 20).dp)
             .assertWidthIsEqualTo(196.dp)
             .assertHeightIsEqualTo(110.dp)
         // Three whole rows, 24 dp apart, with Popular's cards ending at 510 dp.
@@ -480,7 +480,7 @@ class HomeScreenTest {
 
         compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 5)).assertIsFocused()
         // Card 5 rests on the grid margin, so card 4 ends one gutter before it.
-        compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 4)).assertLeftPositionInRootIsEqualTo((58 - 20 - 196).dp)
+        compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 4)).assertLeftPositionInRootIsEqualTo((96 - 20 - 196).dp)
         compose.onNodeWithText("This season").assertTopPositionInRootIsEqualTo(198.dp)
     }
 

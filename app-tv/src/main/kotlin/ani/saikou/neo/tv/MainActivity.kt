@@ -37,8 +37,8 @@ import ani.saikou.neo.tv.home.SeeMoreScreen
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.settings.SettingsScreen
 import ani.saikou.neo.tv.theme.NeoTheme
-import ani.saikou.neo.tv.ui.TabPlaceholder
-import ani.saikou.neo.tv.ui.TopTab
+import ani.saikou.neo.tv.ui.Section
+import ani.saikou.neo.tv.ui.SectionPlaceholder
 import java.util.Calendar
 
 class MainActivity : ComponentActivity() {
@@ -77,7 +77,7 @@ class MainActivity : ComponentActivity() {
                             .onPreviewKeyEvent { heldKeys.drop(it.nativeKeyEvent) },
                 ) {
                     NeoNavigation(
-                        home = { openDetails, openSeeMore, openTab ->
+                        home = { openDetails, openSeeMore ->
                             // Showing unaired anime or not changes the rows, so Home loads them again.
                             val home =
                                 viewModel(key = "home-${settings.showUnairedAnime}") { HomeViewModel(client, library, season(), year()) }
@@ -89,7 +89,6 @@ class MainActivity : ComponentActivity() {
                                 onSpotlightInView = home::watchSpotlight,
                                 onSeeMore = openSeeMore,
                                 onRest = home::rest,
-                                onTab = openTab,
                             )
                         },
                         seeMore = { row, openDetails ->
@@ -125,13 +124,13 @@ class MainActivity : ComponentActivity() {
                                 eyebrow = state.show?.displayTitle(),
                             )
                         },
-                        tab = { tab, openTab ->
-                            if (tab == TopTab.SETTINGS) {
+                        section = { section ->
+                            if (section == Section.SETTINGS) {
                                 val settingsScreen = viewModel { SettingsViewModel(app.settingsStore) }
                                 val state by settingsScreen.state.collectAsStateWithLifecycle()
-                                state?.let { SettingsScreen(it, onChoose = settingsScreen::choose, onTab = openTab) }
+                                state?.let { SettingsScreen(it, onChoose = settingsScreen::choose) }
                             } else {
-                                TabPlaceholder(tab, openTab)
+                                SectionPlaceholder(section)
                             }
                         },
                     )

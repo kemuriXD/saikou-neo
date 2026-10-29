@@ -65,10 +65,8 @@ import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.theme.WindowScrolling
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoIcons
-import ani.saikou.neo.tv.ui.NeoTopBar
 import ani.saikou.neo.tv.ui.PreloadLogo
-import ani.saikou.neo.tv.ui.TopBarBottom
-import ani.saikou.neo.tv.ui.TopTab
+import ani.saikou.neo.tv.ui.RailWidth
 import ani.saikou.neo.tv.ui.logoRequest
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
@@ -102,6 +100,9 @@ private val SpotlightTop = 120.dp
 
 // The spotlight's buttons end 16 dp above the dots, with its text stacked on top of them.
 private val SpotlightBottom = 372.dp
+
+// Content starts 24 dp clear of the closed rail.
+private val ContentStart = RailWidth + 24.dp
 private val SpotlightWidth = 440.dp
 private val DotsTop = 388.dp
 private val RowsTop = 420.dp
@@ -151,7 +152,6 @@ fun HomeScreen(
     onSpotlightInView: (inView: Boolean) -> Unit = {},
     onSeeMore: (row: HomeRow) -> Unit = {},
     onRest: (card: AnimeCard?) -> Unit = {},
-    onTab: (tab: TopTab) -> Unit = {},
 ) {
     // The card with focus, or null while the spotlight has it.
     var focused by rememberSaveable { mutableStateOf<CardKey?>(null) }
@@ -162,6 +162,8 @@ fun HomeScreen(
     val columnState = rememberLazyListState()
     // Held here, not in the rows, so a row scrolled out of view keeps its place.
     val rowStates = HomeRow.entries.associateWith { rememberLazyListState() }
+    // Each row's way in, on the card it last had.
+    val rowEntries = remember { HomeRow.entries.associateWith { FocusRequester() } }
     val spotlight = state.spotlight
     val play = remember { FocusRequester() }
     val dots = remember { FocusRequester() }
@@ -211,7 +213,7 @@ fun HomeScreen(
         ) {
             val place =
                 Modifier
-                    .padding(start = dimensions.gridMargin, top = SpotlightTop)
+                    .padding(start = ContentStart, top = SpotlightTop)
                     .size(SpotlightWidth, SpotlightBottom - SpotlightTop)
             if (spotlight == null) {
                 SpotlightSkeleton(place)
@@ -227,9 +229,17 @@ fun HomeScreen(
         WindowScrolling(leading = HeadingToCards, trailing = LastRowRoom) {
             LazyColumn(
                 state = columnState,
+                // Back from the rail, focus returns to the card it was on.
                 modifier =
                     Modifier
-                        .offset { IntOffset(0, (rowsTop - BrowseTop).roundToPx()) }
+                        .focusProperties {
+                            onEnter = {
+                                val card = focused
+                                if (requestedFocusDirection == FocusDirection.Enter && card != null) {
+                                    rowEntries.getValue(card.row).requestFocus()
+                                }
+                            }
+                        }.offset { IntOffset(0, (rowsTop - BrowseTop).roundToPx()) }
                         .fillMaxSize()
                         .padding(top = BrowseTop),
                 verticalArrangement = Arrangement.spacedBy(RowGap),
@@ -245,6 +255,7 @@ fun HomeScreen(
                             isFocusedRow = hasFocus && focused?.row == row,
                             initialFocus = target?.takeIf { it.row == row }?.animeId,
                             lastCard = lastCards[row],
+                            entry = rowEntries.getValue(row),
                             // Up from the first row goes to the spotlight's dots, wherever they are.
                             up = dots.takeIf { spotlight != null && row == shownRows.first() },
                             onOpen = onOpen,
@@ -260,13 +271,6 @@ fun HomeScreen(
                 }
             }
         }
-        // Slides up out of sight as the spotlight fades.
-        NeoTopBar(
-            current = TopTab.HOME,
-            onSelect = onTab,
-            modifier = Modifier.graphicsLayer { translationY = -(1f - shown) * TopBarBottom.toPx() }.then(hide),
-            down = play.takeIf { spotlight != null },
-        )
     }
 }
 
@@ -279,6 +283,7 @@ private fun HomeRowSection(
     initialFocus: Int?,
     lastCard: Int?,
     up: FocusRequester?,
+    entry: FocusRequester,
     onOpen: (animeId: Int) -> Unit,
     onSeeMore: () -> Unit,
     onCardFocused: (animeId: Int, index: Int) -> Unit,
@@ -290,7 +295,7 @@ private fun HomeRowSection(
             // Keep the whole 24 sp line, as the design spaces rows by it.
             style = NeoTheme.typography.rowTitle.copy(lineHeightStyle = FullLine),
             color = if (isFocusedRow) NeoTheme.colors.paper else NeoTheme.colors.textMuted,
-            modifier = Modifier.padding(start = dimensions.gridMargin),
+            modifier = Modifier.padding(start = ContentStart),
         )
         if (rowState !is RowState.Loaded) {
             SkeletonCards()
@@ -298,8 +303,7 @@ private fun HomeRowSection(
         }
         // Up and down enter a row on the card you left, or its first card, not the one nearest on screen.
         val entryCard = lastCard?.takeIf { id -> id == SEE_MORE || rowState.items.any { it.id == id } } ?: rowState.items.firstOrNull()?.id
-        val entry = remember { FocusRequester() }
-        KeylineScrolling {
+        KeylineScrolling(keyline = ContentStart) {
             LazyRow(
                 state = listState,
                 modifier =
@@ -311,7 +315,7 @@ private fun HomeRowSection(
                                 }
                             }
                         }.focusGroup(),
-                contentPadding = PaddingValues(horizontal = dimensions.gridMargin),
+                contentPadding = PaddingValues(start = ContentStart, end = dimensions.gridMargin),
                 horizontalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
             ) {
                 // A card, or the See more button as SEE_MORE: focus is placed, entered and saved the same way.
@@ -354,7 +358,7 @@ private fun HomeRowSection(
 private fun SkeletonCards() {
     val dimensions = NeoTheme.dimensions
     Row(
-        modifier = Modifier.padding(start = dimensions.gridMargin),
+        modifier = Modifier.padding(start = ContentStart),
         horizontalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
     ) {
         repeat(5) {
