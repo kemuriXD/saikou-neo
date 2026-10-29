@@ -8,19 +8,15 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -45,7 +41,7 @@ sealed interface Screen {
         val row: HomeRow,
     ) : Screen
 
-    /** One of the rail's sections other than Home, always straight on top of Home. */
+    /** One of the rail's sections other than Home, opened from Home. */
     data class Section(
         val section: ani.saikou.neo.tv.ui.Section,
     ) : Screen
@@ -66,15 +62,6 @@ sealed interface Screen {
         val visit: Int
     }
 }
-
-/** The section the rail marks on this screen, or null for a screen without the rail. See more is part of Home. */
-private val Screen.rail
-    get() =
-        when (this) {
-            Screen.Home, is Screen.SeeMore -> Section.HOME
-            is Screen.Section -> section
-            else -> null
-        }
 
 /** A number no screen on [stack] has, for the next one opened. */
 private fun nextVisit(stack: List<Screen>) = (stack.filterIsInstance<Screen.Visited>().maxOfOrNull { it.visit } ?: 0) + 1
@@ -113,9 +100,9 @@ private val BackStackSaver =
 
 /**
  * Moves between [home], a row's [seeMore] page and [details], which can open another show's Details or all of its
- * [recommendations]. The rail down the left of Home, See more and each [section] opens another section; Back from any
- * section goes to Home. Each screen keeps its saved state and ViewModels while it's on the back stack, so Back finds Home
- * as it was left. Back on Home leaves the app.
+ * [recommendations]. The rail down the left of Home opens each [section]; Back from a section goes to Home. Each screen
+ * keeps its saved state and ViewModels while it's on the back stack, so Back finds Home as it was left. Back on Home
+ * leaves the app.
  */
 @Composable
 fun NeoNavigation(
@@ -126,10 +113,8 @@ fun NeoNavigation(
     section: @Composable (section: Section) -> Unit = { SectionPlaceholder(it) },
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
-    // Takes focus back from the rail, to the screen's item that last had it. A section that isn't built has nothing
-    // to take it, so only the screen that last had focus can.
-    val screen = remember { FocusRequester() }
-    var focusedScreen by remember { mutableStateOf<Screen?>(null) }
+    // Takes focus back from the rail to what last had it on Home.
+    val homeFocus = remember { FocusRequester() }
     // One crossfade each way. The default Back preview shrinks the screen as for a phone's back swipe, which a remote doesn't have.
     val dimensions = NeoTheme.dimensions
     val fade = tween<Float>(dimensions.durationBackdropMillis, easing = dimensions.easeStandard)
@@ -152,25 +137,18 @@ fun NeoNavigation(
 
                     // A screen fading out keeps its focus until the next one takes it, which can wait for that screen to load.
                     // Only the top screen takes the remote's keys, so a quick press can't move focus on the one left behind.
-                    // A screen with the rail remembers what had focus, for the rail to send it back to.
                     @Composable
                     fun Screen.TakesKeysOnTop(content: @Composable () -> Unit) =
-                        Box(
-                            Modifier
-                                .onFocusChanged { if (it.hasFocus) focusedScreen = this }
-                                .onPreviewKeyEvent { it.key != Key.Back && this != backStack.lastOrNull() }
-                                .then(
-                                    if (rail != null) {
-                                        Modifier
-                                            .then(if (this == backStack.lastOrNull()) Modifier.focusRequester(screen) else Modifier)
-                                            .focusGroup()
-                                            .focusRestorer()
-                                    } else {
-                                        Modifier
-                                    },
-                                ),
-                        ) { content() }
-                    entry<Screen.Home> { it.TakesKeysOnTop { home(openDetails) { row -> backStack.add(Screen.SeeMore(row)) } } }
+                        Box(Modifier.onPreviewKeyEvent { it.key != Key.Back && this != backStack.lastOrNull() }) { content() }
+                    entry<Screen.Home> {
+                        // Home remembers what had focus, for the rail to send it back to. The restorer sets how focus
+                        // enters the group after it.
+                        it.TakesKeysOnTop {
+                            Box(Modifier.focusRequester(homeFocus).focusRestorer().focusGroup()) {
+                                home(openDetails) { row -> backStack.add(Screen.SeeMore(row)) }
+                            }
+                        }
+                    }
                     entry<Screen.Section> { it.TakesKeysOnTop { section(it.section) } }
                     entry<Screen.SeeMore> { it.TakesKeysOnTop { seeMore(it.row, openDetails) } }
                     entry<Screen.Details> {
@@ -184,20 +162,9 @@ fun NeoNavigation(
                     entry<Screen.Recommendations> { it.TakesKeysOnTop { recommendations(it.animeId, openDetails) } }
                 },
         )
-        // The rail is on Home and the screens it opens, with Home current on See more. Choosing a section goes back to Home
-        // and opens it there, so moving along the rail never leaves a trail for Back.
-        val current = backStack.last().rail
-        if (current != null) {
-            NeoRail(
-                current = current,
-                onSelect = { section ->
-                    if (section != current || backStack.last() is Screen.SeeMore) {
-                        while (backStack.size > 1) backStack.removeAt(backStack.lastIndex)
-                        if (section != Section.HOME) backStack.add(Screen.Section(section))
-                    }
-                },
-                onClose = { focusedScreen == backStack.last() && screen.requestFocus() },
-            )
+        // The rail is only on Home.
+        if (backStack.last() == Screen.Home) {
+            NeoRail(onSelect = { backStack.add(Screen.Section(it)) }, onClose = { homeFocus.requestFocus() })
         }
     }
 }

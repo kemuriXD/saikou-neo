@@ -241,9 +241,6 @@ class NeoNavigationTest {
         compose.onNodeWithTag(seeMoreTag(HomeRow.TRENDING)).assertIsFocused()
     }
 
-    /** Presses Back on the remote, which the rail sees before Android does. */
-    private fun backKey() = press(Key.Back)
-
     @Test
     fun leftFromPlayOpensTheRailOnHome() {
         show()
@@ -281,7 +278,7 @@ class NeoNavigationTest {
         show()
 
         press(Key.DirectionLeft)
-        backKey()
+        back()
 
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
         compose.activityRule.scenario.onActivity { assertFalse(it.isFinishing) }
@@ -295,14 +292,15 @@ class NeoNavigationTest {
         press(Key.DirectionCenter)
     }
 
+    // The rail is only on Home. A section's screen is all its own, and Back returns to Home.
     @Test
-    fun choosingASectionOpensItWithTheRailOnIt() {
+    fun choosingASectionOpensItWithoutTheRail() {
         show()
 
         openSection(Section.SCHEDULE)
 
         compose.onNodeWithText("Coming in a future update.").assertExists()
-        compose.onNodeWithTag(railTag(Section.SCHEDULE)).assertIsFocused().assertIsSelected()
+        compose.onNodeWithTag(RAIL_TAG).assertDoesNotExist()
     }
 
     @Test
@@ -316,29 +314,13 @@ class NeoNavigationTest {
     }
 
     @Test
-    fun aSecondSectionReplacesTheFirst() {
+    fun choosingHomeClosesTheRail() {
         show()
 
-        openSection(Section.DISCOVER)
-        press(Key.DirectionUp, times = 2)
-        press(Key.DirectionCenter)
-        compose.onNodeWithTag(railTag(Section.SEARCH)).assertIsFocused().assertIsSelected()
-        back()
+        openSection(Section.HOME)
 
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
-    }
-
-    @Test
-    fun choosingHomeFromASectionReturnsHome() {
-        show()
-
-        openSection(Section.LIBRARY)
-        press(Key.DirectionUp, times = 3)
-        press(Key.DirectionCenter)
-        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
-        back()
-
-        compose.activityRule.scenario.onActivity { assertTrue(it.isFinishing) }
+        compose.onNodeWithTag(RAIL_SCRIM_TAG).assertDoesNotExist()
     }
 
     @Test
@@ -348,38 +330,40 @@ class NeoNavigationTest {
         openSection(Section.SEARCH)
         restoration.emulateSavedInstanceStateRestore()
 
-        compose.onNodeWithTag(railTag(Section.SEARCH)).assertIsSelected()
+        compose.onNodeWithText("Search").assertExists()
         back()
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
     }
 
     @Test
-    fun seeMoreHasTheRailWithHomeCurrent() {
+    fun rightFromTheRailReturnsToTheRowYouLeft() {
         show()
 
-        openTrendingSeeMore()
+        enterRows()
+        press(Key.DirectionDown)
         press(Key.DirectionLeft)
-
         compose.onNodeWithTag(railTag(Section.HOME)).assertIsFocused()
         press(Key.DirectionRight)
-        compose.onNodeWithTag(posterTag(0)).assertIsFocused()
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.THIS_SEASON, 0)).assertIsFocused()
+    }
+
+    // Home's content starts clear of the closed rail, as in the design.
+    @Test
+    fun homeStartsClearOfTheRail() {
+        show()
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertLeftPositionInRootIsEqualTo(96.dp)
+        enterRows()
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 0)).assertLeftPositionInRootIsEqualTo(96.dp)
     }
 
     @Test
-    fun choosingASectionFromSeeMoreLeavesIt() {
+    fun seeMoreAndDetailsHaveNoRail() {
         show()
 
         openTrendingSeeMore()
-        openSection(Section.SEARCH)
-        back()
-
-        compose.onNodeWithTag(seeMoreTag(HomeRow.TRENDING)).assertIsFocused()
-    }
-
-    @Test
-    fun detailsHasNoRail() {
-        show()
-
+        compose.onNodeWithTag(RAIL_TAG).assertDoesNotExist()
         press(Key.DirectionCenter)
 
         compose.onNodeWithText("Details for 0").assertExists()

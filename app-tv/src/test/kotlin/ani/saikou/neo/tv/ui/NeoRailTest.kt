@@ -13,6 +13,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
@@ -30,7 +31,6 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -49,8 +49,8 @@ class NeoRailTest {
     private val chosen = mutableListOf<Section>()
     private var closes = 0
 
-    /** The rail beside a button that starts with focus. [closes] says whether closing the rail finds somewhere to go. */
-    private fun show(closes: Boolean = true) =
+    /** The rail beside a button that starts with focus. */
+    private fun show() =
         compose.setContent {
             NeoTheme {
                 val content = remember { FocusRequester() }
@@ -62,11 +62,10 @@ class NeoRailTest {
                         modifier = Modifier.padding(start = 300.dp, top = 200.dp).focusRequester(content).testTag(CONTENT_TAG),
                     )
                     NeoRail(
-                        current = Section.HOME,
                         onSelect = { chosen += it },
                         onClose = {
-                            this@NeoRailTest.closes++
-                            closes && content.requestFocus()
+                            closes++
+                            content.requestFocus()
                         },
                     )
                 }
@@ -84,13 +83,30 @@ class NeoRailTest {
     private fun item(section: Section) = compose.onNodeWithTag(railTag(section))
 
     @Test
-    fun showsEverySectionInOrderWithSettingsAndProfileAtTheBottom() {
+    fun showsEverySectionInOrderWithTheProfileLast() {
         show()
 
+        assertEquals(
+            listOf(Section.SEARCH, Section.HOME, Section.DISCOVER, Section.SCHEDULE, Section.SETTINGS, Section.PROFILE),
+            Section.entries,
+        )
         compose.onAllNodes(hasClickAction() and hasAnyAncestor(hasTestTag(RAIL_TAG))).assertCountEquals(Section.entries.size)
         val tops = Section.entries.map { item(it).getUnclippedBoundsInRoot().top }
         assertEquals(tops.sorted(), tops)
-        assertTrue(item(Section.SETTINGS).getUnclippedBoundsInRoot().top > 400.dp)
+    }
+
+    // The logo and the profile match, each as far from its end of the screen, with the sections centred between them.
+    @Test
+    fun theSectionsSitCentredBetweenTheLogoAndTheProfile() {
+        show()
+
+        val logo = compose.onNodeWithTag(RAIL_LOGO_TAG, useUnmergedTree = true).assertWidthIsEqualTo(36.dp).getUnclippedBoundsInRoot()
+        val avatar = compose.onNodeWithTag(RAIL_AVATAR_TAG, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertEquals(logo.left, avatar.left)
+        assertEquals(logo.top, 540.dp - avatar.bottom)
+        val above = item(Section.SEARCH).getUnclippedBoundsInRoot().top - logo.bottom
+        val below = avatar.top - item(Section.SETTINGS).getUnclippedBoundsInRoot().bottom
+        assertEquals(above.value, below.value, 1f)
     }
 
     @Test
@@ -100,6 +116,13 @@ class NeoRailTest {
         compose.onNodeWithTag(RAIL_TAG).assertWidthIsEqualTo(72.dp)
         compose.onNodeWithText("Discover").assertDoesNotExist()
         compose.onNodeWithTag(RAIL_SCRIM_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun theProfilePictureIsRound() {
+        show()
+
+        compose.onNodeWithTag(RAIL_AVATAR_TAG, useUnmergedTree = true).assertWidthIsEqualTo(36.dp).assertHeightIsEqualTo(36.dp)
     }
 
     @Test
@@ -145,25 +168,20 @@ class NeoRailTest {
         assertEquals(1, closes)
     }
 
+    // The remote's Back reaches the activity's back handlers, not the focused item's keys.
+    private fun back() {
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+    }
+
     @Test
     fun backClosesTheRail() {
         show()
 
         press(Key.DirectionLeft)
-        press(Key.Back)
+        back()
 
         compose.onNodeWithTag(CONTENT_TAG).assertIsFocused()
         assertEquals(1, closes)
-    }
-
-    // On a section that isn't built, the rail is all there is to focus.
-    @Test
-    fun withNowhereToGoTheRailKeepsFocus() {
-        show(closes = false)
-
-        press(Key.DirectionLeft)
-        press(Key.DirectionRight)
-
-        item(Section.HOME).assertIsFocused()
     }
 }

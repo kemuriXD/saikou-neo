@@ -152,19 +152,6 @@ object NeoIcons {
         }
     }
 
-    val Library: ImageVector by lazy {
-        icon("Library") {
-            stroke(2f) {
-                moveTo(6f, 4f)
-                lineTo(18f, 4f)
-                lineTo(18f, 20f)
-                lineTo(12f, 16f)
-                lineTo(6f, 20f)
-                close()
-            }
-        }
-    }
-
     val Settings: ImageVector by lazy {
         icon("Settings") {
             stroke(2f) {

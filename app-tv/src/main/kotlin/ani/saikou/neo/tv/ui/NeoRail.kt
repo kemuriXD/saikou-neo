@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -60,10 +61,12 @@ import ani.saikou.neo.tv.theme.NeoTheme
 
 internal const val RAIL_TAG = "rail"
 internal const val RAIL_SCRIM_TAG = "rail-scrim"
+internal const val RAIL_LOGO_TAG = "rail-logo"
+internal const val RAIL_AVATAR_TAG = "rail-avatar"
 
 internal fun railTag(section: Section) = "rail-${section.name.lowercase()}"
 
-/** The parts of the app the rail moves between, top to bottom. The profile shows the account's picture, not an icon. */
+/** The parts of the app the rail moves between, top to bottom. The profile, which holds the library, shows a picture. */
 enum class Section(
     @param:StringRes val label: Int,
 ) {
@@ -71,7 +74,6 @@ enum class Section(
     HOME(R.string.section_home),
     DISCOVER(R.string.section_discover),
     SCHEDULE(R.string.section_schedule),
-    LIBRARY(R.string.section_library),
     SETTINGS(R.string.section_settings),
     PROFILE(R.string.section_profile),
     ;
@@ -83,13 +85,13 @@ enum class Section(
                 HOME -> NeoIcons.Home
                 DISCOVER -> NeoIcons.Discover
                 SCHEDULE -> NeoIcons.Schedule
-                LIBRARY -> NeoIcons.Library
                 SETTINGS -> NeoIcons.Settings
                 PROFILE -> null
             }
 }
 
-// From the design: 72 dp of icons, opening to 240 dp with their names. The icons and logo stay put as it opens.
+// From the design: 72 dp of icons, opening to 240 dp with their names. The icons, logo and picture stay put as it
+// opens. The logo and the picture are the same size, the same way in from each end.
 val RailWidth = 72.dp
 private val OpenWidth = 240.dp
 private val RailPaddingX = 14.dp
@@ -98,11 +100,8 @@ private val ItemGap = 8.dp
 private val ItemIcon = 20.dp
 private val ItemPadding = 12.dp
 private val LabelGap = 14.dp
-private val LogoSize = 32.dp
-private val LogoPadding = 6.dp
-private val LogoGap = 30.dp
-private val AvatarSize = 36.dp
-private val AvatarPadding = 4.dp
+private val PictureSize = 36.dp
+private val PicturePadding = 4.dp
 private val MarkWidth = 4.dp
 private val MarkHeight = 12.dp
 private val DotSize = 6.dp
@@ -114,29 +113,26 @@ private val ShadowColor = Color.Black.copy(alpha = 0.4f)
 // Until signing in brings the account's picture.
 private val AvatarColors = listOf(Color(0xFF5F4BB6), Color(0xFFFF4F91))
 
-// A section's name sits beside the open rail, so it shows while focus is on the rail.
-private val PlaceholderTop = 88.dp
+private val PlaceholderTop = 40.dp
 private val PlaceholderGap = 6.dp
 
 /**
- * The rail down the left of the screen, with the [current] section marked. Focus coming in lands on the current section
- * and opens the rail, with names and the screen dimmed behind it. Selecting a section calls [onSelect]. Right or Back
- * calls [onClose] to send focus back to the screen; it returns false when the screen has nothing to take it, and then
- * Back is left to leave the section.
+ * The rail down the left of Home, with Home marked. Focus coming in lands on Home and opens the rail, with names and the
+ * screen dimmed behind it. Selecting another section calls [onSelect]. Right, Back or selecting Home calls [onClose] to
+ * send focus back to the screen.
  */
 @Composable
 fun NeoRail(
-    current: Section,
     onSelect: (Section) -> Unit,
-    onClose: () -> Boolean,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
     var open by remember { mutableStateOf(false) }
-    // A Back press the rail used, so its release doesn't go on to leave the screen.
-    var tookBack by remember { mutableStateOf(false) }
-    val currentItem = remember { FocusRequester() }
+    val home = remember { FocusRequester() }
+    // Back comes through the activity, not as a key, and is the rail's while it's open.
+    BackHandler(enabled = open, onBack = onClose)
     val animation = tween<Float>(dimensions.durationPanelMillis, easing = dimensions.easeStandard)
     val width by animateDpAsState(
         if (open) OpenWidth else RailWidth,
@@ -167,6 +163,7 @@ fun NeoRail(
             } else {
                 Brush.horizontalGradient(listOf(colors.ink.copy(alpha = 0.9f), colors.ink.copy(alpha = 0f)))
             }
+        // The logo at the top and the picture at the bottom, with the sections centred between them.
         Column(
             Modifier
                 .testTag(RAIL_TAG)
@@ -175,35 +172,23 @@ fun NeoRail(
                 .background(background)
                 .onFocusChanged { open = it.hasFocus }
                 .onPreviewKeyEvent {
-                    when {
-                        it.key == Key.DirectionRight -> {
-                            if (it.type == KeyEventType.KeyDown) onClose()
-                            true
-                        }
-
-                        it.key == Key.Back && it.type == KeyEventType.KeyDown -> {
-                            onClose().also { closed -> tookBack = closed }
-                        }
-
-                        it.key == Key.Back && it.type == KeyEventType.KeyUp -> {
-                            tookBack.also { tookBack = false }
-                        }
-
-                        else -> {
-                            false
-                        }
-                    }
-                }.focusProperties { onEnter = { currentItem.requestFocus() } }
+                    if (it.key != Key.DirectionRight) return@onPreviewKeyEvent false
+                    if (it.type == KeyEventType.KeyDown) onClose()
+                    true
+                }.focusProperties { onEnter = { home.requestFocus() } }
                 .focusGroup()
                 .padding(horizontal = RailPaddingX, vertical = dimensions.safeY),
-            verticalArrangement = Arrangement.spacedBy(ItemGap),
         ) {
             Row(
-                Modifier.padding(start = LogoPadding, bottom = LogoGap - ItemGap),
-                horizontalArrangement = Arrangement.spacedBy(ItemPadding),
+                Modifier.height(ItemHeight).padding(start = PicturePadding),
+                horizontalArrangement = Arrangement.spacedBy(LabelGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Image(painterResource(R.drawable.saikou_neo_symbol), contentDescription = null, modifier = Modifier.size(LogoSize))
+                Image(
+                    painterResource(R.drawable.saikou_neo_symbol),
+                    contentDescription = null,
+                    modifier = Modifier.testTag(RAIL_LOGO_TAG).size(PictureSize),
+                )
                 if (open) {
                     Text(
                         stringResource(R.string.app_name),
@@ -214,36 +199,33 @@ fun NeoRail(
                     )
                 }
             }
-            Section.entries.forEach { section ->
-                if (section == Section.SETTINGS) Spacer(Modifier.weight(1f))
-                RailItem(
-                    section,
-                    selected = section == current,
-                    open = open,
-                    onClick = { onSelect(section) },
-                    modifier =
-                        Modifier
-                            .testTag(railTag(section))
-                            .then(if (section == current) Modifier.focusRequester(currentItem) else Modifier),
-                )
+            Spacer(Modifier.weight(1f))
+            Column(verticalArrangement = Arrangement.spacedBy(ItemGap)) {
+                Section.entries.filter { it != Section.PROFILE }.forEach { RailItem(it, open, home, onSelect, onClose) }
             }
+            Spacer(Modifier.weight(1f))
+            RailItem(Section.PROFILE, open, home, onSelect, onClose)
         }
     }
 }
 
-/** One section: its icon, and its name while the rail is [open]. The current one has a soft fill and a pink mark. */
+/**
+ * One section: its icon, and its name while the rail is [open]. Home, the one showing, has a soft fill and a pink mark,
+ * and selecting it closes the rail.
+ */
 @Composable
 private fun RailItem(
     section: Section,
-    selected: Boolean,
     open: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier,
+    home: FocusRequester,
+    onSelect: (Section) -> Unit,
+    onClose: () -> Unit,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
+    val selected = section == Section.HOME
     Box(contentAlignment = Alignment.CenterStart) {
-        // Closed, the mark sits on the rail's edge beside the current section.
+        // Closed, the mark sits on the rail's edge beside Home.
         if (selected && !open) {
             Box(
                 Modifier
@@ -254,8 +236,13 @@ private fun RailItem(
         }
         Surface(
             selected = selected,
-            onClick = onClick,
-            modifier = modifier.fillMaxWidth().height(ItemHeight),
+            onClick = { if (selected) onClose() else onSelect(section) },
+            modifier =
+                Modifier
+                    .testTag(railTag(section))
+                    .then(if (selected) Modifier.focusRequester(home) else Modifier)
+                    .fillMaxWidth()
+                    .height(ItemHeight),
             shape = SelectableSurfaceDefaults.shape(CircleShape),
             colors =
                 SelectableSurfaceDefaults.colors(
@@ -280,15 +267,18 @@ private fun RailItem(
                 ),
         ) {
             val icon = section.icon
+            // The picture fills the closed item, 4 dp in all round, where an icon has 12 dp either side.
+            val padding = if (icon == null) PicturePadding else ItemPadding
             Row(
-                Modifier.fillMaxSize().padding(start = if (icon == null) AvatarPadding else ItemPadding, end = ItemPadding),
+                Modifier.fillMaxSize().padding(horizontal = padding),
                 horizontalArrangement = Arrangement.spacedBy(LabelGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (icon == null) {
                     Box(
                         Modifier
-                            .size(AvatarSize)
+                            .testTag(RAIL_AVATAR_TAG)
+                            .size(PictureSize)
                             .background(Brush.linearGradient(AvatarColors), CircleShape)
                             .border(2.dp, colors.outline, CircleShape),
                     )
@@ -311,13 +301,13 @@ private fun RailItem(
     }
 }
 
-/** A section whose screen isn't built yet: its name and a line saying it's coming, beside the open rail. */
+/** A section whose screen isn't built yet: its name and a line saying it's coming. */
 @Composable
 fun SectionPlaceholder(section: Section) {
     val colors = NeoTheme.colors
     Box(Modifier.fillMaxSize().background(colors.ink)) {
         Column(
-            Modifier.padding(start = OpenWidth + NeoTheme.dimensions.gridMargin, top = PlaceholderTop),
+            Modifier.padding(start = NeoTheme.dimensions.gridMargin, top = PlaceholderTop),
             verticalArrangement = Arrangement.spacedBy(PlaceholderGap),
         ) {
             Text(stringResource(section.label), style = NeoTheme.typography.headline, color = colors.paper)
