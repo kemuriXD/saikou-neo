@@ -23,8 +23,10 @@ private const val FEATURED_SHOWS = 6
 private val paragraphBreak = Regex("""\s*\n\s*""")
 private val ROTATE_EVERY = 10.seconds
 
-/** Home's rows, top to bottom. */
-public enum class HomeRow { TRENDING, THIS_SEASON, POPULAR }
+/** Home's rows, top to bottom. Continue watching comes from this TV, the rest from AniList. */
+public enum class HomeRow { CONTINUE_WATCHING, TRENDING, THIS_SEASON, POPULAR }
+
+private val aniListRows = HomeRow.entries - HomeRow.CONTINUE_WATCHING
 
 public sealed interface RowState {
     public data object Loading : RowState
@@ -44,6 +46,8 @@ public data class HomeState(
     val spotlight: Spotlight? = null,
     /** The logo of the card focus rests on, once found, for the screen to start loading. */
     val restingLogo: Logo.Image? = null,
+    /** How far this TV got into each show in Continue watching, by anime id. */
+    val progress: Map<Int, WatchProgress> = emptyMap(),
 )
 
 /** The shows featured at the top of Home, and which one is showing. */
@@ -84,22 +88,31 @@ public sealed interface Logo {
 /**
  * Loads Home's rows from AniList. This season is [season] of [year]. The spotlight features the first shows of the
  * first row that loads, with logos and backdrops from [library]. While it's in view it moves on every 10 seconds,
- * until the viewer picks a show.
+ * until the viewer picks a show. With [sampleProgress], Continue watching shows made-up progress on the featured shows.
  */
 public class HomeViewModel(
     private val client: AniListClient,
     private val library: ArtLibrary,
     private val season: AnimeSeason,
     private val year: Int,
+    private val sampleProgress: Boolean = false,
 ) : ViewModel() {
-    private val mutableState = MutableStateFlow(HomeState(HomeRow.entries.associateWith { RowState.Loading }))
+    // Nothing saves progress yet, so without samples Continue watching is empty from the start.
+    private val mutableState =
+        MutableStateFlow(
+            HomeState(
+                HomeRow.entries.associateWith { row ->
+                    if (row == HomeRow.CONTINUE_WATCHING && !sampleProgress) RowState.Loaded(emptyList()) else RowState.Loading
+                },
+            ),
+        )
     public val state: StateFlow<HomeState> = mutableState.asStateFlow()
     private var spotlightInView = false
     private var rotation: Job? = null
     private val resting = Resting(viewModelScope, library) { logo -> mutableState.update { it.copy(restingLogo = logo) } }
 
     init {
-        HomeRow.entries.forEach { row ->
+        aniListRows.forEach { row ->
             viewModelScope.launch {
                 val result = client.row(row, season, year)
                 val rowState = if (result is AniListResult.Success) RowState.Loaded(result.value.items) else RowState.Failed
@@ -107,7 +120,7 @@ public class HomeViewModel(
                 // The spotlight arrives with the row it comes from, so the screen never sees one without the other.
                 mutableState.update { state ->
                     val next = state.copy(rows = state.rows + (row to rowState))
-                    next.copy(spotlight = next.spotlight ?: next.featured()?.let(::Spotlight))
+                    next.copy(spotlight = next.spotlight ?: next.featured()?.let(::Spotlight)).withSamples()
                 }
                 if (!hadSpotlight) state.value.spotlight?.let { startSpotlight(it.shows) }
             }
@@ -129,6 +142,14 @@ public class HomeViewModel(
     public fun watchSpotlight(inView: Boolean) {
         spotlightInView = inView
         rotate()
+    }
+
+    /** Samples arrive with the spotlight they're made from, or as an empty row if every AniList row failed. */
+    private fun HomeState.withSamples(): HomeState {
+        if (!sampleProgress || rows[HomeRow.CONTINUE_WATCHING] != RowState.Loading) return this
+        val shows = spotlight?.shows ?: if (aniListRows.any { rows[it] == RowState.Loading }) return this else emptyList()
+        val progress = sampleProgress(shows)
+        return copy(rows = rows + (HomeRow.CONTINUE_WATCHING to RowState.Loaded(shows.filter { it.id in progress })), progress = progress)
     }
 
     private fun startSpotlight(shows: List<AnimeCard>) {
@@ -184,6 +205,7 @@ internal suspend fun AniListClient.row(
     page: Int = 1,
 ): AniListResult<AnimePage> =
     when (row) {
+        HomeRow.CONTINUE_WATCHING -> error("Continue watching doesn't come from AniList")
         HomeRow.TRENDING -> trending(page)
         HomeRow.THIS_SEASON -> season(season, year, page)
         HomeRow.POPULAR -> popular(page)
@@ -191,7 +213,7 @@ internal suspend fun AniListClient.row(
 
 /** The first shows of the first row that loaded, waiting for the rows above it. Null while waiting or if none did. */
 private fun HomeState.featured(): List<AnimeCard>? {
-    for (row in HomeRow.entries) {
+    for (row in aniListRows) {
         when (val rowState = rows[row]) {
             RowState.Loading -> return null
             is RowState.Loaded -> if (rowState.items.isNotEmpty()) return rowState.items.take(FEATURED_SHOWS)
