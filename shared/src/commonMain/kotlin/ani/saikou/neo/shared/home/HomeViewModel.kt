@@ -126,17 +126,32 @@ public class HomeViewModel(
     private var offlineInView = false
     private var retrying: Job? = null
 
-    // Rows with a request on its way, which a retry leaves as they were until it answers.
-    private val inFlight = mutableSetOf<HomeRow>()
     private val resting = Resting(viewModelScope, library) { logo -> mutableState.update { it.copy(restingLogo = logo) } }
 
     init {
         aniListRows.forEach(::load)
     }
 
-    /** Loads the rows that failed again. What Home shows stays until they answer. */
+    /**
+     * Loads the rows that failed again. They wait in their places as when Home starts, so one that answers first can't
+     * push the others off the top of the list. Home stays offline until one loads.
+     */
     public fun retry() {
-        aniListRows.filter { state.value.rows[it] == RowState.Failed }.forEach(::load)
+        val failed = aniListRows.filter { state.value.rows[it] == RowState.Failed }
+        if (failed.isEmpty()) return
+        mutableState.update { state ->
+            // Without a spotlight, the samples haven't come yet either.
+            val samples =
+                if (sampleProgress &&
+                    state.spotlight == null
+                ) {
+                    mapOf(HomeRow.CONTINUE_WATCHING to RowState.Loading)
+                } else {
+                    emptyMap()
+                }
+            state.copy(rows = state.rows + failed.associateWith { RowState.Loading } + samples)
+        }
+        failed.forEach(::load)
     }
 
     /** Call with true while the offline screen is shown, and false once it isn't, so Home only tries again while seen. */
@@ -146,20 +161,21 @@ public class HomeViewModel(
     }
 
     private fun load(row: HomeRow) {
-        if (!inFlight.add(row)) return
         viewModelScope.launch {
             val result = client.row(row, season, year)
-            inFlight -= row
             val rowState = if (result is AniListResult.Success) RowState.Loaded(result.value.items) else RowState.Failed
-            val offline = (result as? AniListResult.Failure)?.error is AniListError.Network
+            val network = (result as? AniListResult.Failure)?.error is AniListError.Network
             val hadSpotlight = state.value.spotlight != null
             // The spotlight arrives with the row it comes from, so the screen never sees one without the other.
             mutableState.update { state ->
                 val next = state.copy(rows = state.rows + (row to rowState))
                 next
                     .copy(
-                        spotlight = next.spotlight ?: next.featured(inFlight)?.let { (row, shows) -> Spotlight(shows, row) },
-                        offline = aniListRows.all { next.rows[it] == RowState.Failed } && (offline || state.offline),
+                        spotlight = next.spotlight ?: next.featured()?.let { (row, shows) -> Spotlight(shows, row) },
+                        // Once offline, Home stays so while it tries again, until a row loads.
+                        offline =
+                            rowState !is RowState.Loaded &&
+                                (state.offline || (network && aniListRows.all { next.rows[it] == RowState.Failed })),
                     ).withSamples()
             }
             if (!hadSpotlight) state.value.spotlight?.let(::startSpotlight)
@@ -197,10 +213,8 @@ public class HomeViewModel(
 
     /** Samples arrive with the spotlight they're made from, or as an empty row if every AniList row failed. */
     private fun HomeState.withSamples(): HomeState {
-        if (!sampleProgress || rows[HomeRow.CONTINUE_WATCHING].let { it != RowState.Loading && it != RowState.Loaded(emptyList()) }) {
-            return this
-        }
-        val shows = spotlight?.shows ?: if (aniListRows.any { rows[it] == RowState.Loading || it in inFlight }) return this else emptyList()
+        if (!sampleProgress || rows[HomeRow.CONTINUE_WATCHING] != RowState.Loading) return this
+        val shows = spotlight?.shows ?: if (aniListRows.any { rows[it] == RowState.Loading }) return this else emptyList()
         val progress = sampleProgress(shows)
         return copy(rows = rows + (HomeRow.CONTINUE_WATCHING to RowState.Loaded(shows.filter { it.id in progress })), progress = progress)
     }
@@ -272,13 +286,9 @@ internal suspend fun AniListClient.row(
         HomeRow.POPULAR -> popular(page)
     }
 
-/**
- * The first shows of the first row that loaded, and that row, waiting for the rows above it, including any [inFlight]
- * again. Null while waiting or if none did.
- */
-private fun HomeState.featured(inFlight: Set<HomeRow>): Pair<HomeRow, List<AnimeCard>>? {
+/** The first shows of the first row that loaded, and that row, waiting for the rows above it. Null while waiting or if none did. */
+private fun HomeState.featured(): Pair<HomeRow, List<AnimeCard>>? {
     for (row in aniListRows) {
-        if (row in inFlight) return null
         when (val rowState = rows[row]) {
             RowState.Loading -> return null
             is RowState.Loaded -> if (rowState.items.isNotEmpty()) return row to rowState.items.take(FEATURED_SHOWS)

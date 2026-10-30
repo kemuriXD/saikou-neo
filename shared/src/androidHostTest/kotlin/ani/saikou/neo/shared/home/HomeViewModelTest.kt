@@ -142,6 +142,36 @@ class HomeViewModelTest {
             aniListRows.forEach { assertIs<RowState.Loaded>(viewModel.state.value.rows[it]) }
         }
 
+    // The rows wait in their places as when Home starts, so one answering first can't push the others off the top.
+    @Test
+    fun tryingAgainPutsTheRowsBackInTheirPlacesButStaysOfflineUntilOneLoads() =
+        runTest(main) {
+            val viewModel = homeViewModel(SwitchableEngine(), sampleProgress = true)
+            viewModel.settledRows()
+
+            viewModel.retry()
+
+            HomeRow.entries.forEach { assertEquals(RowState.Loading, viewModel.state.value.rows[it]) }
+            assertTrue(viewModel.state.value.offline)
+            viewModel.settledRows()
+            assertTrue(viewModel.state.value.offline)
+        }
+
+    @Test
+    fun continueWatchingFillsOnceHomeIsBackOnlineWithSamples() =
+        runTest(main) {
+            val engine = SwitchableEngine()
+            val viewModel = homeViewModel(engine, sampleProgress = true)
+            viewModel.settledRows()
+
+            engine.online = true
+            viewModel.retry()
+
+            viewModel.settledSpotlight()
+            viewModel.settledRows()
+            assertEquals(2, assertIs<RowState.Loaded>(viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING]).items.size)
+        }
+
     @Test
     fun whileOfflineHomeTriesAgainEveryThirtySeconds() =
         runTest(main) {
