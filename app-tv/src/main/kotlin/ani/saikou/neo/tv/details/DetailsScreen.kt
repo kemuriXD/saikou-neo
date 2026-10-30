@@ -20,17 +20,20 @@ import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -45,6 +48,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -53,9 +58,15 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -75,6 +86,7 @@ import ani.saikou.neo.shared.details.Ratings
 import ani.saikou.neo.shared.details.scoreOutOfTen
 import ani.saikou.neo.shared.details.sections
 import ani.saikou.neo.shared.home.Logo
+import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
@@ -85,34 +97,49 @@ import ani.saikou.neo.tv.ui.NeoButtonRow
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.RememberFocus
 import ani.saikou.neo.tv.ui.ShowTitle
+import ani.saikou.neo.tv.ui.logoRequest
 import ani.saikou.neo.tv.ui.outerGlow
 import ani.saikou.neo.tv.ui.remembersFocus
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
 
 internal const val DETAILS_META_TAG = "details-meta"
-internal const val DETAILS_GENRES_TAG = "details-genres"
 internal const val DETAILS_HERO_TAG = "details-hero"
 internal const val DETAILS_SYNOPSIS_TAG = "details-synopsis"
 internal const val DETAILS_LOADING_TAG = "details-loading"
 internal const val DETAILS_OVERVIEW_TAB_TAG = "details-tab-overview"
 internal const val DETAILS_COMPACT_TITLE_TAG = "details-compact-title"
+internal const val DETAILS_HEADER_TAG = "details-header"
+internal const val DETAILS_HEADER_LOGO_TAG = "details-header-logo"
+internal const val DETAILS_HEADER_TITLE_TAG = "details-header-title"
 internal const val DETAILS_TITLE_TAG = "details-title"
 internal const val DETAILS_LOGO_TAG = "details-logo"
 internal const val DETAILS_MAIN_BUTTON_TAG = "details-main-button"
+internal const val DETAILS_EPISODES_BUTTON_TAG = "details-episodes-button"
 internal const val DETAILS_RATING_TAG = "details-rating"
 internal const val DETAILS_RATINGS_TAG = "details-ratings"
 
 /** One site's rating in the facts, by the site's name, such as "IMDb". */
 internal fun ratingTag(site: String) = "details-rating-$site"
 
-// From the design: the title block starts 150 dp down and the Overview tabs rest at 420 dp, with the
-// synopsis peeking below the screen. Focus on the synopsis lifts the page so the tabs sit at 72 dp,
-// and a small title stays at the top.
-private val HeroTop = 150.dp
-private val HeroWidth = 580.dp
-private val OverviewTop = 420.dp
-private val OverviewLift = 348.dp
-private val CompactTitleTop = 27.dp
+// From the design: the Overview tabs rest at 352 dp, with the section peeking below the screen, and the title block sits
+// on them, its buttons 40 dp above, however tall the title is. Focus in a section lifts the page so the tabs sit 12 dp
+// under a small header.
+private val HeroGap = 40.dp
+private val HeroWidth = 440.dp
+private val OverviewTop = 352.dp
+private val LiftedTabsGap = 12.dp
+
+// From the design: the lifted page keeps a 40 dp header at the top, with the logo at its full height.
+private val HeaderTop = 24.dp
+private val HeaderEnd = 48.dp
+private val HeaderHeight = 40.dp
+private val HeaderLogoWidth = 200.dp
+private val HeaderTitleGap = 10.dp
+
+// A long title wraps at the title block's width, onto two lines at most.
+private val HeaderTitleWidth = HeroWidth
+private const val HEADER_TITLE_LINES = 2
 private val SynopsisBorder = 2.dp
 
 // From the design: the buttons sit a little further below the genres than the lines above sit apart.
@@ -122,7 +149,8 @@ private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHei
 
 // About 70 characters a line, a comfortable read from the sofa.
 private val SynopsisWidth = 520.dp
-private const val SYNOPSIS_PREVIEW_LINES = 3
+private val SynopsisCaptionGap = 6.dp
+private const val SYNOPSIS_PREVIEW_LINES = 2
 private const val SYNOPSIS_FOCUS_SCALE = 1.025f
 
 // A first visit downloads the logo once the art is found. Not loaded by now, it stays words for the visit.
@@ -191,13 +219,14 @@ private fun DetailsPage(
         lifted = false
     }
     val dimensions = NeoTheme.dimensions
+    val overviewLift = loaded?.let { overviewLift(it) } ?: 0.dp
     val lift by animateDpAsState(
-        targetValue = if (lifted) -OverviewLift else 0.dp,
+        targetValue = if (lifted) -overviewLift else 0.dp,
         animationSpec = tween(dimensions.durationBackdropMillis, easing = dimensions.easeStandard),
         label = "lift",
     )
     Box(modifier.fillMaxSize().background(NeoTheme.colors.ink)) {
-        Backdrop(loaded?.backdrop) { lift / -OverviewLift }
+        Backdrop(loaded?.backdrop) { if (overviewLift > 0.dp) lift / -overviewLift else 0f }
         val margin = Modifier.padding(start = dimensions.gridMargin)
         when (state) {
             DetailsState.Loading -> {
@@ -209,6 +238,7 @@ private fun DetailsPage(
                     Hero(
                         details = state.details,
                         logo = state.logo,
+                        progress = state.progress,
                         // The main button goes to the episodes. Without any, there's nothing for it to do.
                         onMain =
                             if (hasEpisodes) {
@@ -223,9 +253,9 @@ private fun DetailsPage(
                         ratings = state.ratings,
                         modifier =
                             margin
-                                .padding(top = HeroTop)
                                 .width(HeroWidth)
-                                .graphicsLayer { alpha = 1f - lift / -OverviewLift },
+                                .onTheTabs()
+                                .graphicsLayer { alpha = 1f - lift / -overviewLift },
                     )
                     val sections = state.sections
                     DetailsSections(
@@ -307,14 +337,7 @@ private fun DetailsPage(
                     }
                 }
                 AnimatedVisibility(visible = lifted, enter = fadeIn(), exit = fadeOut()) {
-                    Text(
-                        text = state.details.card.displayTitle(),
-                        style = NeoTheme.typography.label,
-                        color = NeoTheme.colors.textMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = margin.padding(top = CompactTitleTop).width(HeroWidth).testTag(DETAILS_COMPACT_TITLE_TAG),
-                    )
+                    LiftedHeader(state, margin.padding(top = HeaderTop, end = HeaderEnd))
                 }
             }
 
@@ -323,7 +346,7 @@ private fun DetailsPage(
                     text = stringResource(R.string.details_failed),
                     style = NeoTheme.typography.bodyLarge,
                     color = NeoTheme.colors.paper,
-                    modifier = margin.padding(top = HeroTop),
+                    modifier = margin.onTheTabs(),
                 )
             }
         }
@@ -338,6 +361,7 @@ private fun DetailsPage(
 private fun Hero(
     details: AnimeDetails,
     logo: Logo,
+    progress: WatchProgress?,
     onMain: (() -> Unit)?,
     mainFocus: FocusRequester,
     ratings: Ratings,
@@ -353,7 +377,7 @@ private fun Hero(
         label = "hero",
     )
     val unseen = if (settled) Modifier else Modifier.semantics { hideFromAccessibility() }
-    // As on the spotlight: the title first, then what the show is, then its genres.
+    // As on the spotlight: the title first, then its genres and how many episodes it has.
     Column(
         modifier.testTag(DETAILS_HERO_TAG).graphicsLayer { alpha = shown }.then(unseen),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -370,33 +394,149 @@ private fun Hero(
             )
         }
         ShowTitle(title, logo, DETAILS_LOGO_TAG, LOGO_WAIT_MILLIS, placeholder = words, onSettled = { settled = true }, text = words)
-        val meta = details.meta()
+        val episodes = card.episodes?.let { pluralStringResource(R.plurals.home_episodes, it, it) }
+        val meta = (details.genres + listOfNotNull(episodes)).joinToString(" · ")
         if (meta.isNotEmpty()) {
             Text(
                 text = meta,
-                style = NeoTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                color = colors.paper,
+                style = NeoTheme.typography.label.copy(fontWeight = FontWeight.Medium),
+                color = colors.textMuted,
                 modifier = Modifier.testTag(DETAILS_META_TAG),
             )
         }
-        if (details.genres.isNotEmpty()) {
-            Text(
-                text = details.genres.joinToString(" · "),
-                style = NeoTheme.typography.label,
-                color = colors.textMuted,
-                modifier = Modifier.testTag(DETAILS_GENRES_TAG),
-            )
-        }
         if (ratings.mean != null) TopRatings(ratings)
+        // Until the player comes, Resume and Play open the episodes too.
         onMain?.let {
             NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
+                // Focus grows it from its middle, so room for that keeps the gap to Episodes.
+                val density = LocalDensity.current
+                val grows = NeoTheme.dimensions.focusScaleButton - 1
+                var width by remember { mutableIntStateOf(0) }
+                Box(Modifier.padding(end = with(density) { (width * grows / 2).toDp() })) {
+                    NeoButton(
+                        text =
+                            progress?.let { stringResource(R.string.details_resume, it.episode, it.minutesLeft) }
+                                ?: stringResource(R.string.home_play),
+                        onClick = it,
+                        icon = NeoIcons.Play,
+                        modifier =
+                            Modifier
+                                .onSizeChanged { size -> width = size.width }
+                                .focusRequester(mainFocus)
+                                .remembersFocus("main")
+                                .testTag(DETAILS_MAIN_BUTTON_TAG),
+                    )
+                }
                 NeoButton(
                     text = stringResource(R.string.details_episodes),
                     onClick = it,
-                    modifier = Modifier.focusRequester(mainFocus).remembersFocus("main").testTag(DETAILS_MAIN_BUTTON_TAG),
+                    modifier = Modifier.remembersFocus("episodes").testTag(DETAILS_EPISODES_BUTTON_TAG),
                 )
             }
         }
+    }
+}
+
+/**
+ * The top of the lifted page: the logo small, or the title in words on one line, then the rating and what the show is.
+ * A small logo can be hard to read, so the title follows it in words on a line of its own.
+ */
+@Composable
+private fun LiftedHeader(
+    state: DetailsState.Loaded,
+    modifier: Modifier = Modifier,
+) = Column(modifier, verticalArrangement = Arrangement.spacedBy(HeaderTitleGap)) {
+    val colors = NeoTheme.colors
+    val title = state.details.card.displayTitle()
+    val logo = state.logo as? Logo.Image
+    var failed by remember(logo) { mutableStateOf(false) }
+    val showsLogo = logo != null && !failed
+    Row(
+        Modifier.fillMaxWidth().height(HeaderHeight).testTag(DETAILS_HEADER_TAG),
+        horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space4),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (logo != null && showsLogo) {
+            val context = LocalPlatformContext.current
+            AsyncImage(
+                model = remember(logo.url) { logoRequest(context, logo.url) },
+                contentDescription = title,
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.CenterStart,
+                onError = { failed = true },
+                modifier = Modifier.height(HeaderHeight).widthIn(max = HeaderLogoWidth).testTag(DETAILS_HEADER_LOGO_TAG),
+            )
+        } else {
+            Text(
+                text = title,
+                style = NeoTheme.typography.title.copy(fontWeight = FontWeight.Bold),
+                color = colors.paper,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).testTag(DETAILS_COMPACT_TITLE_TAG),
+            )
+        }
+        Text(
+            text = state.headerMeta(),
+            style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Medium),
+            color = colors.textMuted,
+            maxLines = 1,
+        )
+    }
+    if (showsLogo) {
+        Text(
+            text = title,
+            style = NeoTheme.typography.label,
+            color = colors.paper,
+            maxLines = HEADER_TITLE_LINES,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.widthIn(max = HeaderTitleWidth).testTag(DETAILS_HEADER_TITLE_TAG),
+        )
+    }
+}
+
+/** How far the page lifts, so the tabs sit [LiftedTabsGap] under the header, however many lines its title takes. */
+@Composable
+private fun overviewLift(state: DetailsState.Loaded): Dp {
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val style = NeoTheme.typography.label
+    val title = state.details.card.displayTitle()
+    // Under a logo, the title follows in words. Without one, it's in the header's row.
+    val titleLine =
+        if (state.logo is Logo.Image) {
+            val maxWidth = with(density) { HeaderTitleWidth.roundToPx() }
+            val height =
+                remember(title, style, maxWidth) {
+                    measurer
+                        .measure(
+                            title,
+                            style,
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = HEADER_TITLE_LINES,
+                            constraints = Constraints(maxWidth = maxWidth),
+                        ).size
+                        .height
+                }
+            HeaderTitleGap + with(density) { height.toDp() }
+        } else {
+            0.dp
+        }
+    return OverviewTop - (HeaderTop + HeaderHeight + titleLine + LiftedTabsGap)
+}
+
+/** The rating in paper, then what the show is, such as "★ 8.4/10 · TV · 2025 · 22 eps". */
+@Composable
+private fun DetailsState.Loaded.headerMeta(): AnnotatedString {
+    val card = details.card
+    val rating = ratings.mean?.let { stringResource(R.string.details_header_rating, scoreOutOfTen(it).orEmpty()) }
+    val episodes = card.episodes?.let { pluralStringResource(R.plurals.details_header_episodes, it, it) }
+    val rest = listOfNotNull(card.formatName(), card.seasonYear?.toString(), episodes)
+    val paper = NeoTheme.colors.paper
+    return buildAnnotatedString {
+        rating?.let { withStyle(SpanStyle(color = paper)) { append(it) } }
+        if (rating != null && rest.isNotEmpty()) append(" · ")
+        append(rest.joinToString(" · "))
     }
 }
 
@@ -456,12 +596,20 @@ private fun Overview(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Facts(state.details, state.ratings, Modifier.padding(top = dimensions.space1))
         state.synopsis.story?.let { story ->
-            SynopsisPreview(
-                story = story,
-                enabled = !reading,
-                onRead = onRead,
-                modifier = outdent.focusRequester(synopsisFocus).remembersFocus("synopsis"),
-            )
+            // A caption like each fact's, clear of the outline focus draws around the synopsis.
+            Column(verticalArrangement = Arrangement.spacedBy(SynopsisCaptionGap)) {
+                Text(
+                    text = stringResource(R.string.details_synopsis),
+                    style = NeoTheme.typography.caption,
+                    color = NeoTheme.colors.textFaint,
+                )
+                SynopsisPreview(
+                    story = story,
+                    enabled = !reading,
+                    onRead = onRead,
+                    modifier = outdent.focusRequester(synopsisFocus).remembersFocus("synopsis"),
+                )
+            }
         }
     }
 }
@@ -600,12 +748,15 @@ private fun SiteRating(
 private const val RULE = 0.24f
 private val RatingsGap = 20.dp
 
+/** Sits the title block's bottom [HeroGap] above the tabs. A tall title grows up the screen. */
+private fun Modifier.onTheTabs() = height(OverviewTop - HeroGap).wrapContentHeight(Alignment.Bottom, unbounded = true)
+
 /** Placeholders where the title block, the Overview tab, the synopsis and the facts will be, sized as in the design. */
 @Composable
 private fun LoadingPage(modifier: Modifier = Modifier) {
     val dimensions = NeoTheme.dimensions
     Box(modifier.fillMaxSize().testTag(DETAILS_LOADING_TAG)) {
-        Column(Modifier.padding(top = HeroTop), verticalArrangement = Arrangement.spacedBy(dimensions.space3)) {
+        Column(Modifier.onTheTabs(), verticalArrangement = Arrangement.spacedBy(dimensions.space3)) {
             Skeleton(110.dp, 16.dp)
             Skeleton(300.dp, 34.dp)
             Skeleton(210.dp, 16.dp)
@@ -666,9 +817,9 @@ private fun List<Pair<Float, Float>>.inInk(ink: Color) = map { (at, alpha) -> at
 // From the design: ink over the backdrop from the left edge to the right, the same as the spotlight's.
 private val AcrossStops = listOf(0f to 0.88f, 0.34f to 0.7f, 0.55f to 0.42f, 0.8f to 0f, 1f to 0f)
 
-// From the design: ink from the top down. Clear above 62%, just over the Overview tab at 78%, and solid at the bottom,
-// under the synopsis and facts.
-private val DownStops = listOf(0f to 0f, 0.62f to 0f, 0.84f to 0.85f, 1f to 1f)
+// From the design: ink from the top down. Clear above 280 dp, 0.85 by the facts at 415 dp, and solid at the bottom, under
+// the synopsis.
+private val DownStops = listOf(0f to 0f, 280f / 540 to 0f, 415f / 540 to 0.85f, 1f to 1f)
 
 // Lifted, the synopsis and facts sit at the top of the screen, over the clearest part of the art.
 private const val LIFTED_DIM = 0.85f
@@ -697,13 +848,6 @@ private val relationNames =
 @Composable
 private fun RelatedAnime.caption(): String =
     listOfNotNull(stringResource(relationNames.getValue(relation)), card.formatName(), card.seasonYear?.toString()).joinToString(" · ")
-
-/** What the show is, such as "TV · Fall 2026 · 12 episodes". */
-@Composable
-private fun AnimeDetails.meta(): String {
-    val episodes = card.episodes?.let { pluralStringResource(R.plurals.home_episodes, it, it) }
-    return listOfNotNull(card.formatName(), card.seasonName(), episodes).joinToString(" · ")
-}
 
 /** Such as "Fall 2026", or just the year when AniList doesn't give the season. */
 @Composable

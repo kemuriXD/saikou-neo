@@ -74,6 +74,12 @@
     <string name="details_season_fall">Fall %1$d</string>
     <string name="details_overview">Overview</string>
     <string name="details_episodes">Episodes</string>
+    <string name="details_resume">Resume E%1$d · %2$d min left</string>
+    <string name="details_header_rating">★ %1$s/10</string>
+    <plurals name="details_header_episodes">
+        <item quantity="one">%1$d ep</item>
+        <item quantity="other">%1$d eps</item>
+    </plurals>
     <string name="details_related">Related</string>
     <string name="details_watch_order">Watch order</string>
     <string name="details_recommendations">Recommendations</string>
@@ -113,6 +119,7 @@
     <string name="details_fact_format">Format</string>
     <string name="details_fact_released">Released</string>
     <string name="details_fact_studio">Studio</string>
+    <string name="details_synopsis">Synopsis</string>
     <!-- An editors' note from AniList, shown after the synopsis. -->
     <string name="details_note">Note</string>
     <!-- Where AniList's synopsis came from, such as "Source: Crunchyroll". -->

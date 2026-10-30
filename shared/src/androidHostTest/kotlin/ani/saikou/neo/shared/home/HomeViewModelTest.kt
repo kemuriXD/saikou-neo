@@ -59,11 +59,12 @@ class HomeViewModelTest {
         fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
         tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
         sampleProgress: Boolean = false,
+        history: WatchHistory = WatchHistory(),
         now: Long = 1_793_300_000,
     ): HomeViewModel {
         val client = clientFor(engine, main)
         val library = ArtLibrary(ArtSources(client, aniZip, fanartTv, tmdb), CoroutineScope(main))
-        return HomeViewModel(client, library, AnimeSeason.FALL, 2026, sampleProgress) { now }
+        return HomeViewModel(client, library, AnimeSeason.FALL, 2026, sampleProgress, history) { now }
     }
 
     private val aniListRows = listOf(HomeRow.TRENDING, HomeRow.THIS_SEASON, HomeRow.POPULAR)
@@ -98,6 +99,17 @@ class HomeViewModelTest {
             assertEquals(spotlight.shows.take(5), shows)
             assertEquals(shows.map { it.id }.toSet(), state.progress.keys)
             assertEquals(7, state.progress.getValue(shows.first().id).episode)
+        }
+
+    @Test
+    fun samplesAreKeptInTheWatchHistory() =
+        runTest(main) {
+            val history = WatchHistory()
+            val viewModel = homeViewModel(RecordedEngine("browse-eight"), sampleProgress = true, history = history)
+
+            viewModel.settledSpotlight()
+            assertEquals(viewModel.state.value.progress, history.shows.value)
+            assertEquals(5, history.shows.value.size)
         }
 
     @Test

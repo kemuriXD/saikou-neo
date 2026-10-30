@@ -99,8 +99,8 @@ public sealed interface Logo {
 /**
  * Loads Home's rows from AniList. This season is [season] of [year]. The spotlight features the first shows of the
  * first row that loads, with logos and backdrops from [library]. While it's in view it moves on every 10 seconds,
- * until the viewer picks a show. With [sampleProgress], Continue watching shows made-up progress on the featured shows.
- * [now] is the time in seconds, for how soon a show's next episode is out.
+ * until the viewer picks a show. With [sampleProgress], Continue watching shows made-up progress on the featured shows,
+ * and the samples go into [history] for Details. [now] is the time in seconds, for how soon a show's next episode is out.
  * When the rows fail for the network, Home is offline and tries again every 30 seconds while that's on screen.
  */
 public class HomeViewModel(
@@ -109,6 +109,7 @@ public class HomeViewModel(
     private val season: AnimeSeason,
     private val year: Int,
     private val sampleProgress: Boolean = false,
+    private val history: WatchHistory = WatchHistory(),
     private val now: () -> Long = { Clock.System.now().epochSeconds },
 ) : ViewModel() {
     // Nothing saves progress yet, so without samples Continue watching is empty from the start.
@@ -216,6 +217,7 @@ public class HomeViewModel(
         if (!sampleProgress || rows[HomeRow.CONTINUE_WATCHING] != RowState.Loading) return this
         val shows = spotlight?.shows ?: if (aniListRows.any { rows[it] == RowState.Loading }) return this else emptyList()
         val progress = sampleProgress(shows)
+        history.put(progress)
         return copy(rows = rows + (HomeRow.CONTINUE_WATCHING to RowState.Loaded(shows.filter { it.id in progress })), progress = progress)
     }
 

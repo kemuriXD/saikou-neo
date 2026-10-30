@@ -11,6 +11,7 @@ import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.ShowArt
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.home.Logo
+import ani.saikou.neo.shared.home.WatchProgress
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +38,8 @@ public sealed interface DetailsState {
         val episodes: EpisodeList? = null,
         /** AniList's score at first. The other sites' join as they answer. */
         val ratings: Ratings = Ratings(details.card.averageScore),
+        /** How far this TV got in the show, or null if it hasn't been watched here. */
+        val progress: WatchProgress? = null,
     ) : DetailsState
 
     public data object Failed : DetailsState
@@ -48,7 +51,7 @@ public sealed interface DetailsState {
  * logo only if the art came by then, so the title never swaps in front of the viewer. A backdrop found later still fades
  * in. The episodes come from AniZip once AniList's details are in, or as plain numbers without it. Those after [today]
  * haven't aired, and they're left out of the list unless [showUpcomingEpisodes]. The [raters] are asked once AniList's
- * details are in, and for IMDb once AniZip gives its id.
+ * details are in, and for IMDb once AniZip gives its id. [progress] is how far this TV got in the show, if anywhere.
  */
 public class DetailsViewModel(
     private val client: AniListClient,
@@ -58,6 +61,7 @@ public class DetailsViewModel(
     private val animeId: Int,
     private val today: AirDate,
     private val showUpcomingEpisodes: Boolean = true,
+    private val progress: WatchProgress? = null,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
     public val state: StateFlow<DetailsState> = mutableState.asStateFlow()
@@ -94,7 +98,7 @@ public class DetailsViewModel(
                 rate { it.copy(imdb = omdb.imdb, rottenTomatoes = omdb.rottenTomatoes) }
             }
             val found = withTimeoutOrNull(ART_WAIT) { art.await() }
-            val loaded = DetailsState.Loaded(result.value, episodes = episodes, ratings = ratings)
+            val loaded = DetailsState.Loaded(result.value, episodes = episodes, ratings = ratings, progress = progress)
             if (found != null) {
                 mutableState.value = loaded.withArt(found)
                 return@launch

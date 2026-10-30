@@ -18,6 +18,7 @@ import ani.saikou.neo.shared.catalogue.TmdbClient
 import ani.saikou.neo.shared.catalogue.card
 import ani.saikou.neo.shared.catalogue.clientFor
 import ani.saikou.neo.shared.home.Logo
+import ani.saikou.neo.shared.home.WatchProgress
 import com.apollographql.apollo.api.http.HttpRequest
 import com.apollographql.apollo.api.http.HttpResponse
 import com.apollographql.apollo.network.http.HttpEngine
@@ -40,6 +41,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -66,6 +68,7 @@ class DetailsViewModelTest {
         mal: MalClient = MalClient(OfflineEngine, main),
         omdb: OmdbClient = OmdbClient(null, OfflineEngine, main),
         showUpcomingEpisodes: Boolean = true,
+        progress: WatchProgress? = null,
     ) = DetailsViewModel(
         clientFor(engine, main),
         library,
@@ -74,6 +77,7 @@ class DetailsViewModelTest {
         animeId = 195516,
         today = AirDate(2026, 10, 26),
         showUpcomingEpisodes = showUpcomingEpisodes,
+        progress = progress,
     )
 
     private fun library(
@@ -101,6 +105,21 @@ class DetailsViewModelTest {
             assertEquals(listOf("Drama", "Mystery"), loaded.details.genres)
             assertEquals("Crunchyroll", loaded.synopsis.source)
             assertTrue(engine.requestBodies.single().contains("\"id\":195516"))
+        }
+
+    @Test
+    fun carriesTheProgressItWasGiven() =
+        runTest(main) {
+            val progress = WatchProgress(7, 14.minutes, 24.minutes, null)
+            val viewModel = detailsViewModel(progress = progress)
+
+            assertEquals(progress, assertIs<DetailsState.Loaded>(viewModel.settled()).progress)
+        }
+
+    @Test
+    fun hasNoProgressWithoutAny() =
+        runTest(main) {
+            assertEquals(null, assertIs<DetailsState.Loaded>(detailsViewModel().settled()).progress)
         }
 
     @Test

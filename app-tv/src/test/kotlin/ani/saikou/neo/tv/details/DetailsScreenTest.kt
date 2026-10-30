@@ -58,11 +58,13 @@ import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.Ratings
 import ani.saikou.neo.shared.details.episodeList
 import ani.saikou.neo.shared.home.Logo
+import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.NeoNavigation
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.card
 import ani.saikou.neo.tv.home.loaded
 import ani.saikou.neo.tv.theme.NeoColors
+import ani.saikou.neo.tv.theme.NeoDimensions
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.fakeImages
 import ani.saikou.neo.tv.ui.fakeImagesNeverArrive
@@ -78,6 +80,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.time.Duration.Companion.minutes
 
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -129,9 +132,10 @@ class DetailsScreenTest {
     fun theTopSaysWhatTheAnimeIs() {
         show(DetailsState.Loaded(details))
 
-        compose.onNodeWithText("TV · Fall 2026 · 12 episodes").assertExists()
         compose.onNodeWithText("Show 7").assertExists()
-        compose.onNodeWithText("Drama · Mystery").assertExists()
+        compose.onNodeWithText("Drama · Mystery · 12 episodes").assertExists()
+        // The format and season wait for the header on the lifted page.
+        compose.onNodeWithText("TV · Fall 2026 · 12 episodes").assertDoesNotExist()
     }
 
     @Test
@@ -148,6 +152,19 @@ class DetailsScreenTest {
         compose.onNodeWithText("Streamed early.").assertDoesNotExist()
     }
 
+    // Like each fact, the synopsis has a caption saying what it is. It sits on the grid margin, outside the focus outline.
+    @Test
+    fun theSynopsisHasACaption() {
+        show(DetailsState.Loaded(details))
+
+        val caption = compose.onNodeWithText("Synopsis").assertLeftPositionInRootIsEqualTo(58.dp).getUnclippedBoundsInRoot()
+        val synopsis = compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).getUnclippedBoundsInRoot()
+        // Clear of the outline focus draws around the synopsis.
+        assertTrue(caption.bottom + 6.dp <= synopsis.top)
+        // Still on screen under the facts.
+        assertTrue(synopsis.bottom <= 540.dp)
+    }
+
     @Test
     fun downMovesToTheSynopsisAndBringsTheOverviewUp() {
         show(DetailsState.Loaded(details))
@@ -156,12 +173,12 @@ class DetailsScreenTest {
         press(Key.DirectionDown)
 
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertIsFocused()
-        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(72.dp)
-        // The title stays as a small line at the top.
-        compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).assertTopPositionInRootIsEqualTo(27.dp)
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(76.dp)
+        // A small header stays at the top.
+        compose.onNodeWithTag(DETAILS_HEADER_TAG).assertTopPositionInRootIsEqualTo(24.dp).assertHeightIsEqualTo(40.dp)
         // The facts below the synopsis come into view with it.
         compose.onNodeWithText("OLM").assertIsDisplayed()
-        compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertHeightIsEqualTo((12 + 3 * 20 + 12).dp)
+        compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertHeightIsEqualTo((12 + 2 * 20 + 12).dp)
     }
 
     // Lifted, the tabs sit up and to the right of the synopsis. Sideways from a section never jumps up to them.
@@ -220,7 +237,7 @@ class DetailsScreenTest {
         press(Key.DirectionDown)
         press(Key.DirectionUp)
 
-        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertIsFocused().assertTopPositionInRootIsEqualTo(420.dp)
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertIsFocused().assertTopPositionInRootIsEqualTo(352.dp)
         compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).assertDoesNotExist()
     }
 
@@ -304,9 +321,9 @@ class DetailsScreenTest {
         val bare = card(7).copy(format = null, episodes = null, season = null, averageScore = null)
         show(DetailsState.Loaded(details.copy(card = bare, genres = emptyList(), studios = emptyList(), description = null)))
 
-        // The year alone, both at the top and in the facts.
-        compose.onAllNodesWithText("2026").assertCountEquals(2)
-        compose.onNodeWithTag(DETAILS_GENRES_TAG).assertDoesNotExist()
+        // The year alone in the facts, and no line about it at the top.
+        compose.onAllNodesWithText("2026").assertCountEquals(1)
+        compose.onNodeWithTag(DETAILS_META_TAG).assertDoesNotExist()
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertDoesNotExist()
         compose.onNodeWithTag(DETAILS_RATING_TAG).assertDoesNotExist()
         compose.onNodeWithTag(DETAILS_RATINGS_TAG).assertDoesNotExist()
@@ -366,11 +383,15 @@ class DetailsScreenTest {
     fun theLayoutFollowsTheDesign() {
         show(DetailsState.Loaded(details))
 
-        compose
-            .onNodeWithTag(DETAILS_TITLE_TAG)
-            .assertTopPositionInRootIsEqualTo(150.dp)
-            .assertLeftPositionInRootIsEqualTo(58.dp)
-        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(420.dp)
+        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertLeftPositionInRootIsEqualTo(58.dp)
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(352.dp)
+        assertButtonsSitOverTheTabs()
+    }
+
+    /** The title block sits on the tabs, so the buttons end 40 dp above them however tall the title is. */
+    private fun assertButtonsSitOverTheTabs() {
+        val button = compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).getUnclippedBoundsInRoot()
+        assertEquals(312f, button.bottom.value, 0.01f)
     }
 
     @Test
@@ -385,10 +406,42 @@ class DetailsScreenTest {
     }
 
     @Test
-    fun detailsOpensOnItsMainButton() {
+    fun detailsOpensOnPlayWithoutProgress() {
         show(DetailsState.Loaded(details))
 
-        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused().assertTextEquals("Episodes")
+        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused().assertTextEquals("Play")
+        compose.onNodeWithTag(DETAILS_EPISODES_BUTTON_TAG).assertTextEquals("Episodes")
+    }
+
+    @Test
+    fun detailsOpensOnResumeWithProgress() {
+        show(DetailsState.Loaded(details, progress = WatchProgress(7, 12.minutes, 24.minutes, null)))
+
+        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused().assertTextEquals("Resume E7 · 12 min left")
+    }
+
+    // Focus grows the main button from its middle, so the room after it grows too, and the gap stays 16 dp.
+    @Test
+    fun theFocusedMainButtonKeepsItsGap() {
+        show(DetailsState.Loaded(details, progress = WatchProgress(7, 12.minutes, 24.minutes, null)))
+
+        val main = compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused().getUnclippedBoundsInRoot()
+        val episodes = compose.onNodeWithTag(DETAILS_EPISODES_BUTTON_TAG).getUnclippedBoundsInRoot()
+        val grown = (main.right - main.left) * (NeoDimensions().focusScaleButton - 1) / 2
+        // Within half a dp: the room is rounded to whole pixels.
+        assertTrue(episodes.left - (main.right + grown) >= 15.5.dp)
+    }
+
+    @Test
+    fun theEpisodesButtonGoesToTheEpisodes() {
+        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today)))
+
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(DETAILS_EPISODES_BUTTON_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertIsSelected()
+        compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
     }
 
     @Test
@@ -408,7 +461,7 @@ class DetailsScreenTest {
 
         compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertIsSelected()
         compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertTopPositionInRootIsEqualTo(72.dp)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertTopPositionInRootIsEqualTo(76.dp)
     }
 
     @Test
@@ -787,7 +840,7 @@ class DetailsScreenTest {
         back()
 
         compose.onNodeWithTag(relatedPosterTag(9)).assertIsFocused()
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(72.dp)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(76.dp)
     }
 
     // Down in a section, Back brings the page back to the top before it leaves Details.
@@ -799,7 +852,7 @@ class DetailsScreenTest {
 
         back()
         compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused()
-        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(420.dp)
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(352.dp)
 
         back()
         compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertDoesNotExist()
@@ -819,7 +872,7 @@ class DetailsScreenTest {
         back()
         back()
         compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused()
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(420.dp)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(352.dp)
     }
 
     @Test
@@ -834,7 +887,7 @@ class DetailsScreenTest {
             .assertExists()
         // Nothing to move to, so the page stays where it is.
         press(Key.DirectionDown)
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.WATCH_ORDER)).assertIsFocused().assertTopPositionInRootIsEqualTo(420.dp)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.WATCH_ORDER)).assertIsFocused().assertTopPositionInRootIsEqualTo(352.dp)
     }
 
     @Test
@@ -892,6 +945,82 @@ class DetailsScreenTest {
     }
 
     @Test
+    fun theLiftedHeaderSaysWhatTheShowIs() {
+        show(
+            DetailsState.Loaded(
+                details,
+                logo = Logo.None,
+                ratings = Ratings(aniList = 84),
+                progress = WatchProgress(7, 12.minutes, 24.minutes, null),
+            ),
+        )
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).assertTextEquals("Show 7")
+        compose.onNodeWithText("★ 8.4/10 · TV · 2026 · 12 eps").assertExists()
+        // The title is already in the row, so there's no line under it.
+        compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).assertDoesNotExist()
+        // Nothing could move focus up to a button there, so it has none.
+        compose.onNode(hasText("Resume", substring = true) and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertDoesNotExist()
+    }
+
+    // A long title takes the room the header has, rather than half of it.
+    @Test
+    fun aLongTitleUsesTheHeadersRoom() {
+        val name = "Frieren: Beyond Journey's End, the Complete Second Season and Its Specials"
+        val long = details.copy(card = card(7).copy(title = card(7).title.copy(english = name)))
+        show(DetailsState.Loaded(long, logo = Logo.None))
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+
+        // Everything but the meta: 854 dp across, less about 200 for it.
+        val title = compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).getUnclippedBoundsInRoot()
+        assertTrue(title.right - title.left > 450.dp)
+    }
+
+    @Test
+    fun theLiftedHeaderShowsTheLogo() {
+        imagesAre(800, 310)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+
+        compose
+            .onNodeWithTag(DETAILS_HEADER_LOGO_TAG)
+            .assertContentDescriptionEquals("Show 7")
+            .assertHeightIsEqualTo(40.dp)
+        compose.onNode(hasText("Play") and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertDoesNotExist()
+        // A logo can be hard to read small, so the title follows it in words, under the header's row.
+        compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).assertTextEquals("Show 7").assertTopPositionInRootIsEqualTo(74.dp)
+        assertTabsSitUnderTheHeaderTitle()
+    }
+
+    /** The lifted tabs make room for the title under the logo, 12 dp below it. */
+    private fun assertTabsSitUnderTheHeaderTitle() {
+        val title = compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).getUnclippedBoundsInRoot()
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(title.bottom + 12.dp)
+    }
+
+    // A long title wraps inside the title block's width, rather than running across the screen, and the tabs make room.
+    @Test
+    fun aLongTitleUnderTheLogoWraps() {
+        imagesAre(800, 310)
+        val name = "Frieren: Beyond Journey's End, the Complete Second Season and Its Specials"
+        val long = details.copy(card = card(7).copy(title = card(7).title.copy(english = name)))
+        show(DetailsState.Loaded(long, logo = Logo.Image(LOGO)))
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+
+        // Two lines, as tall as the label's two lines: 19.5 dp for the first, 20 for the next.
+        val title = compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).assertHeightIsEqualTo(39.5.dp).getUnclippedBoundsInRoot()
+        assertTrue(title.right - title.left <= 440.dp)
+        assertTabsSitUnderTheHeaderTitle()
+    }
+
+    @Test
     fun theTitleIsTheLogoWhenThereIsOne() {
         imagesAre(800, 310)
         show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
@@ -901,7 +1030,7 @@ class DetailsScreenTest {
             .onNodeWithTag(DETAILS_LOGO_TAG)
             .assertContentDescriptionEquals("Show 7")
             .assertHeightIsEqualTo(80.dp)
-            .assertTopPositionInRootIsEqualTo(150.dp)
+        assertButtonsSitOverTheTabs()
     }
 
     // Spirited Away's logo is almost ten times as wide as it is tall, so it's drawn 360 × 37.
@@ -933,14 +1062,11 @@ class DetailsScreenTest {
         assertTitleGaps(DETAILS_TITLE_TAG)
     }
 
-    /** As on the spotlight, the title comes first and what the show is sits 10 dp under it, then its genres. */
+    /** As on the spotlight, the title comes first and its genres and episodes sit 10 dp under it. */
     private fun assertTitleGaps(titleTag: String) {
         val title = compose.onNodeWithTag(titleTag).getUnclippedBoundsInRoot()
         val meta = compose.onNodeWithTag(DETAILS_META_TAG).getUnclippedBoundsInRoot()
-        val genres = compose.onNodeWithTag(DETAILS_GENRES_TAG).getUnclippedBoundsInRoot()
-        assertEquals(150f, title.top.value, 0.01f)
         assertEquals(10f, (meta.top - title.bottom).value, 0.01f)
-        assertEquals(10f, (genres.top - meta.bottom).value, 0.01f)
     }
 
     // :shared picks logos from the sizes the artwork sites report, so the TV app shows any shape it's given.
