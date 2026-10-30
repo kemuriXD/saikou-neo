@@ -83,7 +83,14 @@ class MainActivity : ComponentActivity() {
                             val home =
                                 viewModel(key = "home-${settings.showUnairedAnime}") {
                                     // Only alpha builds show sample progress, until the player saves real progress.
-                                    HomeViewModel(client, library, season(), year(), sampleProgress = BuildConfig.FLAVOR == "alpha")
+                                    HomeViewModel(
+                                        client,
+                                        library,
+                                        season(),
+                                        year(),
+                                        sampleProgress = BuildConfig.FLAVOR == "alpha",
+                                        history = app.history,
+                                    )
                                 }
                             val state by home.state.collectAsStateWithLifecycle()
                             HomeScreen(
@@ -113,7 +120,16 @@ class MainActivity : ComponentActivity() {
                         details = { animeId, openDetails, openRecommendations ->
                             val details =
                                 viewModel {
-                                    DetailsViewModel(client, library, aniZip, raters, animeId, today(), settings.showUpcomingEpisodes)
+                                    DetailsViewModel(
+                                        client,
+                                        library,
+                                        aniZip,
+                                        raters,
+                                        animeId,
+                                        today(),
+                                        settings.showUpcomingEpisodes,
+                                        progress = app.history.shows.value[animeId],
+                                    )
                                 }
                             val state by details.state.collectAsStateWithLifecycle()
                             DetailsScreen(state, onOpen = openDetails, onRecommendations = { openRecommendations(animeId) })
