@@ -119,6 +119,7 @@
     <string name="details_fact_format">Format</string>
     <string name="details_fact_released">Released</string>
     <string name="details_fact_studio">Studio</string>
+    <string name="details_synopsis">Synopsis</string>
     <!-- An editors' note from AniList, shown after the synopsis. -->
     <string name="details_note">Note</string>
     <!-- Where AniList's synopsis came from, such as "Source: Crunchyroll". -->

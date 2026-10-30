@@ -152,6 +152,18 @@ class DetailsScreenTest {
         compose.onNodeWithText("Streamed early.").assertDoesNotExist()
     }
 
+    // Like each fact, the synopsis has a caption saying what it is. It sits on the grid margin, outside the focus outline.
+    @Test
+    fun theSynopsisHasACaption() {
+        show(DetailsState.Loaded(details))
+
+        val caption = compose.onNodeWithText("Synopsis").assertLeftPositionInRootIsEqualTo(58.dp).getUnclippedBoundsInRoot()
+        val synopsis = compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).getUnclippedBoundsInRoot()
+        assertTrue(caption.bottom <= synopsis.top)
+        // Still on screen under the facts.
+        assertTrue(synopsis.bottom <= 540.dp)
+    }
+
     @Test
     fun downMovesToTheSynopsisAndBringsTheOverviewUp() {
         show(DetailsState.Loaded(details))

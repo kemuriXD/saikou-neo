@@ -600,12 +600,20 @@ private fun Overview(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Facts(state.details, state.ratings, Modifier.padding(top = dimensions.space1))
         state.synopsis.story?.let { story ->
-            SynopsisPreview(
-                story = story,
-                enabled = !reading,
-                onRead = onRead,
-                modifier = outdent.focusRequester(synopsisFocus).remembersFocus("synopsis"),
-            )
+            // A caption like each fact's, outside the box focus outlines.
+            Column {
+                Text(
+                    text = stringResource(R.string.details_synopsis),
+                    style = NeoTheme.typography.caption,
+                    color = NeoTheme.colors.textFaint,
+                )
+                SynopsisPreview(
+                    story = story,
+                    enabled = !reading,
+                    onRead = onRead,
+                    modifier = outdent.focusRequester(synopsisFocus).remembersFocus("synopsis"),
+                )
+            }
         }
     }
 }

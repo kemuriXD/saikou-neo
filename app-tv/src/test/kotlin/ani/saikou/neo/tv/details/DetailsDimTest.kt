@@ -22,7 +22,7 @@ class DetailsDimTest {
         return (light + 0.05f) / (dark + 0.05f)
     }
 
-    // The facts start 416 dp down a 540 dp screen, and the synopsis 455 dp. Over the brightest backdrop, their text stays
+    // The facts start 416 dp down a 540 dp screen, and the synopsis text 471 dp. Over the brightest backdrop, their text stays
     // readable anywhere.
     @Test
     fun theFactsStayReadableOverWhite() {
@@ -34,7 +34,7 @@ class DetailsDimTest {
 
     @Test
     fun theTextUnderTheOverviewTabStaysReadableOverWhite() {
-        val synopsis = 455f / 540
+        val synopsis = 471f / 540
         assertTrue(contrastOverWhite(colors.textMuted, detailsDimDown(synopsis)) >= 4.5f)
         assertTrue(contrastOverWhite(colors.textFaint, detailsDimDown(510f / 540)) >= 4.5f)
     }
