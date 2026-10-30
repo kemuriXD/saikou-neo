@@ -1014,8 +1014,8 @@ class DetailsScreenTest {
         press(Key.DirectionDown)
         press(Key.DirectionDown)
 
-        // Two lines, as tall as the label's two lines: 17 dp for the first, 20 for the next.
-        val title = compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).assertHeightIsEqualTo(37.dp).getUnclippedBoundsInRoot()
+        // Two lines, as tall as the label's two lines: 19.5 dp for the first, 20 for the next.
+        val title = compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).assertHeightIsEqualTo(39.5.dp).getUnclippedBoundsInRoot()
         assertTrue(title.right - title.left <= 440.dp)
         assertTabsSitUnderTheHeaderTitle()
     }
