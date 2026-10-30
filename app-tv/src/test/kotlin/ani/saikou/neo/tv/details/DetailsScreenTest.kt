@@ -160,7 +160,7 @@ class DetailsScreenTest {
         press(Key.DirectionDown)
 
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertIsFocused()
-        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(100.dp)
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(106.dp)
         // A small header stays at the top.
         compose.onNodeWithTag(DETAILS_HEADER_TAG).assertTopPositionInRootIsEqualTo(24.dp).assertHeightIsEqualTo(40.dp)
         // The facts below the synopsis come into view with it.
@@ -448,7 +448,7 @@ class DetailsScreenTest {
 
         compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertIsSelected()
         compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertTopPositionInRootIsEqualTo(100.dp)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertTopPositionInRootIsEqualTo(106.dp)
     }
 
     @Test
@@ -827,7 +827,7 @@ class DetailsScreenTest {
         back()
 
         compose.onNodeWithTag(relatedPosterTag(9)).assertIsFocused()
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(100.dp)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(106.dp)
     }
 
     // Down in a section, Back brings the page back to the top before it leaves Details.
@@ -980,7 +980,7 @@ class DetailsScreenTest {
             .assertHeightIsEqualTo(40.dp)
         compose.onNode(hasText("Play") and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertDoesNotExist()
         // A logo can be hard to read small, so the title follows it in words, under the header's row.
-        compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).assertTextEquals("Show 7").assertTopPositionInRootIsEqualTo(68.dp)
+        compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).assertTextEquals("Show 7").assertTopPositionInRootIsEqualTo(74.dp)
     }
 
     @Test

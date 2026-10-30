@@ -126,18 +126,18 @@ internal fun ratingTag(site: String) = "details-rating-$site"
 
 // From the design: the Overview tabs rest at 352 dp, with the section peeking below the screen, and the title block sits
 // on them, its buttons 40 dp above, however tall the title is. Focus in a section lifts the page so the tabs sit at
-// 100 dp, under a small header.
+// 106 dp, under a small header.
 private val HeroGap = 40.dp
 private val HeroWidth = 440.dp
 private val OverviewTop = 352.dp
-private val OverviewLift = 252.dp
+private val OverviewLift = 246.dp
 
 // From the design: the lifted page keeps a 40 dp header at the top, with the logo at its full height.
 private val HeaderTop = 24.dp
 private val HeaderEnd = 48.dp
 private val HeaderHeight = 40.dp
 private val HeaderLogoWidth = 200.dp
-private val HeaderTitleGap = 4.dp
+private val HeaderTitleGap = 10.dp
 private val SynopsisBorder = 2.dp
 
 // From the design: the buttons sit a little further below the genres than the lines above sit apart.
