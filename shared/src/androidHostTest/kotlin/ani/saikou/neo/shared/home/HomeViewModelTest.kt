@@ -58,13 +58,11 @@ class HomeViewModelTest {
         aniZip: AniZipClient = this.aniZip,
         fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
         tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
-        sampleProgress: Boolean = false,
-        history: WatchHistory = WatchHistory(),
         now: Long = 1_793_300_000,
     ): HomeViewModel {
         val client = clientFor(engine, main)
         val library = ArtLibrary(ArtSources(client, aniZip, fanartTv, tmdb), CoroutineScope(main))
-        return HomeViewModel(client, library, AnimeSeason.FALL, 2026, sampleProgress, history) { now }
+        return HomeViewModel(client, library, AnimeSeason.FALL, 2026) { now }
     }
 
     private val aniListRows = listOf(HomeRow.TRENDING, HomeRow.THIS_SEASON, HomeRow.POPULAR)
@@ -76,48 +74,24 @@ class HomeViewModelTest {
         assertEquals(aniListRows.map { RowState.Loading }, aniListRows.map { viewModel.state.value.rows[it] })
     }
 
+    // Nothing records watch history yet (#115), so Continue watching stays empty and the screen hides it.
     @Test
-    fun continueWatchingIsEmptyWithoutSamples() =
+    fun continueWatchingIsEmptyFromTheStart() =
         runTest(main) {
-            val viewModel = homeViewModel()
+            val viewModel = homeViewModel(RecordedEngine("browse-eight"))
 
             assertEquals(RowState.Loaded(emptyList()), viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING])
-            viewModel.settledRows()
+            viewModel.settledSpotlight()
             assertEquals(RowState.Loaded(emptyList()), viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING])
-            assertEquals(emptyMap(), viewModel.state.value.progress)
         }
 
+    // Without progress, the spotlight offers Play rather than Resume.
     @Test
-    fun continueWatchingLoadsWithTheSpotlightWithSamples() =
+    fun theSpotlightComesWithoutProgress() =
         runTest(main) {
-            val viewModel = homeViewModel(RecordedEngine("browse-eight"), sampleProgress = true)
-
-            assertEquals(RowState.Loading, viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING])
-            val spotlight = viewModel.settledSpotlight()
-            val state = viewModel.state.value
-            val shows = assertIs<RowState.Loaded>(state.rows[HomeRow.CONTINUE_WATCHING]).items
-            assertEquals(spotlight.shows.take(5), shows)
-            assertEquals(shows.map { it.id }.toSet(), state.progress.keys)
-            assertEquals(7, state.progress.getValue(shows.first().id).episode)
-        }
-
-    @Test
-    fun samplesAreKeptInTheWatchHistory() =
-        runTest(main) {
-            val history = WatchHistory()
-            val viewModel = homeViewModel(RecordedEngine("browse-eight"), sampleProgress = true, history = history)
+            val viewModel = homeViewModel(RecordedEngine("browse-eight"))
 
             viewModel.settledSpotlight()
-            assertEquals(viewModel.state.value.progress, history.shows.value)
-            assertEquals(5, history.shows.value.size)
-        }
-
-    @Test
-    fun continueWatchingIsEmptyWhenEveryRowFailsWithSamples() =
-        runTest(main) {
-            val viewModel = homeViewModel(OfflineEngine, sampleProgress = true)
-
-            assertEquals(RowState.Loaded(emptyList()), viewModel.settledRows()[HomeRow.CONTINUE_WATCHING])
             assertEquals(emptyMap(), viewModel.state.value.progress)
         }
 
@@ -158,30 +132,16 @@ class HomeViewModelTest {
     @Test
     fun tryingAgainPutsTheRowsBackInTheirPlacesButStaysOfflineUntilOneLoads() =
         runTest(main) {
-            val viewModel = homeViewModel(SwitchableEngine(), sampleProgress = true)
+            val viewModel = homeViewModel(SwitchableEngine())
             viewModel.settledRows()
 
             viewModel.retry()
 
-            HomeRow.entries.forEach { assertEquals(RowState.Loading, viewModel.state.value.rows[it]) }
+            aniListRows.forEach { assertEquals(RowState.Loading, viewModel.state.value.rows[it]) }
+            assertEquals(RowState.Loaded(emptyList()), viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING])
             assertTrue(viewModel.state.value.offline)
             viewModel.settledRows()
             assertTrue(viewModel.state.value.offline)
-        }
-
-    @Test
-    fun continueWatchingFillsOnceHomeIsBackOnlineWithSamples() =
-        runTest(main) {
-            val engine = SwitchableEngine()
-            val viewModel = homeViewModel(engine, sampleProgress = true)
-            viewModel.settledRows()
-
-            engine.online = true
-            viewModel.retry()
-
-            viewModel.settledSpotlight()
-            viewModel.settledRows()
-            assertEquals(2, assertIs<RowState.Loaded>(viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING]).items.size)
         }
 
     @Test
