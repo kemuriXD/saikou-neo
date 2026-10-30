@@ -32,12 +32,12 @@ query BrowseAnime($page: Int!, $perPage: Int!, $sort: [MediaSort], $season: Medi
   }
 }
 
-query SearchAnime($page: Int!, $perPage: Int!, $search: String!, $statusNot: MediaStatus) {
+query SearchAnime($page: Int!, $perPage: Int!, $search: String!, $statusNot: MediaStatus, $formatIn: [MediaFormat], $status: MediaStatus) {
   Page(page: $page, perPage: $perPage) {
     pageInfo {
       hasNextPage
     }
-    media(type: ANIME, isAdult: false, search: $search, sort: [SEARCH_MATCH], status_not: $statusNot) {
+    media(type: ANIME, isAdult: false, search: $search, sort: [SEARCH_MATCH], status_not: $statusNot, format_in: $formatIn, status: $status) {
       ...AnimeCardFields
     }
   }

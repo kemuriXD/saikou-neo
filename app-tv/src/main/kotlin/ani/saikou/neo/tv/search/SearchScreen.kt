@@ -3,9 +3,11 @@ package ani.saikou.neo.tv.search
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -18,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -31,20 +34,30 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selectableGroup
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -53,6 +66,7 @@ import androidx.tv.material3.Glow
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
+import ani.saikou.neo.shared.catalogue.SearchFilter
 import ani.saikou.neo.shared.search.SearchGenre
 import ani.saikou.neo.shared.search.SearchResults
 import ani.saikou.neo.shared.search.SearchState
@@ -62,15 +76,20 @@ import ani.saikou.neo.tv.home.Skeleton
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.home.posterTag
+import ani.saikou.neo.tv.theme.KeylineScrolling
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoButton
+import ani.saikou.neo.tv.ui.NeoTab
 import coil3.compose.AsyncImage
 
 internal const val SUGGESTION_TAG = "suggestion"
+internal const val RESULTS_TAG = "results"
 
 internal fun keyTag(key: Char) = "key-$key"
 
 internal fun genreTag(genre: SearchGenre) = "genre-${genre.name}"
+
+internal fun filterTag(filter: SearchFilter) = "filter-${filter.name}"
 
 // From the design: 240 dp of keys and 560 dp of results, 32 dp apart, centred together under the safe area. Keys are
 // 36 dp tall in six columns, 4 dp apart; results are four 124 dp posters a row.
@@ -85,9 +104,21 @@ private val KeyHeight = 36.dp
 private val KeyGap = 4.dp
 private val PosterColumnGap = 20.dp
 private val PosterRowGap = 18.dp
+
+// Room inside the results for a focused poster to grow, ring and glow, with the grid moved out by as much so the
+// posters stay put. Under the last row, room down to the safe area.
+private val FocusRoom = 14.dp
+
+// Rows scrolled up fade out over the room at the top, so they pass under the chips instead of being cut. A focused
+// row rests below the fade, far enough down that its ring stays whole.
+private val ScrolledRest = 22.dp
 private val TileHeight = 64.dp
 private val TileGap = 12.dp
 private val TilePadding = 14.dp
+
+// Chips as tall as the design's genre chips, 10 dp apart.
+private val ChipHeight = 36.dp
+private val ChipGap = 10.dp
 
 // From the design: a 44 by 66 dp poster beside three lines, on a card that grows a little on focus.
 private val SuggestionWidth = 44.dp
@@ -127,6 +158,14 @@ internal val genreLabels =
         SearchGenre.SLICE_OF_LIFE to R.string.genre_slice_of_life,
     )
 
+private val filterLabels =
+    mapOf(
+        SearchFilter.ALL to R.string.search_filter_all,
+        SearchFilter.TV to R.string.search_filter_tv,
+        SearchFilter.MOVIES to R.string.search_filter_movies,
+        SearchFilter.AIRING to R.string.search_filter_airing,
+    )
+
 // Each tile's gradient, from its top left corner to its bottom right.
 private val genreFills =
     mapOf(
@@ -151,6 +190,7 @@ fun SearchScreen(
     onRetry: () -> Unit,
     onOpen: (animeId: Int) -> Unit,
     onGenre: (genre: SearchGenre) -> Unit,
+    onFilter: (filter: SearchFilter) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
@@ -176,6 +216,10 @@ fun SearchScreen(
         focusedGenre = it
         focusedId = null
     }
+    // Finding nothing at all is no use narrowing, but a filter that found nothing can be changed back.
+    val showFilters =
+        results == SearchResults.Loading ||
+            (results is SearchResults.Found && (results.items.isNotEmpty() || state.filter != SearchFilter.ALL))
 
     Box(modifier.fillMaxSize().drawBehind { drawBackdrop(colors.ink) }.onFocusChanged { hasFocus = it.hasFocus }) {
         Row(
@@ -184,20 +228,51 @@ fun SearchScreen(
         ) {
             Keyboard(state.query, focusFirst = !hasFocus && returnTo == null && returnToGenre == null, onType, onDelete, onClear)
             Column(Modifier.width(ResultsWidth), verticalArrangement = Arrangement.spacedBy(BlockGap)) {
+                Heading(
+                    when {
+                        results == SearchResults.Idle -> {
+                            stringResource(R.string.search_genres)
+                        }
+
+                        results == SearchResults.Failed -> {
+                            stringResource(R.string.search_failed)
+                        }
+
+                        results is SearchResults.Found && results.items.isEmpty() && state.filter != SearchFilter.ALL -> {
+                            stringResource(
+                                R.string.search_nothing_filtered,
+                                results.query,
+                                stringResource(filterLabels.getValue(state.filter)),
+                            )
+                        }
+
+                        results is SearchResults.Found && results.items.isEmpty() -> {
+                            stringResource(R.string.search_nothing, results.query)
+                        }
+
+                        else -> {
+                            stringResource(R.string.search_results, (results as? SearchResults.Found)?.query ?: state.query.trim())
+                        }
+                    },
+                )
+                // One place for every state, so a chip keeps focus when its results come in.
+                if (showFilters) Filters(state.filter, onFilter)
                 when {
                     results == SearchResults.Idle -> {
-                        Heading(stringResource(R.string.search_genres))
                         Genres(genres, returnToGenre, onGenre, onGenreFocus)
                     }
 
                     results == SearchResults.Failed -> {
-                        Heading(stringResource(R.string.search_failed))
                         Text(stringResource(R.string.see_more_failed_hint), style = Hint, color = colors.textMuted)
                         NeoButton(stringResource(R.string.try_again), onClick = onRetry, modifier = Modifier.padding(top = AfterHint))
                     }
 
+                    // The filter left nothing, so the query needs no fixing.
+                    results is SearchResults.Found && results.items.isEmpty() && state.filter != SearchFilter.ALL -> {
+                        Text(stringResource(R.string.search_nothing_filtered_hint), style = Hint, color = colors.paper.copy(alpha = 0.8f))
+                    }
+
                     results is SearchResults.Found && results.items.isEmpty() -> {
-                        Heading(stringResource(R.string.search_nothing, results.query))
                         Text(stringResource(R.string.search_nothing_hint), style = Hint, color = colors.paper.copy(alpha = 0.8f))
                         results.suggestion?.let { suggestion ->
                             Suggestion(suggestion, focus = suggestion.id == returnTo, onOpen) {
@@ -215,7 +290,6 @@ fun SearchScreen(
                     }
 
                     else -> {
-                        Heading(stringResource(R.string.search_results, (results as? SearchResults.Found)?.query ?: state.query.trim()))
                         Results(results as? SearchResults.Found, returnTo, onOpen) {
                             focusedId = it
                             focusedGenre = null
@@ -236,31 +310,85 @@ private fun Results(
     onFocus: (animeId: Int) -> Unit,
 ) {
     val dimensions = NeoTheme.dimensions
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(POSTER_COLUMNS),
-        // Exactly four posters wide, so each cell is a poster's width.
-        modifier = Modifier.width(dimensions.cardPosterWidth * POSTER_COLUMNS + PosterColumnGap * (POSTER_COLUMNS - 1)),
-        horizontalArrangement = Arrangement.spacedBy(PosterColumnGap),
-        verticalArrangement = Arrangement.spacedBy(PosterRowGap),
+    // The focused row rests at the top, as in See more, and the last row stops above the safe area.
+    val gridState = rememberLazyGridState()
+    KeylineScrolling(keyline = ScrolledRest) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(POSTER_COLUMNS),
+            state = gridState,
+            // Exactly four posters wide inside the room, so each cell is a poster's width.
+            modifier =
+                Modifier
+                    .width(dimensions.cardPosterWidth * POSTER_COLUMNS + PosterColumnGap * (POSTER_COLUMNS - 1))
+                    .outByRoom(FocusRoom)
+                    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                    .drawWithContent {
+                        drawContent()
+                        if (gridState.canScrollBackward) {
+                            drawRect(
+                                Brush.verticalGradient(0f to Color.Transparent, FocusRoom.toPx() / size.height to Color.Black),
+                                blendMode = BlendMode.DstIn,
+                            )
+                        }
+                    }.testTag(RESULTS_TAG),
+            contentPadding = PaddingValues(start = FocusRoom, top = FocusRoom, end = FocusRoom, bottom = FocusRoom + dimensions.safeY),
+            horizontalArrangement = Arrangement.spacedBy(PosterColumnGap),
+            verticalArrangement = Arrangement.spacedBy(PosterRowGap),
+        ) {
+            if (found == null) {
+                items(POSTER_COLUMNS * 2) {
+                    Skeleton(dimensions.cardPosterWidth, dimensions.cardPosterHeight, Modifier, dimensions.radiusSm)
+                }
+            } else {
+                itemsIndexed(found.items, key = { _, card -> card.id }) { index, card ->
+                    val requester = remember { FocusRequester() }
+                    if (card.id == returnTo) LaunchedEffect(Unit) { requester.requestFocus() }
+                    PosterCard(
+                        card = card,
+                        onClick = { onOpen(card.id) },
+                        modifier =
+                            Modifier
+                                .testTag(posterTag(index))
+                                .focusRequester(requester)
+                                .onFocusChanged { if (it.isFocused) onFocus(card.id) },
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** All, TV, Movies and Airing now, with the one chosen filled. */
+@Composable
+private fun Filters(
+    chosen: SearchFilter,
+    onFilter: (filter: SearchFilter) -> Unit,
+) {
+    val chips = remember { SearchFilter.entries.associateWith { FocusRequester() } }
+    Row(
+        Modifier
+            .focusProperties {
+                // Up from the results lands on the chosen chip, not the one nearest.
+                onEnter = {
+                    if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
+                        chips.getValue(chosen).requestFocus()
+                    }
+                }
+            }.focusGroup()
+            .semantics { selectableGroup() },
+        horizontalArrangement = Arrangement.spacedBy(ChipGap),
     ) {
-        if (found == null) {
-            items(POSTER_COLUMNS * 2) {
-                Skeleton(dimensions.cardPosterWidth, dimensions.cardPosterHeight, Modifier, dimensions.radiusSm)
-            }
-        } else {
-            itemsIndexed(found.items, key = { _, card -> card.id }) { index, card ->
-                val requester = remember { FocusRequester() }
-                if (card.id == returnTo) LaunchedEffect(Unit) { requester.requestFocus() }
-                PosterCard(
-                    card = card,
-                    onClick = { onOpen(card.id) },
-                    modifier =
-                        Modifier
-                            .testTag(posterTag(index))
-                            .focusRequester(requester)
-                            .onFocusChanged { if (it.isFocused) onFocus(card.id) },
-                )
-            }
+        SearchFilter.entries.forEach { filter ->
+            NeoTab(
+                text = stringResource(filterLabels.getValue(filter)),
+                selected = filter == chosen,
+                onClick = { onFilter(filter) },
+                modifier =
+                    Modifier
+                        .testTag(filterTag(filter))
+                        .focusRequester(chips.getValue(filter)),
+                height = ChipHeight,
+            )
         }
     }
 }
@@ -482,6 +610,21 @@ private fun Genres(
         }
     }
 }
+
+/** Lays out [room] wider on the left and right and taller at the top, and places it out by as much. */
+private fun Modifier.outByRoom(room: Dp): Modifier =
+    layout { measurable, constraints ->
+        val px = room.roundToPx()
+        val placeable =
+            measurable.measure(
+                constraints.copy(
+                    minWidth = constraints.minWidth + px * 2,
+                    maxWidth = constraints.maxWidth + px * 2,
+                    maxHeight = if (constraints.hasBoundedHeight) constraints.maxHeight + px else constraints.maxHeight,
+                ),
+            )
+        layout(placeable.width - px * 2, placeable.height - px) { placeable.place(-px, -px) }
+    }
 
 /** Ink with the blue glow off the top right corner. */
 private fun DrawScope.drawBackdrop(ink: Color) {

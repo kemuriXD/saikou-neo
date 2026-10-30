@@ -71,7 +71,16 @@ class NeoNavigationTest {
                 },
                 details = { animeId, _, _ -> Text("Details for $animeId") },
                 search = { openDetails, openGenre ->
-                    SearchScreen(searchState, onType = {}, onDelete = {}, onClear = {}, onRetry = {}, openDetails, openGenre)
+                    SearchScreen(
+                        searchState,
+                        onType = {},
+                        onDelete = {},
+                        onClear = {},
+                        onRetry = {},
+                        onOpen = openDetails,
+                        onGenre = openGenre,
+                        onFilter = {},
+                    )
                 },
                 genre = { genre, _ -> Text("Most popular ${genre.aniListName}") },
             )

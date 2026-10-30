@@ -1,12 +1,18 @@
 package ani.saikou.neo.tv.search
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -14,6 +20,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
+import ani.saikou.neo.shared.catalogue.SearchFilter
 import ani.saikou.neo.shared.search.SearchGenre
 import ani.saikou.neo.shared.search.SearchResults
 import ani.saikou.neo.shared.search.SearchState
@@ -21,6 +28,7 @@ import ani.saikou.neo.tv.home.card
 import ani.saikou.neo.tv.home.posterTag
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -38,6 +46,7 @@ class SearchScreenTest {
     private val typed = mutableListOf<String>()
     private val opened = mutableListOf<Int>()
     private val genres = mutableListOf<SearchGenre>()
+    private val filters = mutableListOf<SearchFilter>()
 
     private fun show(state: SearchState = SearchState()) {
         compose.setContent {
@@ -50,6 +59,7 @@ class SearchScreenTest {
                     onRetry = { typed += "retry" },
                     onOpen = { opened += it },
                     onGenre = { genres += it },
+                    onFilter = { filters += it },
                 )
             }
         }
@@ -76,9 +86,42 @@ class SearchScreenTest {
             .assertHeightIsEqualTo(28.dp)
         compose.onNodeWithTag(keyTag('a')).assertLeftPositionInRootIsEqualTo(64.dp).assertTopPositionInRootIsEqualTo(127.dp)
         compose.onNodeWithText("Results for “fri”").assertLeftPositionInRootIsEqualTo(336.dp).assertTopPositionInRootIsEqualTo(27.dp)
-        compose.onNodeWithTag(posterTag(0)).assertLeftPositionInRootIsEqualTo(336.dp).assertTopPositionInRootIsEqualTo(69.dp)
+        // The chips sit under the heading, the posters under them.
+        compose.onNodeWithTag(filterTag(SearchFilter.ALL)).assertLeftPositionInRootIsEqualTo(336.dp).assertTopPositionInRootIsEqualTo(69.dp)
+        compose.onNodeWithTag(posterTag(0)).assertLeftPositionInRootIsEqualTo(336.dp).assertTopPositionInRootIsEqualTo(119.dp)
         // Four posters a row, 20 dp apart.
         compose.onNodeWithTag(posterTag(3)).assertLeftPositionInRootIsEqualTo(768.dp)
+    }
+
+    // A focused poster grows, rings and glows, so the results leave room for it on every side.
+    @Test
+    fun resultsLeaveRoomForAFocusedPoster() {
+        show(found)
+
+        compose.onNodeWithTag(RESULTS_TAG).assertLeftPositionInRootIsEqualTo(322.dp).assertTopPositionInRootIsEqualTo(105.dp)
+    }
+
+    // Rows scrolled up fade out under the chips, and the focused row rests below the fade.
+    @Test
+    fun aScrolledRowRestsBelowTheFade() {
+        show(SearchState("fri", SearchResults.Found("fri", List(24) { card(it) })))
+
+        press(Key.DirectionRight, times = 6)
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(posterTag(4)).assertIsFocused().assertTopPositionInRootIsEqualTo(127.dp)
+    }
+
+    @Test
+    fun theLastRowEndsAboveTheSafeArea() {
+        show(SearchState("fri", SearchResults.Found("fri", List(24) { card(it) })))
+
+        press(Key.DirectionRight, times = 6)
+        press(Key.DirectionDown, times = 5)
+
+        compose.onNodeWithTag(posterTag(20)).assertIsFocused()
+        val bottom = compose.onNodeWithTag(posterTag(20)).getUnclippedBoundsInRoot().bottom
+        assertTrue("Last row ends at $bottom", bottom <= 513.dp)
     }
 
     @Test
@@ -113,6 +156,63 @@ class SearchScreenTest {
     }
 
     @Test
+    fun allIsChosenToBeginWith() {
+        show(found)
+
+        compose.onNodeWithTag(filterTag(SearchFilter.ALL)).assertIsSelected()
+        compose.onNodeWithText("Airing now").assertIsNotSelected()
+    }
+
+    @Test
+    fun choosingAChipFiltersTheSearch() {
+        show(found.copy(filter = SearchFilter.MOVIES))
+
+        press(Key.DirectionRight, times = 6)
+        press(Key.DirectionUp)
+        // Up from the results lands on the chosen chip.
+        compose.onNodeWithTag(filterTag(SearchFilter.MOVIES)).assertIsFocused()
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(SearchFilter.AIRING), filters)
+    }
+
+    @Test
+    fun aChipKeepsFocusWhenItsSearchFindsNothing() {
+        var state by mutableStateOf(found.copy(filter = SearchFilter.MOVIES))
+        compose.setContent {
+            NeoTheme { SearchScreen(state, {}, {}, {}, {}, {}, {}, onFilter = {}) }
+        }
+        press(Key.DirectionRight, times = 6)
+        press(Key.DirectionUp)
+
+        state = SearchState("fri", SearchResults.Found("fri", emptyList()), SearchFilter.MOVIES)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(filterTag(SearchFilter.MOVIES)).assertIsFocused()
+    }
+
+    @Test
+    fun theChosenChipShowsWhileItsResultsLoad() {
+        show(SearchState("fri", SearchResults.Loading, SearchFilter.TV))
+
+        compose.onNodeWithTag(filterTag(SearchFilter.TV)).assertIsSelected()
+    }
+
+    // Finding nothing at all is no use narrowing, but a filter that found nothing can be changed back.
+    @Test
+    fun aFilterThatFoundNothingCanBeChangedBack() {
+        show(SearchState("frieren", SearchResults.Found("frieren", emptyList()), SearchFilter.MOVIES))
+
+        compose.onNodeWithTag(filterTag(SearchFilter.MOVIES)).assertIsSelected()
+        compose.onNodeWithTag(filterTag(SearchFilter.ALL)).assertExists()
+        // Not a spelling mistake, so no spelling hint and no genres.
+        compose.onNodeWithText("Nothing for “frieren” in Movies").assertExists()
+        compose.onNodeWithText("Choose All to see every result.").assertExists()
+        compose.onNodeWithText("Or try a genre").assertDoesNotExist()
+    }
+
+    @Test
     fun beforeTypingGenresGiveSomewhereToStart() {
         show()
 
@@ -132,6 +232,7 @@ class SearchScreenTest {
         compose.onNodeWithText("Nothing called “sakamota dyas”").assertTopPositionInRootIsEqualTo(27.dp)
         compose.onNodeWithText("Or try a genre").assertExists()
         compose.onNodeWithText("Comedy").assertExists()
+        compose.onNodeWithTag(filterTag(SearchFilter.ALL)).assertDoesNotExist()
     }
 
     @Test

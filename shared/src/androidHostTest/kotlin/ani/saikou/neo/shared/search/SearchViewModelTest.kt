@@ -4,6 +4,7 @@ import ani.saikou.neo.shared.catalogue.KitsuClient
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
+import ani.saikou.neo.shared.catalogue.SearchFilter
 import ani.saikou.neo.shared.catalogue.SiteEngine
 import ani.saikou.neo.shared.catalogue.clientFor
 import com.apollographql.apollo.network.http.HttpEngine
@@ -20,6 +21,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertTrue
 
@@ -189,6 +191,114 @@ class SearchViewModelTest {
             advanceUntilIdle()
 
             assertEquals("frieren", assertIs<SearchResults.Found>(viewModel.state.value.results).query)
+        }
+
+    @Test
+    fun allIsChosenToBeginWithAndNarrowsNothing() =
+        runTest(main) {
+            val engine = RecordedEngine("search")
+            val viewModel = search(engine)
+
+            viewModel.typeEach("frieren")
+            advanceUntilIdle()
+
+            assertEquals(SearchFilter.ALL, viewModel.state.value.filter)
+            assertFalse("\"formatIn\":" in engine.requestBodies.single())
+            assertFalse("\"status\":" in engine.requestBodies.single())
+        }
+
+    @Test
+    fun choosingAFilterSearchesAgainWithItAndKeepsTheQuery() =
+        runTest(main) {
+            val engine = QueryEngine("search", mapOf("\"formatIn\":[\"MOVIE\"]" to "search-country"))
+            val viewModel = search(engine)
+            viewModel.typeEach("frieren")
+            advanceUntilIdle()
+
+            viewModel.filter(SearchFilter.MOVIES)
+            advanceUntilIdle()
+
+            assertTrue("\"search\":\"frieren\"" in engine.requestBodies.last())
+            assertEquals("frieren", viewModel.state.value.query)
+            assertEquals(SearchFilter.MOVIES, viewModel.state.value.filter)
+            assertEquals(99935, assertIs<SearchResults.Found>(viewModel.state.value.results).items.single().id)
+        }
+
+    @Test
+    fun eachFilterAsksAniListForItsShows() =
+        runTest(main) {
+            val engine = RecordedEngine("search")
+            val viewModel = search(engine)
+            viewModel.typeEach("frieren")
+            advanceUntilIdle()
+
+            viewModel.filter(SearchFilter.TV)
+            advanceUntilIdle()
+            assertTrue("\"formatIn\":[\"TV\",\"TV_SHORT\"]" in engine.requestBodies.last())
+
+            viewModel.filter(SearchFilter.AIRING)
+            advanceUntilIdle()
+            assertTrue("\"status\":\"RELEASING\"" in engine.requestBodies.last())
+            assertFalse("\"formatIn\":" in engine.requestBodies.last())
+        }
+
+    // Results that ignore the filter would be wrong, so they go while the filtered ones load.
+    @Test
+    fun aNewFilterLoadsInPlaceOfTheOldResults() =
+        runTest(main) {
+            val viewModel = search(QueryEngine("search", mapOf("\"formatIn\":[\"MOVIE\"]" to "search-none")))
+            viewModel.typeEach("frieren")
+            advanceUntilIdle()
+
+            viewModel.filter(SearchFilter.MOVIES)
+            assertEquals(SearchResults.Loading, viewModel.state.value.results)
+            advanceUntilIdle()
+
+            assertTrue(assertIs<SearchResults.Found>(viewModel.state.value.results).items.isEmpty())
+        }
+
+    // The query was spelled right; the filter left nothing. A suggestion would be for a show the filter leaves out.
+    @Test
+    fun aFilterThatFindsNothingSuggestsNothing() =
+        runTest(main) {
+            val engine = typoEngine()
+            val viewModel = search(engine, kitsu = "sakamota-dyas")
+            viewModel.filter(SearchFilter.AIRING)
+
+            viewModel.typeEach("sakamoto days")
+            advanceUntilIdle()
+
+            assertEquals(null, assertIs<SearchResults.Found>(viewModel.state.value.results).suggestion)
+            assertFalse(engine.requestBodies.any { "\"operationName\":\"AnimeCard\"" in it })
+        }
+
+    @Test
+    fun aFilterChosenBeforeTypingWaitsForTheQuery() =
+        runTest(main) {
+            val engine = RecordedEngine("search")
+            val viewModel = search(engine)
+
+            viewModel.filter(SearchFilter.TV)
+            advanceUntilIdle()
+            assertTrue(engine.requestBodies.isEmpty())
+
+            viewModel.typeEach("fri")
+            advanceUntilIdle()
+            assertTrue("\"formatIn\":[\"TV\",\"TV_SHORT\"]" in engine.requestBodies.single())
+        }
+
+    @Test
+    fun choosingTheSameFilterAgainSearchesNothing() =
+        runTest(main) {
+            val engine = RecordedEngine("search")
+            val viewModel = search(engine)
+            viewModel.typeEach("fri")
+            advanceUntilIdle()
+
+            viewModel.filter(SearchFilter.ALL)
+            advanceUntilIdle()
+
+            assertEquals(1, engine.requestBodies.size)
         }
 
     @Test
