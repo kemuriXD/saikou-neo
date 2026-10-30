@@ -75,6 +75,7 @@ import ani.saikou.neo.shared.details.Ratings
 import ani.saikou.neo.shared.details.scoreOutOfTen
 import ani.saikou.neo.shared.details.sections
 import ani.saikou.neo.shared.home.Logo
+import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
@@ -90,7 +91,6 @@ import ani.saikou.neo.tv.ui.remembersFocus
 import coil3.compose.AsyncImage
 
 internal const val DETAILS_META_TAG = "details-meta"
-internal const val DETAILS_GENRES_TAG = "details-genres"
 internal const val DETAILS_HERO_TAG = "details-hero"
 internal const val DETAILS_SYNOPSIS_TAG = "details-synopsis"
 internal const val DETAILS_LOADING_TAG = "details-loading"
@@ -99,6 +99,7 @@ internal const val DETAILS_COMPACT_TITLE_TAG = "details-compact-title"
 internal const val DETAILS_TITLE_TAG = "details-title"
 internal const val DETAILS_LOGO_TAG = "details-logo"
 internal const val DETAILS_MAIN_BUTTON_TAG = "details-main-button"
+internal const val DETAILS_EPISODES_BUTTON_TAG = "details-episodes-button"
 internal const val DETAILS_RATING_TAG = "details-rating"
 internal const val DETAILS_RATINGS_TAG = "details-ratings"
 
@@ -108,10 +109,10 @@ internal fun ratingTag(site: String) = "details-rating-$site"
 // From the design: the title block starts 150 dp down and the Overview tabs rest at 420 dp, with the
 // synopsis peeking below the screen. Focus on the synopsis lifts the page so the tabs sit at 72 dp,
 // and a small title stays at the top.
-private val HeroTop = 150.dp
-private val HeroWidth = 580.dp
-private val OverviewTop = 420.dp
-private val OverviewLift = 348.dp
+private val HeroTop = 56.dp
+private val HeroWidth = 440.dp
+private val OverviewTop = 352.dp
+private val OverviewLift = 276.dp
 private val CompactTitleTop = 27.dp
 private val SynopsisBorder = 2.dp
 
@@ -122,7 +123,7 @@ private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHei
 
 // About 70 characters a line, a comfortable read from the sofa.
 private val SynopsisWidth = 520.dp
-private const val SYNOPSIS_PREVIEW_LINES = 3
+private const val SYNOPSIS_PREVIEW_LINES = 2
 private const val SYNOPSIS_FOCUS_SCALE = 1.025f
 
 // A first visit downloads the logo once the art is found. Not loaded by now, it stays words for the visit.
@@ -209,6 +210,7 @@ private fun DetailsPage(
                     Hero(
                         details = state.details,
                         logo = state.logo,
+                        progress = state.progress,
                         // The main button goes to the episodes. Without any, there's nothing for it to do.
                         onMain =
                             if (hasEpisodes) {
@@ -338,6 +340,7 @@ private fun DetailsPage(
 private fun Hero(
     details: AnimeDetails,
     logo: Logo,
+    progress: WatchProgress?,
     onMain: (() -> Unit)?,
     mainFocus: FocusRequester,
     ratings: Ratings,
@@ -353,7 +356,7 @@ private fun Hero(
         label = "hero",
     )
     val unseen = if (settled) Modifier else Modifier.semantics { hideFromAccessibility() }
-    // As on the spotlight: the title first, then what the show is, then its genres.
+    // As on the spotlight: the title first, then its genres and how many episodes it has.
     Column(
         modifier.testTag(DETAILS_HERO_TAG).graphicsLayer { alpha = shown }.then(unseen),
         verticalArrangement = Arrangement.spacedBy(10.dp),
@@ -370,30 +373,32 @@ private fun Hero(
             )
         }
         ShowTitle(title, logo, DETAILS_LOGO_TAG, LOGO_WAIT_MILLIS, placeholder = words, onSettled = { settled = true }, text = words)
-        val meta = details.meta()
+        val episodes = card.episodes?.let { pluralStringResource(R.plurals.home_episodes, it, it) }
+        val meta = (details.genres + listOfNotNull(episodes)).joinToString(" · ")
         if (meta.isNotEmpty()) {
             Text(
                 text = meta,
-                style = NeoTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
-                color = colors.paper,
+                style = NeoTheme.typography.label.copy(fontWeight = FontWeight.Medium),
+                color = colors.textMuted,
                 modifier = Modifier.testTag(DETAILS_META_TAG),
             )
         }
-        if (details.genres.isNotEmpty()) {
-            Text(
-                text = details.genres.joinToString(" · "),
-                style = NeoTheme.typography.label,
-                color = colors.textMuted,
-                modifier = Modifier.testTag(DETAILS_GENRES_TAG),
-            )
-        }
         if (ratings.mean != null) TopRatings(ratings)
+        // Until the player comes, Resume and Play open the episodes too.
         onMain?.let {
             NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
                 NeoButton(
+                    text =
+                        progress?.let { stringResource(R.string.details_resume, it.episode, it.minutesLeft) }
+                            ?: stringResource(R.string.home_play),
+                    onClick = it,
+                    icon = NeoIcons.Play,
+                    modifier = Modifier.focusRequester(mainFocus).remembersFocus("main").testTag(DETAILS_MAIN_BUTTON_TAG),
+                )
+                NeoButton(
                     text = stringResource(R.string.details_episodes),
                     onClick = it,
-                    modifier = Modifier.focusRequester(mainFocus).remembersFocus("main").testTag(DETAILS_MAIN_BUTTON_TAG),
+                    modifier = Modifier.remembersFocus("episodes").testTag(DETAILS_EPISODES_BUTTON_TAG),
                 )
             }
         }

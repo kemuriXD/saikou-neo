@@ -74,6 +74,7 @@
     <string name="details_season_fall">Fall %1$d</string>
     <string name="details_overview">Overview</string>
     <string name="details_episodes">Episodes</string>
+    <string name="details_resume">Resume E%1$d · %2$d min left</string>
     <string name="details_related">Related</string>
     <string name="details_watch_order">Watch order</string>
     <string name="details_recommendations">Recommendations</string>
