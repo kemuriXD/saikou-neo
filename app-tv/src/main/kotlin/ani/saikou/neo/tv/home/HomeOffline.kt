@@ -86,7 +86,7 @@ internal fun HomeOffline(
             }
             Text(
                 text = stringResource(R.string.home_offline_retrying),
-                style = typography.body.copy(fontSize = 13.sp, lineHeight = 18.sp),
+                style = typography.body.copy(fontSize = 14.sp, lineHeight = 18.sp),
                 color = colors.textFaint,
                 modifier = Modifier.padding(top = 6.dp),
             )

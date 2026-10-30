@@ -242,7 +242,7 @@ private val PaneTitle
     @Composable get() = NeoTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp)
 
 private val Help
-    @Composable get() = NeoTheme.typography.caption.copy(fontSize = 13.sp, lineHeight = 18.sp)
+    @Composable get() = NeoTheme.typography.caption.copy(fontSize = 14.sp, lineHeight = 18.sp)
 
 /** A category: a soft fill when it's the one shown, paper when focused. */
 @Composable

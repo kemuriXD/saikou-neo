@@ -90,6 +90,9 @@ internal const val SPOTLIGHT_REASON_TAG = "spotlight-reason"
 // The design puts the buttons 8 dp further down than the 10 dp between lines of text.
 // While loading, still bars stand in for the text: the design's eyebrow, logo, meta line and two lines of story.
 private val ButtonsGap = 18.dp
+
+// 2 dp under the design's 10, so a reason line and a logo still leave two lines for the story.
+private val TextGap = 8.dp
 private val Dot = 6.dp
 private val CurrentDot = 18.dp
 private val DotGap = 7.dp
@@ -155,7 +158,7 @@ internal fun SpotlightShow(
                 }
                 return@AnimatedContent
             }
-            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)) {
+            Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(TextGap, Alignment.Bottom)) {
                 spotlight.reasons[shown.id]?.let { reason ->
                     Text(
                         text = reason.text().uppercase(),

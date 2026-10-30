@@ -17,6 +17,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
@@ -66,6 +67,8 @@ internal fun ContinueCard(
                     Brush.horizontalGradient(0f to colors.ink.copy(alpha = 0.85f), 0.7f to colors.ink.copy(alpha = 0.2f)),
                 ),
             )
+            // Darkens the bottom too, so the text stays readable over bright art.
+            Box(Modifier.fillMaxSize().background(Brush.verticalGradient(0.3f to Color.Transparent, 1f to colors.ink.copy(alpha = 0.9f))))
             Column(Modifier.align(Alignment.BottomStart).padding(start = 12.dp, end = 60.dp, bottom = TextBottom)) {
                 Text(
                     text = card.displayTitle(),

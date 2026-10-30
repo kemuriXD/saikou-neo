@@ -23,20 +23,23 @@ class NeoTypographyTest {
         }
     }
 
+    // Atkinson Hyperlegible Next has a smaller x-height than Inter had, so text styles are 1 sp
+    // above the boards, on the same line heights
+    // where the larger text still fits.
     @Test
-    fun keepsTheSizesAndWeights() {
+    fun sizesAndWeights() {
         assertStyle(type.display, 44, 50, FontWeight.Bold)
         assertStyle(type.headline, 30, 38, FontWeight.Bold)
         assertStyle(type.titleLarge, 24, 32, FontWeight.Bold)
         assertStyle(type.rowTitle, 18, 24, FontWeight.Bold)
         assertStyle(type.title, 18, 24, FontWeight.Medium)
-        assertStyle(type.bodyLarge, 15, 22, FontWeight.Normal)
-        assertStyle(type.body, 14, 20, FontWeight.Normal)
-        assertStyle(type.labelLarge, 16, 22, FontWeight.Medium)
-        assertStyle(type.label, 14, 20, FontWeight.Medium)
-        assertStyle(type.caption, 12, 16, FontWeight.Normal)
-        assertStyle(type.overline, 12, 16, FontWeight.Medium)
-        assertStyle(type.timecode, 13, 18, FontWeight.Medium)
+        assertStyle(type.bodyLarge, 16, 22, FontWeight.Normal)
+        assertStyle(type.body, 15, 20, FontWeight.Normal)
+        assertStyle(type.labelLarge, 17, 22, FontWeight.Medium)
+        assertStyle(type.label, 15, 20, FontWeight.Medium)
+        assertStyle(type.caption, 13, 18, FontWeight.Normal)
+        assertStyle(type.overline, 13, 18, FontWeight.Medium)
+        assertStyle(type.timecode, 14, 18, FontWeight.Medium)
     }
 
     @Test
