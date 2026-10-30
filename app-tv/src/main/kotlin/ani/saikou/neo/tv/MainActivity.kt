@@ -153,7 +153,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         search = { openDetails, openGenre ->
-                            val search = viewModel { SearchViewModel(client, KitsuClient()) }
+                            val search = viewModel { SearchViewModel(client, KitsuClient(), app.recentSearches) }
                             val state by search.state.collectAsStateWithLifecycle()
                             SearchScreen(
                                 state,
@@ -161,9 +161,13 @@ class MainActivity : ComponentActivity() {
                                 onDelete = search::delete,
                                 onClear = search::clear,
                                 onRetry = search::retry,
-                                onOpen = openDetails,
+                                onOpen = {
+                                    search.openedResult()
+                                    openDetails(it)
+                                },
                                 onGenre = openGenre,
                                 onFilter = search::filter,
+                                onRecent = search::searchAgain,
                             )
                         },
                         genre = { genre, openDetails ->

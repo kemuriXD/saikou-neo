@@ -45,6 +45,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
+import ani.saikou.neo.shared.catalogue.LoadProblem
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.More
 import ani.saikou.neo.shared.home.SeeMoreState
@@ -129,7 +130,7 @@ fun SeeMoreScreen(
     Box(modifier.fillMaxSize().drawBehind { drawBackdrop(ink) }) {
         PreloadLogo(state.restingLogo)
         if (items.isEmpty() && state.more == More.Failed) {
-            LoadFailed(onRetry, Modifier.align(Alignment.TopCenter).padding(top = GridTop).width(GridWidth))
+            LoadFailed(state.problem, onRetry, Modifier.align(Alignment.TopCenter).padding(top = GridTop).width(GridWidth))
         } else {
             KeylineScrolling(keyline = GridTop) {
                 LazyVerticalGrid(
@@ -250,6 +251,7 @@ private fun DrawScope.drawBackdrop(ink: Color) {
 /** The first page couldn't load: what went wrong and Try again, as on Home. */
 @Composable
 private fun LoadFailed(
+    problem: LoadProblem?,
     onRetry: () -> Unit,
     modifier: Modifier,
 ) {
@@ -257,7 +259,13 @@ private fun LoadFailed(
     LaunchedEffect(Unit) { retry.requestFocus() }
     Column(modifier, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text(stringResource(R.string.see_more_failed), style = NeoTheme.typography.titleLarge, color = NeoTheme.colors.paper)
-        Text(stringResource(R.string.see_more_failed_hint), style = NeoTheme.typography.bodyLarge, color = NeoTheme.colors.textMuted)
+        val hint =
+            when (problem) {
+                LoadProblem.NO_NETWORK -> R.string.see_more_offline
+                LoadProblem.RATE_LIMITED -> R.string.see_more_busy
+                LoadProblem.OTHER, null -> R.string.anilist_no_answer
+            }
+        Text(stringResource(hint), style = NeoTheme.typography.bodyLarge, color = NeoTheme.colors.textMuted)
         NeoButton(stringResource(R.string.try_again), onClick = onRetry, modifier = Modifier.padding(top = 10.dp).focusRequester(retry))
     }
 }

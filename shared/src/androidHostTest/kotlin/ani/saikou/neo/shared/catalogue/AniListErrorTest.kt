@@ -46,6 +46,14 @@ class AniListErrorTest {
 
             assertIs<AniListError.Unexpected>(clientFor(engine).details(999999999).failure())
         }
+
+    @Test
+    fun eachErrorIsOneOfThreeProblemsForTheViewer() {
+        assertEquals(LoadProblem.NO_NETWORK, AniListError.Network("Unable to resolve host").problem)
+        assertEquals(LoadProblem.RATE_LIMITED, AniListError.RateLimited(1.minutes).problem)
+        assertEquals(LoadProblem.OTHER, AniListError.Http(500).problem)
+        assertEquals(LoadProblem.OTHER, AniListError.Unexpected(null).problem)
+    }
 }
 
 internal fun <T> AniListResult<T>.failure(): AniListError = assertIs<AniListResult.Failure>(this).error

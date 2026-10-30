@@ -22,6 +22,7 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.shared.catalogue.AnimeCard
+import ani.saikou.neo.shared.catalogue.LoadProblem
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.More
@@ -178,9 +179,10 @@ class SeeMoreScreenTest {
 
     @Test
     fun aFailedFirstPageOffersTryAgain() {
-        show(SeeMoreState(emptyList(), More.Failed))
+        show(SeeMoreState(emptyList(), More.Failed, problem = LoadProblem.NO_NETWORK))
 
         compose.onNodeWithText("Couldn’t load these shows").assertExists()
+        compose.onNodeWithText("This TV isn’t online. Check its Wi-Fi or cable, then try again.").assertExists()
         compose.onNodeWithText("Try again").assertIsFocused()
         press(Key.DirectionCenter)
 
@@ -188,8 +190,15 @@ class SeeMoreScreenTest {
     }
 
     @Test
+    fun beingRateLimitedSaysToWait() {
+        show(SeeMoreState(emptyList(), More.Failed, problem = LoadProblem.RATE_LIMITED))
+
+        compose.onNodeWithText("AniList has had a lot of requests from this TV. Wait a minute, then try again.").assertExists()
+    }
+
+    @Test
     fun aFailedLaterPageOffersTryAgainAfterTheLastShow() {
-        show(SeeMoreState(List(10) { card(it) }, More.Failed))
+        show(SeeMoreState(List(10) { card(it) }, More.Failed, problem = LoadProblem.OTHER))
 
         compose.onNodeWithText("Couldn’t load more").assertExists()
         press(Key.DirectionDown)

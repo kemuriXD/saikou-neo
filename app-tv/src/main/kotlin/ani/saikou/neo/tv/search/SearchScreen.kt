@@ -7,6 +7,7 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
@@ -66,6 +68,7 @@ import androidx.tv.material3.Glow
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
+import ani.saikou.neo.shared.catalogue.LoadProblem
 import ani.saikou.neo.shared.catalogue.SearchFilter
 import ani.saikou.neo.shared.search.SearchGenre
 import ani.saikou.neo.shared.search.SearchResults
@@ -90,6 +93,8 @@ internal fun keyTag(key: Char) = "key-$key"
 internal fun genreTag(genre: SearchGenre) = "genre-${genre.name}"
 
 internal fun filterTag(filter: SearchFilter) = "filter-${filter.name}"
+
+internal fun recentTag(index: Int) = "recent-$index"
 
 // From the design: 240 dp of keys and 560 dp of results, 32 dp apart, centred together under the safe area. Keys are
 // 36 dp tall in six columns, 4 dp apart; results are four 124 dp posters a row.
@@ -119,6 +124,12 @@ private val TilePadding = 14.dp
 // Chips as tall as the design's genre chips, 10 dp apart.
 private val ChipHeight = 36.dp
 private val ChipGap = 10.dp
+
+// Recent searches fill the room left under the keys: a label, then two lines of chips at most, ending on the safe area.
+private val RecentGap = 8.dp
+private val RecentHeight = 32.dp
+private val RecentPadding = 14.dp
+private const val RECENT_LINES = 2
 
 // From the design: a 44 by 66 dp poster beside three lines, on a card that grows a little on focus.
 private val SuggestionWidth = 44.dp
@@ -179,7 +190,8 @@ private val genreFills =
 
 /**
  * Search with the remote: an on-screen keyboard down the left, and what the query finds on the right. Before you type,
- * and when nothing matches, genres give you somewhere to start.
+ * and when nothing matches, genres give you somewhere to start. Recent searches wait under the keys; choosing one calls
+ * [onRecent].
  */
 @Composable
 fun SearchScreen(
@@ -191,6 +203,7 @@ fun SearchScreen(
     onOpen: (animeId: Int) -> Unit,
     onGenre: (genre: SearchGenre) -> Unit,
     onFilter: (filter: SearchFilter) -> Unit,
+    onRecent: (query: String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
@@ -226,7 +239,15 @@ fun SearchScreen(
             Modifier.align(Alignment.TopCenter).padding(top = NeoTheme.dimensions.safeY).fillMaxHeight(),
             horizontalArrangement = Arrangement.spacedBy(ColumnGap),
         ) {
-            Keyboard(state.query, focusFirst = !hasFocus && returnTo == null && returnToGenre == null, onType, onDelete, onClear)
+            Keyboard(
+                state.query,
+                focusFirst = !hasFocus && returnTo == null && returnToGenre == null,
+                onType,
+                onDelete,
+                onClear,
+                state.recent,
+                onRecent,
+            )
             Column(Modifier.width(ResultsWidth), verticalArrangement = Arrangement.spacedBy(BlockGap)) {
                 Heading(
                     when {
@@ -234,8 +255,14 @@ fun SearchScreen(
                             stringResource(R.string.search_genres)
                         }
 
-                        results == SearchResults.Failed -> {
-                            stringResource(R.string.search_failed)
+                        results is SearchResults.Failed -> {
+                            stringResource(
+                                when (results.problem) {
+                                    LoadProblem.NO_NETWORK -> R.string.home_offline_title
+                                    LoadProblem.RATE_LIMITED -> R.string.search_busy
+                                    LoadProblem.OTHER -> R.string.search_failed
+                                },
+                            )
                         }
 
                         results is SearchResults.Found && results.items.isEmpty() && state.filter != SearchFilter.ALL -> {
@@ -262,8 +289,14 @@ fun SearchScreen(
                         Genres(genres, returnToGenre, onGenre, onGenreFocus)
                     }
 
-                    results == SearchResults.Failed -> {
-                        Text(stringResource(R.string.see_more_failed_hint), style = Hint, color = colors.textMuted)
+                    results is SearchResults.Failed -> {
+                        val hint =
+                            when (results.problem) {
+                                LoadProblem.NO_NETWORK -> R.string.search_offline_hint
+                                LoadProblem.RATE_LIMITED -> R.string.search_busy_hint
+                                LoadProblem.OTHER -> R.string.anilist_no_answer
+                            }
+                        Text(stringResource(hint), style = Hint, color = colors.textMuted)
                         NeoButton(stringResource(R.string.try_again), onClick = onRetry, modifier = Modifier.padding(top = AfterHint))
                     }
 
@@ -393,7 +426,7 @@ private fun Filters(
     }
 }
 
-/** The query in its field over the keys, with Space, Delete and Clear under them. */
+/** The query in its field over the keys, with Space, Delete and Clear under them, then any recent searches. */
 @Composable
 private fun Keyboard(
     query: String,
@@ -401,6 +434,8 @@ private fun Keyboard(
     onType: (key: Char) -> Unit,
     onDelete: () -> Unit,
     onClear: () -> Unit,
+    recent: List<String>,
+    onRecent: (query: String) -> Unit,
 ) {
     val colors = NeoTheme.colors
     val first = remember { FocusRequester() }
@@ -431,6 +466,65 @@ private fun Keyboard(
                 Key(stringResource(R.string.search_space), { onType(' ') }, colors.surfaceRaised, Modifier.weight(1f), small = true)
                 Key(stringResource(R.string.search_delete), onDelete, colors.surfaceRaised, Modifier.weight(1f), small = true)
                 Key(stringResource(R.string.search_clear), onClear, colors.surfaceRaised, Modifier.weight(1f), small = true)
+            }
+        }
+        if (recent.isNotEmpty()) Recent(recent, onRecent)
+    }
+}
+
+/** The recent searches, newest first, as chips on as many lines as fit. */
+@Composable
+private fun Recent(
+    recent: List<String>,
+    onRecent: (query: String) -> Unit,
+) {
+    val colors = NeoTheme.colors
+    val dimensions = NeoTheme.dimensions
+    val newest = remember { FocusRequester() }
+    Column(verticalArrangement = Arrangement.spacedBy(RecentGap)) {
+        Text(stringResource(R.string.search_recent), style = Label, color = colors.textMuted)
+        FlowRow(
+            modifier =
+                Modifier
+                    .focusProperties {
+                        // Down from the keys lands on the newest search, not the one nearest.
+                        onEnter = { if (requestedFocusDirection == FocusDirection.Down) newest.requestFocus() }
+                    }.focusGroup(),
+            horizontalArrangement = Arrangement.spacedBy(RecentGap),
+            verticalArrangement = Arrangement.spacedBy(RecentGap),
+            maxLines = RECENT_LINES,
+        ) {
+            recent.forEachIndexed { index, search ->
+                Surface(
+                    onClick = { onRecent(search) },
+                    modifier =
+                        Modifier
+                            .testTag(recentTag(index))
+                            .then(if (index == 0) Modifier.focusRequester(newest) else Modifier)
+                            .height(RecentHeight)
+                            .widthIn(max = KeyboardWidth),
+                    shape = ClickableSurfaceDefaults.shape(CircleShape),
+                    colors =
+                        ClickableSurfaceDefaults.colors(
+                            containerColor = colors.surfaceRaised,
+                            contentColor = colors.paper,
+                            focusedContainerColor = colors.focus,
+                            focusedContentColor = colors.onFocus,
+                            pressedContainerColor = colors.focus,
+                            pressedContentColor = colors.onFocus,
+                        ),
+                    scale = ClickableSurfaceDefaults.scale(focusedScale = dimensions.focusScaleButton),
+                    glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(GlowColor, dimensions.glowFocus)),
+                ) {
+                    Box(Modifier.fillMaxHeight().padding(horizontal = RecentPadding), contentAlignment = Alignment.Center) {
+                        Text(
+                            search,
+                            style = NeoTheme.typography.label.copy(fontSize = 14.sp, lineHeightStyle = TightLine),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
             }
         }
     }

@@ -6,7 +6,9 @@ import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.KitsuClient
+import ani.saikou.neo.shared.catalogue.LoadProblem
 import ani.saikou.neo.shared.catalogue.SearchFilter
+import ani.saikou.neo.shared.catalogue.problem
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,7 +46,10 @@ public sealed interface SearchResults {
         val suggestion: AnimeCard? = null,
     ) : SearchResults
 
-    public data object Failed : SearchResults
+    /** AniList couldn't search, for [problem]. */
+    public data class Failed(
+        val problem: LoadProblem,
+    ) : SearchResults
 }
 
 public data class SearchState(
@@ -52,6 +57,8 @@ public data class SearchState(
     /** Results for an earlier query stay until the ones for [query] come in. */
     val results: SearchResults = SearchResults.Idle,
     val filter: SearchFilter = SearchFilter.ALL,
+    /** The last searches a result was opened from, newest first. */
+    val recent: List<String> = emptyList(),
 )
 
 // Long enough to wait out a run of key presses on a remote.
@@ -60,15 +67,33 @@ private const val RESULTS = 24
 
 /**
  * Search as you type: AniList is asked once typing pauses. When it finds nothing, [kitsu], which forgives typos, says
- * which show was meant.
+ * which show was meant. A search a result is opened from goes into [recent].
  */
 public class SearchViewModel(
     private val client: AniListClient,
     private val kitsu: KitsuClient,
+    private val recent: RecentSearches,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SearchState())
     public val state: StateFlow<SearchState> = mutableState.asStateFlow()
     private var search: Job? = null
+
+    init {
+        viewModelScope.launch { recent.searches.collect { searches -> mutableState.update { it.copy(recent = searches) } } }
+    }
+
+    /** Call when a result is opened, so the search that found it is kept with the recent ones. */
+    public fun openedResult() {
+        val found = state.value.results as? SearchResults.Found ?: return
+        viewModelScope.launch { recent.add(found.query) }
+    }
+
+    /** Fills in [query], one of the recent searches, and searches for it straight away. */
+    public fun searchAgain(query: String) {
+        search?.cancel()
+        mutableState.update { it.copy(query = query) }
+        find(query, pause = false)
+    }
 
     public fun type(letter: Char) {
         change(state.value.query + letter)
@@ -93,7 +118,7 @@ public class SearchViewModel(
 
     /** Searches again after a search failed. */
     public fun retry() {
-        if (state.value.results == SearchResults.Failed) find(state.value.query, pause = false)
+        if (state.value.results is SearchResults.Failed) find(state.value.query, pause = false)
     }
 
     private fun change(query: String) {
@@ -117,12 +142,17 @@ public class SearchViewModel(
             viewModelScope.launch {
                 if (pause) delay(PAUSE_MILLIS)
                 val text = query.trim()
-                val result = client.search(text, perPage = RESULTS, filter = state.value.filter)
-                if (result !is AniListResult.Success) {
-                    mutableState.update { it.copy(results = SearchResults.Failed) }
-                    return@launch
-                }
-                val items = result.value.items
+                val items =
+                    when (val result = client.search(text, perPage = RESULTS, filter = state.value.filter)) {
+                        is AniListResult.Success -> {
+                            result.value.items
+                        }
+
+                        is AniListResult.Failure -> {
+                            mutableState.update { it.copy(results = SearchResults.Failed(result.error.problem)) }
+                            return@launch
+                        }
+                    }
                 // AniList only matches whole words, so a word half typed finds nothing. What it found before stays.
                 if (items.isEmpty() && (state.value.results as? SearchResults.Found)?.items?.isNotEmpty() == true) return@launch
                 // A filter that found nothing isn't a spelling mistake, and Kitsu's show might not pass the filter.
