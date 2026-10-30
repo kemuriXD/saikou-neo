@@ -248,7 +248,7 @@ private fun SettingsPage(
     }
 }
 
-private val ScreenTitle
+internal val ScreenTitle
     @Composable get() = NeoTheme.typography.headline.copy(fontSize = 26.sp, lineHeight = 32.sp)
 
 private val PaneTitle

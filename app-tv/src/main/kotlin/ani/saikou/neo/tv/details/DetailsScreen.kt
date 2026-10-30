@@ -155,7 +155,7 @@ private const val SYNOPSIS_FOCUS_SCALE = 1.025f
 // A first visit downloads the logo once the art is found. Not loaded by now, it stays words for the visit.
 private const val LOGO_WAIT_MILLIS = 1_500L
 
-private val seasonNames =
+internal val seasonNames =
     mapOf(
         AnimeSeason.WINTER to R.string.details_season_winter,
         AnimeSeason.SPRING to R.string.details_season_spring,

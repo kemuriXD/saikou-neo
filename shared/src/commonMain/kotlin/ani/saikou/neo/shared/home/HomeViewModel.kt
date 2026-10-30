@@ -24,7 +24,7 @@ import kotlin.time.Duration.Companion.seconds
 private const val FEATURED_SHOWS = 6
 private val paragraphBreak = Regex("""\s*\n\s*""")
 private val ROTATE_EVERY = 10.seconds
-private val RETRY_EVERY = 30.seconds
+internal val RETRY_EVERY = 30.seconds
 
 /** Home's rows, top to bottom. Continue watching comes from this TV, the rest from AniList. */
 public enum class HomeRow { CONTINUE_WATCHING, TRENDING, THIS_SEASON, POPULAR }
