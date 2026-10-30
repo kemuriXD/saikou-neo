@@ -3,10 +3,13 @@ package ani.saikou.neo.tv.home
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
@@ -22,7 +25,9 @@ import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.More
 import ani.saikou.neo.shared.home.SeeMoreState
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.Pulsing
 import ani.saikou.neo.tv.ui.fakeImages
+import ani.saikou.neo.tv.ui.fakeImagesNeverArrive
 import ani.saikou.neo.tv.ui.forgetFakeImages
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -199,5 +204,22 @@ class SeeMoreScreenTest {
         compose.waitForIdle()
 
         compose.onNodeWithTag(posterTag(8)).assertIsFocused()
+    }
+
+    private val pulsing = SemanticsMatcher.expectValue(Pulsing, true)
+
+    @Test
+    fun whileLoadingTheSkeletonsPulse() {
+        show(SeeMoreState())
+
+        compose.onAllNodes(pulsing and hasTestTag(POSTER_SKELETON_TAG), useUnmergedTree = true).assertCountEquals(12)
+    }
+
+    @Test
+    fun aPosterPulsesWhileItsPictureLoads() {
+        fakeImagesNeverArrive(compose.activity)
+        show(SeeMoreState(List(24) { card(it).copy(coverImageUrl = "https://example.test/$it.jpg") }, More.Ready))
+
+        compose.onAllNodes(pulsing and hasAnyAncestor(hasTestTag(posterTag(0))), useUnmergedTree = true).assertCountEquals(1)
     }
 }

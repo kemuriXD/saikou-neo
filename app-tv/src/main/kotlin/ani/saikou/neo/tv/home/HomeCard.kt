@@ -11,11 +11,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -30,6 +34,8 @@ import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.placeholder
+import ani.saikou.neo.tv.ui.rememberPulse
 import coil3.compose.AsyncImage
 
 /** A wide card for one anime: its banner, or its cover cropped from the top, with the title on a scrim. */
@@ -42,11 +48,17 @@ internal fun HomeCard(
     val colors = NeoTheme.colors
     val placeholder = remember(card.coverColor) { parseColour(card.coverColor) ?: colors.surfaceRaised }
 
+    val picture = card.bannerImageUrl ?: card.coverImageUrl
+    // The card pulses until its picture is in, or until it can't come.
+    var loading by remember(picture) { mutableStateOf(picture != null) }
+
     WideCard(onClick, modifier) {
-        Box(Modifier.fillMaxSize().background(placeholder)) {
+        Box(Modifier.fillMaxSize().placeholder(placeholder, RectangleShape, rememberPulse(loading))) {
             // AsyncImage decodes at the card's size, not the source's.
             AsyncImage(
-                model = card.bannerImageUrl ?: card.coverImageUrl,
+                model = picture,
+                onSuccess = { loading = false },
+                onError = { loading = false },
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 alignment = if (card.bannerImageUrl != null) Alignment.Center else Alignment.TopCenter,

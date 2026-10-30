@@ -17,6 +17,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -27,6 +28,8 @@ import androidx.tv.material3.Glow
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.placeholder
+import ani.saikou.neo.tv.ui.rememberPulse
 import coil3.compose.AsyncImage
 
 /**
@@ -44,6 +47,8 @@ internal fun PosterCard(
     val dimensions = NeoTheme.dimensions
     val shape = RoundedCornerShape(dimensions.radiusSm)
     var focused by remember { mutableStateOf(false) }
+    // The poster pulses until its picture is in, or until it can't come.
+    var loading by remember(card.coverImageUrl) { mutableStateOf(card.coverImageUrl != null) }
 
     Column(Modifier.width(dimensions.cardPosterWidth), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Card(
@@ -62,7 +67,9 @@ internal fun PosterCard(
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 alignment = Alignment.TopCenter,
-                modifier = Modifier.fillMaxSize().background(colors.surfaceRaised),
+                onSuccess = { loading = false },
+                onError = { loading = false },
+                modifier = Modifier.fillMaxSize().placeholder(colors.surfaceRaised, RectangleShape, rememberPulse(loading)),
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {

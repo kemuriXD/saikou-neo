@@ -19,6 +19,8 @@ import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isFocused
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -41,6 +43,7 @@ import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.RowState
 import ani.saikou.neo.tv.theme.NeoDimensions
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.Pulsing
 import ani.saikou.neo.tv.ui.fakeImages
 import ani.saikou.neo.tv.ui.forgetFakeImages
 import kotlinx.coroutines.CompletableDeferred
@@ -647,8 +650,8 @@ class HomeScreenTest {
         compose.onNodeWithText("Continue watching").assertExists()
         compose.onNodeWithText("Show 900").assertExists()
         compose.onNodeWithText("E7 · 14 min left").assertExists()
-        // The large number behind the title is only decoration.
-        compose.onNodeWithText("07", useUnmergedTree = true).assert(hidden)
+        // The board's large episode number was a stand-in, so the card leaves it out.
+        compose.onNodeWithText("07", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
@@ -873,5 +876,47 @@ class HomeScreenTest {
 
         // The button is shorter than a card, but the row rests where it does for a card: cards 34 dp under 30 dp.
         compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 11)).assertTopPositionInRootIsEqualTo(64.dp)
+    }
+
+    private val pulsing = SemanticsMatcher.expectValue(Pulsing, true)
+
+    @Test
+    fun whileHomeLoadsItsPlaceholdersPulse() {
+        show(HomeState(rows = HomeRow.entries.associateWith { RowState.Loading }))
+
+        // Five spotlight bars and four dots, then five cards in each row on screen.
+        val count = compose.onAllNodes(pulsing, useUnmergedTree = true).fetchSemanticsNodes().size
+        assertTrue("$count placeholders pulse", count >= 5 + 4 + 5)
+    }
+
+    @Test
+    fun aCardPulsesUntilItsPictureIsIn() {
+        val ready = CompletableDeferred<Unit>()
+        fakeImages(compose.activity, 800, 310, ready = ready)
+        val trending = (loaded.rows.getValue(HomeRow.TRENDING) as RowState.Loaded).items
+        val withPicture = trending.mapIndexed { i, card -> if (i == 0) card.copy(coverImageUrl = "https://example.test/0.jpg") else card }
+        show(loaded.copy(rows = loaded.rows + (HomeRow.TRENDING to RowState.Loaded(withPicture))))
+
+        fun pulsingIn(index: Int) =
+            compose.onAllNodes(pulsing and hasAnyAncestor(hasTestTag(homeCardTag(HomeRow.TRENDING, index))), useUnmergedTree = true)
+
+        pulsingIn(0).assertCountEquals(1)
+        // Without a picture, nothing is coming, so the card stays still.
+        pulsingIn(1).assertCountEquals(0)
+        ready.complete(Unit)
+        compose.waitForIdle()
+        pulsingIn(0).assertCountEquals(0)
+    }
+
+    // Play holds focus while Home loads, so the remote has somewhere to start, but it only shows with the show.
+    @Test
+    fun playStaysHiddenUntilTheShowIsIn() {
+        var state by mutableStateOf(HomeState(rows = HomeRow.entries.associateWith { RowState.Loading }))
+        compose.setContent { NeoTheme { HomeScreen(state) } }
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused().assert(hidden)
+        state = loaded
+        compose.waitForIdle()
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused().assert(!hidden)
     }
 }

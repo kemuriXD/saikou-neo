@@ -2,6 +2,7 @@ package ani.saikou.neo.tv.home
 
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -34,6 +35,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -45,6 +47,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
@@ -68,6 +71,8 @@ import ani.saikou.neo.tv.ui.NeoIconButton
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
+import ani.saikou.neo.tv.ui.placeholder
+import ani.saikou.neo.tv.ui.rememberPulse
 import kotlinx.coroutines.delay
 import java.util.Calendar
 
@@ -108,7 +113,8 @@ private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHei
 /**
  * The featured show's title, details and actions. The text sits on the buttons and fades from one show to the next,
  * while the buttons stay put, so focus never moves under the viewer. Down from any button goes to the dots.
- * Until [spotlight] arrives, still bars hold the text's place and Play waits for the show. With [progress] on the
+ * Until [spotlight] arrives, pulsing bars hold the text's place and Play waits unseen, holding focus, then fades in
+ * with the show. With [progress] on the
  * show, Play offers to resume it.
  */
 @Composable
@@ -177,8 +183,10 @@ internal fun SpotlightShow(
                 }
             }
         }
-        // Play opens Details until there's a player.
-        NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
+        // Play opens Details until there's a player. Until the show is in, it holds focus without showing.
+        val buttonsShown by animateFloatAsState(if (show != null) 1f else 0f, tween(half, delayMillis = half))
+        val waiting = if (show == null) Modifier.semantics { hideFromAccessibility() } else Modifier
+        NeoButtonRow(Modifier.padding(top = ButtonsGap).graphicsLayer { alpha = buttonsShown }) {
             // Focus grows it from its middle, so room for that keeps the gap to the next button.
             val density = LocalDensity.current
             val grows = dimensions.focusScaleButton - 1
@@ -190,7 +198,12 @@ internal fun SpotlightShow(
                             ?: stringResource(R.string.home_play),
                     onClick = { show?.let { onOpen(it.id) } },
                     icon = NeoIcons.Play,
-                    modifier = toDots.onSizeChanged { width = it.width }.focusRequester(play).testTag(SPOTLIGHT_PLAY_TAG),
+                    modifier =
+                        toDots
+                            .then(waiting)
+                            .onSizeChanged { width = it.width }
+                            .focusRequester(play)
+                            .testTag(SPOTLIGHT_PLAY_TAG),
                 )
             }
             if (show != null) {
@@ -290,11 +303,14 @@ private fun SpotlightTitle(
     }
 }
 
-/** Still dots in the dots' place while the spotlight loads. */
+/** Pulsing dots in the dots' place while the spotlight loads. */
 @Composable
 internal fun SpotlightDotsPlaceholder(modifier: Modifier = Modifier) {
+    val pulse = rememberPulse()
     Row(modifier.padding(horizontal = 14.dp, vertical = 9.dp), horizontalArrangement = Arrangement.spacedBy(DotGap)) {
-        PlaceholderDots.forEach { width -> Box(Modifier.size(width, Dot).background(NeoTheme.colors.line, RoundedCornerShape(Dot / 2))) }
+        PlaceholderDots.forEach { width ->
+            Box(Modifier.size(width, Dot).placeholder(NeoTheme.colors.line, RoundedCornerShape(Dot / 2), pulse))
+        }
     }
 }
 
