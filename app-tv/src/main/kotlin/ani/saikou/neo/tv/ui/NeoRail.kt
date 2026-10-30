@@ -5,6 +5,7 @@ import androidx.annotation.StringRes
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -54,6 +55,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Border
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
 import androidx.tv.material3.SelectableSurfaceDefaults
@@ -121,6 +123,7 @@ private val ShadowColor = Color.Black.copy(alpha = 0.4f)
 private const val PICTURE_FILL_ALPHA = 0.16f
 private val PictureOutline = 1.5.dp
 private val PictureIcon = 18.dp
+private val ProfileRing = 2.dp
 
 private val PlaceholderTop = 40.dp
 private val PlaceholderGap = 6.dp
@@ -236,6 +239,11 @@ private fun RailItem(
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
     val selected = section == Section.HOME
+    // The profile shows focus with just a white ring round the item: no fill and no glow.
+    val profile = section.icon == null
+    val focusFill = if (profile) Color.Transparent else colors.focus
+    val focusContent = if (profile) colors.paper else colors.onFocus
+    val focusGlow = if (profile) Glow.None else Glow(FocusGlowColor, dimensions.glowFocus)
     val interactions = remember { MutableInteractionSource() }
     val focused by interactions.collectIsFocusedAsState()
     Box(contentAlignment = Alignment.CenterStart) {
@@ -263,10 +271,10 @@ private fun RailItem(
                 SelectableSurfaceDefaults.colors(
                     containerColor = Color.Transparent,
                     contentColor = colors.textMuted,
-                    focusedContainerColor = colors.focus,
-                    focusedContentColor = colors.onFocus,
-                    pressedContainerColor = colors.focus,
-                    pressedContentColor = colors.onFocus,
+                    focusedContainerColor = focusFill,
+                    focusedContentColor = focusContent,
+                    pressedContainerColor = focusFill,
+                    pressedContentColor = focusContent,
                     selectedContainerColor = colors.fillTonal,
                     selectedContentColor = colors.paper,
                     focusedSelectedContainerColor = colors.focus,
@@ -274,10 +282,14 @@ private fun RailItem(
                     pressedSelectedContainerColor = colors.focus,
                     pressedSelectedContentColor = colors.onFocus,
                 ),
+            border =
+                SelectableSurfaceDefaults.border(
+                    focusedBorder = if (profile) Border(BorderStroke(ProfileRing, colors.paper)) else Border.None,
+                ),
             scale = SelectableSurfaceDefaults.scale(focusedScale = dimensions.focusScale, focusedSelectedScale = dimensions.focusScale),
             glow =
                 SelectableSurfaceDefaults.glow(
-                    focusedGlow = Glow(FocusGlowColor, dimensions.glowFocus),
+                    focusedGlow = focusGlow,
                     focusedSelectedGlow = Glow(FocusGlowColor, dimensions.glowFocus),
                 ),
         ) {
@@ -290,20 +302,18 @@ private fun RailItem(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (icon == null) {
-                    // Light on the rail, dark on the focused item's light fill, as the icons are.
-                    val tint = if (focused) colors.onFocus else colors.paper
                     Box(
                         Modifier
                             .testTag(RAIL_AVATAR_TAG)
                             .size(PictureSize)
-                            .background(tint.copy(alpha = PICTURE_FILL_ALPHA), CircleShape)
-                            .border(PictureOutline, tint.copy(alpha = colors.outline.alpha), CircleShape),
+                            .background(colors.paper.copy(alpha = PICTURE_FILL_ALPHA), CircleShape)
+                            .border(PictureOutline, colors.outline, CircleShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(
                             NeoIcons.Profile,
                             contentDescription = null,
-                            tint = tint,
+                            tint = colors.paper,
                             modifier = Modifier.testTag(RAIL_AVATAR_ICON_TAG).size(PictureIcon),
                         )
                     }
