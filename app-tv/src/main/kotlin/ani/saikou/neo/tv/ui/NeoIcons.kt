@@ -168,6 +168,24 @@ object NeoIcons {
             }
         }
     }
+
+    /** Wi-Fi waves struck through, for Home with no internet. */
+    val WifiOff: ImageVector by lazy {
+        icon("WifiOff") {
+            stroke(2f) {
+                moveTo(2f, 8.5f)
+                curveTo(7.5f, 3.8f, 16.5f, 3.8f, 22f, 8.5f)
+                moveTo(5.5f, 12f)
+                curveTo(9.2f, 9f, 14.8f, 9f, 18.5f, 12f)
+                moveTo(9f, 15.5f)
+                curveTo(10.8f, 14.2f, 13.2f, 14.2f, 15f, 15.5f)
+                moveTo(12f, 19f)
+                lineTo(12f, 19.5f)
+                moveTo(3f, 3f)
+                lineTo(21f, 21f)
+            }
+        }
+    }
 }
 
 /** A circle around ([x], [y]), drawn as two half arcs. */

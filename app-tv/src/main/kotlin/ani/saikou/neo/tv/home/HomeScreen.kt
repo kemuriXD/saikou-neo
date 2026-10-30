@@ -152,6 +152,8 @@ private data class CardKey(
  * Home: a spotlight on featured shows, over rows of anime that browse left and right. Selecting a show calls [onOpen];
  * the spotlight's dots call [onPick], and the button at the end of each row calls [onSeeMore]. [onSpotlightInView] says whether the spotlight is showing, so it only moves on
  * while seen. [onRest] gets the card focus is on, or null off the cards, so resting on one can find its art.
+ * When the TV is offline, Home says so instead: Try again calls [onRetry], Network settings calls [onNetworkSettings],
+ * and [onOfflineInView] says whether that's showing.
  */
 @Composable
 fun HomeScreen(
@@ -162,7 +164,14 @@ fun HomeScreen(
     onSpotlightInView: (inView: Boolean) -> Unit = {},
     onSeeMore: (row: HomeRow) -> Unit = {},
     onRest: (card: AnimeCard?) -> Unit = {},
+    onRetry: () -> Unit = {},
+    onNetworkSettings: () -> Unit = {},
+    onOfflineInView: (inView: Boolean) -> Unit = {},
 ) {
+    if (state.offline) {
+        HomeOffline(onRetry, onNetworkSettings, onOfflineInView, modifier)
+        return
+    }
     // The card with focus, or null while the spotlight has it.
     var focused by rememberSaveable { mutableStateOf<CardKey?>(null) }
     // The anime each row last had focus on, so moving up and down returns to it.

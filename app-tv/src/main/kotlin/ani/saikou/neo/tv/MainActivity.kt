@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.os.Bundle
 import android.provider.Settings
@@ -92,6 +93,9 @@ class MainActivity : ComponentActivity() {
                                 onSpotlightInView = home::watchSpotlight,
                                 onSeeMore = openSeeMore,
                                 onRest = home::rest,
+                                onRetry = home::retry,
+                                onNetworkSettings = ::openNetworkSettings,
+                                onOfflineInView = home::watchOffline,
                             )
                         },
                         seeMore = { row, openDetails ->
@@ -139,6 +143,15 @@ class MainActivity : ComponentActivity() {
                     )
                 }
             }
+        }
+    }
+
+    /** The TV's network settings, or its main settings where there's no network screen to open. */
+    private fun openNetworkSettings() {
+        try {
+            startActivity(Intent(Settings.ACTION_WIFI_SETTINGS))
+        } catch (_: ActivityNotFoundException) {
+            startActivity(Intent(Settings.ACTION_SETTINGS))
         }
     }
 
