@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Splash icon for Android 12 and later. The system clips its 288 dp icon to a 192 dp circle, so the lockup is drawn
+    206 dp wide here, which leaves its outline about 185 dp wide and inside the circle.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="206dp"
+        android:height="57dp"
+        android:bottom="115.5dp"
+        android:drawable="@drawable/splash_lockup"
+        android:left="41dp"
+        android:right="41dp"
+        android:top="115.5dp" />
+</layer-list>
