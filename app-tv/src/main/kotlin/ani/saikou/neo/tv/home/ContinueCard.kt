@@ -11,9 +11,14 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.hideFromAccessibility
@@ -27,6 +32,8 @@ import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.placeholder
+import ani.saikou.neo.tv.ui.rememberPulse
 import coil3.compose.AsyncImage
 
 // From the design: a faint episode number runs off the card's bottom right, behind the title.
@@ -47,10 +54,14 @@ internal fun ContinueCard(
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
+    // The card pulses until its still is in, or until it can't come.
+    var loading by remember(progress.still) { mutableStateOf(progress.still != null) }
     WideCard(onClick, modifier) {
-        Box(Modifier.fillMaxSize().background(colors.surfaceRaised)) {
+        Box(Modifier.fillMaxSize().placeholder(colors.surfaceRaised, RectangleShape, rememberPulse(loading))) {
             AsyncImage(
                 model = progress.still,
+                onSuccess = { loading = false },
+                onError = { loading = false },
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),

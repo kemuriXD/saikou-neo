@@ -68,6 +68,8 @@ import ani.saikou.neo.tv.ui.NeoIconButton
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
+import ani.saikou.neo.tv.ui.placeholder
+import ani.saikou.neo.tv.ui.rememberPulse
 import kotlinx.coroutines.delay
 import java.util.Calendar
 
@@ -290,11 +292,14 @@ private fun SpotlightTitle(
     }
 }
 
-/** Still dots in the dots' place while the spotlight loads. */
+/** Pulsing dots in the dots' place while the spotlight loads. */
 @Composable
 internal fun SpotlightDotsPlaceholder(modifier: Modifier = Modifier) {
+    val pulse = rememberPulse()
     Row(modifier.padding(horizontal = 14.dp, vertical = 9.dp), horizontalArrangement = Arrangement.spacedBy(DotGap)) {
-        PlaceholderDots.forEach { width -> Box(Modifier.size(width, Dot).background(NeoTheme.colors.line, RoundedCornerShape(Dot / 2))) }
+        PlaceholderDots.forEach { width ->
+            Box(Modifier.size(width, Dot).placeholder(NeoTheme.colors.line, RoundedCornerShape(Dot / 2), pulse))
+        }
     }
 }
 

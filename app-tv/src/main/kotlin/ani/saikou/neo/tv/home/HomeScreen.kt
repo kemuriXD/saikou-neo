@@ -70,6 +70,8 @@ import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.PreloadLogo
 import ani.saikou.neo.tv.ui.RailWidth
 import ani.saikou.neo.tv.ui.logoRequest
+import ani.saikou.neo.tv.ui.placeholder
+import ani.saikou.neo.tv.ui.rememberPulse
 import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
@@ -387,7 +389,7 @@ private fun HomeRowSection(
     }
 }
 
-/** Static placeholders in the card's place while a row loads, so nothing moves when it arrives. */
+/** Pulsing placeholders in the card's place while a row loads, so nothing moves when it arrives. */
 @Composable
 private fun SkeletonCards() {
     val dimensions = NeoTheme.dimensions
@@ -407,7 +409,7 @@ internal fun Skeleton(
     height: Dp,
     modifier: Modifier = Modifier,
     radius: Dp = 6.dp,
-) = Box(modifier.size(width, height).background(NeoTheme.colors.surfaceRaised, RoundedCornerShape(radius)))
+) = Box(modifier.size(width, height).placeholder(NeoTheme.colors.surfaceRaised, RoundedCornerShape(radius), rememberPulse()))
 
 /** Starts loading every featured show's art and logo, so each fades in as soon as the spotlight moves on. */
 @Composable
