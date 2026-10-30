@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
@@ -119,52 +118,47 @@ fun NeoNavigation(
     val dimensions = NeoTheme.dimensions
     val fade = tween<Float>(dimensions.durationBackdropMillis, easing = dimensions.easeStandard)
     val crossfade = fadeIn(fade) togetherWith fadeOut(fade)
-    Box(Modifier.fillMaxSize()) {
-        NavDisplay(
-            backStack = backStack,
-            onBack = { backStack.removeLastOrNull() },
-            entryDecorators =
-                listOf(
-                    rememberSaveableStateHolderNavEntryDecorator(),
-                    rememberViewModelStoreNavEntryDecorator(),
-                ),
-            transitionSpec = { crossfade },
-            popTransitionSpec = { crossfade },
-            predictivePopTransitionSpec = { crossfade },
-            entryProvider =
-                entryProvider {
-                    val openDetails: (Int) -> Unit = { animeId -> backStack.add(Screen.Details(animeId, nextVisit(backStack))) }
+    NavDisplay(
+        backStack = backStack,
+        onBack = { backStack.removeLastOrNull() },
+        entryDecorators =
+            listOf(
+                rememberSaveableStateHolderNavEntryDecorator(),
+                rememberViewModelStoreNavEntryDecorator(),
+            ),
+        transitionSpec = { crossfade },
+        popTransitionSpec = { crossfade },
+        predictivePopTransitionSpec = { crossfade },
+        entryProvider =
+            entryProvider {
+                val openDetails: (Int) -> Unit = { animeId -> backStack.add(Screen.Details(animeId, nextVisit(backStack))) }
 
-                    // A screen fading out keeps its focus until the next one takes it, which can wait for that screen to load.
-                    // Only the top screen takes the remote's keys, so a quick press can't move focus on the one left behind.
-                    @Composable
-                    fun Screen.TakesKeysOnTop(content: @Composable () -> Unit) =
-                        Box(Modifier.onPreviewKeyEvent { it.key != Key.Back && this != backStack.lastOrNull() }) { content() }
-                    entry<Screen.Home> {
-                        // Home remembers what had focus, for the rail to send it back to. The restorer sets how focus
-                        // enters the group after it.
-                        it.TakesKeysOnTop {
-                            Box(Modifier.focusRequester(homeFocus).focusRestorer().focusGroup()) {
-                                home(openDetails) { row -> backStack.add(Screen.SeeMore(row)) }
-                            }
+                // A screen fading out keeps its focus until the next one takes it, which can wait for that screen to load.
+                // Only the top screen takes the remote's keys, so a quick press can't move focus on the one left behind.
+                @Composable
+                fun Screen.TakesKeysOnTop(content: @Composable () -> Unit) =
+                    Box(Modifier.onPreviewKeyEvent { it.key != Key.Back && this != backStack.lastOrNull() }) { content() }
+                entry<Screen.Home> {
+                    // Home remembers what had focus, for the rail to send it back to. The restorer sets how focus
+                    // enters the group after it. The rail is part of Home, so it fades in and out with it.
+                    it.TakesKeysOnTop {
+                        Box(Modifier.focusRequester(homeFocus).focusRestorer().focusGroup()) {
+                            home(openDetails) { row -> backStack.add(Screen.SeeMore(row)) }
                         }
+                        NeoRail(onSelect = { backStack.add(Screen.Section(it)) }, onClose = { homeFocus.requestFocus() })
                     }
-                    entry<Screen.Section> { it.TakesKeysOnTop { section(it.section) } }
-                    entry<Screen.SeeMore> { it.TakesKeysOnTop { seeMore(it.row, openDetails) } }
-                    entry<Screen.Details> {
-                        it.TakesKeysOnTop {
-                            details(
-                                it.animeId,
-                                openDetails,
-                            ) { animeId -> backStack.add(Screen.Recommendations(animeId, nextVisit(backStack))) }
-                        }
+                }
+                entry<Screen.Section> { it.TakesKeysOnTop { section(it.section) } }
+                entry<Screen.SeeMore> { it.TakesKeysOnTop { seeMore(it.row, openDetails) } }
+                entry<Screen.Details> {
+                    it.TakesKeysOnTop {
+                        details(
+                            it.animeId,
+                            openDetails,
+                        ) { animeId -> backStack.add(Screen.Recommendations(animeId, nextVisit(backStack))) }
                     }
-                    entry<Screen.Recommendations> { it.TakesKeysOnTop { recommendations(it.animeId, openDetails) } }
-                },
-        )
-        // The rail is only on Home.
-        if (backStack.last() == Screen.Home) {
-            NeoRail(onSelect = { backStack.add(Screen.Section(it)) }, onClose = { homeFocus.requestFocus() })
-        }
-    }
+                }
+                entry<Screen.Recommendations> { it.TakesKeysOnTop { recommendations(it.animeId, openDetails) } }
+            },
+    )
 }
