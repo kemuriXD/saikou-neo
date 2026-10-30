@@ -153,6 +153,7 @@ private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHei
 
 // About 70 characters a line, a comfortable read from the sofa.
 private val SynopsisWidth = 520.dp
+private val SynopsisCaptionGap = 6.dp
 private const val SYNOPSIS_PREVIEW_LINES = 2
 private const val SYNOPSIS_FOCUS_SCALE = 1.025f
 
@@ -600,8 +601,8 @@ private fun Overview(
     Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Facts(state.details, state.ratings, Modifier.padding(top = dimensions.space1))
         state.synopsis.story?.let { story ->
-            // A caption like each fact's, outside the box focus outlines.
-            Column {
+            // A caption like each fact's, clear of the outline focus draws around the synopsis.
+            Column(verticalArrangement = Arrangement.spacedBy(SynopsisCaptionGap)) {
                 Text(
                     text = stringResource(R.string.details_synopsis),
                     style = NeoTheme.typography.caption,

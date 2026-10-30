@@ -159,7 +159,8 @@ class DetailsScreenTest {
 
         val caption = compose.onNodeWithText("Synopsis").assertLeftPositionInRootIsEqualTo(58.dp).getUnclippedBoundsInRoot()
         val synopsis = compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).getUnclippedBoundsInRoot()
-        assertTrue(caption.bottom <= synopsis.top)
+        // Clear of the outline focus draws around the synopsis.
+        assertTrue(caption.bottom + 6.dp <= synopsis.top)
         // Still on screen under the facts.
         assertTrue(synopsis.bottom <= 540.dp)
     }
