@@ -935,6 +935,9 @@ class DetailsScreenTest {
         assertTrue(left(7) < left(9))
         compose.onNodeWithText("You are here · E3").assertExists()
         compose.onNodeWithText("Movie · 12 eps").assertExists()
+        // The others say how they're related to this show.
+        compose.onNodeWithTag(watchOrderTag(8)).assert(hasText("Prequel"))
+        compose.onNodeWithTag(watchOrderTag(9)).assert(hasText("Side story"))
     }
 
     @Test
@@ -947,6 +950,30 @@ class DetailsScreenTest {
         press(Key.DirectionCenter)
 
         assertEquals(9, opened)
+    }
+
+    @Test
+    fun theLineFillsUpToTheStepFocusIsOn() {
+        showWatchOrder(DetailsState.Loaded(franchise))
+        val pink = NeoColors().pink
+
+        // A dot's colour just inside its ring, clear of its number.
+        fun dot(id: Int) =
+            compose
+                .onNodeWithTag(watchOrderDotTag(id))
+                .captureToImage()
+                .toPixelMap()
+                .let { it[it.width / 5, it.height / 2] }
+
+        fun filled(id: Int) = (dot(id).red - pink.red).let { it * it } < 0.01f && (dot(id).green - pink.green).let { it * it } < 0.01f
+        // From the tabs, the line runs up to this show.
+        assertTrue(filled(8))
+        assertTrue(filled(7))
+        assertTrue(!filled(9))
+        // On the film after it, it runs on to the film.
+        press(Key.DirectionDown)
+        compose.waitForIdle()
+        assertTrue(filled(9))
     }
 
     @Test

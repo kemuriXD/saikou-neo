@@ -849,7 +849,8 @@ private fun List<Pair<Float, Float>>.alphaAt(at: Float): Float {
     return start.second + (end.second - start.second) * (at - start.first) / (end.first - start.first)
 }
 
-private val relationNames =
+/** How an anime is related to the show on Details, in words, such as "Sequel". */
+internal val relationNames =
     mapOf(
         Relation.PARENT to R.string.details_relation_parent,
         Relation.PREQUEL to R.string.details_relation_prequel,

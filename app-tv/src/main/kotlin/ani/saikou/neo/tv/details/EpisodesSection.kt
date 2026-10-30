@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -56,13 +55,11 @@ import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
-import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.LocalContentColor
@@ -96,8 +93,7 @@ internal const val EPISODE_RANGES_TAG = "episode-ranges"
 internal val SectionHeight = 422.dp
 private val RowThumbWidth = 128.dp
 private val RowThumbHeight = 72.dp
-private val NumberedRowHeight = 56.dp
-private val NumberWidth = 56.dp
+private val TextRowHeight = 56.dp
 private val ChipHeight = 36.dp
 
 // Room for a focused chip's growth and glow, which the ranges' fade would otherwise cut off.
@@ -106,7 +102,6 @@ private val GlowRoom = 24.dp
 // The backdrop in place of a still is dimmed by half.
 private const val PLACEHOLDER_DIM = 0.5f
 private const val ROW_FOCUS_SCALE = 1.025f
-private const val THUMB_NUMBER = 0.3f
 private const val TRACK = 0.3f
 private const val BADGE_FILL = 0.12f
 private const val BADGE_TEXT = 0.85f
@@ -233,8 +228,7 @@ internal fun EpisodesSection(
                 if (rich) {
                     EpisodeRow(episode, backdrop, mark, rowModifier)
                 } else {
-                    NumberedRow(
-                        number = episode.number.takeUnless { list.film },
+                    TextRow(
                         title = episode.title ?: stringResource(R.string.details_episode_number, episode.number),
                         meta = episode.meta(list.film),
                         modifier = rowModifier,
@@ -252,7 +246,7 @@ internal fun EpisodesSection(
                     )
                 }
                 items(list.extras) { extra ->
-                    NumberedRow(number = null, title = extra.title, meta = extra.minutes?.let { duration(it) })
+                    TextRow(title = extra.title, meta = extra.minutes?.let { duration(it) })
                 }
             }
         }
@@ -326,8 +320,8 @@ internal fun AniZipEpisode.thumb(backdrop: String?): EpisodeThumb? =
     thumbnail?.let { EpisodeThumb(it, dimmed = false) } ?: backdrop?.let { EpisodeThumb(it, dimmed = true) }
 
 /**
- * An episode AniZip knows: its still with its number faint over it and a line for how much was watched, "1 · Rebirth",
- * its length and date, a line of its synopsis, and how far this TV got in it.
+ * An episode AniZip knows: its still with a line for how much was watched, "1 · Rebirth", its length and date, a line
+ * of its synopsis, and how far this TV got in it.
  */
 @Composable
 private fun EpisodeRow(
@@ -357,7 +351,7 @@ private fun EpisodeRow(
                     modifier = Modifier.matchParentSize(),
                 )
                 if (thumb?.dimmed == true) Box(Modifier.matchParentSize().background(NeoTheme.colors.ink.copy(alpha = PLACEHOLDER_DIM)))
-                ThumbOverlay(episode.number, mark)
+                ThumbOverlay(mark)
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 val title = episode.title?.let { stringResource(R.string.details_episode_titled, episode.number, it) }
@@ -383,21 +377,10 @@ private fun EpisodeRow(
     }
 }
 
-/** The episode's number, faint at the still's corner, a veil once it's watched, and a line for how much was. */
+/** A veil over the still once the episode is watched, and a line for how much was. */
 @Composable
-private fun BoxScope.ThumbOverlay(
-    number: Int,
-    mark: EpisodeMark?,
-) {
+private fun BoxScope.ThumbOverlay(mark: EpisodeMark?) {
     val colors = NeoTheme.colors
-    Text(
-        text = number.toString().padStart(2, '0'),
-        style = NeoTheme.typography.display.copy(fontSize = 60.sp, lineHeight = 60.sp, letterSpacing = (-3).sp),
-        color = colors.paper.copy(alpha = THUMB_NUMBER),
-        softWrap = false,
-        // The row's title already says the number.
-        modifier = Modifier.align(Alignment.BottomEnd).offset(x = 4.dp, y = 16.dp).clearAndSetSemantics {},
-    )
     if (mark == EpisodeMark.Watched) Box(Modifier.matchParentSize().background(colors.ink.copy(alpha = PLACEHOLDER_DIM)))
     val watched =
         when (mark) {
@@ -442,30 +425,21 @@ private fun Badge(mark: EpisodeMark) {
     )
 }
 
-/** A row with no still: the episode's number, if it has one, then its title and length. */
+/** A row with no still: the title and length. */
 @Composable
-private fun NumberedRow(
-    number: Int?,
+private fun TextRow(
     title: String,
     meta: String?,
     modifier: Modifier = Modifier,
     mark: EpisodeMark? = null,
 ) {
     val dimensions = NeoTheme.dimensions
-    RowSurface(modifier.heightIn(min = NumberedRowHeight)) {
+    RowSurface(modifier.heightIn(min = TextRowHeight)) {
         Row(
-            Modifier.heightIn(min = NumberedRowHeight).padding(horizontal = dimensions.space4, vertical = dimensions.space2),
+            Modifier.heightIn(min = TextRowHeight).padding(horizontal = dimensions.space4, vertical = dimensions.space2),
             horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            number?.let {
-                Text(
-                    text = it.toString(),
-                    style = NeoTheme.typography.titleLarge.copy(fontSize = NeoTheme.typography.titleLarge.fontSize * NUMBER_SCALE),
-                    color = LocalContentColor.current.copy(alpha = FAINT),
-                    modifier = Modifier.width(NumberWidth),
-                )
-            }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(text = title, style = NeoTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 meta?.let { Meta(it) }
@@ -510,8 +484,6 @@ private fun RowSurface(
 // The rows span the grid's content width.
 private val RowWidth: Dp = 844.dp
 private const val MUTED = 0.72f
-private const val FAINT = 0.52f
-private const val NUMBER_SCALE = 22f / 24f
 
 /** Such as "23 min · Aired 4 Oct 2006", or "Released" for a film. */
 @Composable

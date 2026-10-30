@@ -20,7 +20,7 @@ class WatchOrderTest {
                 RelatedAnime(card(4, 2023, null), Relation.PREQUEL),
             )
 
-        assertEquals(listOf(4, 1, 3, 2), details.watchOrder().map { it.id })
+        assertEquals(listOf(4, 1, 3, 2), details.watchOrder().map { it.card.id })
     }
 
     @Test
@@ -32,7 +32,19 @@ class WatchOrderTest {
                 RelatedAnime(card(3, 2025, AnimeSeason.FALL), Relation.SEQUEL),
             )
 
-        assertEquals(listOf(1, 3, 2), details.watchOrder().map { it.id })
+        assertEquals(listOf(1, 3, 2), details.watchOrder().map { it.card.id })
+    }
+
+    @Test
+    fun eachStepSaysHowItIsRelatedToThisShow() {
+        val details =
+            details(
+                card(1, 2025, AnimeSeason.WINTER),
+                RelatedAnime(card(2, 2026, AnimeSeason.SPRING), Relation.SEQUEL),
+                RelatedAnime(card(3, 2023, null), Relation.PREQUEL),
+            )
+
+        assertEquals(listOf(Relation.PREQUEL, null, Relation.SEQUEL), details.watchOrder().map { it.relation })
     }
 
     private fun details(
