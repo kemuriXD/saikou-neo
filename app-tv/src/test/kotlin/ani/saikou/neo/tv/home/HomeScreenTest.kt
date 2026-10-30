@@ -907,4 +907,16 @@ class HomeScreenTest {
         compose.waitForIdle()
         pulsingIn(0).assertCountEquals(0)
     }
+
+    // Play holds focus while Home loads, so the remote has somewhere to start, but it only shows with the show.
+    @Test
+    fun playStaysHiddenUntilTheShowIsIn() {
+        var state by mutableStateOf(HomeState(rows = HomeRow.entries.associateWith { RowState.Loading }))
+        compose.setContent { NeoTheme { HomeScreen(state) } }
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused().assert(hidden)
+        state = loaded
+        compose.waitForIdle()
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused().assert(!hidden)
+    }
 }
