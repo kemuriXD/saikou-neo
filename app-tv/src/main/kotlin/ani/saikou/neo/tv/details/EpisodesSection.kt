@@ -89,6 +89,8 @@ internal fun episodeTag(number: Int) = "episode-$number"
 
 internal const val EPISODE_RANGES_TAG = "episode-ranges"
 
+internal const val EPISODE_THUMB_TAG = "episode-thumb"
+
 // From the design: lifted, the section starts 118 dp down, so the list has the rest of the screen.
 internal val SectionHeight = 422.dp
 private val RowThumbWidth = 128.dp
@@ -109,8 +111,8 @@ private const val RANGE_REST_MILLIS = 150L
 
 /**
  * The show's episodes: a line on how many there are, ranges to jump between, then a row for each. Rows have a still, a
- * title, the date and a line of synopsis when AniZip knows them, or just their number. An episode with no still shows
- * the show's [backdrop], dimmed. Each says whether it's watched or how much is left, from [progress]. A film lists
+ * title, the date and a line of synopsis when the catalogue knows them, or else "Episode 5". An episode with no still
+ * shows the show's [backdrop], dimmed. Each says whether it's watched or how much is left, from [progress]. A film lists
  * itself, then its extras.
  *
  * The section opens on the range with the next episode to watch, which [nextFocus] focuses. Up or down into the list
@@ -149,7 +151,7 @@ internal fun EpisodesSection(
     val shown = ranges.getOrNull(range)?.let { list.episodes.subList(it.first - 1, it.last) } ?: list.episodes
     val nextIndex = shown.indexOfFirst { it.number == next }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = nextIndex.coerceAtLeast(0))
-    val rich = !list.detailsMissing && !list.film
+    val rich = !list.film
     Column(modifier.heightIn(max = SectionHeight), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             text = list.header(),
@@ -281,7 +283,7 @@ private fun Modifier.fadeAtTheEdges(width: Dp) =
             )
         }
 
-/** Such as "37 episodes", "12 episodes · 4 aired", or "201 episodes so far · Titles and air dates unavailable". */
+/** Such as "37 episodes", "12 episodes · 4 aired", or "201 episodes so far". */
 @Composable
 private fun EpisodeList.header(): String {
     val count =
@@ -304,7 +306,6 @@ private fun EpisodeList.header(): String {
         }
     return when {
         film -> count
-        detailsMissing -> count + " · " + stringResource(R.string.details_episodes_missing)
         aired < this.count -> count + " · " + pluralStringResource(R.plurals.details_episodes_aired, aired, aired)
         else -> count
     }
@@ -320,8 +321,8 @@ internal fun AniZipEpisode.thumb(backdrop: String?): EpisodeThumb? =
     thumbnail?.let { EpisodeThumb(it, dimmed = false) } ?: backdrop?.let { EpisodeThumb(it, dimmed = true) }
 
 /**
- * An episode AniZip knows: its still with a line for how much was watched, "1 · Rebirth", its length and date, a line
- * of its synopsis, and how far this TV got in it.
+ * An episode: its still with a line for how much was watched, "1 · Rebirth", its length and date, a line of its
+ * synopsis, and how far this TV got in it. What the catalogue doesn't know is left out.
  */
 @Composable
 private fun EpisodeRow(
@@ -342,7 +343,8 @@ private fun EpisodeRow(
                 Modifier
                     .size(RowThumbWidth, RowThumbHeight)
                     .clip(RoundedCornerShape(dimensions.radiusSm))
-                    .background(NeoTheme.colors.surfaceRaised),
+                    .background(NeoTheme.colors.surfaceRaised)
+                    .testTag(EPISODE_THUMB_TAG),
             ) {
                 AsyncImage(
                     model = thumb?.url,

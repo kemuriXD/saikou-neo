@@ -134,7 +134,6 @@ class DetailsViewModelTest {
             val episodes = loaded.episodes!!
             assertEquals(loaded.details.card.episodes, episodes.count)
             assertEquals("Day of Atonement", episodes.episodes[3].title)
-            assertEquals(false, episodes.detailsMissing)
         }
 
     @Test
@@ -154,7 +153,7 @@ class DetailsViewModelTest {
             val viewModel = detailsViewModel(episodes = AniZipClient(OfflineEngine, main))
 
             val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.episodes != null } as DetailsState.Loaded
-            assertTrue(loaded.episodes!!.detailsMissing)
+            assertTrue(loaded.episodes!!.episodes.all { it.title == null && it.airDate == null })
             assertEquals(loaded.details.card.episodes, loaded.episodes.episodes.size)
         }
 
@@ -165,7 +164,6 @@ class DetailsViewModelTest {
             val viewModel = recordedEpisodes("details-steel-ball-run", 210482)
 
             val episodes = viewModel.loadedEpisodes()
-            assertEquals(false, episodes.detailsMissing)
             assertEquals(AirDate(2026, 9, 25), episodes.episodes[0].airDate)
             assertEquals(AirDate(2026, 12, 4), episodes.episodes[10].airDate)
             assertEquals(6, episodes.aired)

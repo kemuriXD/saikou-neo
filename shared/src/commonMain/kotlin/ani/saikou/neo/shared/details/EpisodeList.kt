@@ -26,8 +26,6 @@ public data class EpisodeList(
     val episodes: List<AniZipEpisode>,
     /** A film's extras, such as its making-of. */
     val extras: List<AniZipExtra>,
-    /** No episode has a title or an air date, so the list says they're unavailable. */
-    val detailsMissing: Boolean,
     /** How many of [episodes] are out by today. One without an air date counts as out. */
     val aired: Int = count,
 )
@@ -77,7 +75,6 @@ public fun episodeList(
         film = film,
         episodes = if (showUpcoming) episodes else aired,
         extras = if (film) aniZip?.extras.orEmpty() else emptyList(),
-        detailsMissing = episodes.none { it.title != null || it.airDate != null },
         aired = aired.size,
     )
 }

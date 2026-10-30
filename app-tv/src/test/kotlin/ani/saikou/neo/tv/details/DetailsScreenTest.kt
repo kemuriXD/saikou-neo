@@ -521,11 +521,12 @@ class DetailsScreenTest {
     }
 
     @Test
-    fun withoutEpisodeDataTheRowsAreNumberedAndTheHeaderSaysWhatIsMissing() {
+    fun withoutEpisodeDataTheRowsShowTheBackdropAndTheirNumber() {
         showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, null, today)))
 
-        compose.onNodeWithText("12 episodes · Titles and air dates unavailable").assertExists()
-        compose.onNodeWithText("Episode 1").assertExists()
+        compose.onNodeWithText("12 episodes").assertExists()
+        compose.onNode(hasTestTag(EPISODE_THUMB_TAG) and hasAnyAncestor(hasTestTag(episodeTag(1))), useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(episodeTag(1)).assert(hasText("Episode 1"))
     }
 
     @Test
@@ -533,7 +534,7 @@ class DetailsScreenTest {
         val long = details.copy(card = details.card.copy(episodes = null), nextEpisode = NextEpisode(202, 0))
         showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
 
-        compose.onNodeWithText("201 episodes so far · Titles and air dates unavailable").assertExists()
+        compose.onNodeWithText("201 episodes so far").assertExists()
         compose.onNodeWithText("151–201").assertExists()
         // Down from the tabs lands on the first range; Right moves to the next and shows it.
         press(Key.DirectionDown)

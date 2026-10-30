@@ -30,7 +30,6 @@ class EpisodeListTest {
         assertEquals(rebirth, list.episodes.first())
         assertEquals(37, list.episodes.last().number)
         assertNull(list.episodes.last().title)
-        assertFalse(list.detailsMissing)
     }
 
     @Test
@@ -51,8 +50,7 @@ class EpisodeListTest {
         val list = episodeList(details(episodes = 201), null, today)
 
         assertEquals(201, list.episodes.size)
-        assertTrue(list.episodes.all { it.title == null })
-        assertTrue(list.detailsMissing)
+        assertTrue(list.episodes.all { it.title == null && it.airDate == null })
     }
 
     // Steel Ball Run's first episode, out at 08:00 UTC on 25 Sep 2026.
@@ -63,7 +61,6 @@ class EpisodeListTest {
         assertEquals(AirDate(2026, 9, 25), list.episodes[0].airDate)
         assertEquals(23, list.episodes[0].minutes)
         assertNull(list.episodes[1].airDate)
-        assertFalse(list.detailsMissing)
     }
 
     @Test
@@ -90,14 +87,6 @@ class EpisodeListTest {
         val list = episodeList(film, null, today)
 
         assertEquals(AniZipEpisode(1, null, null, null, AirDate(2026, 1, 30), 108), list.episodes.single())
-        assertFalse(list.detailsMissing)
-    }
-
-    @Test
-    fun episodesWithNoTitlesOrDatesAreMissingTheirDetails() {
-        val blank = AniZipEpisodes(listOf(AniZipEpisode(1, null, null, null, null, 24)), emptyList())
-
-        assertTrue(episodeList(details(episodes = 12), blank, today).detailsMissing)
     }
 
     @Test
