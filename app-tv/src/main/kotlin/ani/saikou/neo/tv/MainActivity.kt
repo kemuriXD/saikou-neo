@@ -31,11 +31,13 @@ import ani.saikou.neo.shared.catalogue.OmdbClient
 import ani.saikou.neo.shared.catalogue.TmdbClient
 import ani.saikou.neo.shared.details.DetailsViewModel
 import ani.saikou.neo.shared.details.Raters
+import ani.saikou.neo.shared.discover.DiscoverViewModel
 import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
 import ani.saikou.neo.shared.search.SearchViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
+import ani.saikou.neo.tv.discover.DiscoverScreen
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SeeMoreScreen
 import ani.saikou.neo.tv.home.displayTitle
@@ -173,6 +175,17 @@ class MainActivity : ComponentActivity() {
                                 onLoadMore = popular::loadMore,
                                 onRetry = popular::retry,
                                 onRest = popular::rest,
+                            )
+                        },
+                        discover = { openDetails ->
+                            val discover = viewModel { DiscoverViewModel(client, season(), year()) }
+                            val state by discover.state.collectAsStateWithLifecycle()
+                            DiscoverScreen(
+                                state,
+                                onOpen = openDetails,
+                                onRetry = discover::retry,
+                                onNetworkSettings = ::openNetworkSettings,
+                                onOfflineInView = discover::watchOffline,
                             )
                         },
                         section = { section ->

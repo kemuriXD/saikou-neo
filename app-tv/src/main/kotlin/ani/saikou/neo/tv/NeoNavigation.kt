@@ -109,7 +109,7 @@ private val BackStackSaver =
 /**
  * Moves between [home], a row's [seeMore] page and [details], which can open another show's Details or all of its
  * [recommendations]. The rail down the left of Home opens each [section]; Back from a section goes to Home. [search]
- * opens Details or a [genre]'s page. Each screen
+ * opens Details or a [genre]'s page, and [discover] opens Details. Each screen
  * keeps its saved state and ViewModels while it's on the back stack, so Back finds Home as it was left. Back on Home
  * leaves the app.
  */
@@ -122,6 +122,7 @@ fun NeoNavigation(
     section: @Composable (section: Section) -> Unit = { SectionPlaceholder(it) },
     search: @Composable (openDetails: (animeId: Int) -> Unit, openGenre: (genre: SearchGenre) -> Unit) -> Unit = { _, _ -> },
     genre: @Composable (genre: SearchGenre, openDetails: (animeId: Int) -> Unit) -> Unit = { _, _ -> },
+    discover: @Composable (openDetails: (animeId: Int) -> Unit) -> Unit = { SectionPlaceholder(Section.DISCOVER) },
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
     // Takes focus back from the rail to what last had it on Home.
@@ -165,10 +166,10 @@ fun NeoNavigation(
                 }
                 entry<Screen.Section> {
                     it.TakesKeysOnTop {
-                        if (it.section == Section.SEARCH) {
-                            search(openDetails) { genre -> backStack.add(Screen.Genre(genre)) }
-                        } else {
-                            section(it.section)
+                        when (it.section) {
+                            Section.SEARCH -> search(openDetails) { genre -> backStack.add(Screen.Genre(genre)) }
+                            Section.DISCOVER -> discover(openDetails)
+                            else -> section(it.section)
                         }
                     }
                 }

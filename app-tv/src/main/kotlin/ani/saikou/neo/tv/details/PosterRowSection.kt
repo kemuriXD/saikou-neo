@@ -37,7 +37,8 @@ private const val SEE_MORE = -1
 
 /**
  * A row of posters, as on See more, ending in a [seeMore] button when there are more to see. Selecting a poster calls
- * [onOpen]. Coming back from what it opened, focus returns to that poster or See more.
+ * [onOpen]. Coming back from what it opened, focus returns to that poster or See more. A screen with several rows
+ * gives each its own [focusKey], so focus returns to the right one.
  */
 @Composable
 internal fun PosterRowSection(
@@ -45,6 +46,7 @@ internal fun PosterRowSection(
     onOpen: (animeId: Int) -> Unit,
     modifier: Modifier = Modifier,
     seeMore: (() -> Unit)? = null,
+    focusKey: String = "poster",
 ) {
     val dimensions = NeoTheme.dimensions
     val requesters = remember(cards) { cards.associate { it.id to FocusRequester() } }
@@ -77,7 +79,7 @@ internal fun PosterRowSection(
                 modifier =
                     Modifier
                         .focusRequester(requesters.getValue(card.id))
-                        .remembersFocus("poster-${card.id}")
+                        .remembersFocus("$focusKey-${card.id}")
                         .testTag(detailsPosterTag(card.id)),
             )
         }
