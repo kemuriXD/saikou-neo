@@ -16,7 +16,7 @@ public val DetailsState.Loaded.sections: List<DetailsSection>
             DetailsSection.OVERVIEW,
             DetailsSection.EPISODES.takeIf { (episodes?.episodes?.size ?: episodeCount(details, null)) > 0 },
             DetailsSection.RELATED.takeIf { details.related.isNotEmpty() },
-            // A watch order belongs to a franchise. It will come from an extension; until then the tab says so.
+            // A watch order belongs to a franchise: the show and the anime AniList relates to it.
             DetailsSection.WATCH_ORDER.takeIf { details.related.isNotEmpty() },
             DetailsSection.RECOMMENDATIONS.takeIf { details.recommendations.isNotEmpty() },
         )

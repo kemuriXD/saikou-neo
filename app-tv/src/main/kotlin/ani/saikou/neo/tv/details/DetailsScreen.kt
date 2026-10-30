@@ -78,7 +78,6 @@ import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
-import ani.saikou.neo.shared.catalogue.RelatedAnime
 import ani.saikou.neo.shared.catalogue.Relation
 import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
@@ -197,6 +196,7 @@ private fun DetailsPage(
     val tabFocus = remember { FocusRequester() }
     val synopsisFocus = remember { FocusRequester() }
     val episodesFocus = remember { FocusRequester() }
+    val nextEpisodeFocus = remember { FocusRequester() }
     // Set by the main button, for the Episodes section to take focus once it's shown.
     var toEpisodes by remember { mutableStateOf(false) }
     val hasEpisodes = loaded != null && DetailsSection.EPISODES in loaded.sections
@@ -287,9 +287,16 @@ private fun DetailsPage(
                             DetailsSection.EPISODES -> {
                                 val episodes = state.episodes
                                 if (episodes != null) {
-                                    EpisodesSection(episodes, state.backdrop, Modifier.focusRequester(episodesFocus))
+                                    EpisodesSection(
+                                        list = episodes,
+                                        backdrop = state.backdrop,
+                                        progress = state.progress,
+                                        nextFocus = nextEpisodeFocus,
+                                        modifier = Modifier.focusRequester(episodesFocus),
+                                    )
                                     LaunchedEffect(toEpisodes) {
-                                        if (toEpisodes) episodesFocus.requestFocus()
+                                        // On the next episode to watch, or into the section if it's out of sight.
+                                        if (toEpisodes && !nextEpisodeFocus.requestFocus()) episodesFocus.requestFocus()
                                         toEpisodes = false
                                     }
                                 }
@@ -297,7 +304,13 @@ private fun DetailsPage(
 
                             DetailsSection.RELATED -> {
                                 PosterRowSection(
-                                    posters = state.details.related.map { Poster(it.card, it.caption()) },
+                                    posters =
+                                        state.details.related.map {
+                                            Poster(
+                                                it.card,
+                                                stringResource(relationNames.getValue(it.relation)),
+                                            )
+                                        },
                                     onOpen = {
                                         opened = true
                                         onOpen(it)
@@ -306,12 +319,13 @@ private fun DetailsPage(
                             }
 
                             DetailsSection.WATCH_ORDER -> {
-                                // Words only: there's nothing to do here until a watch order extension is installed.
-                                Text(
-                                    text = stringResource(R.string.details_watch_order_none),
-                                    style = NeoTheme.typography.body,
-                                    color = NeoTheme.colors.textMuted,
-                                    modifier = Modifier.width(SynopsisWidth),
+                                WatchOrderSection(
+                                    details = state.details,
+                                    progress = state.progress,
+                                    onOpen = {
+                                        opened = true
+                                        onOpen(it)
+                                    },
                                 )
                             }
 
@@ -843,11 +857,6 @@ private val relationNames =
         Relation.SIDE_STORY to R.string.details_relation_side_story,
         Relation.SPIN_OFF to R.string.details_relation_spin_off,
     )
-
-/** How it's related, then its format and year, such as "Sequel · TV · 2008". */
-@Composable
-private fun RelatedAnime.caption(): String =
-    listOfNotNull(stringResource(relationNames.getValue(relation)), card.formatName(), card.seasonYear?.toString()).joinToString(" · ")
 
 /** Such as "Fall 2026", or just the year when AniList doesn't give the season. */
 @Composable

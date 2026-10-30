@@ -19,6 +19,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
@@ -33,8 +34,8 @@ import ani.saikou.neo.tv.ui.rememberPulse
 import coil3.compose.AsyncImage
 
 /**
- * A 2:3 poster for one anime, with its title and, under that, its format and year or a [caption] in their place.
- * [modifier] goes on the focusable poster.
+ * A 2:3 poster for one anime, with its title and, under that, its format and year or a [caption] in their place. An
+ * [overline], such as how it's related, goes above the title. [modifier] goes on the focusable poster.
  */
 @Composable
 internal fun PosterCard(
@@ -42,6 +43,7 @@ internal fun PosterCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     caption: String? = null,
+    overline: String? = null,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
@@ -73,6 +75,14 @@ internal fun PosterCard(
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            overline?.let {
+                Text(
+                    text = it.uppercase(),
+                    style = NeoTheme.typography.overline.copy(fontWeight = FontWeight.Bold),
+                    color = colors.pink,
+                    maxLines = 1,
+                )
+            }
             Text(
                 text = card.displayTitle(),
                 style = NeoTheme.typography.label,

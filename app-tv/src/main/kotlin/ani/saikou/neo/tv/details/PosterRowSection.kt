@@ -35,10 +35,10 @@ internal const val DETAILS_POSTER_ROW_TAG = "details-poster-row"
 // The See more button's key in the row, apart from every anime id.
 private const val SEE_MORE = -1
 
-/** A poster and the line under its title. */
+/** A poster and the line above its title. */
 internal data class Poster(
     val card: AnimeCard,
-    val caption: String? = null,
+    val overline: String? = null,
 )
 
 /**
@@ -85,7 +85,7 @@ internal fun PosterRowSection(
                         .focusRequester(requesters.getValue(poster.card.id))
                         .remembersFocus("poster-${poster.card.id}")
                         .testTag(relatedPosterTag(poster.card.id)),
-                caption = poster.caption,
+                overline = poster.overline,
             )
         }
         if (seeMore != null) {

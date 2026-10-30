@@ -5,8 +5,13 @@ import ani.saikou.neo.shared.catalogue.AniZipEpisode
 import ani.saikou.neo.shared.catalogue.AniZipEpisodes
 import ani.saikou.neo.shared.catalogue.AniZipExtra
 import ani.saikou.neo.shared.catalogue.AnimeDetails
+import ani.saikou.neo.shared.home.WatchProgress
 
 private const val RANGE = 50
+
+// A show of up to 100 episodes jumps a dozen at a time, about a cour each.
+private const val SHORT_RANGE = 12
+private const val SHORT_SERIES = 100
 
 /** A show's episodes for its Episodes tab. They come from the catalogue, never from extensions. */
 public data class EpisodeList(
@@ -74,13 +79,36 @@ private fun AniZipEpisode.hasAired(
 ): Boolean = if (next != null) number < next else airDate == null || airDate <= today
 
 /**
- * Ranges of 50 to jump between, such as 1–50 and 51–100, for a show with more than 50 episodes. A few left over join
- * the last range, as in 151–201, rather than making a range of their own.
+ * Ranges to jump between: of 12, such as 1–12 and 13–22, for a show of up to 100 episodes, and of 50, such as 1–50 and
+ * 51–100, for a longer one. A show that fits in one range has none. A few left over join the last range, as in
+ * 151–201, rather than making a range of their own.
  */
 public fun episodeRanges(count: Int): List<IntRange> {
-    if (count <= RANGE) return emptyList()
-    val ranges = (1..count step RANGE).map { it..minOf(it + RANGE - 1, count) }
+    val size = if (count <= SHORT_SERIES) SHORT_RANGE else RANGE
+    if (count <= size) return emptyList()
+    val ranges = (1..count step size).map { it..minOf(it + size - 1, count) }
     val last = ranges.last()
-    if (last.count() >= RANGE / 2) return ranges
+    if (last.count() >= size / 2) return ranges
     return ranges.dropLast(2) + listOf(ranges[ranges.size - 2].first..last.last)
 }
+
+/** How far this TV got in one episode. */
+public sealed interface EpisodeMark {
+    public data object Watched : EpisodeMark
+
+    public data class InProgress(
+        val progress: WatchProgress,
+    ) : EpisodeMark
+}
+
+/** Episodes before the one in progress count as watched. Those after it aren't started. */
+public fun WatchProgress.markFor(episode: Int): EpisodeMark? =
+    when {
+        episode < this.episode -> EpisodeMark.Watched
+        episode == this.episode -> EpisodeMark.InProgress(this)
+        else -> null
+    }
+
+/** The episode to watch next: the one in [progress] if it's listed, or else the first. */
+public fun EpisodeList.nextToWatch(progress: WatchProgress?): Int? =
+    episodes.firstOrNull { it.number == progress?.episode }?.number ?: episodes.firstOrNull()?.number

@@ -477,6 +477,41 @@ class DetailsScreenTest {
     }
 
     @Test
+    fun episodesSayWhichAreWatchedAndHowMuchIsLeft() {
+        val progress = WatchProgress(3, 12.minutes, 24.minutes, null)
+        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today), progress = progress))
+
+        // The list opens on the episode in progress, with the one before it watched.
+        compose.onNodeWithTag(episodeTag(2)).assert(hasText("✓ Watched"))
+        compose.onNodeWithTag(episodeTag(3)).assert(hasText("12 min left"))
+        compose.onNodeWithTag(episodeTag(4)).assert(!hasText("✓ Watched") and !hasText("12 min left"))
+    }
+
+    @Test
+    fun theMainButtonLandsOnTheEpisodeInProgress() {
+        val progress = WatchProgress(9, 12.minutes, 24.minutes, null)
+        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today), progress = progress))
+
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithTag(episodeTag(9)).assertIsFocused()
+    }
+
+    @Test
+    fun downIntoTheEpisodesLandsOnTheNextToWatchInItsRange() {
+        val twoCours = details.copy(card = details.card.copy(episodes = 22))
+        val progress = WatchProgress(15, 12.minutes, 24.minutes, null)
+        showEpisodes(DetailsState.Loaded(twoCours, episodes = episodeList(twoCours, null, today), progress = progress))
+
+        compose.onNodeWithText("1–12").assertExists()
+        compose.onNodeWithText("13–22").assertExists()
+        // Down to the ranges lands on the one with episode 15, then down again on the episode.
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(episodeTag(15)).assertIsFocused()
+    }
+
+    @Test
     fun theHeaderSaysHowManyHaveAiredWhileSomeAreStillToCome() {
         val airing = AniZipEpisodes(listOf(AniZipEpisode(4, null, null, null, AirDate(2026, 11, 2), 24)), emptyList())
         showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, airing, today)))
@@ -771,8 +806,11 @@ class DetailsScreenTest {
 
         compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected()
         compose.onNodeWithText("Show 8").assertExists()
-        compose.onNodeWithText("Prequel · TV · 2025").assertExists()
-        compose.onNodeWithText("Side story · Movie · 2026").assertExists()
+        // How each is related sits above its title, and its format and year below.
+        compose.onNodeWithText("PREQUEL").assertExists()
+        compose.onNodeWithText("TV · 2025").assertExists()
+        compose.onNodeWithText("SIDE STORY").assertExists()
+        compose.onNodeWithText("Movie · 2026").assertExists()
     }
 
     // A row clips at its own edges, so it runs from the screen's edge and the first poster can grow on focus.
@@ -875,19 +913,53 @@ class DetailsScreenTest {
         compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(352.dp)
     }
 
-    @Test
-    fun watchOrderSaysNoExtensionIsInstalledAndOffersNothingElse() {
-        show(DetailsState.Loaded(franchise))
+    /** Details with its Watch order tab chosen, and focus on the tab. */
+    private fun showWatchOrder(
+        state: DetailsState,
+        onOpen: (Int) -> Unit = {},
+    ) {
+        show(state, onOpen = onOpen)
         press(Key.DirectionDown)
         repeat(3) { press(Key.DirectionRight) }
+    }
+
+    @Test
+    fun watchOrderNumbersTheSeriesInReleaseOrderAndSaysWhereYouAre() {
+        showWatchOrder(DetailsState.Loaded(franchise, progress = WatchProgress(3, 10.minutes, 24.minutes, null)))
 
         compose.onNodeWithTag(detailsTabTag(DetailsSection.WATCH_ORDER)).assertIsSelected()
-        compose
-            .onNodeWithText("A watch order extension shows the order to watch this series in. You don't have one installed.")
-            .assertExists()
-        // Nothing to move to, so the page stays where it is.
+        compose.onNodeWithText("Release order from AniList relations.").assertExists()
+        // The prequel came out in 2025, before this show and its film in 2026.
+        val left = { id: Int -> compose.onNodeWithTag(watchOrderTag(id)).getUnclippedBoundsInRoot().left }
+        assertTrue(left(8) < left(7))
+        assertTrue(left(7) < left(9))
+        compose.onNodeWithText("You are here · E3").assertExists()
+        compose.onNodeWithText("Movie · 12 eps").assertExists()
+    }
+
+    @Test
+    fun downIntoTheWatchOrderLandsOnTheStepAfterThisShow() {
+        var opened: Int? = null
+        showWatchOrder(DetailsState.Loaded(franchise), onOpen = { opened = it })
+
         press(Key.DirectionDown)
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.WATCH_ORDER)).assertIsFocused().assertTopPositionInRootIsEqualTo(352.dp)
+        compose.onNodeWithTag(watchOrderTag(9)).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(9, opened)
+    }
+
+    @Test
+    fun selectingThisShowInTheWatchOrderStaysHere() {
+        var opened: Int? = null
+        showWatchOrder(DetailsState.Loaded(franchise), onOpen = { opened = it })
+
+        press(Key.DirectionDown)
+        press(Key.DirectionLeft)
+        compose.onNodeWithTag(watchOrderTag(7)).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(null, opened)
     }
 
     @Test
