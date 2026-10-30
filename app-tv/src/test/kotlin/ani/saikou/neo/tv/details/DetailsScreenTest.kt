@@ -160,7 +160,7 @@ class DetailsScreenTest {
         press(Key.DirectionDown)
 
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertIsFocused()
-        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(76.dp)
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(100.dp)
         // A small header stays at the top.
         compose.onNodeWithTag(DETAILS_HEADER_TAG).assertTopPositionInRootIsEqualTo(24.dp).assertHeightIsEqualTo(40.dp)
         // The facts below the synopsis come into view with it.
@@ -448,7 +448,7 @@ class DetailsScreenTest {
 
         compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertIsSelected()
         compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertTopPositionInRootIsEqualTo(76.dp)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertTopPositionInRootIsEqualTo(100.dp)
     }
 
     @Test
@@ -827,7 +827,7 @@ class DetailsScreenTest {
         back()
 
         compose.onNodeWithTag(relatedPosterTag(9)).assertIsFocused()
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(76.dp)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(100.dp)
     }
 
     // Down in a section, Back brings the page back to the top before it leaves Details.
@@ -946,6 +946,8 @@ class DetailsScreenTest {
 
         compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).assertTextEquals("Show 7")
         compose.onNodeWithText("★ 8.4/10 · TV · 2026 · 12 eps").assertExists()
+        // The title is already in the row, so there's no line under it.
+        compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).assertDoesNotExist()
         // Nothing could move focus up to a button there, so it has none.
         compose.onNode(hasText("Resume", substring = true) and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertDoesNotExist()
     }
@@ -977,6 +979,8 @@ class DetailsScreenTest {
             .assertContentDescriptionEquals("Show 7")
             .assertHeightIsEqualTo(40.dp)
         compose.onNode(hasText("Play") and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertDoesNotExist()
+        // A logo can be hard to read small, so the title follows it in words, under the header's row.
+        compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).assertTextEquals("Show 7").assertTopPositionInRootIsEqualTo(68.dp)
     }
 
     @Test
