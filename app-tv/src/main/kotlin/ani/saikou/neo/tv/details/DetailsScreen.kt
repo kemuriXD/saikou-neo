@@ -28,7 +28,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
-import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -41,14 +40,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
@@ -93,7 +90,6 @@ import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
-import ani.saikou.neo.tv.home.parseColour
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.FocusMemory
 import ani.saikou.neo.tv.ui.NeoButton
@@ -230,8 +226,7 @@ private fun DetailsPage(
         label = "lift",
     )
     Box(modifier.fillMaxSize().background(NeoTheme.colors.ink)) {
-        val tint = loaded?.let { detailsTint(it.details.card.coverColor, NeoTheme.colors.pink) }
-        Backdrop(loaded?.backdrop, tint) { if (overviewLift > 0.dp) lift / -overviewLift else 0f }
+        Backdrop(loaded?.backdrop) { if (overviewLift > 0.dp) lift / -overviewLift else 0f }
         val margin = Modifier.padding(start = dimensions.gridMargin)
         when (state) {
             DetailsState.Loading -> {
@@ -791,12 +786,11 @@ private fun Skeleton(
 /**
  * The show's art, faded in once it's known. As on the spotlight, it fades into ink on the left and from just above the
  * Overview tab down, so the art shows at the top right. [lifted] dims all of it while the page is lifted, from 0 to 1,
- * since the synopsis then sits high over the art. A soft wash of the show's [tint] glows up from the bottom left.
+ * since the synopsis then sits high over the art.
  */
 @Composable
 private fun Backdrop(
     art: String?,
-    tint: Color?,
     lifted: () -> Float,
 ) {
     val ink = NeoTheme.colors.ink
@@ -815,40 +809,8 @@ private fun Backdrop(
     }
     Box(Modifier.fillMaxSize().background(Brush.horizontalGradient(*AcrossStops.inInk(ink))))
     Box(Modifier.fillMaxSize().background(Brush.verticalGradient(*DownStops.inInk(ink))))
-    if (tint != null) TintWash(tint)
     Box(Modifier.fillMaxSize().graphicsLayer { alpha = lifted() }.background(ink.copy(alpha = LIFTED_DIM)))
 }
-
-/** From the design: an ellipse of [tint] fading out from its middle, centred below the bottom left corner. */
-@Composable
-private fun TintWash(tint: Color) {
-    val wash = tint.copy(alpha = TINT_ALPHA)
-    Box(
-        Modifier
-            // Unbounded, so the screen's height doesn't squeeze it or move it.
-            .wrapContentSize(Alignment.TopStart, unbounded = true)
-            .offset(x = TintLeft, y = TintTop)
-            .size(TintWidth, TintHeight)
-            .drawBehind {
-                val radius = size.width / 2
-                scale(scaleX = 1f, scaleY = size.height / size.width) {
-                    drawCircle(Brush.radialGradient(listOf(wash, Color.Transparent), center, radius), radius)
-                }
-            },
-    )
-}
-
-private val TintLeft = (-200).dp
-private val TintTop = 280.dp
-private val TintWidth = 760.dp
-private val TintHeight = 560.dp
-private const val TINT_ALPHA = 0.35f
-
-/** The show's AniList cover colour, or [fallback] when AniList doesn't give one. */
-internal fun detailsTint(
-    coverColor: String?,
-    fallback: Color,
-) = parseColour(coverColor) ?: fallback
 
 private fun List<Pair<Float, Float>>.inInk(ink: Color) = map { (at, alpha) -> at to ink.copy(alpha = alpha) }.toTypedArray()
 
