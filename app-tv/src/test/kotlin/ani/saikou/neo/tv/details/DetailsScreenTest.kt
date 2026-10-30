@@ -933,11 +933,12 @@ class DetailsScreenTest {
         val left = { id: Int -> compose.onNodeWithTag(watchOrderTag(id)).getUnclippedBoundsInRoot().left }
         assertTrue(left(8) < left(7))
         assertTrue(left(7) < left(9))
-        compose.onNodeWithText("You are here · E3").assertExists()
+        compose.onNodeWithText("YOU ARE HERE").assertExists()
+        compose.onNodeWithText("E3 · TV · 12 eps").assertExists()
         compose.onNodeWithText("Movie · 12 eps").assertExists()
         // The others say how they're related to this show.
-        compose.onNodeWithTag(watchOrderTag(8)).assert(hasText("Prequel"))
-        compose.onNodeWithTag(watchOrderTag(9)).assert(hasText("Side story"))
+        compose.onNodeWithText("PREQUEL").assertExists()
+        compose.onNodeWithText("SIDE STORY").assertExists()
     }
 
     @Test

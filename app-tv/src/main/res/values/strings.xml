@@ -114,7 +114,7 @@
     <string name="details_episode_left">%1$d min left</string>
     <string name="details_watch_order_note">Release order from AniList relations.</string>
     <string name="details_you_are_here">You are here</string>
-    <string name="details_you_are_here_on">You are here · E%1$d</string>
+    <string name="details_on_episode">E%1$d</string>
     <string name="details_relation_parent">Parent</string>
     <string name="details_relation_prequel">Prequel</string>
     <string name="details_relation_sequel">Sequel</string>
