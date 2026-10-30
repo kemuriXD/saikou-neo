@@ -80,6 +80,7 @@ class NeoNavigationTest {
                         onOpen = openDetails,
                         onGenre = openGenre,
                         onFilter = {},
+                        onRecent = {},
                     )
                 },
                 genre = { genre, _ -> Text("Most popular ${genre.aniListName}") },

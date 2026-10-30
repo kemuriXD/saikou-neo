@@ -1,6 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <!-- To tell no connection at once, instead of waiting for a request to time out. -->
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
     <!-- TV-only app: no touchscreen, and leanback isn't required so Fire TV can install it. -->
     <uses-feature
         android:name="android.hardware.touchscreen"

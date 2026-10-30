@@ -514,7 +514,7 @@ class HomeScreenTest {
     fun offlineHomeSaysSoWithTryAgainFocused() {
         show(offline)
 
-        compose.onNodeWithText("This TV isn’t online").assertExists()
+        compose.onNodeWithText("No internet connection").assertExists()
         compose.onNodeWithText("Try again").assertIsFocused()
         compose.onNodeWithTag(SPOTLIGHT_TAG).assertDoesNotExist()
     }

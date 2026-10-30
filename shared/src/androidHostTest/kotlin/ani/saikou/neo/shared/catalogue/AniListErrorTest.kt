@@ -5,6 +5,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -39,6 +40,18 @@ class AniListErrorTest {
             assertIs<AniListError.Network>(clientFor(OfflineEngine).popular().failure())
         }
 
+    // A TV with no connection says so at once, instead of waiting for a request that can't get out.
+    @Test
+    fun withNoConnectionNothingIsAskedAndItIsANetworkError() =
+        runTest {
+            val engine = RecordedEngine("search")
+
+            val error = clientFor(engine, isOnline = { false }).search("frieren").failure()
+
+            assertIs<AniListError.Network>(error)
+            assertTrue(engine.requestBodies.isEmpty())
+        }
+
     @Test
     fun answerWithoutTheAnimeIsUnexpected() =
         runTest {
@@ -46,6 +59,14 @@ class AniListErrorTest {
 
             assertIs<AniListError.Unexpected>(clientFor(engine).details(999999999).failure())
         }
+
+    @Test
+    fun eachErrorIsOneOfThreeProblemsForTheViewer() {
+        assertEquals(LoadProblem.NO_NETWORK, AniListError.Network("Unable to resolve host").problem)
+        assertEquals(LoadProblem.RATE_LIMITED, AniListError.RateLimited(1.minutes).problem)
+        assertEquals(LoadProblem.OTHER, AniListError.Http(500).problem)
+        assertEquals(LoadProblem.OTHER, AniListError.Unexpected(null).problem)
+    }
 }
 
 internal fun <T> AniListResult<T>.failure(): AniListError = assertIs<AniListResult.Failure>(this).error

@@ -64,6 +64,7 @@ internal fun clientFor(
     engine: HttpEngine,
     dispatcher: CoroutineDispatcher? = null,
     showUnreleased: () -> Boolean = { false },
+    isOnline: () -> Boolean = { true },
 ): AniListClient =
     AniListClient(
         ApolloClient
@@ -73,6 +74,7 @@ internal fun clientFor(
             .dispatcher(dispatcher)
             .build(),
         showUnreleased,
+        isOnline,
     )
 
 /** Fails every request the way Apollo reports a dropped connection. */

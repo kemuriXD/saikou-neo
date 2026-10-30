@@ -9,7 +9,9 @@ import ani.saikou.neo.shared.catalogue.AnimePage
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.catalogue.ArtLibrary
+import ani.saikou.neo.shared.catalogue.LoadProblem
 import ani.saikou.neo.shared.catalogue.map
+import ani.saikou.neo.shared.catalogue.problem
 import ani.saikou.neo.shared.search.SearchGenre
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,6 +38,8 @@ public data class SeeMoreState(
     val restingLogo: Logo.Image? = null,
     /** The show a list of recommendations is for, once its first page is in. */
     val show: AnimeTitle? = null,
+    /** Why the last page couldn't load, while [more] is [More.Failed]. */
+    val problem: LoadProblem? = null,
 )
 
 /** One page of a list, and the show it belongs to, if any. */
@@ -100,16 +104,22 @@ public class SeeMoreViewModel private constructor(
     }
 
     private fun load() {
-        mutableState.update { it.copy(more = More.Loading) }
+        mutableState.update { it.copy(more = More.Loading, problem = null) }
         viewModelScope.launch {
-            val result = loadPage(loadedPages + 1)
-            if (result !is AniListResult.Success) {
-                mutableState.update { it.copy(more = More.Failed) }
-                return@launch
-            }
+            val loaded =
+                when (val result = loadPage(loadedPages + 1)) {
+                    is AniListResult.Success -> {
+                        result.value
+                    }
+
+                    is AniListResult.Failure -> {
+                        mutableState.update { it.copy(more = More.Failed, problem = result.error.problem) }
+                        return@launch
+                    }
+                }
             loadedPages++
-            val page = result.value.page
-            val show = result.value.show
+            val page = loaded.page
+            val show = loaded.show
             mutableState.update { state ->
                 // AniList's order moves between requests, so a page can repeat a show an earlier one had.
                 val shown = state.items.mapTo(HashSet()) { it.id }

@@ -121,6 +121,6 @@ class DiscoverScreenTest {
     fun offlineDiscoverSaysSoAsHomeDoes() {
         show(loaded.copy(offline = true))
 
-        compose.onNodeWithText("This TV isn’t online").assertExists()
+        compose.onNodeWithText("No internet connection").assertExists()
     }
 }

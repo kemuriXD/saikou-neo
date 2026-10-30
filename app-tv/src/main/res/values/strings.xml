@@ -43,11 +43,13 @@
 
     <!-- A Home row's whole list. -->
     <string name="see_more_failed">Couldn’t load these shows</string>
-    <string name="see_more_failed_hint">Check your network, then try again.</string>
+    <string name="see_more_offline">No internet connection. Check the TV’s Wi-Fi or cable, then try again.</string>
+    <string name="see_more_busy">AniList has had a lot of requests from this TV. Wait a minute, then try again.</string>
+    <string name="anilist_no_answer">AniList didn’t answer. Try again in a moment.</string>
     <string name="see_more_failed_more">Couldn’t load more</string>
     <string name="try_again">Try again</string>
     <!-- Home with no internet. -->
-    <string name="home_offline_title">This TV isn’t online</string>
+    <string name="home_offline_title">No internet connection</string>
     <string name="home_offline_body">Saikou Neo needs the internet for the catalogue and for streams. Check the TV’s Wi-Fi or cable, then try again.</string>
     <string name="home_offline_settings">Network settings</string>
     <string name="home_offline_retrying">Tries again by itself every 30 s.</string>
@@ -163,6 +165,10 @@
     <string name="search_genres_instead">Or try a genre</string>
     <string name="search_did_you_mean">Did you mean</string>
     <string name="search_failed">Couldn’t search</string>
+    <string name="search_offline_hint">Check the TV’s Wi-Fi or cable, then try again.</string>
+    <string name="search_busy">AniList is busy</string>
+    <string name="search_busy_hint">It’s had a lot of requests from this TV. Wait a minute, then try again.</string>
+    <string name="search_recent">Recent searches</string>
     <string name="search_filter_all">All</string>
     <string name="search_filter_tv">TV</string>
     <string name="search_filter_movies">Movies</string>

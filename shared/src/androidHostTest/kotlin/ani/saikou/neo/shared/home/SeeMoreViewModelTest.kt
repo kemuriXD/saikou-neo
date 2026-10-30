@@ -7,6 +7,7 @@ import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.ArtSources
 import ani.saikou.neo.shared.catalogue.FanartTvClient
 import ani.saikou.neo.shared.catalogue.FanartTvEngine
+import ani.saikou.neo.shared.catalogue.LoadProblem
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
@@ -150,7 +151,29 @@ class SeeMoreViewModelTest {
             val viewModel = seeMore(OfflineEngine)
             advanceUntilIdle()
 
-            assertEquals(SeeMoreState(emptyList(), More.Failed), viewModel.state.value)
+            assertEquals(SeeMoreState(emptyList(), More.Failed, problem = LoadProblem.NO_NETWORK), viewModel.state.value)
+        }
+
+    @Test
+    fun beingRateLimitedSaysSo() =
+        runTest(main) {
+            val viewModel = seeMore(RecordedEngine("rate-limited", status = 429))
+            advanceUntilIdle()
+
+            assertEquals(LoadProblem.RATE_LIMITED, viewModel.state.value.problem)
+        }
+
+    @Test
+    fun tryingAgainClearsTheProblem() =
+        runTest(main) {
+            val engine = FlakyEngine(offline = true)
+            val viewModel = seeMore(engine)
+            advanceUntilIdle()
+
+            engine.offline = false
+            viewModel.retry()
+
+            assertEquals(null, viewModel.state.value.problem)
         }
 
     @Test
@@ -163,7 +186,7 @@ class SeeMoreViewModelTest {
             viewModel.loadMore()
             advanceUntilIdle()
 
-            assertEquals(SeeMoreState(viewModel.state.value.items, More.Failed), viewModel.state.value)
+            assertEquals(SeeMoreState(viewModel.state.value.items, More.Failed, problem = LoadProblem.NO_NETWORK), viewModel.state.value)
             assertEquals(listOf(195516, 195539), viewModel.ids())
             engine.offline = false
             viewModel.loadMore()

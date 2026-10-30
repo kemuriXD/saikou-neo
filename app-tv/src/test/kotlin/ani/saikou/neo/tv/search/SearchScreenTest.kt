@@ -14,12 +14,14 @@ import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
+import ani.saikou.neo.shared.catalogue.LoadProblem
 import ani.saikou.neo.shared.catalogue.SearchFilter
 import ani.saikou.neo.shared.search.SearchGenre
 import ani.saikou.neo.shared.search.SearchResults
@@ -47,12 +49,16 @@ class SearchScreenTest {
     private val opened = mutableListOf<Int>()
     private val genres = mutableListOf<SearchGenre>()
     private val filters = mutableListOf<SearchFilter>()
+    private val recentChosen = mutableListOf<String>()
+    private val fiveRecent = listOf("frieren", "sakamoto days", "the apothecary diaries", "one piece", "dandadan")
 
-    private fun show(state: SearchState = SearchState()) {
+    private fun show(state: SearchState = SearchState()) = show { state }
+
+    private fun show(state: () -> SearchState) {
         compose.setContent {
             NeoTheme {
                 SearchScreen(
-                    state = state,
+                    state = state(),
                     onType = { typed += it.toString() },
                     onDelete = { typed += "delete" },
                     onClear = { typed += "clear" },
@@ -60,6 +66,7 @@ class SearchScreenTest {
                     onOpen = { opened += it },
                     onGenre = { genres += it },
                     onFilter = { filters += it },
+                    onRecent = { recentChosen += it },
                 )
             }
         }
@@ -180,9 +187,7 @@ class SearchScreenTest {
     @Test
     fun aChipKeepsFocusWhenItsSearchFindsNothing() {
         var state by mutableStateOf(found.copy(filter = SearchFilter.MOVIES))
-        compose.setContent {
-            NeoTheme { SearchScreen(state, {}, {}, {}, {}, {}, {}, onFilter = {}) }
-        }
+        show { state }
         press(Key.DirectionRight, times = 6)
         press(Key.DirectionUp)
 
@@ -251,12 +256,93 @@ class SearchScreenTest {
 
     @Test
     fun aFailedSearchOffersTryAgain() {
-        show(SearchState("fri", SearchResults.Failed))
+        show(SearchState("fri", SearchResults.Failed(LoadProblem.OTHER)))
 
         press(Key.DirectionRight, times = 6)
         compose.onNodeWithText("Try again").assertIsFocused()
         press(Key.DirectionCenter)
 
         assertEquals(listOf("retry"), typed)
+    }
+
+    @Test
+    fun eachProblemHasItsOwnMessage() {
+        var problem by mutableStateOf(LoadProblem.NO_NETWORK)
+        show { SearchState("fri", SearchResults.Failed(problem)) }
+
+        compose.onNodeWithText("No internet connection").assertExists()
+        compose.onNodeWithText("Check the TV’s Wi-Fi or cable, then try again.").assertExists()
+
+        problem = LoadProblem.RATE_LIMITED
+        compose.onNodeWithText("AniList is busy").assertExists()
+        compose.onNodeWithText("It’s had a lot of requests from this TV. Wait a minute, then try again.").assertExists()
+
+        problem = LoadProblem.OTHER
+        compose.onNodeWithText("Couldn’t search").assertExists()
+        compose.onNodeWithText("AniList didn’t answer. Try again in a moment.").assertExists()
+    }
+
+    // Try again stays in one place whatever went wrong, so it keeps focus when a second try fails differently.
+    @Test
+    fun tryAgainKeepsFocusWhenTheProblemChanges() {
+        var problem by mutableStateOf(LoadProblem.NO_NETWORK)
+        show { SearchState("fri", SearchResults.Failed(problem)) }
+        press(Key.DirectionRight, times = 6)
+        compose.onNodeWithText("Try again").assertIsFocused()
+
+        problem = LoadProblem.RATE_LIMITED
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Try again").assertIsFocused()
+    }
+
+    // Under the keys: a label, then the searches as chips, the newest first.
+    @Test
+    fun recentSearchesShowUnderTheKeyboard() {
+        show(SearchState(recent = listOf("frieren", "one piece")))
+
+        compose
+            .onNodeWithText("Recent searches")
+            .assertLeftPositionInRootIsEqualTo(64.dp)
+            .assertTopPositionInRootIsEqualTo(417.dp)
+            .assertHeightIsEqualTo(18.dp)
+        compose.onNodeWithTag(recentTag(0)).assertLeftPositionInRootIsEqualTo(64.dp).assertTopPositionInRootIsEqualTo(441.dp)
+        compose.onNodeWithText("frieren").assertExists()
+        compose.onNodeWithText("one piece").assertExists()
+    }
+
+    @Test
+    fun withNoRecentSearchesThereIsNoLabel() {
+        show()
+
+        compose.onNodeWithText("Recent searches").assertDoesNotExist()
+    }
+
+    // Down from any key under them lands on the newest search, not the one nearest.
+    @Test
+    fun downFromTheKeysChoosesARecentSearch() {
+        show(SearchState(recent = listOf("frieren", "one piece")))
+
+        press(Key.DirectionRight, times = 5)
+        press(Key.DirectionDown, times = 7)
+        compose.onNodeWithTag(recentTag(0)).assertIsFocused()
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf("one piece"), recentChosen)
+    }
+
+    // Long searches wrap onto a second line at most; the rest wait off screen rather than below the safe area.
+    @Test
+    fun recentSearchesEndAboveTheSafeArea() {
+        show(SearchState(recent = fiveRecent))
+
+        val safeBottom = with(compose.density) { 513.dp.toPx() }
+        fiveRecent.indices.forEach { index ->
+            compose.onAllNodesWithTag(recentTag(index)).fetchSemanticsNodes().forEach { node ->
+                assertTrue("Recent search $index ends at ${node.boundsInRoot.bottom}", node.boundsInRoot.bottom <= safeBottom)
+            }
+        }
+        compose.onNodeWithTag(recentTag(0)).assertExists()
     }
 }

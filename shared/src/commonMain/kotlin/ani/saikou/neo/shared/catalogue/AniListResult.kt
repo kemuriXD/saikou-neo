@@ -42,3 +42,23 @@ public sealed interface AniListError {
         val message: String?,
     ) : AniListError
 }
+
+/** What went wrong, as the viewer is told it. Each has its own message. */
+public enum class LoadProblem {
+    /** The TV isn't online. */
+    NO_NETWORK,
+
+    /** AniList asked for fewer requests for a while. */
+    RATE_LIMITED,
+
+    /** Anything else, such as AniList being down. */
+    OTHER,
+}
+
+internal val AniListError.problem: LoadProblem
+    get() =
+        when (this) {
+            is AniListError.Network -> LoadProblem.NO_NETWORK
+            is AniListError.RateLimited -> LoadProblem.RATE_LIMITED
+            is AniListError.Http, is AniListError.Unexpected -> LoadProblem.OTHER
+        }

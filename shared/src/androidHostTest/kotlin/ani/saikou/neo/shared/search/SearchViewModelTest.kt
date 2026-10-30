@@ -1,20 +1,24 @@
 package ani.saikou.neo.shared.search
 
 import ani.saikou.neo.shared.catalogue.KitsuClient
+import ani.saikou.neo.shared.catalogue.LoadProblem
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
 import ani.saikou.neo.shared.catalogue.SearchFilter
+import ani.saikou.neo.shared.catalogue.SilentEngine
 import ani.saikou.neo.shared.catalogue.SiteEngine
 import ani.saikou.neo.shared.catalogue.clientFor
 import com.apollographql.apollo.network.http.HttpEngine
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlin.test.AfterTest
@@ -38,7 +42,8 @@ class SearchViewModelTest {
     private fun search(
         engine: HttpEngine = RecordedEngine("search"),
         kitsu: String = "none",
-    ) = SearchViewModel(clientFor(engine, main), KitsuClient(SiteEngine("kitsu") { kitsu }, main))
+        recent: RecentSearches = FakeRecentSearches(),
+    ) = SearchViewModel(clientFor(engine, main), KitsuClient(SiteEngine("kitsu") { kitsu }, main), recent)
 
     // AniList finds nothing for the text, then has the card for the id Kitsu suggests.
     private fun typoEngine() = QueryEngine("search-none", mapOf("\"operationName\":\"AnimeCard\"" to "search"))
@@ -307,10 +312,99 @@ class SearchViewModelTest {
             val viewModel = search(OfflineEngine)
             viewModel.typeEach("fri")
             advanceUntilIdle()
-            assertEquals(SearchResults.Failed, viewModel.state.value.results)
+            assertIs<SearchResults.Failed>(viewModel.state.value.results)
 
             viewModel.retry()
 
             assertEquals(SearchResults.Loading, viewModel.state.value.results)
         }
+
+    @Test
+    fun noNetworkSaysSo() =
+        runTest(main) {
+            val viewModel = search(OfflineEngine)
+
+            viewModel.typeEach("fri")
+            advanceUntilIdle()
+
+            assertEquals(SearchResults.Failed(LoadProblem.NO_NETWORK), viewModel.state.value.results)
+        }
+
+    @Test
+    fun beingRateLimitedSaysSo() =
+        runTest(main) {
+            val viewModel = search(RecordedEngine("rate-limited", status = 429))
+
+            viewModel.typeEach("fri")
+            advanceUntilIdle()
+
+            assertEquals(SearchResults.Failed(LoadProblem.RATE_LIMITED), viewModel.state.value.results)
+        }
+
+    @Test
+    fun recentSearchesShowWhenSearchOpens() =
+        runTest(main) {
+            val viewModel = search(recent = FakeRecentSearches("frieren", "one piece"))
+            advanceUntilIdle()
+
+            assertEquals(listOf("frieren", "one piece"), viewModel.state.value.recent)
+        }
+
+    @Test
+    fun openingAResultSavesItsSearchFirst() =
+        runTest(main) {
+            val recent = FakeRecentSearches("one piece")
+            val viewModel = search(recent = recent)
+            viewModel.typeEach("frieren ")
+            advanceUntilIdle()
+
+            viewModel.openedResult()
+            advanceUntilIdle()
+
+            assertEquals(listOf("frieren", "one piece"), recent.saved.value)
+            assertEquals(listOf("frieren", "one piece"), viewModel.state.value.recent)
+        }
+
+    // Only a search that found something was worth running, so nothing else is saved.
+    @Test
+    fun openingBeforeResultsSavesNothing() =
+        runTest(main) {
+            val recent = FakeRecentSearches()
+            val viewModel = search(engine = SilentEngine, recent = recent)
+            viewModel.typeEach("fri")
+            advanceTimeBy(1000)
+
+            viewModel.openedResult()
+            runCurrent()
+
+            assertTrue(recent.saved.value.isEmpty())
+        }
+
+    @Test
+    fun choosingARecentSearchFillsItInAndSearchesAtOnce() =
+        runTest(main) {
+            val engine = RecordedEngine("search")
+            val viewModel = search(engine)
+            viewModel.typeEach("x")
+
+            viewModel.searchAgain("frie")
+            assertEquals("frie", viewModel.state.value.query)
+            runCurrent()
+
+            assertTrue("\"search\":\"frie\"" in engine.requestBodies.single())
+            advanceUntilIdle()
+            assertEquals("frie", assertIs<SearchResults.Found>(viewModel.state.value.results).query)
+        }
+}
+
+/** Keeps recent searches in memory, as the store keeps them in a file. */
+internal class FakeRecentSearches(
+    vararg searches: String,
+) : RecentSearches {
+    val saved = MutableStateFlow(searches.toList())
+    override val searches = saved
+
+    override suspend fun add(query: String) {
+        saved.value = saved.value.withNewest(query)
+    }
 }

@@ -2,6 +2,8 @@ package ani.saikou.neo.tv
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -54,7 +56,9 @@ class MainActivity : ComponentActivity() {
     private val app get() = application as NeoApp
 
     // Asked on every request, so lists follow the setting from the next one on.
-    private val client by lazy { AniListClient { app.settings.value?.showUnairedAnime ?: false } }
+    private val client by lazy {
+        AniListClient(showUnreleased = { app.settings.value?.showUnairedAnime ?: false }, isOnline = ::isOnline)
+    }
     private val aniZip by lazy { AniZipClient() }
     private val library by lazy {
         ArtLibrary(client, aniZip, FanartTvClient(BuildConfig.FANART_TV_API_KEY), TmdbClient(BuildConfig.TMDB_API_KEY))
@@ -153,7 +157,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         search = { openDetails, openGenre ->
-                            val search = viewModel { SearchViewModel(client, KitsuClient()) }
+                            val search = viewModel { SearchViewModel(client, KitsuClient(), app.recentSearches) }
                             val state by search.state.collectAsStateWithLifecycle()
                             SearchScreen(
                                 state,
@@ -161,9 +165,13 @@ class MainActivity : ComponentActivity() {
                                 onDelete = search::delete,
                                 onClear = search::clear,
                                 onRetry = search::retry,
-                                onOpen = openDetails,
+                                onOpen = {
+                                    search.openedResult()
+                                    openDetails(it)
+                                },
                                 onGenre = openGenre,
                                 onFilter = search::filter,
+                                onRecent = search::searchAgain,
                             )
                         },
                         genre = { genre, openDetails ->
@@ -202,6 +210,16 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    /** True while the TV has a network that reaches the internet, so AniList calls without one fail at once. */
+    private fun isOnline(): Boolean {
+        val connectivity = getSystemService(ConnectivityManager::class.java)
+        return connectivity
+            .getNetworkCapabilities(
+                connectivity.activeNetwork,
+            )?.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) ==
+            true
     }
 
     /** The TV's network settings, or its main settings where there's no network screen to open. */
