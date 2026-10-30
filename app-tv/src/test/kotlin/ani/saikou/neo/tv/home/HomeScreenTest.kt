@@ -272,6 +272,24 @@ class HomeScreenTest {
     }
 
     @Test
+    fun aReasonAndALogoStillLeaveTwoLinesForTheStory() {
+        val spotlight = withStory().spotlight!!
+        show(
+            loaded.copy(
+                spotlight =
+                    spotlight.copy(
+                        logos = spotlight.logos + (0 to Logo.Loading),
+                        reasons = mapOf(0 to FeaturedReason.Trending(1)),
+                    ),
+            ),
+        )
+
+        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(40.dp)
+        // The line fits in the spotlight's space, which starts 70 dp down.
+        assertTrue(compose.onNodeWithTag(SPOTLIGHT_REASON_TAG).getUnclippedBoundsInRoot().top >= 70.dp)
+    }
+
+    @Test
     fun aTitleOnTwoLinesStillLeavesTwoLinesForTheStory() {
         val long = loaded.spotlight!!.shows[0].let { it.copy(title = it.title.copy(english = "A title on\ntwo lines")) }
         val spotlight = withStory().spotlight!!

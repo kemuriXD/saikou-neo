@@ -38,6 +38,7 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -65,11 +66,7 @@ import ani.saikou.neo.tv.ui.NeoIconButton
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
-import java.time.Instant
-import java.time.ZonedDateTime
-import java.time.format.TextStyle
-import java.time.temporal.ChronoUnit
-import java.util.Locale
+import java.util.Calendar
 
 internal const val SPOTLIGHT_TAG = "spotlight"
 internal const val SPOTLIGHT_TITLE_TAG = "spotlight-title"
@@ -93,6 +90,7 @@ private const val SYNOPSIS_ALPHA = 0.78f
 
 private const val SYNOPSIS_LINES = 2
 private val SynopsisWidth = 360.dp
+private const val WEEK_DAYS = 7
 private val ReasonTracking = 1.2.sp
 private val PlaceholderBars = listOf(150.dp to 14.dp, 400.dp to 64.dp, 260.dp to 18.dp, 420.dp to 16.dp, 340.dp to 16.dp)
 private val PlaceholderDots = listOf(CurrentDot, Dot, Dot, Dot)
@@ -206,19 +204,20 @@ internal fun SpotlightShow(
 private fun FeaturedReason.text(): String =
     when (this) {
         is FeaturedReason.NewEpisode -> {
-            val now = ZonedDateTime.now()
+            val now = Calendar.getInstance()
             when (daysUntil(airingAtEpochSeconds, now)) {
-                0L -> {
+                0 -> {
                     stringResource(R.string.home_reason_episode_today)
                 }
 
-                1L -> {
+                1 -> {
                     stringResource(R.string.home_reason_episode_tomorrow)
                 }
 
                 else -> {
-                    val day = Instant.ofEpochSecond(airingAtEpochSeconds).atZone(now.zone).dayOfWeek
-                    stringResource(R.string.home_reason_episode_day, day.getDisplayName(TextStyle.FULL, Locale.getDefault()))
+                    val airing = (now.clone() as Calendar).apply { timeInMillis = airingAtEpochSeconds * 1000 }
+                    val day = airing.getDisplayName(Calendar.DAY_OF_WEEK, Calendar.LONG, LocalConfiguration.current.locales[0])
+                    stringResource(R.string.home_reason_episode_day, day.orEmpty())
                 }
             }
         }
@@ -232,11 +231,25 @@ private fun FeaturedReason.text(): String =
         }
     }
 
-/** How many days after [now]'s date, in its zone, an episode out at [airingAtEpochSeconds] airs. */
+/**
+ * How many days after [now]'s date, in its time zone, an episode out at [airingAtEpochSeconds] airs. Episodes are at
+ * most a week away, so anything later counts as 8. Calendar rather than java.time, which older Fire TVs don't have.
+ */
 internal fun daysUntil(
     airingAtEpochSeconds: Long,
-    now: ZonedDateTime,
-): Long = ChronoUnit.DAYS.between(now.toLocalDate(), Instant.ofEpochSecond(airingAtEpochSeconds).atZone(now.zone).toLocalDate())
+    now: Calendar,
+): Int {
+    val airing = (now.clone() as Calendar).apply { timeInMillis = airingAtEpochSeconds * 1000 }
+    val day = now.clone() as Calendar
+    var days = 0
+    while (days <= WEEK_DAYS &&
+        (day.get(Calendar.YEAR) != airing.get(Calendar.YEAR) || day.get(Calendar.DAY_OF_YEAR) != airing.get(Calendar.DAY_OF_YEAR))
+    ) {
+        day.add(Calendar.DAY_OF_YEAR, 1)
+        days++
+    }
+    return days
+}
 
 /** AniList's average score out of 10, such as "★ 8.4", or null without one. */
 @Composable
