@@ -160,7 +160,7 @@ class DetailsScreenTest {
         press(Key.DirectionDown)
 
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertIsFocused()
-        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(106.dp)
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(76.dp)
         // A small header stays at the top.
         compose.onNodeWithTag(DETAILS_HEADER_TAG).assertTopPositionInRootIsEqualTo(24.dp).assertHeightIsEqualTo(40.dp)
         // The facts below the synopsis come into view with it.
@@ -448,7 +448,7 @@ class DetailsScreenTest {
 
         compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertIsSelected()
         compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertTopPositionInRootIsEqualTo(106.dp)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertTopPositionInRootIsEqualTo(76.dp)
     }
 
     @Test
@@ -827,7 +827,7 @@ class DetailsScreenTest {
         back()
 
         compose.onNodeWithTag(relatedPosterTag(9)).assertIsFocused()
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(106.dp)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(76.dp)
     }
 
     // Down in a section, Back brings the page back to the top before it leaves Details.
@@ -981,6 +981,30 @@ class DetailsScreenTest {
         compose.onNode(hasText("Play") and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertDoesNotExist()
         // A logo can be hard to read small, so the title follows it in words, under the header's row.
         compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).assertTextEquals("Show 7").assertTopPositionInRootIsEqualTo(74.dp)
+        assertTabsSitUnderTheHeaderTitle()
+    }
+
+    /** The lifted tabs make room for the title under the logo, 12 dp below it. */
+    private fun assertTabsSitUnderTheHeaderTitle() {
+        val title = compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).getUnclippedBoundsInRoot()
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(title.bottom + 12.dp)
+    }
+
+    // A long title wraps inside the title block's width, rather than running across the screen, and the tabs make room.
+    @Test
+    fun aLongTitleUnderTheLogoWraps() {
+        imagesAre(800, 310)
+        val name = "Frieren: Beyond Journey's End, the Complete Second Season and Its Specials"
+        val long = details.copy(card = card(7).copy(title = card(7).title.copy(english = name)))
+        show(DetailsState.Loaded(long, logo = Logo.Image(LOGO)))
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+
+        // Two lines, as tall as the label's two lines: 17 dp for the first, 20 for the next.
+        val title = compose.onNodeWithTag(DETAILS_HEADER_TITLE_TAG).assertHeightIsEqualTo(37.dp).getUnclippedBoundsInRoot()
+        assertTrue(title.right - title.left <= 440.dp)
+        assertTabsSitUnderTheHeaderTitle()
     }
 
     @Test

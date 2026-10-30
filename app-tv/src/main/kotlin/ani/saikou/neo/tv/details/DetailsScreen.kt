@@ -65,9 +65,11 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -125,12 +127,12 @@ internal const val DETAILS_RATINGS_TAG = "details-ratings"
 internal fun ratingTag(site: String) = "details-rating-$site"
 
 // From the design: the Overview tabs rest at 352 dp, with the section peeking below the screen, and the title block sits
-// on them, its buttons 40 dp above, however tall the title is. Focus in a section lifts the page so the tabs sit at
-// 106 dp, under a small header.
+// on them, its buttons 40 dp above, however tall the title is. Focus in a section lifts the page so the tabs sit 12 dp
+// under a small header.
 private val HeroGap = 40.dp
 private val HeroWidth = 440.dp
 private val OverviewTop = 352.dp
-private val OverviewLift = 246.dp
+private val LiftedTabsGap = 12.dp
 
 // From the design: the lifted page keeps a 40 dp header at the top, with the logo at its full height.
 private val HeaderTop = 24.dp
@@ -138,6 +140,10 @@ private val HeaderEnd = 48.dp
 private val HeaderHeight = 40.dp
 private val HeaderLogoWidth = 200.dp
 private val HeaderTitleGap = 10.dp
+
+// A long title wraps at the title block's width, onto two lines at most.
+private val HeaderTitleWidth = HeroWidth
+private const val HEADER_TITLE_LINES = 2
 private val SynopsisBorder = 2.dp
 
 // From the design: the buttons sit a little further below the genres than the lines above sit apart.
@@ -216,14 +222,15 @@ private fun DetailsPage(
         lifted = false
     }
     val dimensions = NeoTheme.dimensions
+    val overviewLift = loaded?.let { overviewLift(it) } ?: 0.dp
     val lift by animateDpAsState(
-        targetValue = if (lifted) -OverviewLift else 0.dp,
+        targetValue = if (lifted) -overviewLift else 0.dp,
         animationSpec = tween(dimensions.durationBackdropMillis, easing = dimensions.easeStandard),
         label = "lift",
     )
     Box(modifier.fillMaxSize().background(NeoTheme.colors.ink)) {
         val tint = loaded?.let { detailsTint(it.details.card.coverColor, NeoTheme.colors.pink) }
-        Backdrop(loaded?.backdrop, tint) { lift / -OverviewLift }
+        Backdrop(loaded?.backdrop, tint) { if (overviewLift > 0.dp) lift / -overviewLift else 0f }
         val margin = Modifier.padding(start = dimensions.gridMargin)
         when (state) {
             DetailsState.Loading -> {
@@ -252,7 +259,7 @@ private fun DetailsPage(
                             margin
                                 .width(HeroWidth)
                                 .onTheTabs()
-                                .graphicsLayer { alpha = 1f - lift / -OverviewLift },
+                                .graphicsLayer { alpha = 1f - lift / -overviewLift },
                     )
                     val sections = state.sections
                     DetailsSections(
@@ -485,11 +492,41 @@ private fun LiftedHeader(
             text = title,
             style = NeoTheme.typography.label,
             color = colors.paper,
-            maxLines = 1,
+            maxLines = HEADER_TITLE_LINES,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.testTag(DETAILS_HEADER_TITLE_TAG),
+            modifier = Modifier.widthIn(max = HeaderTitleWidth).testTag(DETAILS_HEADER_TITLE_TAG),
         )
     }
+}
+
+/** How far the page lifts, so the tabs sit [LiftedTabsGap] under the header, however many lines its title takes. */
+@Composable
+private fun overviewLift(state: DetailsState.Loaded): Dp {
+    val density = LocalDensity.current
+    val measurer = rememberTextMeasurer()
+    val style = NeoTheme.typography.label
+    val title = state.details.card.displayTitle()
+    // Under a logo, the title follows in words. Without one, it's in the header's row.
+    val titleLine =
+        if (state.logo is Logo.Image) {
+            val maxWidth = with(density) { HeaderTitleWidth.roundToPx() }
+            val height =
+                remember(title, style, maxWidth) {
+                    measurer
+                        .measure(
+                            title,
+                            style,
+                            overflow = TextOverflow.Ellipsis,
+                            maxLines = HEADER_TITLE_LINES,
+                            constraints = Constraints(maxWidth = maxWidth),
+                        ).size
+                        .height
+                }
+            HeaderTitleGap + with(density) { height.toDp() }
+        } else {
+            0.dp
+        }
+    return OverviewTop - (HeaderTop + HeaderHeight + titleLine + LiftedTabsGap)
 }
 
 /** The rating in paper, then what the show is, such as "★ 8.4/10 · TV · 2025 · 22 eps". */
