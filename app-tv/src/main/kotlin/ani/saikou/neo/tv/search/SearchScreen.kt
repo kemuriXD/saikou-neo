@@ -3,6 +3,7 @@ package ani.saikou.neo.tv.search
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -31,7 +32,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
@@ -42,6 +45,8 @@ import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selectableGroup
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
@@ -53,6 +58,7 @@ import androidx.tv.material3.Glow
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
+import ani.saikou.neo.shared.catalogue.SearchFilter
 import ani.saikou.neo.shared.search.SearchGenre
 import ani.saikou.neo.shared.search.SearchResults
 import ani.saikou.neo.shared.search.SearchState
@@ -64,6 +70,7 @@ import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.home.posterTag
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoButton
+import ani.saikou.neo.tv.ui.NeoTab
 import coil3.compose.AsyncImage
 
 internal const val SUGGESTION_TAG = "suggestion"
@@ -71,6 +78,8 @@ internal const val SUGGESTION_TAG = "suggestion"
 internal fun keyTag(key: Char) = "key-$key"
 
 internal fun genreTag(genre: SearchGenre) = "genre-${genre.name}"
+
+internal fun filterTag(filter: SearchFilter) = "filter-${filter.name}"
 
 // From the design: 240 dp of keys and 560 dp of results, 32 dp apart, centred together under the safe area. Keys are
 // 36 dp tall in six columns, 4 dp apart; results are four 124 dp posters a row.
@@ -88,6 +97,10 @@ private val PosterRowGap = 18.dp
 private val TileHeight = 64.dp
 private val TileGap = 12.dp
 private val TilePadding = 14.dp
+
+// Chips as tall as the design's genre chips, 10 dp apart.
+private val ChipHeight = 36.dp
+private val ChipGap = 10.dp
 
 // From the design: a 44 by 66 dp poster beside three lines, on a card that grows a little on focus.
 private val SuggestionWidth = 44.dp
@@ -127,6 +140,14 @@ internal val genreLabels =
         SearchGenre.SLICE_OF_LIFE to R.string.genre_slice_of_life,
     )
 
+private val filterLabels =
+    mapOf(
+        SearchFilter.ALL to R.string.search_filter_all,
+        SearchFilter.TV to R.string.search_filter_tv,
+        SearchFilter.MOVIES to R.string.search_filter_movies,
+        SearchFilter.AIRING to R.string.search_filter_airing,
+    )
+
 // Each tile's gradient, from its top left corner to its bottom right.
 private val genreFills =
     mapOf(
@@ -151,6 +172,7 @@ fun SearchScreen(
     onRetry: () -> Unit,
     onOpen: (animeId: Int) -> Unit,
     onGenre: (genre: SearchGenre) -> Unit,
+    onFilter: (filter: SearchFilter) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
@@ -176,6 +198,10 @@ fun SearchScreen(
         focusedGenre = it
         focusedId = null
     }
+    // Finding nothing at all is no use narrowing, but a filter that found nothing can be changed back.
+    val showFilters =
+        results == SearchResults.Loading ||
+            (results is SearchResults.Found && (results.items.isNotEmpty() || state.filter != SearchFilter.ALL))
 
     Box(modifier.fillMaxSize().drawBehind { drawBackdrop(colors.ink) }.onFocusChanged { hasFocus = it.hasFocus }) {
         Row(
@@ -184,20 +210,27 @@ fun SearchScreen(
         ) {
             Keyboard(state.query, focusFirst = !hasFocus && returnTo == null && returnToGenre == null, onType, onDelete, onClear)
             Column(Modifier.width(ResultsWidth), verticalArrangement = Arrangement.spacedBy(BlockGap)) {
+                Heading(
+                    when {
+                        results == SearchResults.Idle -> stringResource(R.string.search_genres)
+                        results == SearchResults.Failed -> stringResource(R.string.search_failed)
+                        results is SearchResults.Found && results.items.isEmpty() -> stringResource(R.string.search_nothing, results.query)
+                        else -> stringResource(R.string.search_results, (results as? SearchResults.Found)?.query ?: state.query.trim())
+                    },
+                )
+                // One place for every state, so a chip keeps focus when its results come in.
+                if (showFilters) Filters(state.filter, onFilter)
                 when {
                     results == SearchResults.Idle -> {
-                        Heading(stringResource(R.string.search_genres))
                         Genres(genres, returnToGenre, onGenre, onGenreFocus)
                     }
 
                     results == SearchResults.Failed -> {
-                        Heading(stringResource(R.string.search_failed))
                         Text(stringResource(R.string.see_more_failed_hint), style = Hint, color = colors.textMuted)
                         NeoButton(stringResource(R.string.try_again), onClick = onRetry, modifier = Modifier.padding(top = AfterHint))
                     }
 
                     results is SearchResults.Found && results.items.isEmpty() -> {
-                        Heading(stringResource(R.string.search_nothing, results.query))
                         Text(stringResource(R.string.search_nothing_hint), style = Hint, color = colors.paper.copy(alpha = 0.8f))
                         results.suggestion?.let { suggestion ->
                             Suggestion(suggestion, focus = suggestion.id == returnTo, onOpen) {
@@ -215,7 +248,6 @@ fun SearchScreen(
                     }
 
                     else -> {
-                        Heading(stringResource(R.string.search_results, (results as? SearchResults.Found)?.query ?: state.query.trim()))
                         Results(results as? SearchResults.Found, returnTo, onOpen) {
                             focusedId = it
                             focusedGenre = null
@@ -261,6 +293,41 @@ private fun Results(
                             .onFocusChanged { if (it.isFocused) onFocus(card.id) },
                 )
             }
+        }
+    }
+}
+
+/** All, TV, Movies and Airing now, with the one chosen filled. */
+@Composable
+private fun Filters(
+    chosen: SearchFilter,
+    onFilter: (filter: SearchFilter) -> Unit,
+) {
+    val chips = remember { SearchFilter.entries.associateWith { FocusRequester() } }
+    Row(
+        Modifier
+            .focusProperties {
+                // Up from the results lands on the chosen chip, not the one nearest.
+                onEnter = {
+                    if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
+                        chips.getValue(chosen).requestFocus()
+                    }
+                }
+            }.focusGroup()
+            .semantics { selectableGroup() },
+        horizontalArrangement = Arrangement.spacedBy(ChipGap),
+    ) {
+        SearchFilter.entries.forEach { filter ->
+            NeoTab(
+                text = stringResource(filterLabels.getValue(filter)),
+                selected = filter == chosen,
+                onClick = { onFilter(filter) },
+                modifier =
+                    Modifier
+                        .testTag(filterTag(filter))
+                        .focusRequester(chips.getValue(filter)),
+                height = ChipHeight,
+            )
         }
     }
 }

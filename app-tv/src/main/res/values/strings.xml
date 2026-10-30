@@ -163,6 +163,10 @@
     <string name="search_genres_instead">Or try a genre</string>
     <string name="search_did_you_mean">Did you mean</string>
     <string name="search_failed">Couldn’t search</string>
+    <string name="search_filter_all">All</string>
+    <string name="search_filter_tv">TV</string>
+    <string name="search_filter_movies">Movies</string>
+    <string name="search_filter_airing">Airing now</string>
     <string name="genre_action">Action</string>
     <string name="genre_comedy">Comedy</string>
     <string name="genre_fantasy">Fantasy</string>

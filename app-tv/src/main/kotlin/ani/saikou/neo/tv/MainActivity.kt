@@ -163,6 +163,7 @@ class MainActivity : ComponentActivity() {
                                 onRetry = search::retry,
                                 onOpen = openDetails,
                                 onGenre = openGenre,
+                                onFilter = search::filter,
                             )
                         },
                         genre = { genre, openDetails ->

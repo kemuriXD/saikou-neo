@@ -66,8 +66,18 @@ public class AniListClient internal constructor(
         text: String,
         page: Int = 1,
         perPage: Int = DEFAULT_PER_PAGE,
+        filter: SearchFilter = SearchFilter.ALL,
     ): AniListResult<AnimePage> =
-        fetch(SearchAnimeQuery(page = page, perPage = perPage, search = text, statusNot = statusNot())) { data ->
+        fetch(
+            SearchAnimeQuery(
+                page = page,
+                perPage = perPage,
+                search = text,
+                statusNot = statusNot(),
+                formatIn = Optional.presentIfNotNull(filter.formats),
+                status = Optional.presentIfNotNull(MediaStatus.RELEASING.takeIf { filter == SearchFilter.AIRING }),
+            ),
+        ) { data ->
             data.Page?.let { result ->
                 AnimePage(
                     items = result.media.orEmpty().mapNotNull { it?.animeCardFields?.toCard() },
@@ -226,6 +236,14 @@ public class AniListClient internal constructor(
             }
         }
     }
+
+    private val SearchFilter.formats: List<MediaFormat>?
+        get() =
+            when (this) {
+                SearchFilter.TV -> listOf(MediaFormat.TV, MediaFormat.TV_SHORT)
+                SearchFilter.MOVIES -> listOf(MediaFormat.MOVIE)
+                SearchFilter.ALL, SearchFilter.AIRING -> null
+            }
 
     private fun statusNot(): Optional<MediaStatus?> =
         if (showUnreleased()) Optional.absent() else Optional.present(MediaStatus.NOT_YET_RELEASED)
