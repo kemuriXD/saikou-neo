@@ -278,7 +278,7 @@ class DetailsScreenTest {
         val label = compose.onNodeWithText("NOTE").getUnclippedBoundsInRoot()
         val note = compose.onNodeWithText("Streamed early.").getUnclippedBoundsInRoot()
         assertEquals(4.dp, note.top - label.bottom)
-        assertEquals(16.dp, label.bottom - label.top)
+        assertEquals(18.dp, label.bottom - label.top)
     }
 
     @Test
@@ -493,7 +493,8 @@ class DetailsScreenTest {
         val long = details.copy(card = details.card.copy(episodes = 1180))
         showEpisodes(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
         press(Key.DirectionDown)
-        assertNothingDrawn(from = 957.dp, to = 959.dp)
+        // The fade is linear, so a bright glyph 3 dp in still shows faintly.
+        assertNothingDrawn(from = 958.dp, to = 959.dp)
 
         repeat(23) { press(Key.DirectionRight) }
         assertNothingDrawn(from = 0.dp, to = 2.dp)

@@ -34,7 +34,7 @@ class NeoThemeTest {
 
         assertEquals(NeoColors().ink, seen.ink)
         assertEquals(seen.ink, seen.background)
-        assertEquals(14.sp, seen.labelSize)
+        assertEquals(15.sp, seen.labelSize)
         assertEquals(FontWeight.Medium, seen.labelWeight)
         assertEquals(48.dp, seen.safeX)
     }

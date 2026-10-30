@@ -301,11 +301,11 @@ class HomeScreenTest {
         show(loaded.copy(spotlight = spotlight.copy(logos = mapOf(0 to Logo.Image("https://logos.test/logo.png")))))
     }
 
-    /** The line under the title sits 10 dp below it. */
+    /** The line under the title sits 8 dp below it. */
     private fun assertGapUnder(titleTag: String) {
         val title = compose.onNodeWithTag(titleTag).getUnclippedBoundsInRoot()
         val meta = compose.onNodeWithTag(SPOTLIGHT_META_TAG).getUnclippedBoundsInRoot()
-        assertEquals(10f, (meta.top - title.bottom).value, 0.01f)
+        assertEquals(8f, (meta.top - title.bottom).value, 0.01f)
     }
 
     @After

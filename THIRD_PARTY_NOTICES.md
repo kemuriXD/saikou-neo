@@ -24,11 +24,13 @@ their APK assets under `legal/`.
 
 | Font | Authors | Licence |
 | --- | --- | --- |
-| Inter | The Inter Project Authors | [SIL OFL 1.1](licenses/fonts/Inter-OFL.txt) |
+| Atkinson Hyperlegible Next | The Atkinson Hyperlegible Next Project Authors | [SIL OFL 1.1](licenses/fonts/AtkinsonHyperlegibleNext-OFL.txt) |
+| Bricolage Grotesque | The Bricolage Grotesque Project Authors | [SIL OFL 1.1](licenses/fonts/BricolageGrotesque-OFL.txt) |
 | Space Grotesk | The Space Grotesk Project Authors | [SIL OFL 1.1](licenses/fonts/SpaceGrotesk-OFL.txt) |
 
-The TV banner draws "Saikou Neo" in Space Grotesk as outlines. No font file is
-added for it.
+The TV app bundles static Bricolage Grotesque and Atkinson Hyperlegible Next
+files, unchanged. The TV banner draws "Saikou Neo" in Space Grotesk as
+outlines. No Space Grotesk font file is shipped.
 
 ## Artwork
 
