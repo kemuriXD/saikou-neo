@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -73,9 +74,15 @@ import coil3.SingletonImageLoader
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.Serializable
 
 internal const val BACKDROP_ART_TAG = "backdrop-art"
+
+// The longest the first show waits to come in one go.
+private const val FIRST_SHOW_WAIT_MILLIS = 5_000L
 
 internal fun seeMoreTag(row: HomeRow) = "${row.name.lowercase()}-see-more"
 
@@ -167,7 +174,7 @@ fun HomeScreen(
     val rowStates = HomeRow.entries.associateWith { rememberLazyListState() }
     // Each row's way in, on the card it last had.
     val rowEntries = remember { HomeRow.entries.associateWith { FocusRequester() } }
-    val spotlight = state.spotlight
+    val spotlight = rememberFirstShow(state.spotlight)
     val play = remember { FocusRequester() }
     val dots = remember { FocusRequester() }
     // Where focus goes when nothing has it yet: the spotlight's Play button, there even while loading, or the saved card
@@ -230,7 +237,7 @@ fun HomeScreen(
             if (spotlight == null) {
                 SpotlightDotsPlaceholder(dotsPlace)
             } else {
-                PreloadSpotlight(spotlight)
+                PreloadSpotlight(state.spotlight ?: spotlight)
                 PreloadLogo(state.restingLogo)
                 SpotlightDots(spotlight, dots, play, onPick, dotsPlace.then(hide))
             }
@@ -404,6 +411,49 @@ private fun PreloadSpotlight(spotlight: Spotlight) {
             (spotlight.logo(show.id) as? Logo.Image)?.let { loader.enqueue(logoRequest(context, it.url)) }
         }
     }
+}
+
+/**
+ * [spotlight] once its first show can come in one go: its story and reason, backdrop and logo. Until then null, so the
+ * spotlight keeps its placeholders. After five seconds it comes anyway, with the title in words if the logo hasn't
+ * loaded. Later shows load while the one before is showing.
+ */
+@Composable
+private fun rememberFirstShow(spotlight: Spotlight?): Spotlight? {
+    var ready by rememberSaveable { mutableStateOf(false) }
+    // The show whose logo hadn't loaded when the wait ran out.
+    var gaveUpOn by rememberSaveable { mutableStateOf<Int?>(null) }
+    var logoLoaded by remember { mutableStateOf(false) }
+    if (spotlight == null) return null
+    if (!ready) {
+        val current by rememberUpdatedState(spotlight)
+        LaunchedEffect(Unit) {
+            delay(FIRST_SHOW_WAIT_MILLIS)
+            current.show.id
+                .takeIf { current.logo(it) != Logo.None && !logoLoaded }
+                ?.let { gaveUpOn = it }
+            ready = true
+        }
+        val show = spotlight.show
+        val logo = spotlight.logo(show.id)
+        val context = LocalPlatformContext.current
+        LaunchedEffect(spotlight.detailsLoaded && logo != Logo.Loading) {
+            if (!spotlight.detailsLoaded || logo == Logo.Loading) return@LaunchedEffect
+            val loader = SingletonImageLoader.get(context)
+            coroutineScope {
+                spotlight.backdrop(show)?.let { launch { loader.execute(ImageRequest.Builder(context).data(it).build()) } }
+                (logo as? Logo.Image)?.let {
+                    launch {
+                        loader.execute(logoRequest(context, it.url))
+                        logoLoaded = true
+                    }
+                }
+            }
+            ready = true
+        }
+        return null
+    }
+    return gaveUpOn?.let { spotlight.copy(logos = spotlight.logos + (it to Logo.None)) } ?: spotlight
 }
 
 /** The spotlight show's art behind everything, faded into ink on the left and bottom so text stays readable. */

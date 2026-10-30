@@ -22,8 +22,10 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -66,6 +68,7 @@ import ani.saikou.neo.tv.ui.NeoIconButton
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
+import kotlinx.coroutines.delay
 import java.util.Calendar
 
 internal const val SPOTLIGHT_TAG = "spotlight"
@@ -125,9 +128,15 @@ internal fun SpotlightShow(
             if (spotlight == null) right = FocusRequester.Cancel
         }
     val dimensions = NeoTheme.dimensions
+    // The old text fades out before the new fades in, as overlapping lines of text are hard to read.
+    val half = dimensions.durationBackdropMillis / 2
+    // Play's label changes as the new show's text comes in, not as the old one starts to fade.
+    var labelShow by remember { mutableStateOf(show) }
+    LaunchedEffect(show) {
+        if (labelShow != null && show != null) delay(half.toLong())
+        labelShow = show
+    }
     Column(modifier.testTag(SPOTLIGHT_TAG)) {
-        // The old text fades out before the new fades in, as overlapping lines of text are hard to read.
-        val half = dimensions.durationBackdropMillis / 2
         AnimatedContent(
             targetState = show,
             modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -177,7 +186,7 @@ internal fun SpotlightShow(
             Box(Modifier.padding(end = with(density) { (width * grows / 2).toDp() })) {
                 NeoButton(
                     text =
-                        show?.let { progress[it.id] }?.let { stringResource(R.string.home_resume, it.episode) }
+                        labelShow?.let { progress[it.id] }?.let { stringResource(R.string.home_resume, it.episode) }
                             ?: stringResource(R.string.home_play),
                     onClick = { show?.let { onOpen(it.id) } },
                     icon = NeoIcons.Play,

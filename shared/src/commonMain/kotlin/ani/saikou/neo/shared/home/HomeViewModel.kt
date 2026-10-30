@@ -68,6 +68,8 @@ public data class Spotlight(
     val synopses: Map<Int, String> = emptyMap(),
     /** Why each show is featured, by anime id, once known. Shows with nothing to say are left out. */
     val reasons: Map<Int, FeaturedReason> = emptyMap(),
+    /** True once AniList has answered for [synopses] and [reasons], or failed to. */
+    val detailsLoaded: Boolean = false,
     /** True once the viewer picked a show, which stops the spotlight moving on. */
     val picked: Boolean = false,
 ) {
@@ -177,7 +179,7 @@ public class HomeViewModel(
                     val trending = if (spotlight.row == HomeRow.TRENDING) index + 1 else null
                     featuredReason(known?.nextEpisode, known?.ratedRank, trending, now())?.let { show.id to it }
                 }
-            updateSpotlight { it.copy(synopses = stories.toMap(), reasons = reasons.toMap()) }
+            updateSpotlight { it.copy(synopses = stories.toMap(), reasons = reasons.toMap(), detailsLoaded = true) }
         }
         shows.forEach { show ->
             viewModelScope.launch {
