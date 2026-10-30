@@ -24,7 +24,7 @@ import androidx.compose.ui.test.pressKey
 import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsSection.EPISODES
 import ani.saikou.neo.shared.details.DetailsSection.OVERVIEW
-import ani.saikou.neo.shared.details.DetailsSection.RELATED
+import ani.saikou.neo.shared.details.DetailsSection.WATCH_ORDER
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoButton
 import org.junit.Assert.assertEquals
@@ -52,7 +52,7 @@ class DetailsSectionsTest {
                 Column {
                     NeoButton("Main", onClick = {}, modifier = Modifier.focusRequester(main))
                     DetailsSections(
-                        sections = listOf(OVERVIEW, EPISODES, RELATED),
+                        sections = listOf(OVERVIEW, EPISODES, WATCH_ORDER),
                         selected = { selected },
                         onSelect = { selected = it },
                         onInside = { inside = it },
@@ -114,6 +114,6 @@ class DetailsSectionsTest {
         press(Key.DirectionUp)
         press(Key.DirectionDown)
 
-        tab(RELATED).assertIsFocused()
+        tab(WATCH_ORDER).assertIsFocused()
     }
 }

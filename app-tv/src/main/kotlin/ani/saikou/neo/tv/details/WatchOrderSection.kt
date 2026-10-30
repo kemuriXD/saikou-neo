@@ -59,7 +59,7 @@ private val LineWidth = 2.dp
 
 /**
  * The show and the anime AniList relates to it, numbered in the order they came out, along a line. Each is a poster, as
- * on Related. The show on this page says "You are here", with the episode this TV got to, and the others say how
+ * on Recommendations. The show on this page says "You are here", with the episode this TV got to, and the others say how
  * they're related to it. The line fills in pink up to the step focus is on, or up to this show while focus is
  * elsewhere. Up or down into the path lands on the step after this show. Selecting another step calls [onOpen].
  */
@@ -187,6 +187,10 @@ private fun Step(
                     relation != null -> stringResource(relationNames.getValue(relation))
                     else -> stringResource(R.string.details_you_are_here)
                 },
+            // This show stands apart from the relations in pink.
+            overlineColor = if (relation == null) colors.paper else colors.pink,
+            // Shows in a franchise often share the start of their titles.
+            titleLines = 2,
         )
     }
 }

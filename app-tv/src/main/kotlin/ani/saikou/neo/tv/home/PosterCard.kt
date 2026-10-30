@@ -35,7 +35,8 @@ import coil3.compose.AsyncImage
 
 /**
  * A 2:3 poster for one anime, with its title and, under that, its format and year or a [caption] in their place. An
- * [overline], such as how it's related, goes above the title. [modifier] goes on the focusable poster.
+ * [overline], such as how it's related, goes above the title in [overlineColor], pink unless given. The title takes
+ * up [titleLines] lines, even when it's shorter. [modifier] goes on the focusable poster.
  */
 @Composable
 internal fun PosterCard(
@@ -44,6 +45,8 @@ internal fun PosterCard(
     modifier: Modifier = Modifier,
     caption: String? = null,
     overline: String? = null,
+    overlineColor: Color = NeoTheme.colors.pink,
+    titleLines: Int = 1,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
@@ -79,7 +82,7 @@ internal fun PosterCard(
                 Text(
                     text = it.uppercase(),
                     style = NeoTheme.typography.overline.copy(fontWeight = FontWeight.Bold),
-                    color = colors.pink,
+                    color = overlineColor,
                     maxLines = 1,
                 )
             }
@@ -87,7 +90,9 @@ internal fun PosterCard(
                 text = card.displayTitle(),
                 style = NeoTheme.typography.label,
                 color = if (focused) colors.paper else colors.textMuted,
-                maxLines = 1,
+                // Always as tall as its lines, so the lines under titles in a row stay level.
+                minLines = titleLines,
+                maxLines = titleLines,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(

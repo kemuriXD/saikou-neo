@@ -80,7 +80,6 @@
         <item quantity="one">%1$d ep</item>
         <item quantity="other">%1$d eps</item>
     </plurals>
-    <string name="details_related">Related</string>
     <string name="details_watch_order">Watch order</string>
     <string name="details_recommendations">Recommendations</string>
     <plurals name="details_episode_count">

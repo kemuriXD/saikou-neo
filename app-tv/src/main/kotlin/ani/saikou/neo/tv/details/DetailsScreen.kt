@@ -262,7 +262,7 @@ private fun DetailsPage(
                         sections = sections,
                         selected = { section.takeIf { it in sections } ?: sections.first() },
                         onSelect = { section = it },
-                        // The reader and a related show's Details take focus from the page without lowering it.
+                        // The reader and another show's Details take focus from the page without lowering it.
                         onInside = { inside -> if (!reading && !opened) lifted = inside },
                         // Measured at full height, so it runs past the bottom of the screen until the page lifts.
                         modifier =
@@ -302,22 +302,6 @@ private fun DetailsPage(
                                 }
                             }
 
-                            DetailsSection.RELATED -> {
-                                PosterRowSection(
-                                    posters =
-                                        state.details.related.map {
-                                            Poster(
-                                                it.card,
-                                                stringResource(relationNames.getValue(it.relation)),
-                                            )
-                                        },
-                                    onOpen = {
-                                        opened = true
-                                        onOpen(it)
-                                    },
-                                )
-                            }
-
                             DetailsSection.WATCH_ORDER -> {
                                 WatchOrderSection(
                                     details = state.details,
@@ -331,7 +315,7 @@ private fun DetailsPage(
 
                             DetailsSection.RECOMMENDATIONS -> {
                                 PosterRowSection(
-                                    posters = state.details.recommendations.map { Poster(it) },
+                                    cards = state.details.recommendations,
                                     onOpen = {
                                         opened = true
                                         onOpen(it)

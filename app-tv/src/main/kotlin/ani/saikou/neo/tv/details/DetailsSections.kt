@@ -32,7 +32,6 @@ private val sectionNames =
     mapOf(
         DetailsSection.OVERVIEW to R.string.details_overview,
         DetailsSection.EPISODES to R.string.details_episodes,
-        DetailsSection.RELATED to R.string.details_related,
         DetailsSection.WATCH_ORDER to R.string.details_watch_order,
         DetailsSection.RECOMMENDATIONS to R.string.details_recommendations,
     )

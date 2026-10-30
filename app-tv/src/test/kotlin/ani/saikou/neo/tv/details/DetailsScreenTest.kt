@@ -50,6 +50,7 @@ import ani.saikou.neo.shared.catalogue.AniZipEpisodes
 import ani.saikou.neo.shared.catalogue.AniZipExtra
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.catalogue.NextEpisode
 import ani.saikou.neo.shared.catalogue.RelatedAnime
 import ani.saikou.neo.shared.catalogue.Relation
@@ -206,8 +207,8 @@ class DetailsScreenTest {
         pressQuickly(listOf(Key.DirectionRight, Key.DirectionRight, Key.DirectionDown))
         compose.waitForIdle()
 
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected()
-        assertTrue(focusedTag() in setOf(detailsTabTag(DetailsSection.RELATED), relatedPosterTag(8)))
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.WATCH_ORDER)).assertIsSelected()
+        assertTrue(focusedTag() in setOf(detailsTabTag(DetailsSection.WATCH_ORDER), watchOrderTag(9)))
     }
 
     /** The test tag of whatever has focus, or null when nothing has. */
@@ -766,23 +767,23 @@ class DetailsScreenTest {
             press(Key.DirectionRight)
         }
 
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsFocused()
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.WATCH_ORDER)).assertIsFocused()
     }
 
     @Test
-    fun focusStaysOnARelatedPosterAfterRecreation() {
+    fun focusStaysOnAWatchOrderStepAfterRecreation() {
         recreate(DetailsState.Loaded(franchise)) {
             press(Key.DirectionDown)
             press(Key.DirectionRight)
             press(Key.DirectionRight)
             press(Key.DirectionDown)
-            press(Key.DirectionRight)
+            press(Key.DirectionLeft)
         }
 
-        compose.onNodeWithTag(relatedPosterTag(9)).assertIsFocused()
+        compose.onNodeWithTag(watchOrderTag(7)).assertIsFocused()
     }
 
-    // The show reloaded without its related shows, so the poster that had focus isn't there to take it back.
+    // The show reloaded without its related shows, so the step that had focus isn't there to take it back.
     @Test
     fun focusStartsAsUsualWhenWhatHadItIsGoneAfterRecreation() {
         recreate(DetailsState.Loaded(franchise), reloaded = DetailsState.Loaded(details)) {
@@ -790,39 +791,10 @@ class DetailsScreenTest {
             press(Key.DirectionRight)
             press(Key.DirectionRight)
             press(Key.DirectionDown)
-            press(Key.DirectionRight)
-            compose.onNodeWithTag(relatedPosterTag(9)).assertIsFocused()
+            compose.onNodeWithTag(watchOrderTag(9)).assertIsFocused()
         }
 
         compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused()
-    }
-
-    @Test
-    fun relatedShowsPostersSayingHowEachIsRelated() {
-        show(DetailsState.Loaded(franchise))
-        press(Key.DirectionDown)
-        press(Key.DirectionRight)
-        press(Key.DirectionRight)
-
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected()
-        compose.onNodeWithText("Show 8").assertExists()
-        // How each is related sits above its title, and its format and year below.
-        compose.onNodeWithText("PREQUEL").assertExists()
-        compose.onNodeWithText("TV · 2025").assertExists()
-        compose.onNodeWithText("SIDE STORY").assertExists()
-        compose.onNodeWithText("Movie · 2026").assertExists()
-    }
-
-    // A row clips at its own edges, so it runs from the screen's edge and the first poster can grow on focus.
-    @Test
-    fun theFirstPosterHasRoomToGrowOnTheLeft() {
-        show(DetailsState.Loaded(franchise))
-        press(Key.DirectionDown)
-        press(Key.DirectionRight)
-        press(Key.DirectionRight)
-
-        compose.onNodeWithTag(DETAILS_POSTER_ROW_TAG).assertLeftPositionInRootIsEqualTo(0.dp)
-        compose.onNodeWithTag(relatedPosterTag(8)).assertLeftPositionInRootIsEqualTo(58.dp)
     }
 
     @Test
@@ -833,52 +805,36 @@ class DetailsScreenTest {
         press(Key.DirectionRight)
 
         compose.onNodeWithTag(DETAILS_POSTER_ROW_TAG).assertLeftPositionInRootIsEqualTo(0.dp)
-        compose.onNodeWithTag(relatedPosterTag(10)).assertLeftPositionInRootIsEqualTo(58.dp)
+        compose.onNodeWithTag(detailsPosterTag(10)).assertLeftPositionInRootIsEqualTo(58.dp)
     }
 
-    // The Related tab sits over the second poster, but the row starts at its first.
+    // The Recommendations tab sits over the second poster, but the row starts at its first.
     @Test
     fun downFromTheTabsLandsOnTheFirstPoster() {
-        show(DetailsState.Loaded(franchise))
+        show(DetailsState.Loaded(recommended))
         press(Key.DirectionDown)
         press(Key.DirectionRight)
         press(Key.DirectionRight)
 
         press(Key.DirectionDown)
 
-        compose.onNodeWithTag(relatedPosterTag(8)).assertIsFocused()
+        compose.onNodeWithTag(detailsPosterTag(10)).assertIsFocused()
     }
 
     @Test
-    fun selectingARelatedPosterOpensItsDetails() {
-        var opened: Int? = null
-        show(DetailsState.Loaded(franchise), onOpen = { opened = it })
-        press(Key.DirectionDown)
-        press(Key.DirectionRight)
-        press(Key.DirectionRight)
-
-        press(Key.DirectionDown)
-        press(Key.DirectionRight)
-        press(Key.DirectionCenter)
-
-        assertEquals(9, opened)
-    }
-
-    @Test
-    fun backFromARelatedShowReturnsToItsPoster() {
+    fun backFromAnotherShowInTheWatchOrderReturnsToItsStep() {
         showFromHome(DetailsState.Loaded(franchise))
         press(Key.DirectionDown)
         press(Key.DirectionRight)
         press(Key.DirectionRight)
         press(Key.DirectionDown)
-        press(Key.DirectionRight)
         press(Key.DirectionCenter)
         compose.waitForIdle()
 
         back()
 
-        compose.onNodeWithTag(relatedPosterTag(9)).assertIsFocused()
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(76.dp)
+        compose.onNodeWithTag(watchOrderTag(9)).assertIsFocused()
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.WATCH_ORDER)).assertIsSelected().assertTopPositionInRootIsEqualTo(76.dp)
     }
 
     // Down in a section, Back brings the page back to the top before it leaves Details.
@@ -896,9 +852,9 @@ class DetailsScreenTest {
         compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertDoesNotExist()
     }
 
-    // Back from a related show finds the first one on its poster, then takes it to the top, then leaves.
+    // Back from another show finds the first one on its step, then takes it to the top, then leaves.
     @Test
-    fun backAfterARelatedShowStepsUpThenOut() {
+    fun backAfterAnotherShowStepsUpThenOut() {
         showFromHome(DetailsState.Loaded(franchise))
         press(Key.DirectionDown)
         press(Key.DirectionRight)
@@ -910,7 +866,7 @@ class DetailsScreenTest {
         back()
         back()
         compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused()
-        compose.onNodeWithTag(detailsTabTag(DetailsSection.RELATED)).assertIsSelected().assertTopPositionInRootIsEqualTo(352.dp)
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.WATCH_ORDER)).assertIsSelected().assertTopPositionInRootIsEqualTo(352.dp)
     }
 
     /** Details with its Watch order tab chosen, and focus on the tab. */
@@ -920,7 +876,7 @@ class DetailsScreenTest {
     ) {
         show(state, onOpen = onOpen)
         press(Key.DirectionDown)
-        repeat(3) { press(Key.DirectionRight) }
+        repeat(2) { press(Key.DirectionRight) }
     }
 
     @Test
@@ -939,6 +895,33 @@ class DetailsScreenTest {
         // The others say how they're related to this show.
         compose.onNodeWithText("PREQUEL").assertExists()
         compose.onNodeWithText("SIDE STORY").assertExists()
+    }
+
+    // Shows in a franchise often share the start of their titles, so a title has two lines, and every title the room
+    // for them, so the lines under the titles stay level.
+    @Test
+    fun watchOrderTitlesTakeTwoLinesAndTheLinesUnderThemStayLevel() {
+        val long = card(9).copy(title = AnimeTitle(null, "Show 9: The Movie of the Long Title That Goes On", null), format = "MOVIE")
+        showWatchOrder(
+            DetailsState.Loaded(
+                franchise.copy(
+                    related =
+                        franchise.related.map {
+                            if (it.card.id ==
+                                9
+                            ) {
+                                it.copy(card = long)
+                            } else {
+                                it
+                            }
+                        },
+                ),
+            ),
+        )
+
+        val top = { text: String -> compose.onAllNodesWithText(text)[0].getUnclippedBoundsInRoot().top }
+        assertEquals(top("TV · 12 eps"), top("Movie · 12 eps"))
+        assertTrue(compose.onNodeWithText(long.title.english!!).getUnclippedBoundsInRoot().let { it.bottom - it.top } > 30.dp)
     }
 
     @Test
