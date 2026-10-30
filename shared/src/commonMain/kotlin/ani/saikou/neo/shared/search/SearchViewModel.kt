@@ -32,7 +32,7 @@ public sealed interface SearchResults {
     /** The first search for what's typed is on its way. */
     public data object Loading : SearchResults
 
-    /** What AniList found for [query], which can be nothing. */
+    /** What AniList found for [query]. Nothing only when nothing was found before it. */
     public data class Found(
         val query: String,
         val items: List<AnimeCard>,
@@ -96,9 +96,16 @@ public class SearchViewModel(
         search =
             viewModelScope.launch {
                 if (pause) delay(PAUSE_MILLIS)
-                val result = client.search(query.trim(), perPage = RESULTS)
-                val results = if (result is AniListResult.Success) SearchResults.Found(query, result.value.items) else SearchResults.Failed
-                mutableState.update { it.copy(results = results) }
+                val text = query.trim()
+                val result = client.search(text, perPage = RESULTS)
+                val results = if (result is AniListResult.Success) SearchResults.Found(text, result.value.items) else SearchResults.Failed
+                mutableState.update { state ->
+                    // AniList only matches whole words, so a word half typed finds nothing. What it found before stays.
+                    val keep =
+                        results is SearchResults.Found && results.items.isEmpty() &&
+                            (state.results as? SearchResults.Found)?.items?.isNotEmpty() == true
+                    if (keep) state else state.copy(results = results)
+                }
             }
     }
 }

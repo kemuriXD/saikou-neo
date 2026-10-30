@@ -1,6 +1,7 @@
 package ani.saikou.neo.shared.search
 
 import ani.saikou.neo.shared.catalogue.OfflineEngine
+import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
 import ani.saikou.neo.shared.catalogue.clientFor
 import com.apollographql.apollo.network.http.HttpEngine
@@ -88,6 +89,34 @@ class SearchViewModelTest {
             assertTrue(found.items.isEmpty())
         }
 
+    // AniList only matches whole words, so a word half typed finds nothing. What it found before stays.
+    @Test
+    fun findingNothingKeepsWhatWasFoundBefore() =
+        runTest(main) {
+            val viewModel = search(QueryEngine("search", mapOf("\"search\":\"frieren x\"" to "search-none")))
+            viewModel.typeEach("frieren")
+            advanceUntilIdle()
+
+            viewModel.typeEach(" x")
+            advanceUntilIdle()
+
+            assertEquals("frieren x", viewModel.state.value.query)
+            assertEquals("frieren", assertIs<SearchResults.Found>(viewModel.state.value.results).query)
+        }
+
+    @Test
+    fun findingNothingAgainSaysWhatWasSearched() =
+        runTest(main) {
+            val viewModel = search(RecordedEngine("search-none"))
+            viewModel.typeEach("sakamota")
+            advanceUntilIdle()
+
+            viewModel.typeEach(" dyas")
+            advanceUntilIdle()
+
+            assertEquals("sakamota dyas", assertIs<SearchResults.Found>(viewModel.state.value.results).query)
+        }
+
     @Test
     fun deleteRemovesTheLastLetterAndClearEmptiesTheQuery() =
         runTest(main) {
@@ -115,6 +144,17 @@ class SearchViewModelTest {
 
             assertEquals(SearchState(), viewModel.state.value)
             assertTrue(engine.requestBodies.isEmpty())
+        }
+
+    @Test
+    fun resultsAreForTheQueryWithoutSpacesAtItsEnds() =
+        runTest(main) {
+            val viewModel = search()
+
+            viewModel.typeEach("frieren ")
+            advanceUntilIdle()
+
+            assertEquals("frieren", assertIs<SearchResults.Found>(viewModel.state.value.results).query)
         }
 
     @Test

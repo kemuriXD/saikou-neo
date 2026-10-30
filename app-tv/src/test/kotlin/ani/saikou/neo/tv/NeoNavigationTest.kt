@@ -21,6 +21,8 @@ import androidx.tv.material3.Text
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.More
 import ani.saikou.neo.shared.home.SeeMoreState
+import ani.saikou.neo.shared.search.SearchGenre
+import ani.saikou.neo.shared.search.SearchState
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SPOTLIGHT_PLAY_TAG
 import ani.saikou.neo.tv.home.SeeMoreScreen
@@ -29,6 +31,8 @@ import ani.saikou.neo.tv.home.homeCardTag
 import ani.saikou.neo.tv.home.loaded
 import ani.saikou.neo.tv.home.posterTag
 import ani.saikou.neo.tv.home.seeMoreTag
+import ani.saikou.neo.tv.search.SearchScreen
+import ani.saikou.neo.tv.search.genreTag
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.RAIL_SCRIM_TAG
 import ani.saikou.neo.tv.ui.RAIL_TAG
@@ -62,6 +66,10 @@ class NeoNavigationTest {
                         SeeMoreScreen(row, seeMoreState, openDetails, onLoadMore = {}, onRetry = {})
                     },
                     details = { animeId, _, _ -> Text("Details for $animeId") },
+                    search = { openDetails, openGenre ->
+                        SearchScreen(SearchState(), onType = {}, onDelete = {}, onClear = {}, onRetry = {}, openDetails, openGenre)
+                    },
+                    genre = { genre, _ -> Text("Most popular ${genre.aniListName}") },
                 )
             }
         }
@@ -330,9 +338,31 @@ class NeoNavigationTest {
         openSection(Section.SEARCH)
         restoration.emulateSavedInstanceStateRestore()
 
-        compose.onNodeWithText("Search").assertExists()
+        compose.onNodeWithText("Search anime").assertExists()
         back()
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+    }
+
+    // Search takes focus from the rail. Back has to find Home's Play, not open the rail again.
+    @Test
+    fun backFromSearchReturnsToPlay() {
+        show()
+        openSection(Section.SEARCH)
+        back()
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun aGenreFromSearchOpensItsPageAndBackReturnsToItsTile() {
+        show()
+        openSection(Section.SEARCH)
+
+        press(Key.DirectionRight, times = 6)
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithText("Most popular Action").assertExists()
+        back()
+        compose.onNodeWithTag(genreTag(SearchGenre.ACTION)).assertIsFocused()
     }
 
     @Test
