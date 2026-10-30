@@ -5,10 +5,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -23,13 +25,24 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.HomeRow
@@ -50,14 +63,30 @@ private const val COLUMNS = 6
 // More loads once focus is within two rows of the end.
 private const val LOAD_AHEAD = COLUMNS * 2
 
-// From the design: the title sits at 40 dp and the focused row rests at 104 dp, under it.
-private val TitleTop = 40.dp
-private val GridTop = 104.dp
+// From the design, less the rail: the heading sits on the safe area, its last line ending 79 dp down, and the focused
+// row rests at 96 dp, under it. Posters are 108 dp wide with 24 dp between them, so the six run 768 dp from the margin.
+private val HeadingHeight = 52.dp
+private val GridTop = 96.dp
+private val ColumnGap = 24.dp
+private val RowGap = 12.dp
+private val GridWidth = 768.dp
 
-// Rows scrolled up pass under the title, which keeps solid ink behind it.
-private val TitleBand = 88.dp
+// Rows scrolled up pass under the heading, which keeps the backdrop behind it.
+private val TitleBand = 80.dp
 private val TitleFade = 12.dp
 private val EyebrowGap = 2.dp
+
+// A pink glow off the top right corner: an ellipse 700 by 460 dp, centred 190 dp in from the right and 30 dp down.
+private val GlowColor = Color(0xFF8C1C4E).copy(alpha = 0.45f)
+private val GlowRadiusX = 350.dp
+private val GlowRadiusY = 230.dp
+private val GlowInset = 190.dp
+private val GlowDown = 30.dp
+
+private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
+
+// The font asks for more than the eyebrow's 16 dp line, so it holds to it.
+private val TightLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both, LineHeightStyle.Mode.Tight)
 
 /** All of a Home [row] as a grid of posters, headed by the row's name. */
 @Composable
@@ -96,7 +125,7 @@ fun SeeMoreScreen(
     val items = state.items
     val target = if (hasFocus) null else focusedId?.takeIf { id -> items.any { it.id == id } } ?: items.firstOrNull()?.id
 
-    Box(modifier.fillMaxSize().background(ink)) {
+    Box(modifier.fillMaxSize().drawBehind { drawBackdrop(ink) }) {
         PreloadLogo(state.restingLogo)
         if (items.isEmpty() && state.more == More.Failed) {
             LoadFailed(onRetry, Modifier.padding(start = dimensions.gridMargin, top = GridTop))
@@ -105,24 +134,24 @@ fun SeeMoreScreen(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(COLUMNS),
                     state = gridState,
-                    modifier = Modifier.fillMaxSize(),
+                    modifier = Modifier.fillMaxHeight().width(dimensions.gridMargin + GridWidth + dimensions.safeX),
                     contentPadding =
                         PaddingValues(
                             start = dimensions.gridMargin,
-                            end = dimensions.gridMargin,
+                            end = dimensions.safeX,
                             top = GridTop,
                             bottom = 40.dp,
                         ),
-                    horizontalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
-                    verticalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
+                    horizontalArrangement = Arrangement.spacedBy(ColumnGap),
+                    verticalArrangement = Arrangement.spacedBy(RowGap),
                 ) {
                     if (items.isEmpty()) {
                         items(LOAD_AHEAD) {
                             Skeleton(
-                                dimensions.cardPosterWidth,
-                                dimensions.cardPosterHeight,
+                                PosterSize.Small.width,
+                                PosterSize.Small.height,
                                 Modifier.testTag(POSTER_SKELETON_TAG),
-                                dimensions.radiusSm,
+                                PosterSize.Small.radius,
                             )
                         }
                     }
@@ -132,6 +161,7 @@ fun SeeMoreScreen(
                         PosterCard(
                             card = card,
                             onClick = { onOpen(card.id) },
+                            size = PosterSize.Small,
                             modifier =
                                 Modifier
                                     .testTag(posterTag(index))
@@ -158,22 +188,57 @@ fun SeeMoreScreen(
                 }
             }
         }
+        // The backdrop again over the top of the grid, fading out at its foot.
         Box(
             Modifier
                 .fillMaxWidth()
                 .height(TitleBand + TitleFade)
-                .background(Brush.verticalGradient(0f to ink, TitleBand / (TitleBand + TitleFade) to ink, 1f to ink.copy(alpha = 0f))),
+                .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                .drawBehind {
+                    drawBackdrop(ink)
+                    drawRect(
+                        Brush.verticalGradient(
+                            0f to Color.Black,
+                            TitleBand / (TitleBand + TitleFade) to Color.Black,
+                            1f to Color.Transparent,
+                        ),
+                        blendMode = BlendMode.DstIn,
+                    )
+                },
         )
-        // An eyebrow takes the top of the band, so the title moves down under it.
+        // The title keeps its place whether or not an eyebrow sits above it.
         Column(
-            Modifier.padding(start = dimensions.gridMargin, top = if (eyebrow == null) TitleTop else dimensions.safeY),
-            verticalArrangement = Arrangement.spacedBy(EyebrowGap),
+            Modifier.padding(start = dimensions.gridMargin, top = dimensions.safeY).height(HeadingHeight),
+            verticalArrangement = Arrangement.spacedBy(EyebrowGap, Alignment.Bottom),
         ) {
             eyebrow?.let {
-                Text(text = it.uppercase(), style = NeoTheme.typography.overline, color = NeoTheme.colors.pink)
+                Text(text = it.uppercase(), style = Eyebrow, color = NeoTheme.colors.pink)
             }
-            Text(text = title, style = NeoTheme.typography.headline, color = NeoTheme.colors.paper)
+            Text(text = title, style = Title, color = NeoTheme.colors.paper)
         }
+    }
+}
+
+private val Title
+    @Composable get() = NeoTheme.typography.headline.copy(fontSize = 28.sp, lineHeight = 34.sp, lineHeightStyle = FullLine)
+
+private val Eyebrow
+    @Composable get() =
+        NeoTheme.typography.overline.copy(
+            fontSize = 12.sp,
+            lineHeight = 16.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 1.2.sp,
+            lineHeightStyle = TightLine,
+        )
+
+/** Ink with the pink glow off the top right corner. */
+private fun DrawScope.drawBackdrop(ink: Color) {
+    drawRect(ink)
+    val center = Offset(size.width - GlowInset.toPx(), GlowDown.toPx())
+    val radius = GlowRadiusX.toPx()
+    scale(scaleX = 1f, scaleY = GlowRadiusY / GlowRadiusX, pivot = center) {
+        drawCircle(Brush.radialGradient(listOf(GlowColor, GlowColor.copy(alpha = 0f)), center, radius), radius, center)
     }
 }
 

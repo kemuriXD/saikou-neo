@@ -5,9 +5,11 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -76,8 +78,8 @@ class SeeMoreScreenTest {
             }
         }
 
-        compose.onNodeWithText("DEATH NOTE").assertExists()
-        compose.onNodeWithText("Recommendations").assertExists()
+        compose.onNodeWithText("DEATH NOTE").assertTopPositionInRootIsEqualTo(27.dp)
+        compose.onNodeWithText("Recommendations").assertTopPositionInRootIsEqualTo(45.dp)
     }
 
     @Test
@@ -115,10 +117,16 @@ class SeeMoreScreenTest {
     fun showsTheRowsTitleOverSixPostersARow() {
         show()
 
-        compose.onNodeWithText("Trending").assertTopPositionInRootIsEqualTo(40.dp)
-        compose.onNodeWithTag(posterTag(0)).assertLeftPositionInRootIsEqualTo(58.dp).assertTopPositionInRootIsEqualTo(104.dp)
-        compose.onNodeWithTag(posterTag(5)).assertLeftPositionInRootIsEqualTo(778.dp)
-        compose.onNodeWithTag(posterTag(6)).assertLeftPositionInRootIsEqualTo(58.dp)
+        compose.onNodeWithText("Trending").assertLeftPositionInRootIsEqualTo(58.dp).assertTopPositionInRootIsEqualTo(45.dp)
+        compose
+            .onNodeWithTag(posterTag(0))
+            .assertLeftPositionInRootIsEqualTo(58.dp)
+            .assertTopPositionInRootIsEqualTo(96.dp)
+            .assertWidthIsEqualTo(108.dp)
+            .assertHeightIsEqualTo(162.dp)
+        compose.onNodeWithTag(posterTag(5)).assertLeftPositionInRootIsEqualTo(718.dp)
+        // The second row's titles end above the bottom of the screen, so two whole rows show.
+        compose.onNodeWithTag(posterTag(6)).assertLeftPositionInRootIsEqualTo(58.dp).assertTopPositionInRootIsEqualTo(317.dp)
     }
 
     @Test
@@ -144,7 +152,7 @@ class SeeMoreScreenTest {
 
         press(Key.DirectionDown)
 
-        compose.onNodeWithTag(posterTag(6)).assertIsFocused().assertTopPositionInRootIsEqualTo(104.dp)
+        compose.onNodeWithTag(posterTag(6)).assertIsFocused().assertTopPositionInRootIsEqualTo(96.dp)
     }
 
     @Test

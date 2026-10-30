@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +27,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -42,12 +42,14 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -89,28 +91,33 @@ enum class SettingsCategory(
     DISPLAY(R.string.settings_display, R.string.settings_display_intro, listOf(Setting.SLOW_TV)),
 }
 
-// From the design: both panes start 88 dp down. Categories are 228 dp wide from the margin, and the settings start at 318.
-private val PaneTop = 88.dp
-private val CategoryWidth = 228.dp
-private val SettingsStart = 318.dp
-private val CategoryHeight = 40.dp
-private val CategoryPadding = 14.dp
+// From the design, less the rail: the title sits on the safe area and both panes start 80 dp down. Categories are
+// 220 dp wide from the margin, and the settings start 248 dp after it and run to the safe area.
+private val PaneTop = 80.dp
+private val CategoryWidth = 220.dp
+private val SettingsOffset = 248.dp
+private val CategoryHeight = 44.dp
+private val CategoryPadding = 16.dp
 private val CategoryGap = 4.dp
 private val RowHeight = 62.dp
 private val RowPadding = 18.dp
 private val RowGap = 8.dp
+private val RowRadius = 14.dp
+private val RowSpacing = 14.dp
 private val Chevron = 16.dp
-private const val ROW_FOCUS_SCALE = 1.025f
-private val SelectedFill = Color.White.copy(alpha = 0.16f)
-private val FocusGlowColor = Color.White.copy(alpha = 0.32f)
+private const val ROW_FOCUS_SCALE = 1.02f
+private val FocusGlowColor = Color.White.copy(alpha = 0.3f)
 
-// The choices panel is 340 dp wide on the right, over a dimmed screen. Its choices are 48 dp tall with a 20 dp radio.
-private val PanelWidth = 340.dp
-private val PanelPadding = 28.dp
-private val ChoiceHeight = 48.dp
+// The choices panel is 360 dp wide on the right, over a dimmed screen, with a shadow off its left edge. Its choices
+// are 64 dp tall with a 16 dp radio.
+private val PanelWidth = 360.dp
+private val PanelPaddingX = 24.dp
+private val PanelGap = 10.dp
+private val PanelShadow = 40.dp
+private const val PANEL_SHADOW_ALPHA = 0.5f
+private val ChoiceHeight = 64.dp
 private val ChoicePadding = 16.dp
-private val ChoiceGap = 4.dp
-private val Radio = 20.dp
+private val Radio = 16.dp
 private const val SCRIM_ALPHA = 0.55f
 
 // A category's settings rise this far as they fade in.
@@ -150,12 +157,16 @@ private fun SettingsPage(
         closed = null
     }
     Box(Modifier.fillMaxSize().background(colors.ink)) {
+        Text(
+            stringResource(R.string.section_settings),
+            style = ScreenTitle,
+            color = colors.paper,
+            modifier = Modifier.padding(start = dimensions.gridMargin, top = dimensions.safeY),
+        )
         Column(
             Modifier.padding(start = dimensions.gridMargin, top = PaneTop).width(CategoryWidth),
             verticalArrangement = Arrangement.spacedBy(CategoryGap),
         ) {
-            Text(stringResource(R.string.section_settings), style = NeoTheme.typography.headline, color = colors.paper)
-            Spacer(Modifier.height(10.dp - CategoryGap))
             SettingsCategory.entries.forEach { category ->
                 Category(
                     category,
@@ -178,7 +189,7 @@ private fun SettingsPage(
             targetState = shown,
             modifier =
                 Modifier
-                    .padding(start = SettingsStart, end = dimensions.gridMargin, top = PaneTop)
+                    .padding(start = dimensions.gridMargin + SettingsOffset, end = dimensions.safeX, top = PaneTop)
                     .focusGroup(),
             transitionSpec = {
                 (
@@ -189,8 +200,7 @@ private fun SettingsPage(
             label = "category",
         ) { category ->
             Column(verticalArrangement = Arrangement.spacedBy(RowGap)) {
-                Text(stringResource(category.title), style = PaneTitle, color = colors.paper)
-                Text(stringResource(category.intro), style = Help, color = colors.textMuted, modifier = Modifier.padding(bottom = 6.dp))
+                Text(stringResource(category.intro), style = Intro, color = colors.textMuted, modifier = Modifier.padding(bottom = 6.dp))
                 category.settings.forEach { setting ->
                     SettingRow(
                         setting,
@@ -238,11 +248,23 @@ private fun SettingsPage(
     }
 }
 
+private val ScreenTitle
+    @Composable get() = NeoTheme.typography.headline.copy(fontSize = 26.sp, lineHeight = 32.sp)
+
 private val PaneTitle
     @Composable get() = NeoTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp)
 
+// The whole line, so the settings under the intro start where the design has them.
+private val Intro
+    @Composable get() = NeoTheme.typography.caption.copy(fontSize = 14.sp, lineHeight = 20.sp, lineHeightStyle = FullLine)
+
+private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
+
+private val Name
+    @Composable get() = NeoTheme.typography.label.copy(fontWeight = FontWeight.SemiBold)
+
 private val Help
-    @Composable get() = NeoTheme.typography.caption.copy(fontSize = 14.sp, lineHeight = 18.sp)
+    @Composable get() = NeoTheme.typography.caption.copy(fontSize = 12.sp, lineHeight = 16.sp)
 
 /** A category: a soft fill when it's the one shown, paper when focused. */
 @Composable
@@ -262,12 +284,12 @@ private fun Category(
                 .fillMaxWidth()
                 .height(CategoryHeight)
                 .onFocusChanged { if (it.isFocused) onFocused() },
-        shape = SelectableSurfaceDefaults.shape(RoundedCornerShape(NeoTheme.dimensions.radiusMd)),
+        shape = SelectableSurfaceDefaults.shape(CircleShape),
         colors =
             SelectableSurfaceDefaults.colors(
                 containerColor = Color.Transparent,
                 contentColor = colors.textMuted,
-                selectedContainerColor = SelectedFill,
+                selectedContainerColor = colors.fillTonal,
                 selectedContentColor = colors.paper,
                 focusedContainerColor = colors.focus,
                 focusedContentColor = colors.onFocus,
@@ -279,7 +301,7 @@ private fun Category(
         Box(Modifier.fillMaxSize().padding(horizontal = CategoryPadding), contentAlignment = Alignment.CenterStart) {
             Text(
                 stringResource(category.title),
-                style = NeoTheme.typography.bodyLarge.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium),
+                style = NeoTheme.typography.body.copy(fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium),
             )
         }
     }
@@ -304,7 +326,7 @@ private fun SettingRow(
                 .fillMaxWidth()
                 .height(RowHeight)
                 .onFocusChanged { focused = it.isFocused },
-        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(NeoTheme.dimensions.radiusLg)),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(RowRadius)),
         colors =
             ClickableSurfaceDefaults.colors(
                 containerColor = colors.surface,
@@ -319,22 +341,20 @@ private fun SettingRow(
     ) {
         Row(
             Modifier.fillMaxSize().padding(horizontal = RowPadding),
-            horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space4),
+            horizontalArrangement = Arrangement.spacedBy(RowSpacing),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(stringResource(text.title), style = NeoTheme.typography.labelLarge)
+                Text(stringResource(text.title), style = Name)
                 Text(stringResource(text.help), style = Help, color = LocalContentColor.current.copy(alpha = 0.72f))
             }
             val value = if (focused) colors.pinkDeep else colors.pink
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    stringResource(text.value(on)),
-                    style = NeoTheme.typography.label.copy(fontWeight = FontWeight.SemiBold),
-                    color = value,
-                )
-                Icon(NeoIcons.Chevron, contentDescription = null, tint = value, modifier = Modifier.size(Chevron))
-            }
+            Text(
+                stringResource(text.value(on)),
+                style = NeoTheme.typography.label.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
+                color = value,
+            )
+            Icon(NeoIcons.Chevron, contentDescription = null, tint = value, modifier = Modifier.size(Chevron))
         }
     }
 }
@@ -360,30 +380,42 @@ private fun BoxScope.ChoicesPanel(
     // Ahead of the navigation's own, so Back closes the panel and stays on Settings.
     BackHandler(enabled = active, onBack = onClose)
     Box(Modifier.fillMaxSize().background(colors.scrimPlayer.copy(alpha = SCRIM_ALPHA)))
-    Column(
-        modifier
-            .testTag(SETTINGS_PANEL_TAG)
-            .align(Alignment.CenterEnd)
-            .fillMaxHeight()
-            .width(PanelWidth)
-            .background(colors.surface)
-            .padding(start = PanelPadding, end = PanelPadding, top = PaneTop)
-            .focusProperties { onExit = { if (active) cancelFocusChange() } }
-            .focusGroup(),
-        verticalArrangement = Arrangement.spacedBy(ChoiceGap),
-    ) {
-        Text(stringResource(text.title), style = PaneTitle, color = colors.paper)
-        Text(stringResource(text.help), style = Help, color = colors.textMuted, modifier = Modifier.padding(top = 4.dp, bottom = 10.dp))
-        listOf(false, true).forEach { value ->
-            Choice(
-                stringResource(text.value(value)),
-                selected = value == on,
-                onClick = { onChoose(value) },
-                modifier =
-                    Modifier
-                        .testTag(settingChoiceTag(setting, value))
-                        .focusRequester(choices.getValue(value)),
+    Row(modifier.align(Alignment.CenterEnd).fillMaxHeight()) {
+        Box(
+            Modifier
+                .fillMaxHeight()
+                .width(PanelShadow)
+                .background(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = PANEL_SHADOW_ALPHA)))),
+        )
+        Column(
+            Modifier
+                .testTag(SETTINGS_PANEL_TAG)
+                .fillMaxHeight()
+                .width(PanelWidth)
+                .background(colors.surface)
+                .padding(horizontal = PanelPaddingX, vertical = NeoTheme.dimensions.safeY)
+                .focusProperties { onExit = { if (active) cancelFocusChange() } }
+                .focusGroup(),
+            verticalArrangement = Arrangement.spacedBy(PanelGap),
+        ) {
+            Text(stringResource(text.title), style = PaneTitle, color = colors.paper)
+            Text(
+                stringResource(text.help),
+                style = NeoTheme.typography.caption.copy(lineHeight = 19.sp),
+                color = colors.textMuted,
+                modifier = Modifier.padding(bottom = 8.dp),
             )
+            listOf(false, true).forEach { value ->
+                Choice(
+                    stringResource(text.value(value)),
+                    selected = value == on,
+                    onClick = { onChoose(value) },
+                    modifier =
+                        Modifier
+                            .testTag(settingChoiceTag(setting, value))
+                            .focusRequester(choices.getValue(value)),
+                )
+            }
         }
     }
 }
@@ -402,41 +434,39 @@ private fun Choice(
         selected = selected,
         onClick = onClick,
         modifier = modifier.fillMaxWidth().height(ChoiceHeight).onFocusChanged { focused = it.isFocused },
-        shape = SelectableSurfaceDefaults.shape(RoundedCornerShape(NeoTheme.dimensions.radiusLg)),
+        shape = SelectableSurfaceDefaults.shape(RoundedCornerShape(RowRadius)),
         colors =
             SelectableSurfaceDefaults.colors(
-                containerColor = Color.Transparent,
+                containerColor = colors.surfaceRaised,
                 contentColor = colors.paper,
-                selectedContainerColor = Color.Transparent,
+                selectedContainerColor = colors.surfaceRaised,
                 selectedContentColor = colors.paper,
                 focusedContainerColor = colors.focus,
                 focusedContentColor = colors.onFocus,
                 focusedSelectedContainerColor = colors.focus,
                 focusedSelectedContentColor = colors.onFocus,
             ),
-        scale = SelectableSurfaceDefaults.scale(focusedScale = ROW_FOCUS_SCALE),
+        scale = SelectableSurfaceDefaults.scale(focusedScale = 1f),
         glow = SelectableSurfaceDefaults.glow(focusedGlow = Glow(FocusGlowColor, NeoTheme.dimensions.glowFocus)),
     ) {
         Row(
             Modifier.fillMaxSize().padding(horizontal = ChoicePadding),
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            horizontalArrangement = Arrangement.spacedBy(RowSpacing),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            // The current value is a thick ring, ink when focused and pink otherwise; the others a thin one.
             val ring =
                 when {
-                    selected && focused -> colors.pinkDeep
+                    selected && focused -> colors.onFocus
                     selected -> colors.pink
                     focused -> colors.onFocusMuted
-                    else -> colors.textFaint
+                    else -> colors.outline
                 }
             Canvas(Modifier.size(Radio)) {
-                drawCircle(ring, radius = 8.dp.toPx(), style = Stroke(2.dp.toPx()))
-                if (selected) drawCircle(ring, radius = 4.5.dp.toPx())
+                val width = (if (selected) 5.dp else 2.dp).toPx()
+                drawCircle(ring, radius = (size.minDimension - width) / 2, style = Stroke(width))
             }
-            Text(
-                label,
-                style = NeoTheme.typography.bodyLarge.copy(fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium),
-            )
+            Text(label, style = Name)
         }
     }
 }

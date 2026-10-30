@@ -3,10 +3,14 @@ package ani.saikou.neo.tv.settings
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
+import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
+import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -14,6 +18,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.unit.dp
 import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -76,6 +81,36 @@ class SettingsScreenTest {
         category(SettingsCategory.BROWSING).assertIsFocused().assertIsSelected()
         category(SettingsCategory.DISPLAY).assertIsNotSelected()
         panel().assertDoesNotExist()
+    }
+
+    // From the design, less the rail: the title on the safe area, categories under it and the settings beside them.
+    @Test
+    fun laysOutTitleCategoriesAndSettingsAsDesigned() {
+        show()
+
+        compose.onNodeWithText("Settings").assertLeftPositionInRootIsEqualTo(58.dp).assertTopPositionInRootIsEqualTo(27.dp)
+        category(SettingsCategory.BROWSING)
+            .assertLeftPositionInRootIsEqualTo(58.dp)
+            .assertTopPositionInRootIsEqualTo(80.dp)
+            .assertWidthIsEqualTo(220.dp)
+            .assertHeightIsEqualTo(44.dp)
+        category(SettingsCategory.DISPLAY).assertTopPositionInRootIsEqualTo(128.dp)
+        setting(Setting.UNAIRED_ANIME)
+            .assertLeftPositionInRootIsEqualTo(306.dp)
+            .assertTopPositionInRootIsEqualTo(114.dp)
+            .assertWidthIsEqualTo(606.dp)
+            .assertHeightIsEqualTo(62.dp)
+        setting(Setting.UPCOMING_EPISODES).assertTopPositionInRootIsEqualTo(184.dp)
+    }
+
+    @Test
+    fun thePanelTakesTheRightOfTheScreen() {
+        show()
+
+        openFirstSetting()
+
+        panel().assertLeftPositionInRootIsEqualTo(600.dp).assertWidthIsEqualTo(360.dp)
+        choice(Setting.UNAIRED_ANIME, on = false).assertLeftPositionInRootIsEqualTo(624.dp).assertHeightIsEqualTo(64.dp)
     }
 
     @Test
