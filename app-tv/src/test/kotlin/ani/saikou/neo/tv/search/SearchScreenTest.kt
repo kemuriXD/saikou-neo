@@ -3,6 +3,7 @@ package ani.saikou.neo.tv.search
 import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
@@ -67,8 +68,13 @@ class SearchScreenTest {
     fun theKeyboardSitsLeftOfTheResults() {
         show(found)
 
-        compose.onNodeWithText("Search anime").assertLeftPositionInRootIsEqualTo(64.dp).assertTopPositionInRootIsEqualTo(27.dp)
-        compose.onNodeWithTag(keyTag('a')).assertLeftPositionInRootIsEqualTo(64.dp).assertTopPositionInRootIsEqualTo(115.dp)
+        // "Search anime" is a heading like the results', so the field lines up with the first row of results.
+        compose
+            .onNodeWithText("Search anime")
+            .assertLeftPositionInRootIsEqualTo(64.dp)
+            .assertTopPositionInRootIsEqualTo(27.dp)
+            .assertHeightIsEqualTo(28.dp)
+        compose.onNodeWithTag(keyTag('a')).assertLeftPositionInRootIsEqualTo(64.dp).assertTopPositionInRootIsEqualTo(127.dp)
         compose.onNodeWithText("Results for “fri”").assertLeftPositionInRootIsEqualTo(336.dp).assertTopPositionInRootIsEqualTo(27.dp)
         compose.onNodeWithTag(posterTag(0)).assertLeftPositionInRootIsEqualTo(336.dp).assertTopPositionInRootIsEqualTo(69.dp)
         // Four posters a row, 20 dp apart.
@@ -111,7 +117,9 @@ class SearchScreenTest {
         show()
 
         compose.onNodeWithText("Slice of Life").assertExists()
+        // The top keys sit level with the second row of tiles.
         press(Key.DirectionRight, times = 6)
+        press(Key.DirectionUp)
         press(Key.DirectionCenter)
 
         assertEquals(listOf(SearchGenre.ACTION), genres)
@@ -124,6 +132,20 @@ class SearchScreenTest {
         compose.onNodeWithText("Nothing called “sakamota dyas”").assertTopPositionInRootIsEqualTo(27.dp)
         compose.onNodeWithText("Or try a genre").assertExists()
         compose.onNodeWithText("Comedy").assertExists()
+    }
+
+    @Test
+    fun noResultsSuggestsTheShowYouMeant() {
+        show(SearchState("sakamota dyas", SearchResults.Found("sakamota dyas", emptyList(), suggestion = card(7))))
+
+        compose.onNodeWithText("Did you mean").assertExists()
+        // Under the heading and the hint, each the design's height, 14 dp apart.
+        compose.onNodeWithTag(SUGGESTION_TAG).assertTopPositionInRootIsEqualTo(105.dp)
+        press(Key.DirectionRight, times = 6)
+        compose.onNodeWithTag(SUGGESTION_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(7), opened)
     }
 
     @Test

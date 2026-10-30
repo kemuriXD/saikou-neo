@@ -25,6 +25,7 @@ import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.FanartTvClient
+import ani.saikou.neo.shared.catalogue.KitsuClient
 import ani.saikou.neo.shared.catalogue.MalClient
 import ani.saikou.neo.shared.catalogue.OmdbClient
 import ani.saikou.neo.shared.catalogue.TmdbClient
@@ -158,7 +159,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         search = { openDetails, openGenre ->
-                            val search = viewModel { SearchViewModel(client) }
+                            val search = viewModel { SearchViewModel(client, KitsuClient()) }
                             val state by search.state.collectAsStateWithLifecycle()
                             SearchScreen(
                                 state,

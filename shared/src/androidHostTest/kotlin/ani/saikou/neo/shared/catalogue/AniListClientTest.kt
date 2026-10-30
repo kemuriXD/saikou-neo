@@ -77,6 +77,25 @@ class AniListClientTest {
             assertTrue("\"genre\":\"Slice of Life\"" in body)
         }
 
+    @Test
+    fun cardAsksForOneShowAndLeavesOutAnimeNotYetReleased() =
+        runTest {
+            val engine = RecordedEngine("search")
+
+            val card = clientFor(engine).card(154587)
+
+            assertEquals(154587, card?.id)
+            val body = engine.requestBodies.single()
+            assertTrue("\"id\":154587" in body)
+            assertTrue("\"statusNot\":\"NOT_YET_RELEASED\"" in body)
+        }
+
+    @Test
+    fun cardOfAShowAniListLeavesOutIsNull() =
+        runTest {
+            assertEquals(null, clientFor(RecordedEngine("search-none")).card(1))
+        }
+
     // A show is left out until its first episode is out, and a film until it's released.
     @Test
     fun rowsAndSearchLeaveOutAnimeNotYetReleased() =

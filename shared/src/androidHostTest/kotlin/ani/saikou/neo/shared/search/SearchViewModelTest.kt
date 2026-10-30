@@ -1,8 +1,10 @@
 package ani.saikou.neo.shared.search
 
+import ani.saikou.neo.shared.catalogue.KitsuClient
 import ani.saikou.neo.shared.catalogue.OfflineEngine
 import ani.saikou.neo.shared.catalogue.QueryEngine
 import ani.saikou.neo.shared.catalogue.RecordedEngine
+import ani.saikou.neo.shared.catalogue.SiteEngine
 import ani.saikou.neo.shared.catalogue.clientFor
 import com.apollographql.apollo.network.http.HttpEngine
 import kotlinx.coroutines.Dispatchers
@@ -31,7 +33,13 @@ class SearchViewModelTest {
     @AfterTest
     fun resetMain() = Dispatchers.resetMain()
 
-    private fun search(engine: HttpEngine = RecordedEngine("search")) = SearchViewModel(clientFor(engine, main))
+    private fun search(
+        engine: HttpEngine = RecordedEngine("search"),
+        kitsu: String = "none",
+    ) = SearchViewModel(clientFor(engine, main), KitsuClient(SiteEngine("kitsu") { kitsu }, main))
+
+    // AniList finds nothing for the text, then has the card for the id Kitsu suggests.
+    private fun typoEngine() = QueryEngine("search-none", mapOf("\"operationName\":\"AnimeCard\"" to "search"))
 
     private fun SearchViewModel.typeEach(text: String) = text.forEach { type(it) }
 
@@ -115,6 +123,32 @@ class SearchViewModelTest {
             advanceUntilIdle()
 
             assertEquals("sakamota dyas", assertIs<SearchResults.Found>(viewModel.state.value.results).query)
+        }
+
+    @Test
+    fun findingNothingSuggestsTheShowKitsuThinksYouMeant() =
+        runTest(main) {
+            val engine = typoEngine()
+            val viewModel = search(engine, kitsu = "sakamota-dyas")
+
+            viewModel.typeEach("sakamota dyas")
+            advanceUntilIdle()
+
+            val found = assertIs<SearchResults.Found>(viewModel.state.value.results)
+            assertTrue(found.items.isEmpty())
+            assertEquals(154587, found.suggestion?.id)
+            assertTrue("\"id\":177709" in engine.requestBodies.last())
+        }
+
+    @Test
+    fun withNothingFromKitsuThereIsNoSuggestion() =
+        runTest(main) {
+            val viewModel = search(typoEngine(), kitsu = "none")
+
+            viewModel.typeEach("zzzzqqq")
+            advanceUntilIdle()
+
+            assertEquals(null, assertIs<SearchResults.Found>(viewModel.state.value.results).suggestion)
         }
 
     @Test

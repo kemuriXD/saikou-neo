@@ -1,0 +1,154 @@
+{
+    "data": [
+        {
+            "id": "1555",
+            "type": "anime",
+            "links": {
+                "self": "https://kitsu.app/api/edge/anime/1555"
+            },
+            "attributes": {
+                "canonicalTitle": "Naruto: Shippuuden"
+            },
+            "relationships": {
+                "mappings": {
+                    "links": {
+                        "self": "https://kitsu.app/api/edge/anime/1555/relationships/mappings",
+                        "related": "https://kitsu.app/api/edge/anime/1555/mappings"
+                    },
+                    "data": [
+                        {
+                            "type": "mappings",
+                            "id": "2342"
+                        },
+                        {
+                            "type": "mappings",
+                            "id": "13071"
+                        },
+                        {
+                            "type": "mappings",
+                            "id": "58138"
+                        },
+                        {
+                            "type": "mappings",
+                            "id": "65897"
+                        },
+                        {
+                            "type": "mappings",
+                            "id": "66731"
+                        },
+                        {
+                            "type": "mappings",
+                            "id": "72163"
+                        },
+                        {
+                            "type": "mappings",
+                            "id": "72164"
+                        },
+                        {
+                            "type": "mappings",
+                            "id": "254630"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "included": [
+        {
+            "id": "2342",
+            "type": "mappings",
+            "links": {
+                "self": "https://kitsu.app/api/edge/mappings/2342"
+            },
+            "attributes": {
+                "externalSite": "myanimelist/anime",
+                "externalId": "1735"
+            }
+        },
+        {
+            "id": "13071",
+            "type": "mappings",
+            "links": {
+                "self": "https://kitsu.app/api/edge/mappings/13071"
+            },
+            "attributes": {
+                "externalSite": "thetvdb/series",
+                "externalId": "79824"
+            }
+        },
+        {
+            "id": "58138",
+            "type": "mappings",
+            "links": {
+                "self": "https://kitsu.app/api/edge/mappings/58138"
+            },
+            "attributes": {
+                "externalSite": "anidb",
+                "externalId": "4880"
+            }
+        },
+        {
+            "id": "65897",
+            "type": "mappings",
+            "links": {
+                "self": "https://kitsu.app/api/edge/mappings/65897"
+            },
+            "attributes": {
+                "externalSite": "thetvdb",
+                "externalId": "79824/1"
+            }
+        },
+        {
+            "id": "66731",
+            "type": "mappings",
+            "links": {
+                "self": "https://kitsu.app/api/edge/mappings/66731"
+            },
+            "attributes": {
+                "externalSite": "hulu",
+                "externalId": "10960"
+            }
+        },
+        {
+            "id": "72163",
+            "type": "mappings",
+            "links": {
+                "self": "https://kitsu.app/api/edge/mappings/72163"
+            },
+            "attributes": {
+                "externalSite": "aozora",
+                "externalId": "9cehSXuuGQ"
+            }
+        },
+        {
+            "id": "72164",
+            "type": "mappings",
+            "links": {
+                "self": "https://kitsu.app/api/edge/mappings/72164"
+            },
+            "attributes": {
+                "externalSite": "trakt",
+                "externalId": "31770"
+            }
+        },
+        {
+            "id": "254630",
+            "type": "mappings",
+            "links": {
+                "self": "https://kitsu.app/api/edge/mappings/254630"
+            },
+            "attributes": {
+                "externalSite": "anilist/anime",
+                "externalId": "1735"
+            }
+        }
+    ],
+    "meta": {
+        "count": 37
+    },
+    "links": {
+        "first": "https://kitsu.app/api/edge/anime?fields%5Banime%5D=canonicalTitle%2Cmappings&fields%5Bmappings%5D=externalSite%2CexternalId&filter%5Btext%5D=naurto&include=mappings&page%5Blimit%5D=1&page%5Boffset%5D=0",
+        "next": "https://kitsu.app/api/edge/anime?fields%5Banime%5D=canonicalTitle%2Cmappings&fields%5Bmappings%5D=externalSite%2CexternalId&filter%5Btext%5D=naurto&include=mappings&page%5Blimit%5D=1&page%5Boffset%5D=1",
+        "last": "https://kitsu.app/api/edge/anime?fields%5Banime%5D=canonicalTitle%2Cmappings&fields%5Bmappings%5D=externalSite%2CexternalId&filter%5Btext%5D=naurto&include=mappings&page%5Blimit%5D=1&page%5Boffset%5D=36"
+    }
+}

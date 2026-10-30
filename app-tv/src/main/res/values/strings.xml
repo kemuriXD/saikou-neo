@@ -161,6 +161,7 @@
     <string name="search_nothing">Nothing called “%1$s”</string>
     <string name="search_nothing_hint">Check the spelling, or try the English or Japanese title.</string>
     <string name="search_genres_instead">Or try a genre</string>
+    <string name="search_did_you_mean">Did you mean</string>
     <string name="search_failed">Couldn’t search</string>
     <string name="genre_action">Action</string>
     <string name="genre_comedy">Comedy</string>

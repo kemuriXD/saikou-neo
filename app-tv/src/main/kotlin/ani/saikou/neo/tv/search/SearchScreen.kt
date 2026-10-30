@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -28,6 +29,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -37,10 +39,12 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -48,15 +52,21 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.search.SearchGenre
 import ani.saikou.neo.shared.search.SearchResults
 import ani.saikou.neo.shared.search.SearchState
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.PosterCard
 import ani.saikou.neo.tv.home.Skeleton
+import ani.saikou.neo.tv.home.displayTitle
+import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.home.posterTag
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoButton
+import coil3.compose.AsyncImage
+
+internal const val SUGGESTION_TAG = "suggestion"
 
 internal fun keyTag(key: Char) = "key-$key"
 
@@ -78,6 +88,13 @@ private val PosterRowGap = 18.dp
 private val TileHeight = 64.dp
 private val TileGap = 12.dp
 private val TilePadding = 14.dp
+
+// From the design: a 44 by 66 dp poster beside three lines, on a card that grows a little on focus.
+private val SuggestionWidth = 44.dp
+private val SuggestionHeight = 66.dp
+private val SuggestionGap = 14.dp
+private val SuggestionGlow = 20.dp
+private const val SUGGESTION_SCALE = 1.02f
 private val AfterHint = 10.dp
 private const val KEY_COLUMNS = 6
 private const val POSTER_COLUMNS = 4
@@ -144,7 +161,10 @@ fun SearchScreen(
     // Not saved: after recreation, focus has to be placed again.
     var hasFocus by remember { mutableStateOf(false) }
     val results = state.results
-    val returnTo = focusedId.takeIf { id -> !hasFocus && results is SearchResults.Found && results.items.any { it.id == id } }
+    val returnTo =
+        focusedId.takeIf { id ->
+            !hasFocus && results is SearchResults.Found && (results.items.any { it.id == id } || results.suggestion?.id == id)
+        }
     val genres =
         when {
             results == SearchResults.Idle -> SearchGenre.entries
@@ -179,6 +199,12 @@ fun SearchScreen(
                     results is SearchResults.Found && results.items.isEmpty() -> {
                         Heading(stringResource(R.string.search_nothing, results.query))
                         Text(stringResource(R.string.search_nothing_hint), style = Hint, color = colors.paper.copy(alpha = 0.8f))
+                        results.suggestion?.let { suggestion ->
+                            Suggestion(suggestion, focus = suggestion.id == returnTo, onOpen) {
+                                focusedId = suggestion.id
+                                focusedGenre = null
+                            }
+                        }
                         Text(
                             stringResource(R.string.search_genres_instead),
                             Modifier.padding(top = AfterHint),
@@ -252,7 +278,7 @@ private fun Keyboard(
     val first = remember { FocusRequester() }
     if (focusFirst) LaunchedEffect(Unit) { first.requestFocus() }
     Column(Modifier.width(KeyboardWidth), verticalArrangement = Arrangement.spacedBy(BlockGap)) {
-        Text(stringResource(R.string.search_label), style = Label, color = colors.textFaint)
+        Heading(stringResource(R.string.search_label))
         Box(
             Modifier
                 .fillMaxWidth()
@@ -311,6 +337,86 @@ private fun Key(
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text(label, style = NeoTheme.typography.label.copy(fontSize = if (small) 13.sp else 15.sp, lineHeightStyle = TightLine))
+        }
+    }
+}
+
+/** The show a search that found nothing probably meant. */
+@Composable
+private fun Suggestion(
+    card: AnimeCard,
+    focus: Boolean,
+    onOpen: (animeId: Int) -> Unit,
+    onFocus: () -> Unit,
+) {
+    val colors = NeoTheme.colors
+    val dimensions = NeoTheme.dimensions
+    var focused by remember { mutableStateOf(false) }
+    val requester = remember { FocusRequester() }
+    if (focus) LaunchedEffect(Unit) { requester.requestFocus() }
+    val shape = RoundedCornerShape(14.dp)
+    Surface(
+        onClick = { onOpen(card.id) },
+        modifier =
+            Modifier
+                .testTag(SUGGESTION_TAG)
+                .focusRequester(requester)
+                .onFocusChanged {
+                    focused = it.isFocused
+                    if (it.isFocused) onFocus()
+                },
+        shape = ClickableSurfaceDefaults.shape(shape),
+        colors =
+            ClickableSurfaceDefaults.colors(
+                containerColor = colors.surface,
+                contentColor = colors.paper,
+                focusedContainerColor = colors.focus,
+                focusedContentColor = colors.onFocus,
+                pressedContainerColor = colors.focus,
+                pressedContentColor = colors.onFocus,
+            ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = SUGGESTION_SCALE),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(GlowColor, SuggestionGlow)),
+    ) {
+        Row(
+            Modifier.padding(start = 10.dp, top = 10.dp, end = 16.dp, bottom = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(SuggestionGap),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            AsyncImage(
+                model = card.coverImageUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier =
+                    Modifier
+                        .size(SuggestionWidth, SuggestionHeight)
+                        .background(colors.surfaceRaised, RoundedCornerShape(dimensions.radiusSm))
+                        .clip(RoundedCornerShape(dimensions.radiusSm)),
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    stringResource(R.string.search_did_you_mean),
+                    style = Label.copy(fontWeight = FontWeight.Bold),
+                    color = if (focused) colors.pinkDeep else colors.pink,
+                )
+                Text(
+                    card.displayTitle(),
+                    style =
+                        NeoTheme.typography.label.copy(
+                            fontSize = 16.sp,
+                            lineHeight = 22.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeightStyle = FullLine,
+                        ),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    listOfNotNull(card.formatName(), card.seasonYear?.toString()).joinToString(" · "),
+                    style = Label.copy(fontWeight = FontWeight.Normal),
+                    color = if (focused) colors.onFocusMuted else colors.textMuted,
+                )
+            }
         }
     }
 }
@@ -407,4 +513,4 @@ private val Label
         )
 
 private val Hint
-    @Composable get() = NeoTheme.typography.body.copy(lineHeight = 22.sp)
+    @Composable get() = NeoTheme.typography.body.copy(lineHeight = 22.sp, lineHeightStyle = FullLine)

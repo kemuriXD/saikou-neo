@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AnimeCard
+import ani.saikou.neo.shared.catalogue.KitsuClient
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,10 +33,14 @@ public sealed interface SearchResults {
     /** The first search for what's typed is on its way. */
     public data object Loading : SearchResults
 
-    /** What AniList found for [query]. Nothing only when nothing was found before it. */
+    /**
+     * What AniList found for [query]. Nothing only when nothing was found before it, and then perhaps a [suggestion] of
+     * the show the query meant.
+     */
     public data class Found(
         val query: String,
         val items: List<AnimeCard>,
+        val suggestion: AnimeCard? = null,
     ) : SearchResults
 
     public data object Failed : SearchResults
@@ -51,9 +56,13 @@ public data class SearchState(
 private const val PAUSE_MILLIS = 300L
 private const val RESULTS = 24
 
-/** Search as you type: AniList is asked once typing pauses. */
+/**
+ * Search as you type: AniList is asked once typing pauses. When it finds nothing, [kitsu], which forgives typos, says
+ * which show was meant.
+ */
 public class SearchViewModel(
     private val client: AniListClient,
+    private val kitsu: KitsuClient,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SearchState())
     public val state: StateFlow<SearchState> = mutableState.asStateFlow()
@@ -98,14 +107,15 @@ public class SearchViewModel(
                 if (pause) delay(PAUSE_MILLIS)
                 val text = query.trim()
                 val result = client.search(text, perPage = RESULTS)
-                val results = if (result is AniListResult.Success) SearchResults.Found(text, result.value.items) else SearchResults.Failed
-                mutableState.update { state ->
-                    // AniList only matches whole words, so a word half typed finds nothing. What it found before stays.
-                    val keep =
-                        results is SearchResults.Found && results.items.isEmpty() &&
-                            (state.results as? SearchResults.Found)?.items?.isNotEmpty() == true
-                    if (keep) state else state.copy(results = results)
+                if (result !is AniListResult.Success) {
+                    mutableState.update { it.copy(results = SearchResults.Failed) }
+                    return@launch
                 }
+                val items = result.value.items
+                // AniList only matches whole words, so a word half typed finds nothing. What it found before stays.
+                if (items.isEmpty() && (state.value.results as? SearchResults.Found)?.items?.isNotEmpty() == true) return@launch
+                val suggestion = if (items.isEmpty()) kitsu.aniListId(text)?.let { client.card(it) } else null
+                mutableState.update { it.copy(results = SearchResults.Found(text, items, suggestion)) }
             }
     }
 }

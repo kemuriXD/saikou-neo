@@ -43,6 +43,14 @@ query SearchAnime($page: Int!, $perPage: Int!, $search: String!, $statusNot: Med
   }
 }
 
+query AnimeCard($id: Int!, $statusNot: MediaStatus) {
+  Page(perPage: 1) {
+    media(id: $id, type: ANIME, isAdult: false, status_not: $statusNot) {
+      ...AnimeCardFields
+    }
+  }
+}
+
 query AnimeDetails($id: Int!) {
   Media(id: $id, type: ANIME) {
     ...AnimeCardFields
