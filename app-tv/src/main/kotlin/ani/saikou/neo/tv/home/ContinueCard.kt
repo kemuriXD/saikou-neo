@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.Composable
@@ -21,8 +20,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.hideFromAccessibility
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,8 +33,6 @@ import ani.saikou.neo.tv.ui.placeholder
 import ani.saikou.neo.tv.ui.rememberPulse
 import coil3.compose.AsyncImage
 
-// From the design: a faint episode number runs off the card's bottom right, behind the title.
-private const val EPISODE_ALPHA = 0.28f
 private const val TRACK_ALPHA = 0.2f
 private val ProgressHeight = 4.dp
 private val ProgressBottom = 10.dp
@@ -45,7 +40,7 @@ private val ProgressBottom = 10.dp
 // The title and time left sit 8 dp above the progress line.
 private val TextBottom = ProgressBottom + ProgressHeight + 8.dp
 
-/** A show to carry on with: the episode's still and number, the title, the time left and how far in it is. */
+/** A show to carry on with: the episode's still, the title, the episode and time left, and how far in it is. */
 @Composable
 internal fun ContinueCard(
     card: AnimeCard,
@@ -65,12 +60,6 @@ internal fun ContinueCard(
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
-            )
-            Text(
-                text = progress.episode.toString().padStart(2, '0'),
-                style = NeoTheme.typography.display.copy(fontSize = 88.sp, lineHeight = 88.sp, letterSpacing = (-4).sp),
-                color = colors.paper.copy(alpha = EPISODE_ALPHA),
-                modifier = Modifier.align(Alignment.BottomEnd).offset(x = 6.dp, y = 22.dp).semantics { hideFromAccessibility() },
             )
             Box(
                 Modifier.fillMaxSize().background(

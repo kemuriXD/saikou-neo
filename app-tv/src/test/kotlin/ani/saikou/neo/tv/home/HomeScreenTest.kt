@@ -650,8 +650,8 @@ class HomeScreenTest {
         compose.onNodeWithText("Continue watching").assertExists()
         compose.onNodeWithText("Show 900").assertExists()
         compose.onNodeWithText("E7 · 14 min left").assertExists()
-        // The large number behind the title is only decoration.
-        compose.onNodeWithText("07", useUnmergedTree = true).assert(hidden)
+        // The board's large episode number was a stand-in, so the card leaves it out.
+        compose.onNodeWithText("07", useUnmergedTree = true).assertDoesNotExist()
     }
 
     @Test
