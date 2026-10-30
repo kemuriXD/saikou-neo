@@ -22,6 +22,15 @@
     <!-- The spotlight at the top of Home. -->
     <string name="home_play">Play</string>
     <string name="home_add_to_list">Add to list</string>
+    <!-- The main button for a show already started, such as "Resume E7". -->
+    <string name="home_resume">Resume E%1$d</string>
+    <!-- Above the spotlight's title, saying why the show is featured. -->
+    <string name="home_reason_episode_today">New episode today</string>
+    <string name="home_reason_episode_tomorrow">New episode tomorrow</string>
+    <!-- Such as "New episode Saturday". -->
+    <string name="home_reason_episode_day">New episode %1$s</string>
+    <string name="home_reason_highest_rated">#%1$d highest rated</string>
+    <string name="home_reason_trending">#%1$d trending</string>
     <string name="home_details">Details</string>
     <!-- AniList's average score out of 10, such as "★ 8.4". -->
     <string name="home_rating">★ %1$d.%2$d</string>

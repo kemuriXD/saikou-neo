@@ -18,11 +18,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -34,6 +37,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -43,10 +48,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
+import ani.saikou.neo.shared.home.FeaturedReason
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.Spotlight
+import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.LogoHeight
@@ -57,6 +65,11 @@ import ani.saikou.neo.tv.ui.NeoIconButton
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.ShowTitle
 import ani.saikou.neo.tv.ui.outerGlow
+import java.time.Instant
+import java.time.ZonedDateTime
+import java.time.format.TextStyle
+import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 internal const val SPOTLIGHT_TAG = "spotlight"
 internal const val SPOTLIGHT_TITLE_TAG = "spotlight-title"
@@ -65,6 +78,7 @@ internal const val SPOTLIGHT_META_TAG = "spotlight-meta"
 internal const val SPOTLIGHT_PLAY_TAG = "spotlight-play"
 internal const val SPOTLIGHT_DOTS_TAG = "spotlight-dots"
 internal const val SPOTLIGHT_SYNOPSIS_TAG = "spotlight-synopsis"
+internal const val SPOTLIGHT_REASON_TAG = "spotlight-reason"
 
 // From the design: dots are 6 dp, the current one 18 dp wide.
 
@@ -78,6 +92,8 @@ private const val OTHER_DOT_ALPHA = 0.45f
 private const val SYNOPSIS_ALPHA = 0.78f
 
 private const val SYNOPSIS_LINES = 2
+private val SynopsisWidth = 360.dp
+private val ReasonTracking = 1.2.sp
 private val PlaceholderBars = listOf(150.dp to 14.dp, 400.dp to 64.dp, 260.dp to 18.dp, 420.dp to 16.dp, 340.dp to 16.dp)
 private val PlaceholderDots = listOf(CurrentDot, Dot, Dot, Dot)
 
@@ -91,11 +107,13 @@ private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHei
 /**
  * The featured show's title, details and actions. The text sits on the buttons and fades from one show to the next,
  * while the buttons stay put, so focus never moves under the viewer. Down from any button goes to the dots.
- * Until [spotlight] arrives, still bars hold the text's place and Play waits for the show.
+ * Until [spotlight] arrives, still bars hold the text's place and Play waits for the show. With [progress] on the
+ * show, Play offers to resume it.
  */
 @Composable
 internal fun SpotlightShow(
     spotlight: Spotlight?,
+    progress: Map<Int, WatchProgress>,
     play: FocusRequester,
     dots: FocusRequester,
     onOpen: (animeId: Int) -> Unit,
@@ -125,6 +143,14 @@ internal fun SpotlightShow(
                 return@AnimatedContent
             }
             Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.Bottom)) {
+                spotlight.reasons[shown.id]?.let { reason ->
+                    Text(
+                        text = reason.text().uppercase(),
+                        style = NeoTheme.typography.overline.copy(fontWeight = FontWeight.Bold, letterSpacing = ReasonTracking),
+                        color = NeoTheme.colors.pink,
+                        modifier = Modifier.testTag(SPOTLIGHT_REASON_TAG),
+                    )
+                }
                 SpotlightTitle(shown.displayTitle(), spotlight.logo(shown.id))
                 Text(
                     text = listOfNotNull(shown.rating(), shown.meta()).joinToString(" · "),
@@ -135,23 +161,31 @@ internal fun SpotlightShow(
                 spotlight.synopses[shown.id]?.let { story ->
                     Text(
                         text = story,
-                        style = NeoTheme.typography.bodyLarge.copy(lineHeightStyle = FullLine),
+                        style = NeoTheme.typography.body.copy(lineHeightStyle = FullLine),
                         color = NeoTheme.colors.paper.copy(alpha = SYNOPSIS_ALPHA),
                         maxLines = SYNOPSIS_LINES,
                         overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.testTag(SPOTLIGHT_SYNOPSIS_TAG),
+                        modifier = Modifier.testTag(SPOTLIGHT_SYNOPSIS_TAG).widthIn(max = SynopsisWidth),
                     )
                 }
             }
         }
         // Play opens Details until there's a player.
         NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
-            NeoButton(
-                text = stringResource(R.string.home_play),
-                onClick = { show?.let { onOpen(it.id) } },
-                icon = NeoIcons.Play,
-                modifier = toDots.focusRequester(play).testTag(SPOTLIGHT_PLAY_TAG),
-            )
+            // Focus grows it from its middle, so room for that keeps the gap to the next button.
+            val density = LocalDensity.current
+            val grows = dimensions.focusScaleButton - 1
+            var width by remember { mutableIntStateOf(0) }
+            Box(Modifier.padding(end = with(density) { (width * grows / 2).toDp() })) {
+                NeoButton(
+                    text =
+                        show?.let { progress[it.id] }?.let { stringResource(R.string.home_resume, it.episode) }
+                            ?: stringResource(R.string.home_play),
+                    onClick = { show?.let { onOpen(it.id) } },
+                    icon = NeoIcons.Play,
+                    modifier = toDots.onSizeChanged { width = it.width }.focusRequester(play).testTag(SPOTLIGHT_PLAY_TAG),
+                )
+            }
             if (show != null) {
                 // Lists arrive with AniList sign-in, so this does nothing yet.
                 NeoIconButton(NeoIcons.Add, stringResource(R.string.home_add_to_list), onClick = {}, modifier = toDots)
@@ -166,6 +200,43 @@ internal fun SpotlightShow(
         }
     }
 }
+
+/** What the line above the title says, such as "New episode Saturday" or "#2 trending". */
+@Composable
+private fun FeaturedReason.text(): String =
+    when (this) {
+        is FeaturedReason.NewEpisode -> {
+            val now = ZonedDateTime.now()
+            when (daysUntil(airingAtEpochSeconds, now)) {
+                0L -> {
+                    stringResource(R.string.home_reason_episode_today)
+                }
+
+                1L -> {
+                    stringResource(R.string.home_reason_episode_tomorrow)
+                }
+
+                else -> {
+                    val day = Instant.ofEpochSecond(airingAtEpochSeconds).atZone(now.zone).dayOfWeek
+                    stringResource(R.string.home_reason_episode_day, day.getDisplayName(TextStyle.FULL, Locale.getDefault()))
+                }
+            }
+        }
+
+        is FeaturedReason.HighestRated -> {
+            stringResource(R.string.home_reason_highest_rated, rank)
+        }
+
+        is FeaturedReason.Trending -> {
+            stringResource(R.string.home_reason_trending, rank)
+        }
+    }
+
+/** How many days after [now]'s date, in its zone, an episode out at [airingAtEpochSeconds] airs. */
+internal fun daysUntil(
+    airingAtEpochSeconds: Long,
+    now: ZonedDateTime,
+): Long = ChronoUnit.DAYS.between(now.toLocalDate(), Instant.ofEpochSecond(airingAtEpochSeconds).atZone(now.zone).toLocalDate())
 
 /** AniList's average score out of 10, such as "★ 8.4", or null without one. */
 @Composable

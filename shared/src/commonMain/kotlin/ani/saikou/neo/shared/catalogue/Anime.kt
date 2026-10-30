@@ -30,6 +30,15 @@ public data class AnimeCard(
 /** The banner, or the cover where there's none. */
 public val AnimeCard.art: String? get() = bannerImageUrl ?: coverImageUrl
 
+/** What Home's spotlight shows of an anime beyond its card. */
+public data class SpotlightFacts(
+    /** AniList's synopsis. See [ani.saikou.neo.shared.details.parseSynopsis]. */
+    val description: String?,
+    val nextEpisode: NextEpisode?,
+    /** Its place among AniList's highest rated anime of all time. */
+    val ratedRank: Int?,
+)
+
 /** One page of results, and whether another page follows. */
 public data class AnimePage(
     val items: List<AnimeCard>,

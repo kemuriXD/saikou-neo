@@ -223,7 +223,7 @@ fun HomeScreen(
                 Modifier
                     .padding(start = ContentStart, top = SpotlightTop)
                     .size(SpotlightWidth, SpotlightBottom - SpotlightTop)
-            SpotlightShow(spotlight, play, dots, onOpen, place.then(hide))
+            SpotlightShow(spotlight, state.progress, play, dots, onOpen, place.then(hide))
             // Centred beside the rail, as in the design.
             val dotsPlace = Modifier.align(Alignment.TopCenter).padding(start = RailWidth, top = DotsTop)
             if (spotlight == null) {

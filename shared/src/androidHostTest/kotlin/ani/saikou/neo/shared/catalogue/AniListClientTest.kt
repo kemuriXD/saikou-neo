@@ -112,14 +112,19 @@ class AniListClientTest {
         }
 
     @Test
-    fun synopsesAskForTheIdsAndMapEachDescription() =
+    fun spotlightFactsAskForTheIdsAndMapEachShow() =
         runTest {
             val engine = RecordedEngine("synopses")
 
-            val synopses = clientFor(engine).synopses(listOf(195516, 195539)).success()
+            val facts = clientFor(engine).spotlightFacts(listOf(195516, 195539)).success()
 
-            assertEquals(setOf(195516, 195539), synopses.keys)
-            assertTrue(synopses.getValue(195516)!!.startsWith("In the aftermath of the Shi Clan"))
+            assertEquals(setOf(195516, 195539), facts.keys)
+            val first = facts.getValue(195516)
+            assertTrue(first.description!!.startsWith("In the aftermath of the Shi Clan"))
+            assertEquals(NextEpisode(5, 1793368800), first.nextEpisode)
+            // Its all-time rank, not this season's.
+            assertEquals(79, first.ratedRank)
+            assertEquals(null, facts.getValue(195539).nextEpisode)
             assertTrue("\"ids\":[195516,195539]" in engine.requestBodies.single())
         }
 
