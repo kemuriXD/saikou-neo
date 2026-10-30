@@ -63,8 +63,9 @@ private const val COLUMNS = 6
 // More loads once focus is within two rows of the end.
 private const val LOAD_AHEAD = COLUMNS * 2
 
-// From the design, less the rail: the heading sits on the safe area, its last line ending 79 dp down, and the focused
-// row rests at 96 dp, under it. Posters are 108 dp wide with 24 dp between them, so the six run 768 dp from the margin.
+// From the design: the heading sits on the safe area, its last line ending 79 dp down, and the focused row rests at
+// 96 dp, under it. Posters are 108 dp wide with 24 dp between them, so the six take 768 dp, centred with the heading
+// over their left edge.
 private val HeadingHeight = 52.dp
 private val GridTop = 96.dp
 private val ColumnGap = 24.dp
@@ -128,16 +129,16 @@ fun SeeMoreScreen(
     Box(modifier.fillMaxSize().drawBehind { drawBackdrop(ink) }) {
         PreloadLogo(state.restingLogo)
         if (items.isEmpty() && state.more == More.Failed) {
-            LoadFailed(onRetry, Modifier.padding(start = dimensions.gridMargin, top = GridTop))
+            LoadFailed(onRetry, Modifier.align(Alignment.TopCenter).padding(top = GridTop).width(GridWidth))
         } else {
             KeylineScrolling(keyline = GridTop) {
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(COLUMNS),
                     state = gridState,
-                    modifier = Modifier.fillMaxHeight().width(dimensions.gridMargin + GridWidth + dimensions.safeX),
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxHeight().width(dimensions.safeX + GridWidth + dimensions.safeX),
                     contentPadding =
                         PaddingValues(
-                            start = dimensions.gridMargin,
+                            start = dimensions.safeX,
                             end = dimensions.safeX,
                             top = GridTop,
                             bottom = 40.dp,
@@ -208,7 +209,11 @@ fun SeeMoreScreen(
         )
         // The title keeps its place whether or not an eyebrow sits above it.
         Column(
-            Modifier.padding(start = dimensions.gridMargin, top = dimensions.safeY).height(HeadingHeight),
+            Modifier
+                .align(Alignment.TopCenter)
+                .padding(top = dimensions.safeY)
+                .width(GridWidth)
+                .height(HeadingHeight),
             verticalArrangement = Arrangement.spacedBy(EyebrowGap, Alignment.Bottom),
         ) {
             eyebrow?.let {

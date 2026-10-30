@@ -117,16 +117,17 @@ class SeeMoreScreenTest {
     fun showsTheRowsTitleOverSixPostersARow() {
         show()
 
-        compose.onNodeWithText("Trending").assertLeftPositionInRootIsEqualTo(58.dp).assertTopPositionInRootIsEqualTo(45.dp)
+        compose.onNodeWithText("Trending").assertLeftPositionInRootIsEqualTo(96.dp).assertTopPositionInRootIsEqualTo(45.dp)
         compose
             .onNodeWithTag(posterTag(0))
-            .assertLeftPositionInRootIsEqualTo(58.dp)
+            .assertLeftPositionInRootIsEqualTo(96.dp)
             .assertTopPositionInRootIsEqualTo(96.dp)
             .assertWidthIsEqualTo(108.dp)
             .assertHeightIsEqualTo(162.dp)
-        compose.onNodeWithTag(posterTag(5)).assertLeftPositionInRootIsEqualTo(718.dp)
+        // Centred: as far from the right edge as the first is from the left.
+        compose.onNodeWithTag(posterTag(5)).assertLeftPositionInRootIsEqualTo(756.dp)
         // The second row's titles end above the bottom of the screen, so two whole rows show.
-        compose.onNodeWithTag(posterTag(6)).assertLeftPositionInRootIsEqualTo(58.dp).assertTopPositionInRootIsEqualTo(317.dp)
+        compose.onNodeWithTag(posterTag(6)).assertLeftPositionInRootIsEqualTo(96.dp).assertTopPositionInRootIsEqualTo(317.dp)
     }
 
     @Test
