@@ -5,8 +5,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 /**
- * How far this TV got in each show, keyed by anime id. Kept in memory and shared by Home and Details. For now it only
- * holds the alpha samples, until the player saves real progress (#115).
+ * How far this TV got in each show, keyed by anime id. Kept in memory for Details. It stays empty until the player
+ * saves real progress (#115).
  */
 public class WatchHistory {
     private val mutableShows = MutableStateFlow(emptyMap<Int, WatchProgress>())
