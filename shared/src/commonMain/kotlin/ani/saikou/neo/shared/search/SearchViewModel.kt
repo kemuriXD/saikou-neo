@@ -125,7 +125,9 @@ public class SearchViewModel(
                 val items = result.value.items
                 // AniList only matches whole words, so a word half typed finds nothing. What it found before stays.
                 if (items.isEmpty() && (state.value.results as? SearchResults.Found)?.items?.isNotEmpty() == true) return@launch
-                val suggestion = if (items.isEmpty()) kitsu.aniListId(text)?.let { client.card(it) } else null
+                // A filter that found nothing isn't a spelling mistake, and Kitsu's show might not pass the filter.
+                val suggestion =
+                    if (items.isEmpty() && state.value.filter == SearchFilter.ALL) kitsu.aniListId(text)?.let { client.card(it) } else null
                 mutableState.update { it.copy(results = SearchResults.Found(text, items, suggestion)) }
             }
     }

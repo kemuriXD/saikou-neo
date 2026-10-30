@@ -7,6 +7,7 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -19,6 +20,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -32,17 +34,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.drawscope.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selectableGroup
@@ -50,6 +57,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -68,12 +76,14 @@ import ani.saikou.neo.tv.home.Skeleton
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.home.posterTag
+import ani.saikou.neo.tv.theme.KeylineScrolling
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoTab
 import coil3.compose.AsyncImage
 
 internal const val SUGGESTION_TAG = "suggestion"
+internal const val RESULTS_TAG = "results"
 
 internal fun keyTag(key: Char) = "key-$key"
 
@@ -94,6 +104,14 @@ private val KeyHeight = 36.dp
 private val KeyGap = 4.dp
 private val PosterColumnGap = 20.dp
 private val PosterRowGap = 18.dp
+
+// Room inside the results for a focused poster to grow, ring and glow, with the grid moved out by as much so the
+// posters stay put. Under the last row, room down to the safe area.
+private val FocusRoom = 14.dp
+
+// Rows scrolled up fade out over the room at the top, so they pass under the chips instead of being cut. A focused
+// row rests below the fade, far enough down that its ring stays whole.
+private val ScrolledRest = 22.dp
 private val TileHeight = 64.dp
 private val TileGap = 12.dp
 private val TilePadding = 14.dp
@@ -212,10 +230,29 @@ fun SearchScreen(
             Column(Modifier.width(ResultsWidth), verticalArrangement = Arrangement.spacedBy(BlockGap)) {
                 Heading(
                     when {
-                        results == SearchResults.Idle -> stringResource(R.string.search_genres)
-                        results == SearchResults.Failed -> stringResource(R.string.search_failed)
-                        results is SearchResults.Found && results.items.isEmpty() -> stringResource(R.string.search_nothing, results.query)
-                        else -> stringResource(R.string.search_results, (results as? SearchResults.Found)?.query ?: state.query.trim())
+                        results == SearchResults.Idle -> {
+                            stringResource(R.string.search_genres)
+                        }
+
+                        results == SearchResults.Failed -> {
+                            stringResource(R.string.search_failed)
+                        }
+
+                        results is SearchResults.Found && results.items.isEmpty() && state.filter != SearchFilter.ALL -> {
+                            stringResource(
+                                R.string.search_nothing_filtered,
+                                results.query,
+                                stringResource(filterLabels.getValue(state.filter)),
+                            )
+                        }
+
+                        results is SearchResults.Found && results.items.isEmpty() -> {
+                            stringResource(R.string.search_nothing, results.query)
+                        }
+
+                        else -> {
+                            stringResource(R.string.search_results, (results as? SearchResults.Found)?.query ?: state.query.trim())
+                        }
                     },
                 )
                 // One place for every state, so a chip keeps focus when its results come in.
@@ -228,6 +265,11 @@ fun SearchScreen(
                     results == SearchResults.Failed -> {
                         Text(stringResource(R.string.see_more_failed_hint), style = Hint, color = colors.textMuted)
                         NeoButton(stringResource(R.string.try_again), onClick = onRetry, modifier = Modifier.padding(top = AfterHint))
+                    }
+
+                    // The filter left nothing, so the query needs no fixing.
+                    results is SearchResults.Found && results.items.isEmpty() && state.filter != SearchFilter.ALL -> {
+                        Text(stringResource(R.string.search_nothing_filtered_hint), style = Hint, color = colors.paper.copy(alpha = 0.8f))
                     }
 
                     results is SearchResults.Found && results.items.isEmpty() -> {
@@ -268,30 +310,49 @@ private fun Results(
     onFocus: (animeId: Int) -> Unit,
 ) {
     val dimensions = NeoTheme.dimensions
-    LazyVerticalGrid(
-        columns = GridCells.Fixed(POSTER_COLUMNS),
-        // Exactly four posters wide, so each cell is a poster's width.
-        modifier = Modifier.width(dimensions.cardPosterWidth * POSTER_COLUMNS + PosterColumnGap * (POSTER_COLUMNS - 1)),
-        horizontalArrangement = Arrangement.spacedBy(PosterColumnGap),
-        verticalArrangement = Arrangement.spacedBy(PosterRowGap),
-    ) {
-        if (found == null) {
-            items(POSTER_COLUMNS * 2) {
-                Skeleton(dimensions.cardPosterWidth, dimensions.cardPosterHeight, Modifier, dimensions.radiusSm)
-            }
-        } else {
-            itemsIndexed(found.items, key = { _, card -> card.id }) { index, card ->
-                val requester = remember { FocusRequester() }
-                if (card.id == returnTo) LaunchedEffect(Unit) { requester.requestFocus() }
-                PosterCard(
-                    card = card,
-                    onClick = { onOpen(card.id) },
-                    modifier =
-                        Modifier
-                            .testTag(posterTag(index))
-                            .focusRequester(requester)
-                            .onFocusChanged { if (it.isFocused) onFocus(card.id) },
-                )
+    // The focused row rests at the top, as in See more, and the last row stops above the safe area.
+    val gridState = rememberLazyGridState()
+    KeylineScrolling(keyline = ScrolledRest) {
+        LazyVerticalGrid(
+            columns = GridCells.Fixed(POSTER_COLUMNS),
+            state = gridState,
+            // Exactly four posters wide inside the room, so each cell is a poster's width.
+            modifier =
+                Modifier
+                    .width(dimensions.cardPosterWidth * POSTER_COLUMNS + PosterColumnGap * (POSTER_COLUMNS - 1))
+                    .outByRoom(FocusRoom)
+                    .graphicsLayer(compositingStrategy = CompositingStrategy.Offscreen)
+                    .drawWithContent {
+                        drawContent()
+                        if (gridState.canScrollBackward) {
+                            drawRect(
+                                Brush.verticalGradient(0f to Color.Transparent, FocusRoom.toPx() / size.height to Color.Black),
+                                blendMode = BlendMode.DstIn,
+                            )
+                        }
+                    }.testTag(RESULTS_TAG),
+            contentPadding = PaddingValues(start = FocusRoom, top = FocusRoom, end = FocusRoom, bottom = FocusRoom + dimensions.safeY),
+            horizontalArrangement = Arrangement.spacedBy(PosterColumnGap),
+            verticalArrangement = Arrangement.spacedBy(PosterRowGap),
+        ) {
+            if (found == null) {
+                items(POSTER_COLUMNS * 2) {
+                    Skeleton(dimensions.cardPosterWidth, dimensions.cardPosterHeight, Modifier, dimensions.radiusSm)
+                }
+            } else {
+                itemsIndexed(found.items, key = { _, card -> card.id }) { index, card ->
+                    val requester = remember { FocusRequester() }
+                    if (card.id == returnTo) LaunchedEffect(Unit) { requester.requestFocus() }
+                    PosterCard(
+                        card = card,
+                        onClick = { onOpen(card.id) },
+                        modifier =
+                            Modifier
+                                .testTag(posterTag(index))
+                                .focusRequester(requester)
+                                .onFocusChanged { if (it.isFocused) onFocus(card.id) },
+                    )
+                }
             }
         }
     }
@@ -549,6 +610,21 @@ private fun Genres(
         }
     }
 }
+
+/** Lays out [room] wider on the left and right and taller at the top, and places it out by as much. */
+private fun Modifier.outByRoom(room: Dp): Modifier =
+    layout { measurable, constraints ->
+        val px = room.roundToPx()
+        val placeable =
+            measurable.measure(
+                constraints.copy(
+                    minWidth = constraints.minWidth + px * 2,
+                    maxWidth = constraints.maxWidth + px * 2,
+                    maxHeight = if (constraints.hasBoundedHeight) constraints.maxHeight + px else constraints.maxHeight,
+                ),
+            )
+        layout(placeable.width - px * 2, placeable.height - px) { placeable.place(-px, -px) }
+    }
 
 /** Ink with the blue glow off the top right corner. */
 private fun DrawScope.drawBackdrop(ink: Color) {

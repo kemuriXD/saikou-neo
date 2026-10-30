@@ -257,6 +257,21 @@ class SearchViewModelTest {
             assertTrue(assertIs<SearchResults.Found>(viewModel.state.value.results).items.isEmpty())
         }
 
+    // The query was spelled right; the filter left nothing. A suggestion would be for a show the filter leaves out.
+    @Test
+    fun aFilterThatFindsNothingSuggestsNothing() =
+        runTest(main) {
+            val engine = typoEngine()
+            val viewModel = search(engine, kitsu = "sakamota-dyas")
+            viewModel.filter(SearchFilter.AIRING)
+
+            viewModel.typeEach("sakamoto days")
+            advanceUntilIdle()
+
+            assertEquals(null, assertIs<SearchResults.Found>(viewModel.state.value.results).suggestion)
+            assertFalse(engine.requestBodies.any { "\"operationName\":\"AnimeCard\"" in it })
+        }
+
     @Test
     fun aFilterChosenBeforeTypingWaitsForTheQuery() =
         runTest(main) {

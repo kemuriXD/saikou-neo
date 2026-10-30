@@ -12,6 +12,7 @@ import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -27,6 +28,7 @@ import ani.saikou.neo.tv.home.card
 import ani.saikou.neo.tv.home.posterTag
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -89,6 +91,37 @@ class SearchScreenTest {
         compose.onNodeWithTag(posterTag(0)).assertLeftPositionInRootIsEqualTo(336.dp).assertTopPositionInRootIsEqualTo(119.dp)
         // Four posters a row, 20 dp apart.
         compose.onNodeWithTag(posterTag(3)).assertLeftPositionInRootIsEqualTo(768.dp)
+    }
+
+    // A focused poster grows, rings and glows, so the results leave room for it on every side.
+    @Test
+    fun resultsLeaveRoomForAFocusedPoster() {
+        show(found)
+
+        compose.onNodeWithTag(RESULTS_TAG).assertLeftPositionInRootIsEqualTo(322.dp).assertTopPositionInRootIsEqualTo(105.dp)
+    }
+
+    // Rows scrolled up fade out under the chips, and the focused row rests below the fade.
+    @Test
+    fun aScrolledRowRestsBelowTheFade() {
+        show(SearchState("fri", SearchResults.Found("fri", List(24) { card(it) })))
+
+        press(Key.DirectionRight, times = 6)
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(posterTag(4)).assertIsFocused().assertTopPositionInRootIsEqualTo(127.dp)
+    }
+
+    @Test
+    fun theLastRowEndsAboveTheSafeArea() {
+        show(SearchState("fri", SearchResults.Found("fri", List(24) { card(it) })))
+
+        press(Key.DirectionRight, times = 6)
+        press(Key.DirectionDown, times = 5)
+
+        compose.onNodeWithTag(posterTag(20)).assertIsFocused()
+        val bottom = compose.onNodeWithTag(posterTag(20)).getUnclippedBoundsInRoot().bottom
+        assertTrue("Last row ends at $bottom", bottom <= 513.dp)
     }
 
     @Test
@@ -173,6 +206,10 @@ class SearchScreenTest {
 
         compose.onNodeWithTag(filterTag(SearchFilter.MOVIES)).assertIsSelected()
         compose.onNodeWithTag(filterTag(SearchFilter.ALL)).assertExists()
+        // Not a spelling mistake, so no spelling hint and no genres.
+        compose.onNodeWithText("Nothing for “frieren” in Movies").assertExists()
+        compose.onNodeWithText("Choose All to see every result.").assertExists()
+        compose.onNodeWithText("Or try a genre").assertDoesNotExist()
     }
 
     @Test
