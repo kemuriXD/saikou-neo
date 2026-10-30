@@ -72,9 +72,13 @@ fun DiscoverScreen(
     val firstLoaded = shownRows.entries.firstOrNull { it.value is RowState.Loaded }?.key
     LaunchedEffect(firstLoaded) {
         val row = firstLoaded ?: return@LaunchedEffect
-        // A frame for the row to show before focus goes into it.
-        withFrameNanos {}
-        focus.restoreOr { entries[row]?.requestFocus() }
+        var first = false
+        focus.restoreOr { first = true }
+        // Asked at once, as the remembered poster takes focus back in the first frame. The row is given a frame to show.
+        if (first) {
+            withFrameNanos {}
+            entries[row]?.requestFocus()
+        }
     }
 
     Box(modifier.fillMaxSize().background(colors.ink)) {

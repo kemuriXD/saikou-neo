@@ -4,6 +4,7 @@ import androidx.activity.ComponentActivity
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
@@ -80,6 +81,22 @@ class DiscoverScreenTest {
         }
 
         compose.onNodeWithTag(detailsPosterTag(100)).assertIsFocused()
+    }
+
+    // As after Back from Details: the screen is made again from what it saved.
+    @Test
+    fun focusReturnsToThePosterItLeftFrom() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent { NeoTheme { DiscoverScreen(loaded) } }
+        compose.onRoot().performKeyInput {
+            pressKey(Key.DirectionDown)
+            pressKey(Key.DirectionRight)
+        }
+        compose.onNodeWithTag(detailsPosterTag(101)).assertIsFocused()
+
+        restoration.emulateSavedInstanceStateRestore()
+
+        compose.onNodeWithTag(detailsPosterTag(101)).assertIsFocused()
     }
 
     @Test
