@@ -10,6 +10,7 @@ import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.map
+import ani.saikou.neo.shared.search.SearchGenre
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -65,6 +66,13 @@ public class SeeMoreViewModel private constructor(
             animeId: Int,
         ): SeeMoreViewModel =
             SeeMoreViewModel(library, { page -> client.recommendations(animeId, page).map { SeeMorePage(it.page, it.show) } })
+
+        /** The most popular anime of one genre. */
+        public fun genre(
+            client: AniListClient,
+            library: ArtLibrary,
+            genre: SearchGenre,
+        ): SeeMoreViewModel = SeeMoreViewModel(library, { page -> client.genre(genre.aniListName, page).map { SeeMorePage(it) } })
     }
 
     private val mutableState = MutableStateFlow(SeeMoreState())

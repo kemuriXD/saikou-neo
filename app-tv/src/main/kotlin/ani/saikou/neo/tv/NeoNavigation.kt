@@ -14,6 +14,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.focusRestorer
 import androidx.compose.ui.input.key.Key
@@ -24,6 +25,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import ani.saikou.neo.shared.home.HomeRow
+import ani.saikou.neo.shared.search.SearchGenre
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoRail
 import ani.saikou.neo.tv.ui.Section
@@ -43,6 +45,11 @@ sealed interface Screen {
     /** One of the rail's sections other than Home, opened from Home. */
     data class Section(
         val section: ani.saikou.neo.tv.ui.Section,
+    ) : Screen
+
+    /** The most popular anime of one genre, opened from Search. */
+    data class Genre(
+        val genre: SearchGenre,
     ) : Screen
 
     data class Details(
@@ -66,7 +73,7 @@ sealed interface Screen {
 private fun nextVisit(stack: List<Screen>) = (stack.filterIsInstance<Screen.Visited>().maxOfOrNull { it.visit } ?: 0) + 1
 
 // Home is implied, so only the screens above it are saved, each as a letter and numbers: See more as "s" and its row's
-// position, a section as "t" and its position, Details as "d" and its anime id and visit, and recommendations as "r" and theirs.
+// position, a section as "t" and its position, a genre as "g" and its position, Details as "d" and its anime id and visit, and recommendations as "r" and theirs.
 private val BackStackSaver =
     listSaver<SnapshotStateList<Screen>, String>(
         save = { stack ->
@@ -75,6 +82,7 @@ private val BackStackSaver =
                     Screen.Home -> null
                     is Screen.SeeMore -> "s${screen.row.ordinal}"
                     is Screen.Section -> "t${screen.section.ordinal}"
+                    is Screen.Genre -> "g${screen.genre.ordinal}"
                     is Screen.Details -> "d${screen.animeId}.${screen.visit}"
                     is Screen.Recommendations -> "r${screen.animeId}.${screen.visit}"
                 }
@@ -88,6 +96,7 @@ private val BackStackSaver =
                         when (it.first()) {
                             's' -> Screen.SeeMore(HomeRow.entries[number])
                             't' -> Screen.Section(Section.entries[number])
+                            'g' -> Screen.Genre(SearchGenre.entries[number])
                             'r' -> Screen.Recommendations(number, visit)
                             else -> Screen.Details(number, visit)
                         }
@@ -99,7 +108,8 @@ private val BackStackSaver =
 
 /**
  * Moves between [home], a row's [seeMore] page and [details], which can open another show's Details or all of its
- * [recommendations]. The rail down the left of Home opens each [section]; Back from a section goes to Home. Each screen
+ * [recommendations]. The rail down the left of Home opens each [section]; Back from a section goes to Home. [search]
+ * opens Details or a [genre]'s page. Each screen
  * keeps its saved state and ViewModels while it's on the back stack, so Back finds Home as it was left. Back on Home
  * leaves the app.
  */
@@ -110,6 +120,8 @@ fun NeoNavigation(
     details: @Composable (animeId: Int, openDetails: (animeId: Int) -> Unit, openRecommendations: (animeId: Int) -> Unit) -> Unit,
     recommendations: @Composable (animeId: Int, openDetails: (animeId: Int) -> Unit) -> Unit = { _, _ -> },
     section: @Composable (section: Section) -> Unit = { SectionPlaceholder(it) },
+    search: @Composable (openDetails: (animeId: Int) -> Unit, openGenre: (genre: SearchGenre) -> Unit) -> Unit = { _, _ -> },
+    genre: @Composable (genre: SearchGenre, openDetails: (animeId: Int) -> Unit) -> Unit = { _, _ -> },
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
     // Takes focus back from the rail to what last had it on Home.
@@ -140,15 +152,27 @@ fun NeoNavigation(
                     Box(Modifier.onPreviewKeyEvent { it.key != Key.Back && this != backStack.lastOrNull() }) { content() }
                 entry<Screen.Home> {
                     // Home remembers what had focus, for the rail to send it back to. The restorer sets how focus
-                    // enters the group after it. The rail is part of Home, so it fades in and out with it.
+                    // enters the group after it. The rail is part of Home, so it fades in and out with it. When a section that
+                    // had focus closes, focus enters Home again from the top left, which is the rail's corner, so it's sent past.
                     it.TakesKeysOnTop {
-                        Box(Modifier.focusRequester(homeFocus).focusRestorer().focusGroup()) {
-                            home(openDetails) { row -> backStack.add(Screen.SeeMore(row)) }
+                        Box(Modifier.focusProperties { onEnter = { homeFocus.requestFocus() } }.focusGroup()) {
+                            Box(Modifier.focusRequester(homeFocus).focusRestorer().focusGroup()) {
+                                home(openDetails) { row -> backStack.add(Screen.SeeMore(row)) }
+                            }
+                            NeoRail(onSelect = { backStack.add(Screen.Section(it)) }, onClose = { homeFocus.requestFocus() })
                         }
-                        NeoRail(onSelect = { backStack.add(Screen.Section(it)) }, onClose = { homeFocus.requestFocus() })
                     }
                 }
-                entry<Screen.Section> { it.TakesKeysOnTop { section(it.section) } }
+                entry<Screen.Section> {
+                    it.TakesKeysOnTop {
+                        if (it.section == Section.SEARCH) {
+                            search(openDetails) { genre -> backStack.add(Screen.Genre(genre)) }
+                        } else {
+                            section(it.section)
+                        }
+                    }
+                }
+                entry<Screen.Genre> { it.TakesKeysOnTop { genre(it.genre, openDetails) } }
                 entry<Screen.SeeMore> { it.TakesKeysOnTop { seeMore(it.row, openDetails) } }
                 entry<Screen.Details> {
                     it.TakesKeysOnTop {

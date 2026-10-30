@@ -25,6 +25,7 @@ import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.FanartTvClient
+import ani.saikou.neo.shared.catalogue.KitsuClient
 import ani.saikou.neo.shared.catalogue.MalClient
 import ani.saikou.neo.shared.catalogue.OmdbClient
 import ani.saikou.neo.shared.catalogue.TmdbClient
@@ -32,11 +33,14 @@ import ani.saikou.neo.shared.details.DetailsViewModel
 import ani.saikou.neo.shared.details.Raters
 import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
+import ani.saikou.neo.shared.search.SearchViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SeeMoreScreen
 import ani.saikou.neo.tv.home.displayTitle
+import ani.saikou.neo.tv.search.SearchScreen
+import ani.saikou.neo.tv.search.genreLabels
 import ani.saikou.neo.tv.settings.SettingsScreen
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.Section
@@ -152,6 +156,31 @@ class MainActivity : ComponentActivity() {
                                 onRetry = recommendations::retry,
                                 onRest = recommendations::rest,
                                 eyebrow = state.show?.displayTitle(),
+                            )
+                        },
+                        search = { openDetails, openGenre ->
+                            val search = viewModel { SearchViewModel(client, KitsuClient()) }
+                            val state by search.state.collectAsStateWithLifecycle()
+                            SearchScreen(
+                                state,
+                                onType = search::type,
+                                onDelete = search::delete,
+                                onClear = search::clear,
+                                onRetry = search::retry,
+                                onOpen = openDetails,
+                                onGenre = openGenre,
+                            )
+                        },
+                        genre = { genre, openDetails ->
+                            val popular = viewModel { SeeMoreViewModel.genre(client, library, genre) }
+                            val state by popular.state.collectAsStateWithLifecycle()
+                            SeeMoreScreen(
+                                title = stringResource(genreLabels.getValue(genre)),
+                                state = state,
+                                onOpen = openDetails,
+                                onLoadMore = popular::loadMore,
+                                onRetry = popular::retry,
+                                onRest = popular::rest,
                             )
                         },
                         section = { section ->

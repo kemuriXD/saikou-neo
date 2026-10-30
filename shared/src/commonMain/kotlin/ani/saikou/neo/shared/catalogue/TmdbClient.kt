@@ -212,7 +212,7 @@ private fun JsonReader.readSeries(): FoundSeries {
 }
 
 /** Percent-encodes everything but the characters a url never needs encoded. */
-private fun encode(text: String): String =
+internal fun encode(text: String): String =
     buildString {
         for (byte in text.encodeToByteArray()) {
             val char = byte.toInt().toChar()

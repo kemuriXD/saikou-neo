@@ -21,12 +21,12 @@ fragment AnimeCardFields on Media {
   countryOfOrigin
 }
 
-query BrowseAnime($page: Int!, $perPage: Int!, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int, $statusNot: MediaStatus) {
+query BrowseAnime($page: Int!, $perPage: Int!, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int, $genre: String, $statusNot: MediaStatus) {
   Page(page: $page, perPage: $perPage) {
     pageInfo {
       hasNextPage
     }
-    media(type: ANIME, isAdult: false, sort: $sort, season: $season, seasonYear: $seasonYear, status_not: $statusNot) {
+    media(type: ANIME, isAdult: false, sort: $sort, season: $season, seasonYear: $seasonYear, genre: $genre, status_not: $statusNot) {
       ...AnimeCardFields
     }
   }
@@ -38,6 +38,14 @@ query SearchAnime($page: Int!, $perPage: Int!, $search: String!, $statusNot: Med
       hasNextPage
     }
     media(type: ANIME, isAdult: false, search: $search, sort: [SEARCH_MATCH], status_not: $statusNot) {
+      ...AnimeCardFields
+    }
+  }
+}
+
+query AnimeCard($id: Int!, $statusNot: MediaStatus) {
+  Page(perPage: 1) {
+    media(id: $id, type: ANIME, isAdult: false, status_not: $statusNot) {
       ...AnimeCardFields
     }
   }

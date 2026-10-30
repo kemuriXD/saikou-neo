@@ -1,5 +1,6 @@
 package ani.saikou.neo.shared.catalogue
 
+import ani.saikou.neo.shared.catalogue.anilist.AnimeCardQuery
 import ani.saikou.neo.shared.catalogue.anilist.AnimeDetailsQuery
 import ani.saikou.neo.shared.catalogue.anilist.AnimeRecommendationsQuery
 import ani.saikou.neo.shared.catalogue.anilist.AnimeRelationsQuery
@@ -54,6 +55,13 @@ public class AniListClient internal constructor(
         perPage: Int = DEFAULT_PER_PAGE,
     ): AniListResult<AnimePage> = browse(page, perPage, MediaSort.POPULARITY_DESC, MediaSeason.safeValueOf(season.name), year)
 
+    /** The most popular anime of one genre, named as AniList names it, such as "Slice of Life". */
+    public suspend fun genre(
+        genre: String,
+        page: Int = 1,
+        perPage: Int = DEFAULT_PER_PAGE,
+    ): AniListResult<AnimePage> = browse(page, perPage, MediaSort.POPULARITY_DESC, genre = genre)
+
     public suspend fun search(
         text: String,
         page: Int = 1,
@@ -67,6 +75,15 @@ public class AniListClient internal constructor(
                 )
             }
         }
+
+    /**
+     * One anime's card, or null when lists and search would leave it out, such as an adult show, or when AniList can't
+     * answer.
+     */
+    public suspend fun card(id: Int): AnimeCard? =
+        fetch(AnimeCardQuery(id = id, statusNot = statusNot())) { data ->
+            data.Page?.media?.firstNotNullOfOrNull { it?.animeCardFields?.toCard() }
+        }.let { (it as? AniListResult.Success)?.value }
 
     /** What Home's spotlight shows of each anime, by id. */
     public suspend fun spotlightFacts(ids: List<Int>): AniListResult<Map<Int, SpotlightFacts>> =
@@ -188,6 +205,7 @@ public class AniListClient internal constructor(
         sort: MediaSort,
         season: MediaSeason? = null,
         seasonYear: Int? = null,
+        genre: String? = null,
     ): AniListResult<AnimePage> {
         val query =
             BrowseAnimeQuery(
@@ -196,6 +214,7 @@ public class AniListClient internal constructor(
                 sort = Optional.present(listOf(sort)),
                 season = Optional.presentIfNotNull(season),
                 seasonYear = Optional.presentIfNotNull(seasonYear),
+                genre = Optional.presentIfNotNull(genre),
                 statusNot = statusNot(),
             )
         return fetch(query) { data ->

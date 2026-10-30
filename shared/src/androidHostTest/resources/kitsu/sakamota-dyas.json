@@ -1,0 +1,64 @@
+{
+    "data": [
+        {
+            "id": "48915",
+            "type": "anime",
+            "links": {
+                "self": "https://kitsu.app/api/edge/anime/48915"
+            },
+            "attributes": {
+                "canonicalTitle": "SAKAMOTO DAYS"
+            },
+            "relationships": {
+                "mappings": {
+                    "links": {
+                        "self": "https://kitsu.app/api/edge/anime/48915/relationships/mappings",
+                        "related": "https://kitsu.app/api/edge/anime/48915/mappings"
+                    },
+                    "data": [
+                        {
+                            "type": "mappings",
+                            "id": "345300"
+                        },
+                        {
+                            "type": "mappings",
+                            "id": "339299"
+                        }
+                    ]
+                }
+            }
+        }
+    ],
+    "included": [
+        {
+            "id": "345300",
+            "type": "mappings",
+            "links": {
+                "self": "https://kitsu.app/api/edge/mappings/345300"
+            },
+            "attributes": {
+                "externalSite": "myanimelist/anime",
+                "externalId": "58939"
+            }
+        },
+        {
+            "id": "339299",
+            "type": "mappings",
+            "links": {
+                "self": "https://kitsu.app/api/edge/mappings/339299"
+            },
+            "attributes": {
+                "externalSite": "anilist/anime",
+                "externalId": "177709"
+            }
+        }
+    ],
+    "meta": {
+        "count": 5
+    },
+    "links": {
+        "first": "https://kitsu.app/api/edge/anime?fields%5Banime%5D=canonicalTitle%2Cmappings&fields%5Bmappings%5D=externalSite%2CexternalId&filter%5Btext%5D=sakamota+dyas&include=mappings&page%5Blimit%5D=1&page%5Boffset%5D=0",
+        "next": "https://kitsu.app/api/edge/anime?fields%5Banime%5D=canonicalTitle%2Cmappings&fields%5Bmappings%5D=externalSite%2CexternalId&filter%5Btext%5D=sakamota+dyas&include=mappings&page%5Blimit%5D=1&page%5Boffset%5D=1",
+        "last": "https://kitsu.app/api/edge/anime?fields%5Banime%5D=canonicalTitle%2Cmappings&fields%5Bmappings%5D=externalSite%2CexternalId&filter%5Btext%5D=sakamota+dyas&include=mappings&page%5Blimit%5D=1&page%5Boffset%5D=4"
+    }
+}
