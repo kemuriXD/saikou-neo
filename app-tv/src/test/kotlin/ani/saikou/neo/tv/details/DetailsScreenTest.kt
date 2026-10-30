@@ -924,6 +924,16 @@ class DetailsScreenTest {
         assertTrue(compose.onNodeWithText(long.title.english!!).getUnclippedBoundsInRoot().let { it.bottom - it.top } > 30.dp)
     }
 
+    // A focused poster grows, so its label sits 16 dp below it to stay clear.
+    @Test
+    fun aWatchOrderLabelSitsClearOfItsPoster() {
+        showWatchOrder(DetailsState.Loaded(franchise))
+
+        val poster = compose.onNodeWithTag(watchOrderTag(9)).getUnclippedBoundsInRoot()
+        val label = compose.onNodeWithText("SIDE STORY").getUnclippedBoundsInRoot()
+        assertEquals(16f, (label.top - poster.bottom).value, 0.5f)
+    }
+
     @Test
     fun downIntoTheWatchOrderLandsOnTheStepAfterThisShow() {
         var opened: Int? = null

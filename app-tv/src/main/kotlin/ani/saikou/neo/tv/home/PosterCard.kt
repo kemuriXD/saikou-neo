@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -32,6 +33,9 @@ import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.placeholder
 import ani.saikou.neo.tv.ui.rememberPulse
 import coil3.compose.AsyncImage
+
+// With the column's gap, 16 dp from the poster to a label above the title.
+private val OverlineDrop = 8.dp
 
 /**
  * A 2:3 poster for one anime, with its title and, under that, its format and year or a [caption] in their place. An
@@ -77,7 +81,11 @@ internal fun PosterCard(
                 modifier = Modifier.fillMaxSize().placeholder(colors.surfaceRaised, RectangleShape, rememberPulse(loading)),
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // From the design: a label sits further from the poster, clear of the poster's growth on focus.
+        Column(
+            Modifier.padding(top = if (overline != null) OverlineDrop else 0.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
             overline?.let {
                 Text(
                     text = it.uppercase(),
