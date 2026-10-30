@@ -369,11 +369,15 @@ class DetailsScreenTest {
     fun theLayoutFollowsTheDesign() {
         show(DetailsState.Loaded(details))
 
-        compose
-            .onNodeWithTag(DETAILS_TITLE_TAG)
-            .assertTopPositionInRootIsEqualTo(56.dp)
-            .assertLeftPositionInRootIsEqualTo(58.dp)
+        compose.onNodeWithTag(DETAILS_TITLE_TAG).assertLeftPositionInRootIsEqualTo(58.dp)
         compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(352.dp)
+        assertButtonsSitOverTheTabs()
+    }
+
+    /** The title block sits on the tabs, so the buttons end 40 dp above them however tall the title is. */
+    private fun assertButtonsSitOverTheTabs() {
+        val button = compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).getUnclippedBoundsInRoot()
+        assertEquals(312f, button.bottom.value, 0.01f)
     }
 
     @Test
@@ -986,7 +990,7 @@ class DetailsScreenTest {
             .onNodeWithTag(DETAILS_LOGO_TAG)
             .assertContentDescriptionEquals("Show 7")
             .assertHeightIsEqualTo(80.dp)
-            .assertTopPositionInRootIsEqualTo(56.dp)
+        assertButtonsSitOverTheTabs()
     }
 
     // Spirited Away's logo is almost ten times as wide as it is tall, so it's drawn 360 × 37.
@@ -1022,7 +1026,6 @@ class DetailsScreenTest {
     private fun assertTitleGaps(titleTag: String) {
         val title = compose.onNodeWithTag(titleTag).getUnclippedBoundsInRoot()
         val meta = compose.onNodeWithTag(DETAILS_META_TAG).getUnclippedBoundsInRoot()
-        assertEquals(56f, title.top.value, 0.01f)
         assertEquals(10f, (meta.top - title.bottom).value, 0.01f)
     }
 

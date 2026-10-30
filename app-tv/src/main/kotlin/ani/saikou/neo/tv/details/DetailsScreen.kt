@@ -121,10 +121,10 @@ internal const val DETAILS_RATINGS_TAG = "details-ratings"
 /** One site's rating in the facts, by the site's name, such as "IMDb". */
 internal fun ratingTag(site: String) = "details-rating-$site"
 
-// From the design: the title block starts 56 dp down and the Overview tabs rest at 352 dp, with the
-// section peeking below the screen. Focus in a section lifts the page so the tabs sit at 76 dp,
-// under a small header.
-private val HeroTop = 56.dp
+// From the design: the Overview tabs rest at 352 dp, with the section peeking below the screen, and the title block sits
+// on them, its buttons 40 dp above, however tall the title is. Focus in a section lifts the page so the tabs sit at
+// 76 dp, under a small header.
+private val HeroGap = 40.dp
 private val HeroWidth = 440.dp
 private val OverviewTop = 352.dp
 private val OverviewLift = 276.dp
@@ -249,8 +249,8 @@ private fun DetailsPage(
                         ratings = state.ratings,
                         modifier =
                             margin
-                                .padding(top = HeroTop)
                                 .width(HeroWidth)
+                                .onTheTabs()
                                 .graphicsLayer { alpha = 1f - lift / -OverviewLift },
                     )
                     val sections = state.sections
@@ -342,7 +342,7 @@ private fun DetailsPage(
                     text = stringResource(R.string.details_failed),
                     style = NeoTheme.typography.bodyLarge,
                     color = NeoTheme.colors.paper,
-                    modifier = margin.padding(top = HeroTop),
+                    modifier = margin.onTheTabs(),
                 )
             }
         }
@@ -721,12 +721,15 @@ private fun SiteRating(
 private const val RULE = 0.24f
 private val RatingsGap = 20.dp
 
+/** Sits the title block's bottom [HeroGap] above the tabs. A tall title grows up the screen. */
+private fun Modifier.onTheTabs() = height(OverviewTop - HeroGap).wrapContentHeight(Alignment.Bottom, unbounded = true)
+
 /** Placeholders where the title block, the Overview tab, the synopsis and the facts will be, sized as in the design. */
 @Composable
 private fun LoadingPage(modifier: Modifier = Modifier) {
     val dimensions = NeoTheme.dimensions
     Box(modifier.fillMaxSize().testTag(DETAILS_LOADING_TAG)) {
-        Column(Modifier.padding(top = HeroTop), verticalArrangement = Arrangement.spacedBy(dimensions.space3)) {
+        Column(Modifier.onTheTabs(), verticalArrangement = Arrangement.spacedBy(dimensions.space3)) {
             Skeleton(110.dp, 16.dp)
             Skeleton(300.dp, 34.dp)
             Skeleton(210.dp, 16.dp)
