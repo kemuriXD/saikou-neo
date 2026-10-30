@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -19,6 +20,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Border
@@ -32,9 +34,13 @@ import ani.saikou.neo.tv.ui.placeholder
 import ani.saikou.neo.tv.ui.rememberPulse
 import coil3.compose.AsyncImage
 
+// With the column's gap, 16 dp from the poster to a label above the title.
+private val OverlineDrop = 8.dp
+
 /**
- * A 2:3 poster for one anime, with its title and, under that, its format and year or a [caption] in their place.
- * [modifier] goes on the focusable poster.
+ * A 2:3 poster for one anime, with its title and, under that, its format and year or a [caption] in their place. An
+ * [overline], such as how it's related, goes above the title in [overlineColor], pink unless given. The title takes
+ * up [titleLines] lines, even when it's shorter. [modifier] goes on the focusable poster.
  */
 @Composable
 internal fun PosterCard(
@@ -42,6 +48,9 @@ internal fun PosterCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     caption: String? = null,
+    overline: String? = null,
+    overlineColor: Color = NeoTheme.colors.pink,
+    titleLines: Int = 1,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
@@ -72,12 +81,26 @@ internal fun PosterCard(
                 modifier = Modifier.fillMaxSize().placeholder(colors.surfaceRaised, RectangleShape, rememberPulse(loading)),
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // From the design: a label sits further from the poster, clear of the poster's growth on focus.
+        Column(
+            Modifier.padding(top = if (overline != null) OverlineDrop else 0.dp),
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            overline?.let {
+                Text(
+                    text = it.uppercase(),
+                    style = NeoTheme.typography.overline.copy(fontWeight = FontWeight.Bold),
+                    color = overlineColor,
+                    maxLines = 1,
+                )
+            }
             Text(
                 text = card.displayTitle(),
                 style = NeoTheme.typography.label,
                 color = if (focused) colors.paper else colors.textMuted,
-                maxLines = 1,
+                // Always as tall as its lines, so the lines under titles in a row stay level.
+                minLines = titleLines,
+                maxLines = titleLines,
                 overflow = TextOverflow.Ellipsis,
             )
             Text(

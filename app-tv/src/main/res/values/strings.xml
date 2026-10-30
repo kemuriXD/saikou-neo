@@ -80,7 +80,6 @@
         <item quantity="one">%1$d ep</item>
         <item quantity="other">%1$d eps</item>
     </plurals>
-    <string name="details_related">Related</string>
     <string name="details_watch_order">Watch order</string>
     <string name="details_recommendations">Recommendations</string>
     <plurals name="details_episode_count">
@@ -110,7 +109,11 @@
     <string name="details_aired_on">Aired %1$s</string>
     <string name="details_airs_on">Airs %1$s</string>
     <string name="details_released_on">Released %1$s</string>
-    <string name="details_watch_order_none">A watch order extension shows the order to watch this series in. You don\'t have one installed.</string>
+    <string name="details_episode_watched">✓ Watched</string>
+    <string name="details_episode_left">%1$d min left</string>
+    <string name="details_watch_order_note">Release order from AniList relations.</string>
+    <string name="details_you_are_here">You are here</string>
+    <string name="details_on_episode">E%1$d</string>
     <string name="details_relation_parent">Parent</string>
     <string name="details_relation_prequel">Prequel</string>
     <string name="details_relation_sequel">Sequel</string>

@@ -8,11 +8,13 @@ import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.catalogue.NextEpisode
+import ani.saikou.neo.shared.home.WatchProgress
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.minutes
 
 class EpisodeListTest {
     private val rebirth = AniZipEpisode(1, "Rebirth", "A notebook falls.", "https://img.test/1.jpg", AirDate(2006, 10, 4), 23)
@@ -138,11 +140,39 @@ class EpisodeListTest {
     }
 
     @Test
+    fun aShowOfUpTo100EpisodesSplitsIntoRangesOfTwelve() {
+        assertEquals(emptyList(), episodeRanges(12))
+        assertEquals(listOf(1..12, 13..22), episodeRanges(22))
+        // A few left over join the last range.
+        assertEquals(listOf(1..12, 13..26), episodeRanges(26))
+        assertEquals(85..100, episodeRanges(100).last())
+    }
+
+    @Test
     fun longSeriesSplitIntoRangesOfFifty() {
         assertEquals(listOf(1..50, 51..100, 101..150, 151..201), episodeRanges(201))
-        assertEquals(emptyList(), episodeRanges(50))
         // Enough left over for a range of their own.
-        assertEquals(listOf(1..50, 51..75), episodeRanges(75))
+        assertEquals(listOf(1..50, 51..101), episodeRanges(101))
+        assertEquals(listOf(1..50, 51..100, 101..125), episodeRanges(125))
+    }
+
+    @Test
+    fun episodesBeforeTheOneInProgressAreWatched() {
+        val progress = WatchProgress(7, 12.minutes, 24.minutes, null)
+
+        assertEquals(EpisodeMark.Watched, progress.markFor(6))
+        assertEquals(EpisodeMark.InProgress(progress), progress.markFor(7))
+        assertNull(progress.markFor(8))
+    }
+
+    @Test
+    fun theNextToWatchIsTheOneInProgressOrElseTheFirst() {
+        val list = episodeList(details(episodes = 12), null, today)
+
+        assertEquals(7, list.nextToWatch(WatchProgress(7, 12.minutes, 24.minutes, null)))
+        assertEquals(1, list.nextToWatch(null))
+        // One that isn't listed, such as an upcoming one left out, starts at the first.
+        assertEquals(1, list.nextToWatch(WatchProgress(20, 12.minutes, 24.minutes, null)))
     }
 
     @Test

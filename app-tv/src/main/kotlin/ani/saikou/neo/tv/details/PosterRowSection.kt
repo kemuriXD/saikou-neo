@@ -27,7 +27,7 @@ import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.outToTheScreenEdge
 import ani.saikou.neo.tv.ui.remembersFocus
 
-internal fun relatedPosterTag(animeId: Int) = "related-$animeId"
+internal fun detailsPosterTag(animeId: Int) = "details-poster-$animeId"
 
 internal const val DETAILS_SEE_MORE_TAG = "details-see-more"
 internal const val DETAILS_POSTER_ROW_TAG = "details-poster-row"
@@ -35,25 +35,19 @@ internal const val DETAILS_POSTER_ROW_TAG = "details-poster-row"
 // The See more button's key in the row, apart from every anime id.
 private const val SEE_MORE = -1
 
-/** A poster and the line under its title. */
-internal data class Poster(
-    val card: AnimeCard,
-    val caption: String? = null,
-)
-
 /**
  * A row of posters, as on See more, ending in a [seeMore] button when there are more to see. Selecting a poster calls
  * [onOpen]. Coming back from what it opened, focus returns to that poster or See more.
  */
 @Composable
 internal fun PosterRowSection(
-    posters: List<Poster>,
+    cards: List<AnimeCard>,
     onOpen: (animeId: Int) -> Unit,
     modifier: Modifier = Modifier,
     seeMore: (() -> Unit)? = null,
 ) {
     val dimensions = NeoTheme.dimensions
-    val requesters = remember(posters) { posters.associate { it.card.id to FocusRequester() } }
+    val requesters = remember(cards) { cards.associate { it.id to FocusRequester() } }
     // Room above for a focused poster's growth and glow.
     LazyRow(
         // Up or down into the row lands on its first poster, not the one nearest the tab above.
@@ -63,7 +57,7 @@ internal fun PosterRowSection(
             .focusProperties {
                 onEnter = {
                     if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
-                        posters.firstOrNull()?.let { requesters.getValue(it.card.id).requestFocus() }
+                        cards.firstOrNull()?.let { requesters.getValue(it.id).requestFocus() }
                     }
                 }
             }.focusGroup(),
@@ -76,16 +70,15 @@ internal fun PosterRowSection(
             ),
         horizontalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
     ) {
-        items(posters, key = { it.card.id }) { poster ->
+        items(cards, key = { it.id }) { card ->
             PosterCard(
-                card = poster.card,
-                onClick = { onOpen(poster.card.id) },
+                card = card,
+                onClick = { onOpen(card.id) },
                 modifier =
                     Modifier
-                        .focusRequester(requesters.getValue(poster.card.id))
-                        .remembersFocus("poster-${poster.card.id}")
-                        .testTag(relatedPosterTag(poster.card.id)),
-                caption = poster.caption,
+                        .focusRequester(requesters.getValue(card.id))
+                        .remembersFocus("poster-${card.id}")
+                        .testTag(detailsPosterTag(card.id)),
             )
         }
         if (seeMore != null) {

@@ -4,17 +4,23 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,7 +68,11 @@ import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipEpisode
 import ani.saikou.neo.shared.details.EpisodeList
+import ani.saikou.neo.shared.details.EpisodeMark
 import ani.saikou.neo.shared.details.episodeRanges
+import ani.saikou.neo.shared.details.markFor
+import ani.saikou.neo.shared.details.nextToWatch
+import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.theme.WindowScrolling
@@ -83,8 +93,7 @@ internal const val EPISODE_RANGES_TAG = "episode-ranges"
 internal val SectionHeight = 422.dp
 private val RowThumbWidth = 128.dp
 private val RowThumbHeight = 72.dp
-private val NumberedRowHeight = 56.dp
-private val NumberWidth = 56.dp
+private val TextRowHeight = 56.dp
 private val ChipHeight = 36.dp
 
 // Room for a focused chip's growth and glow, which the ranges' fade would otherwise cut off.
@@ -93,23 +102,32 @@ private val GlowRoom = 24.dp
 // The backdrop in place of a still is dimmed by half.
 private const val PLACEHOLDER_DIM = 0.5f
 private const val ROW_FOCUS_SCALE = 1.025f
-private const val SYNOPSIS_LINES = 2
+private const val TRACK = 0.3f
+private const val BADGE_FILL = 0.12f
+private const val BADGE_TEXT = 0.85f
 private const val RANGE_REST_MILLIS = 150L
 
 /**
- * The show's episodes: a line on how many there are, ranges of 50 to jump between for a long series, then a row for
- * each. Rows have a still, a title, the date and a short synopsis when AniZip knows them, or just their number. An
- * episode with no still shows the show's [backdrop], dimmed. A film lists itself, then its extras.
+ * The show's episodes: a line on how many there are, ranges to jump between, then a row for each. Rows have a still, a
+ * title, the date and a line of synopsis when AniZip knows them, or just their number. An episode with no still shows
+ * the show's [backdrop], dimmed. Each says whether it's watched or how much is left, from [progress]. A film lists
+ * itself, then its extras.
+ *
+ * The section opens on the range with the next episode to watch, which [nextFocus] focuses. Up or down into the list
+ * lands on it too, while it's shown.
  */
 @Composable
 internal fun EpisodesSection(
     list: EpisodeList,
     backdrop: String?,
+    progress: WatchProgress?,
+    nextFocus: FocusRequester,
     modifier: Modifier = Modifier,
 ) {
     val dimensions = NeoTheme.dimensions
     val ranges = remember(list.episodes.size) { episodeRanges(list.episodes.size) }
-    var range by rememberSaveable { mutableIntStateOf(0) }
+    val next = list.nextToWatch(progress)
+    var range by rememberSaveable { mutableIntStateOf(ranges.indexOfFirst { next in it }.coerceAtLeast(0)) }
     // The range focus is on. It's marked as chosen at once, but its episodes show once focus rests there, so holding
     // Right doesn't rebuild the list for every range it passes.
     var focusedRange by remember { mutableStateOf<Int?>(null) }
@@ -129,6 +147,8 @@ internal fun EpisodesSection(
         intoList = false
     }
     val shown = ranges.getOrNull(range)?.let { list.episodes.subList(it.first - 1, it.last) } ?: list.episodes
+    val nextIndex = shown.indexOfFirst { it.number == next }
+    val listState = rememberLazyListState(initialFirstVisibleItemIndex = nextIndex.coerceAtLeast(0))
     val rich = !list.detailsMissing && !list.film
     Column(modifier.heightIn(max = SectionHeight), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
@@ -185,19 +205,34 @@ internal fun EpisodesSection(
         }
         // Room above and below so a focused row's growth and glow aren't cut off.
         LazyColumn(
-            modifier = Modifier.focusRequester(listFocus),
+            state = listState,
+            modifier =
+                Modifier
+                    .focusRequester(listFocus)
+                    .focusProperties {
+                        onEnter = {
+                            val across = requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down
+                            if (across && listState.isVisible(nextIndex)) nextFocus.requestFocus()
+                        }
+                    },
             verticalArrangement = Arrangement.spacedBy(if (rich) dimensions.space2 else 6.dp),
             contentPadding = PaddingValues(vertical = dimensions.space4),
         ) {
             items(shown, key = { it.number }) { episode ->
+                val mark = progress?.markFor(episode.number)
+                val rowModifier =
+                    Modifier
+                        .then(if (episode.number == next) Modifier.focusRequester(nextFocus) else Modifier)
+                        .remembersFocus(episodeTag(episode.number))
+                        .testTag(episodeTag(episode.number))
                 if (rich) {
-                    EpisodeRow(episode, backdrop)
+                    EpisodeRow(episode, backdrop, mark, rowModifier)
                 } else {
-                    NumberedRow(
-                        number = episode.number.takeUnless { list.film },
+                    TextRow(
                         title = episode.title ?: stringResource(R.string.details_episode_number, episode.number),
                         meta = episode.meta(list.film),
-                        modifier = Modifier.remembersFocus(episodeTag(episode.number)).testTag(episodeTag(episode.number)),
+                        modifier = rowModifier,
+                        mark = mark,
                     )
                 }
             }
@@ -211,12 +246,14 @@ internal fun EpisodesSection(
                     )
                 }
                 items(list.extras) { extra ->
-                    NumberedRow(number = null, title = extra.title, meta = extra.minutes?.let { duration(it) })
+                    TextRow(title = extra.title, meta = extra.minutes?.let { duration(it) })
                 }
             }
         }
     }
 }
+
+private fun LazyListState.isVisible(index: Int) = layoutInfo.visibleItemsInfo.any { it.index == index }
 
 /** Lays out [room] taller at the top and bottom, without taking up the room, so what's drawn there isn't cut off. */
 private fun Modifier.roomAboveAndBelow(room: Dp) =
@@ -282,17 +319,23 @@ internal data class EpisodeThumb(
 internal fun AniZipEpisode.thumb(backdrop: String?): EpisodeThumb? =
     thumbnail?.let { EpisodeThumb(it, dimmed = false) } ?: backdrop?.let { EpisodeThumb(it, dimmed = true) }
 
-/** An episode AniZip knows: its still, "1 · Rebirth", its length and date, and two lines of its synopsis. */
+/**
+ * An episode AniZip knows: its still with a line for how much was watched, "1 · Rebirth", its length and date, a line
+ * of its synopsis, and how far this TV got in it.
+ */
 @Composable
 private fun EpisodeRow(
     episode: AniZipEpisode,
     backdrop: String?,
+    mark: EpisodeMark?,
+    modifier: Modifier = Modifier,
 ) {
     val dimensions = NeoTheme.dimensions
-    RowSurface(Modifier.remembersFocus(episodeTag(episode.number)).testTag(episodeTag(episode.number))) {
+    RowSurface(modifier) {
         Row(
             Modifier.padding(start = dimensions.space2, top = dimensions.space2, end = dimensions.space4, bottom = dimensions.space2),
             horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
             val thumb = episode.thumb(backdrop)
             Box(
@@ -308,8 +351,9 @@ private fun EpisodeRow(
                     modifier = Modifier.matchParentSize(),
                 )
                 if (thumb?.dimmed == true) Box(Modifier.matchParentSize().background(NeoTheme.colors.ink.copy(alpha = PLACEHOLDER_DIM)))
+                ThumbOverlay(mark)
             }
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 val title = episode.title?.let { stringResource(R.string.details_episode_titled, episode.number, it) }
                 Text(
                     text = title ?: stringResource(R.string.details_episode_number, episode.number),
@@ -323,42 +367,84 @@ private fun EpisodeRow(
                         text = it,
                         style = NeoTheme.typography.label.copy(fontWeight = FontWeight.Normal),
                         color = LocalContentColor.current.copy(alpha = MUTED),
-                        maxLines = SYNOPSIS_LINES,
+                        maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
             }
+            mark?.let { Badge(it) }
         }
     }
 }
 
-/** A row with no still: the episode's number, if it has one, then its title and length. */
+/** A veil over the still once the episode is watched, and a line for how much was. */
 @Composable
-private fun NumberedRow(
-    number: Int?,
+private fun BoxScope.ThumbOverlay(mark: EpisodeMark?) {
+    val colors = NeoTheme.colors
+    if (mark == EpisodeMark.Watched) Box(Modifier.matchParentSize().background(colors.ink.copy(alpha = PLACEHOLDER_DIM)))
+    val watched =
+        when (mark) {
+            EpisodeMark.Watched -> 1f
+            is EpisodeMark.InProgress -> mark.progress.fraction
+            null -> 0f
+        }
+    if (watched > 0f) {
+        val bar = RoundedCornerShape(50)
+        Box(
+            Modifier
+                .align(Alignment.BottomCenter)
+                .padding(start = 8.dp, end = 8.dp, bottom = 6.dp)
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(colors.paper.copy(alpha = TRACK), bar),
+        ) {
+            Box(Modifier.fillMaxWidth(watched).fillMaxHeight().background(colors.pink, bar))
+        }
+    }
+}
+
+/** "✓ Watched", or how much is left in pink. */
+@Composable
+private fun Badge(mark: EpisodeMark) {
+    val colors = NeoTheme.colors
+    val resume = mark is EpisodeMark.InProgress
+    val content = LocalContentColor.current
+    Text(
+        text =
+            when (mark) {
+                EpisodeMark.Watched -> stringResource(R.string.details_episode_watched)
+                is EpisodeMark.InProgress -> stringResource(R.string.details_episode_left, mark.progress.minutesLeft)
+            },
+        style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Bold),
+        color = if (resume) colors.ink else content.copy(alpha = BADGE_TEXT),
+        maxLines = 1,
+        modifier =
+            Modifier
+                .background(if (resume) colors.pink else content.copy(alpha = BADGE_FILL), RoundedCornerShape(50))
+                .padding(horizontal = 10.dp, vertical = 4.dp),
+    )
+}
+
+/** A row with no still: the title and length. */
+@Composable
+private fun TextRow(
     title: String,
     meta: String?,
     modifier: Modifier = Modifier,
+    mark: EpisodeMark? = null,
 ) {
     val dimensions = NeoTheme.dimensions
-    RowSurface(modifier.heightIn(min = NumberedRowHeight)) {
+    RowSurface(modifier.heightIn(min = TextRowHeight)) {
         Row(
-            Modifier.heightIn(min = NumberedRowHeight).padding(horizontal = dimensions.space4, vertical = dimensions.space2),
+            Modifier.heightIn(min = TextRowHeight).padding(horizontal = dimensions.space4, vertical = dimensions.space2),
             horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            number?.let {
-                Text(
-                    text = it.toString(),
-                    style = NeoTheme.typography.titleLarge.copy(fontSize = NeoTheme.typography.titleLarge.fontSize * NUMBER_SCALE),
-                    color = LocalContentColor.current.copy(alpha = FAINT),
-                    modifier = Modifier.width(NumberWidth),
-                )
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
                 Text(text = title, style = NeoTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 meta?.let { Meta(it) }
             }
+            mark?.let { Badge(it) }
         }
     }
 }
@@ -398,8 +484,6 @@ private fun RowSurface(
 // The rows span the grid's content width.
 private val RowWidth: Dp = 844.dp
 private const val MUTED = 0.72f
-private const val FAINT = 0.52f
-private const val NUMBER_SCALE = 22f / 24f
 
 /** Such as "23 min · Aired 4 Oct 2006", or "Released" for a film. */
 @Composable
