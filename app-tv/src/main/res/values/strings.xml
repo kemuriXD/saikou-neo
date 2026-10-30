@@ -46,6 +46,13 @@
     <string name="see_more_failed_hint">Check your network, then try again.</string>
     <string name="see_more_failed_more">Couldn’t load more</string>
     <string name="try_again">Try again</string>
+    <!-- Home with no internet. -->
+    <string name="home_offline_title">This TV isn’t online</string>
+    <string name="home_offline_body">Saikou Neo needs the internet for the catalogue and for streams. Check the TV’s Wi-Fi or cable, then try again.</string>
+    <string name="home_offline_settings">Network settings</string>
+    <string name="home_offline_retrying">Tries again by itself every 30 s.</string>
+    <!-- A large faint word behind the message, for decoration. -->
+    <string name="home_offline_watermark">offline</string>
 
     <!-- AniList's formats, as shown in card details such as "TV · 2026 · 12 episodes". -->
     <string name="home_format_tv">TV</string>

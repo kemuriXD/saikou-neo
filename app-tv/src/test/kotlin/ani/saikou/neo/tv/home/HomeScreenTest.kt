@@ -498,6 +498,51 @@ class HomeScreenTest {
         assertEquals(listOf(true, false, true), inView)
     }
 
+    private val offline =
+        HomeState(
+            rows =
+                HomeRow.entries.associateWith {
+                    RowState.Failed
+                } + (HomeRow.CONTINUE_WATCHING to RowState.Loaded(emptyList())),
+            offline = true,
+        )
+
+    @Test
+    fun offlineHomeSaysSoWithTryAgainFocused() {
+        show(offline)
+
+        compose.onNodeWithText("This TV isn’t online").assertExists()
+        compose.onNodeWithText("Try again").assertIsFocused()
+        compose.onNodeWithTag(SPOTLIGHT_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun tryAgainAndNetworkSettingsDoWhatTheySay() {
+        val calls = mutableListOf<String>()
+        compose.setContent {
+            NeoTheme { HomeScreen(offline, onRetry = { calls += "retry" }, onNetworkSettings = { calls += "settings" }) }
+        }
+
+        press(Key.DirectionCenter)
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf("retry", "settings"), calls)
+    }
+
+    @Test
+    fun theOfflineScreenSaysWhenItIsInView() {
+        var state by mutableStateOf(offline)
+        val inView = mutableListOf<Boolean>()
+        compose.setContent { NeoTheme { HomeScreen(state, onOfflineInView = { inView += it }) } }
+        compose.waitForIdle()
+
+        state = loaded
+        compose.waitForIdle()
+
+        assertEquals(listOf(true, false), inView)
+    }
+
     @Test
     fun downMovesToTheNextRowWithoutScrolling() {
         show()

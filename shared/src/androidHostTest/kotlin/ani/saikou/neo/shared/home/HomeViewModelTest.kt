@@ -110,6 +110,70 @@ class HomeViewModelTest {
         }
 
     @Test
+    fun homeIsOfflineWhenEveryRowFailsForTheNetwork() =
+        runTest(main) {
+            val viewModel = homeViewModel(OfflineEngine)
+
+            viewModel.settledRows()
+            assertTrue(viewModel.state.value.offline)
+        }
+
+    @Test
+    fun homeIsntOfflineWhileARowLoads() =
+        runTest(main) {
+            val viewModel = homeViewModel(TrendingOfflineEngine())
+
+            viewModel.settledRows()
+            assertFalse(viewModel.state.value.offline)
+        }
+
+    @Test
+    fun tryingAgainOnceOnlineLoadsHome() =
+        runTest(main) {
+            val engine = SwitchableEngine()
+            val viewModel = homeViewModel(engine)
+            viewModel.settledRows()
+
+            engine.online = true
+            viewModel.retry()
+
+            viewModel.settledSpotlight()
+            assertFalse(viewModel.state.value.offline)
+            aniListRows.forEach { assertIs<RowState.Loaded>(viewModel.state.value.rows[it]) }
+        }
+
+    @Test
+    fun whileOfflineHomeTriesAgainEveryThirtySeconds() =
+        runTest(main) {
+            val engine = SwitchableEngine()
+            val viewModel = homeViewModel(engine)
+            viewModel.settledRows()
+            viewModel.watchOffline(true)
+
+            advanceTimeBy(30_001)
+            assertEquals(6, engine.requests)
+            engine.online = true
+            advanceTimeBy(29_999)
+            assertTrue(viewModel.state.value.offline)
+            advanceTimeBy(2)
+
+            viewModel.settledSpotlight()
+            assertFalse(viewModel.state.value.offline)
+            viewModel.watchOffline(false)
+        }
+
+    @Test
+    fun homeOnlyTriesAgainWhileTheOfflineScreenIsShown() =
+        runTest(main) {
+            val engine = SwitchableEngine()
+            val viewModel = homeViewModel(engine)
+            viewModel.settledRows()
+
+            advanceTimeBy(120_000)
+            assertEquals(3, engine.requests)
+        }
+
+    @Test
     fun loadsTheRowsInOrder() =
         runTest(main) {
             val viewModel = homeViewModel()
@@ -479,6 +543,23 @@ private class HomeEngine(
 
 /** Waits for the rows to load and the spotlight to be chosen from them. */
 private suspend fun HomeViewModel.settledSpotlight() = state.first { it.spotlight != null }.spotlight!!
+
+/** Fails every request as if offline, until [online], then answers with the trending page. Counts the requests. */
+private class SwitchableEngine : HttpEngine {
+    private val recorded = HomeEngine()
+    var online = false
+    var requests = 0
+
+    override suspend fun execute(request: HttpRequest): HttpResponse {
+        if (!online) {
+            requests++
+            throw ApolloNetworkException("Unable to resolve host")
+        }
+        return recorded.execute(request)
+    }
+
+    override fun close() {}
+}
 
 /** Fails the trending request as if the connection dropped, and answers the rest. */
 private class TrendingOfflineEngine : HttpEngine {
