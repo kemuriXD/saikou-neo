@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The splash: the lockup centred on ink, 360 dp wide as on the board, with a still loading line 24 dp under its
+    outline. The 128 dp top inset moves the centred line down by half that.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/ink" />
+    <item
+        android:drawable="@drawable/splash_lockup"
+        android:gravity="center" />
+    <item
+        android:drawable="@drawable/splash_loading"
+        android:gravity="center"
+        android:top="128dp" />
+</layer-list>

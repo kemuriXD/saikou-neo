@@ -2,6 +2,7 @@ package ani.saikou.neo.tv
 
 import android.content.ActivityNotFoundException
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.Choreographer
@@ -64,6 +65,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // Opened again after a long time away, the app starts on Home rather than where it was left.
         super.onCreate(absence.restore(savedInstanceState))
+        // Where the system splash shows, it goes with a plain cut to the same lockup in the window background (ADR 0018).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            splashScreen.setOnExitAnimationListener { it.remove() }
+        }
         // The window's animations run at the speed HeldKeys sets.
         setContent(parent = window.decorView.createLifecycleAwareWindowRecomposer(heldKeys, lifecycle)) {
             // The settings take a moment to read at start, and nothing shows until they're in.
