@@ -932,7 +932,7 @@ class DetailsScreenTest {
     }
 
     @Test
-    fun theLiftedHeaderSaysWhatTheShowIsAndOffersResume() {
+    fun theLiftedHeaderSaysWhatTheShowIs() {
         show(
             DetailsState.Loaded(
                 details,
@@ -946,22 +946,8 @@ class DetailsScreenTest {
 
         compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).assertTextEquals("Show 7")
         compose.onNodeWithText("★ 8.4/10 · TV · 2026 · 12 eps").assertExists()
-        compose.onNodeWithText("Resume E7").assertExists()
-        // It shows the way back to the episode; nothing moves focus up to it.
-        press(Key.DirectionUp)
-        compose.onNodeWithText("Resume E7").assertDoesNotExist()
-    }
-
-    // Nothing has aired, so there's nothing to play from the header either.
-    @Test
-    fun theLiftedHeaderOffersNothingToPlayWithoutEpisodes() {
-        val unaired = details.copy(card = card(7).copy(episodes = null), status = "NOT_YET_RELEASED")
-        show(DetailsState.Loaded(unaired, logo = Logo.None))
-        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertDoesNotExist()
-        press(Key.DirectionDown)
-
-        compose.onNodeWithTag(DETAILS_HEADER_TAG).assertExists()
-        compose.onNode(hasText("Play") and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertDoesNotExist()
+        // Nothing could move focus up to a button there, so it has none.
+        compose.onNode(hasText("Resume", substring = true) and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertDoesNotExist()
     }
 
     // A long title takes the room the header has, rather than half of it.
@@ -973,7 +959,7 @@ class DetailsScreenTest {
         press(Key.DirectionDown)
         press(Key.DirectionDown)
 
-        // Everything but the meta and the pill: 854 dp across, less about 300 for them.
+        // Everything but the meta: 854 dp across, less about 200 for it.
         val title = compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).getUnclippedBoundsInRoot()
         assertTrue(title.right - title.left > 450.dp)
     }
@@ -990,7 +976,7 @@ class DetailsScreenTest {
             .onNodeWithTag(DETAILS_HEADER_LOGO_TAG)
             .assertContentDescriptionEquals("Show 7")
             .assertHeightIsEqualTo(40.dp)
-        compose.onNode(hasText("Play") and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertExists()
+        compose.onNode(hasText("Play") and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertDoesNotExist()
     }
 
     @Test

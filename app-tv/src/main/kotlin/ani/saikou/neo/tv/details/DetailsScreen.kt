@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -137,9 +136,6 @@ private val HeaderTop = 24.dp
 private val HeaderEnd = 48.dp
 private val HeaderHeight = 40.dp
 private val HeaderLogoWidth = 200.dp
-private val HeaderPillHeight = 36.dp
-private val HeaderPillPadding = 16.dp
-private val HeaderPillIcon = 11.dp
 private val SynopsisBorder = 2.dp
 
 // From the design: the buttons sit a little further below the genres than the lines above sit apart.
@@ -336,7 +332,7 @@ private fun DetailsPage(
                     }
                 }
                 AnimatedVisibility(visible = lifted, enter = fadeIn(), exit = fadeOut()) {
-                    LiftedHeader(state, hasEpisodes, margin.padding(top = HeaderTop, end = HeaderEnd))
+                    LiftedHeader(state, margin.padding(top = HeaderTop, end = HeaderEnd))
                 }
             }
 
@@ -436,35 +432,16 @@ private fun Hero(
     }
 }
 
-/**
- * The top of the lifted page: the logo small, or the title in words, then the rating and what the show is, and the way
- * back to its episode on the right, if it has episodes. The pill only shows the way: nothing can move focus up to it, since Up from a
- * section lowers the page.
- */
+/** The top of the lifted page: the logo small, or the title in words on one line, then the rating and what the show is. */
 @Composable
 private fun LiftedHeader(
     state: DetailsState.Loaded,
-    hasEpisodes: Boolean,
     modifier: Modifier = Modifier,
+) = Row(
+    modifier.fillMaxWidth().height(HeaderHeight).testTag(DETAILS_HEADER_TAG),
+    horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space4),
+    verticalAlignment = Alignment.CenterVertically,
 ) {
-    Row(
-        modifier.fillMaxWidth().height(HeaderHeight).testTag(DETAILS_HEADER_TAG),
-        horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space4),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        // The title and meta take whatever room the pill leaves, and a long title gives way first.
-        Row(
-            Modifier.weight(1f),
-            horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space4),
-            verticalAlignment = Alignment.CenterVertically,
-        ) { HeaderTitle(state) }
-        if (hasEpisodes) HeaderPill(state.progress)
-    }
-}
-
-/** The logo at the header's height, or the title in words on one line, then the rating and what the show is. */
-@Composable
-private fun RowScope.HeaderTitle(state: DetailsState.Loaded) {
     val colors = NeoTheme.colors
     val title = state.details.card.displayTitle()
     val logo = state.logo as? Logo.Image
@@ -495,29 +472,6 @@ private fun RowScope.HeaderTitle(state: DetailsState.Loaded) {
         color = colors.textMuted,
         maxLines = 1,
     )
-}
-
-/** "Resume E7", or Play without progress. */
-@Composable
-private fun HeaderPill(progress: WatchProgress?) {
-    val colors = NeoTheme.colors
-    Row(
-        Modifier
-            .height(HeaderPillHeight)
-            .background(colors.fillTonal, CircleShape)
-            .padding(horizontal = HeaderPillPadding),
-        horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space2),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(NeoIcons.Play, contentDescription = null, tint = colors.paper, modifier = Modifier.size(HeaderPillIcon))
-        Text(
-            text =
-                progress?.let { stringResource(R.string.details_header_resume, it.episode) }
-                    ?: stringResource(R.string.home_play),
-            style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.SemiBold),
-            color = colors.paper,
-        )
-    }
 }
 
 /** The rating in paper, then what the show is, such as "★ 8.4/10 · TV · 2025 · 22 eps". */
