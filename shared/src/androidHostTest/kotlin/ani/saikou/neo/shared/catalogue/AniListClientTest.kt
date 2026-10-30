@@ -65,6 +65,18 @@ class AniListClientTest {
             assertTrue("\"seasonYear\":2026" in body)
         }
 
+    @Test
+    fun genreAsksForTheMostPopularOfThatGenre() =
+        runTest {
+            val engine = RecordedEngine("browse-trending")
+
+            clientFor(engine).genre("Slice of Life").success()
+
+            val body = engine.requestBodies.single()
+            assertTrue("\"sort\":[\"POPULARITY_DESC\"]" in body)
+            assertTrue("\"genre\":\"Slice of Life\"" in body)
+        }
+
     // A show is left out until its first episode is out, and a film until it's released.
     @Test
     fun rowsAndSearchLeaveOutAnimeNotYetReleased() =

@@ -21,12 +21,12 @@ fragment AnimeCardFields on Media {
   countryOfOrigin
 }
 
-query BrowseAnime($page: Int!, $perPage: Int!, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int, $statusNot: MediaStatus) {
+query BrowseAnime($page: Int!, $perPage: Int!, $sort: [MediaSort], $season: MediaSeason, $seasonYear: Int, $genre: String, $statusNot: MediaStatus) {
   Page(page: $page, perPage: $perPage) {
     pageInfo {
       hasNextPage
     }
-    media(type: ANIME, isAdult: false, sort: $sort, season: $season, seasonYear: $seasonYear, status_not: $statusNot) {
+    media(type: ANIME, isAdult: false, sort: $sort, season: $season, seasonYear: $seasonYear, genre: $genre, status_not: $statusNot) {
       ...AnimeCardFields
     }
   }

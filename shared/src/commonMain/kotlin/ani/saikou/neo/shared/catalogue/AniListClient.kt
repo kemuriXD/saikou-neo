@@ -54,6 +54,13 @@ public class AniListClient internal constructor(
         perPage: Int = DEFAULT_PER_PAGE,
     ): AniListResult<AnimePage> = browse(page, perPage, MediaSort.POPULARITY_DESC, MediaSeason.safeValueOf(season.name), year)
 
+    /** The most popular anime of one genre, named as AniList names it, such as "Slice of Life". */
+    public suspend fun genre(
+        genre: String,
+        page: Int = 1,
+        perPage: Int = DEFAULT_PER_PAGE,
+    ): AniListResult<AnimePage> = browse(page, perPage, MediaSort.POPULARITY_DESC, genre = genre)
+
     public suspend fun search(
         text: String,
         page: Int = 1,
@@ -188,6 +195,7 @@ public class AniListClient internal constructor(
         sort: MediaSort,
         season: MediaSeason? = null,
         seasonYear: Int? = null,
+        genre: String? = null,
     ): AniListResult<AnimePage> {
         val query =
             BrowseAnimeQuery(
@@ -196,6 +204,7 @@ public class AniListClient internal constructor(
                 sort = Optional.present(listOf(sort)),
                 season = Optional.presentIfNotNull(season),
                 seasonYear = Optional.presentIfNotNull(seasonYear),
+                genre = Optional.presentIfNotNull(genre),
                 statusNot = statusNot(),
             )
         return fetch(query) { data ->
