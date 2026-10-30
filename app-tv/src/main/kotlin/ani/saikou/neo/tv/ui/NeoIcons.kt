@@ -169,6 +169,20 @@ object NeoIcons {
         }
     }
 
+    /** A head and shoulders, for the profile until signing in brings the account's picture. */
+    val Profile: ImageVector by lazy {
+        icon("Profile") {
+            path(fill = SolidColor(Color.Black)) {
+                circle(12f, 8.5f, 4f)
+                close()
+                moveTo(4.5f, 20f)
+                curveTo(4.5f, 15.8f, 8f, 13.8f, 12f, 13.8f)
+                curveTo(16f, 13.8f, 19.5f, 15.8f, 19.5f, 20f)
+                close()
+            }
+        }
+    }
+
     /** Wi-Fi waves struck through, for Home with no internet. */
     val WifiOff: ImageVector by lazy {
         icon("WifiOff") {
