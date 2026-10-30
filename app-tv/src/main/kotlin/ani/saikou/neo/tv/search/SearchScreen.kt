@@ -127,6 +127,7 @@ private val ChipGap = 10.dp
 
 // Recent searches fill the room left under the keys: a label, then two lines of chips at most, ending on the safe area.
 private val RecentGap = 8.dp
+private val RecentLabelGap = 6.dp
 private val RecentHeight = 32.dp
 private val RecentPadding = 14.dp
 private const val RECENT_LINES = 2
@@ -481,8 +482,12 @@ private fun Recent(
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
     val newest = remember { FocusRequester() }
-    Column(verticalArrangement = Arrangement.spacedBy(RecentGap)) {
-        Text(stringResource(R.string.search_recent), style = Label, color = colors.textMuted)
+    Column(verticalArrangement = Arrangement.spacedBy(RecentLabelGap)) {
+        Text(
+            stringResource(R.string.search_recent),
+            style = Label.copy(fontSize = 14.sp, lineHeight = 18.sp),
+            color = colors.textMuted,
+        )
         FlowRow(
             modifier =
                 Modifier

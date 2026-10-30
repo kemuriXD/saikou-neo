@@ -182,7 +182,7 @@ class SeeMoreScreenTest {
         show(SeeMoreState(emptyList(), More.Failed, problem = LoadProblem.NO_NETWORK))
 
         compose.onNodeWithText("Couldn’t load these shows").assertExists()
-        compose.onNodeWithText("This TV isn’t online. Check its Wi-Fi or cable, then try again.").assertExists()
+        compose.onNodeWithText("No internet connection. Check the TV’s Wi-Fi or cable, then try again.").assertExists()
         compose.onNodeWithText("Try again").assertIsFocused()
         press(Key.DirectionCenter)
 

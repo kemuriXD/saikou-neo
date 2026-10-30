@@ -270,8 +270,8 @@ class SearchScreenTest {
         var problem by mutableStateOf(LoadProblem.NO_NETWORK)
         show { SearchState("fri", SearchResults.Failed(problem)) }
 
-        compose.onNodeWithText("This TV isn’t online").assertExists()
-        compose.onNodeWithText("Check its Wi-Fi or cable, then try again.").assertExists()
+        compose.onNodeWithText("No internet connection").assertExists()
+        compose.onNodeWithText("Check the TV’s Wi-Fi or cable, then try again.").assertExists()
 
         problem = LoadProblem.RATE_LIMITED
         compose.onNodeWithText("AniList is busy").assertExists()
@@ -301,7 +301,11 @@ class SearchScreenTest {
     fun recentSearchesShowUnderTheKeyboard() {
         show(SearchState(recent = listOf("frieren", "one piece")))
 
-        compose.onNodeWithText("Recent").assertLeftPositionInRootIsEqualTo(64.dp).assertTopPositionInRootIsEqualTo(417.dp)
+        compose
+            .onNodeWithText("Recent searches")
+            .assertLeftPositionInRootIsEqualTo(64.dp)
+            .assertTopPositionInRootIsEqualTo(417.dp)
+            .assertHeightIsEqualTo(18.dp)
         compose.onNodeWithTag(recentTag(0)).assertLeftPositionInRootIsEqualTo(64.dp).assertTopPositionInRootIsEqualTo(441.dp)
         compose.onNodeWithText("frieren").assertExists()
         compose.onNodeWithText("one piece").assertExists()
@@ -311,7 +315,7 @@ class SearchScreenTest {
     fun withNoRecentSearchesThereIsNoLabel() {
         show()
 
-        compose.onNodeWithText("Recent").assertDoesNotExist()
+        compose.onNodeWithText("Recent searches").assertDoesNotExist()
     }
 
     // Down from any key under them lands on the newest search, not the one nearest.

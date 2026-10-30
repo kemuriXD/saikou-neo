@@ -28,14 +28,16 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Reads the anime catalogue from AniList. Lists and search leave out anime not released yet, such as a show before its
- * first episode or a film before it opens, unless [showUnreleased] says to show them.
+ * first episode or a film before it opens, unless [showUnreleased] says to show them. While [isOnline] says the device
+ * has no connection, each call fails at once with a network error instead of waiting for a request that can't get out.
  */
 public class AniListClient internal constructor(
     private val apollo: ApolloClient,
     private val showUnreleased: () -> Boolean = { false },
+    private val isOnline: () -> Boolean = { true },
 ) {
-    public constructor(showUnreleased: () -> Boolean = { false }) :
-        this(ApolloClient.Builder().serverUrl(ANILIST_URL).build(), showUnreleased)
+    public constructor(showUnreleased: () -> Boolean = { false }, isOnline: () -> Boolean = { true }) :
+        this(ApolloClient.Builder().serverUrl(ANILIST_URL).build(), showUnreleased, isOnline)
 
     public suspend fun trending(
         page: Int = 1,
@@ -253,6 +255,7 @@ public class AniListClient internal constructor(
         query: Query<D>,
         map: (D) -> T?,
     ): AniListResult<T> {
+        if (!isOnline()) return AniListResult.Failure(AniListError.Network("No connection"))
         val response = apollo.query(query).execute()
         response.exception?.let { return AniListResult.Failure(it.toAniListError()) }
         val value = response.data?.let(map)
