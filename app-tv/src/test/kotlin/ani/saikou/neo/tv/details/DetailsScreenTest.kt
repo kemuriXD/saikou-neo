@@ -160,8 +160,8 @@ class DetailsScreenTest {
 
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertIsFocused()
         compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertTopPositionInRootIsEqualTo(76.dp)
-        // The title stays as a small line at the top.
-        compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).assertTopPositionInRootIsEqualTo(27.dp)
+        // A small header stays at the top.
+        compose.onNodeWithTag(DETAILS_HEADER_TAG).assertTopPositionInRootIsEqualTo(24.dp).assertHeightIsEqualTo(40.dp)
         // The facts below the synopsis come into view with it.
         compose.onNodeWithText("OLM").assertIsDisplayed()
         compose.onNodeWithTag(DETAILS_SYNOPSIS_TAG).assertHeightIsEqualTo((12 + 2 * 20 + 12).dp)
@@ -912,6 +912,42 @@ class DetailsScreenTest {
         show(state)
         press(Key.DirectionDown)
         press(Key.DirectionRight)
+    }
+
+    @Test
+    fun theLiftedHeaderSaysWhatTheShowIsAndOffersResume() {
+        show(
+            DetailsState.Loaded(
+                details,
+                logo = Logo.None,
+                ratings = Ratings(aniList = 84),
+                progress = WatchProgress(7, 12.minutes, 24.minutes, null),
+            ),
+        )
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).assertTextEquals("Show 7")
+        compose.onNodeWithText("★ 8.4/10 · TV · 2026 · 12 eps").assertExists()
+        compose.onNodeWithText("Resume E7").assertExists()
+        // It shows the way back to the episode; nothing moves focus up to it.
+        press(Key.DirectionUp)
+        compose.onNodeWithText("Resume E7").assertDoesNotExist()
+    }
+
+    @Test
+    fun theLiftedHeaderShowsTheLogo() {
+        imagesAre(800, 310)
+        show(DetailsState.Loaded(details, logo = Logo.Image(LOGO)))
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+
+        compose
+            .onNodeWithTag(DETAILS_HEADER_LOGO_TAG)
+            .assertContentDescriptionEquals("Show 7")
+            .assertHeightIsEqualTo(40.dp)
+        compose.onNode(hasText("Play") and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertExists()
     }
 
     @Test

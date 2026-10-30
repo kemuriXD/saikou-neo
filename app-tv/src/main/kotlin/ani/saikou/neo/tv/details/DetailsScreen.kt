@@ -18,13 +18,16 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.shape.CircleShape
@@ -56,9 +59,13 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -90,9 +97,11 @@ import ani.saikou.neo.tv.ui.NeoButtonRow
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.RememberFocus
 import ani.saikou.neo.tv.ui.ShowTitle
+import ani.saikou.neo.tv.ui.logoRequest
 import ani.saikou.neo.tv.ui.outerGlow
 import ani.saikou.neo.tv.ui.remembersFocus
 import coil3.compose.AsyncImage
+import coil3.compose.LocalPlatformContext
 
 internal const val DETAILS_META_TAG = "details-meta"
 internal const val DETAILS_HERO_TAG = "details-hero"
@@ -100,6 +109,8 @@ internal const val DETAILS_SYNOPSIS_TAG = "details-synopsis"
 internal const val DETAILS_LOADING_TAG = "details-loading"
 internal const val DETAILS_OVERVIEW_TAB_TAG = "details-tab-overview"
 internal const val DETAILS_COMPACT_TITLE_TAG = "details-compact-title"
+internal const val DETAILS_HEADER_TAG = "details-header"
+internal const val DETAILS_HEADER_LOGO_TAG = "details-header-logo"
 internal const val DETAILS_TITLE_TAG = "details-title"
 internal const val DETAILS_LOGO_TAG = "details-logo"
 internal const val DETAILS_MAIN_BUTTON_TAG = "details-main-button"
@@ -117,7 +128,15 @@ private val HeroTop = 56.dp
 private val HeroWidth = 440.dp
 private val OverviewTop = 352.dp
 private val OverviewLift = 276.dp
-private val CompactTitleTop = 27.dp
+
+// From the design: the lifted page keeps a 40 dp header at the top, with the logo at its full height.
+private val HeaderTop = 24.dp
+private val HeaderEnd = 48.dp
+private val HeaderHeight = 40.dp
+private val HeaderLogoWidth = 200.dp
+private val HeaderPillHeight = 36.dp
+private val HeaderPillPadding = 16.dp
+private val HeaderPillIcon = 11.dp
 private val SynopsisBorder = 2.dp
 
 // From the design: the buttons sit a little further below the genres than the lines above sit apart.
@@ -314,14 +333,7 @@ private fun DetailsPage(
                     }
                 }
                 AnimatedVisibility(visible = lifted, enter = fadeIn(), exit = fadeOut()) {
-                    Text(
-                        text = state.details.card.displayTitle(),
-                        style = NeoTheme.typography.label,
-                        color = NeoTheme.colors.textMuted,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = margin.padding(top = CompactTitleTop).width(HeroWidth).testTag(DETAILS_COMPACT_TITLE_TAG),
-                    )
+                    LiftedHeader(state, margin.padding(top = HeaderTop, end = HeaderEnd))
                 }
             }
 
@@ -407,6 +419,88 @@ private fun Hero(
                 )
             }
         }
+    }
+}
+
+/**
+ * The top of the lifted page: the logo small, or the title in words, then the rating and what the show is, and the way
+ * back to its episode on the right. The pill only shows the way: nothing can move focus up to it, since Up from a
+ * section lowers the page.
+ */
+@Composable
+private fun LiftedHeader(
+    state: DetailsState.Loaded,
+    modifier: Modifier = Modifier,
+) {
+    val colors = NeoTheme.colors
+    val card = state.details.card
+    val title = card.displayTitle()
+    Row(
+        modifier.fillMaxWidth().height(HeaderHeight).testTag(DETAILS_HEADER_TAG),
+        horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space4),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        val logo = state.logo as? Logo.Image
+        var failed by remember(logo) { mutableStateOf(false) }
+        if (logo != null && !failed) {
+            val context = LocalPlatformContext.current
+            AsyncImage(
+                model = remember(logo.url) { logoRequest(context, logo.url) },
+                contentDescription = title,
+                contentScale = ContentScale.Fit,
+                alignment = Alignment.CenterStart,
+                onError = { failed = true },
+                modifier = Modifier.height(HeaderHeight).widthIn(max = HeaderLogoWidth).testTag(DETAILS_HEADER_LOGO_TAG),
+            )
+        } else {
+            Text(
+                text = title,
+                style = NeoTheme.typography.title.copy(fontWeight = FontWeight.Bold),
+                color = colors.paper,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).testTag(DETAILS_COMPACT_TITLE_TAG),
+            )
+        }
+        Text(
+            text = state.headerMeta(),
+            style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Medium),
+            color = colors.textMuted,
+            maxLines = 1,
+        )
+        Spacer(Modifier.weight(1f))
+        Row(
+            Modifier
+                .height(HeaderPillHeight)
+                .background(colors.fillTonal, CircleShape)
+                .padding(horizontal = HeaderPillPadding),
+            horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space2),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(NeoIcons.Play, contentDescription = null, tint = colors.paper, modifier = Modifier.size(HeaderPillIcon))
+            Text(
+                text =
+                    state.progress?.let { stringResource(R.string.details_header_resume, it.episode) }
+                        ?: stringResource(R.string.home_play),
+                style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.SemiBold),
+                color = colors.paper,
+            )
+        }
+    }
+}
+
+/** The rating in paper, then what the show is, such as "★ 8.4/10 · TV · 2025 · 22 eps". */
+@Composable
+private fun DetailsState.Loaded.headerMeta(): AnnotatedString {
+    val card = details.card
+    val rating = ratings.mean?.let { stringResource(R.string.details_header_rating, scoreOutOfTen(it).orEmpty()) }
+    val episodes = card.episodes?.let { pluralStringResource(R.plurals.details_header_episodes, it, it) }
+    val rest = listOfNotNull(card.formatName(), card.seasonYear?.toString(), episodes)
+    val paper = NeoTheme.colors.paper
+    return buildAnnotatedString {
+        rating?.let { withStyle(SpanStyle(color = paper)) { append(it) } }
+        if (rating != null && rest.isNotEmpty()) append(" · ")
+        append(rest.joinToString(" · "))
     }
 }
 
@@ -709,9 +803,9 @@ private fun List<Pair<Float, Float>>.inInk(ink: Color) = map { (at, alpha) -> at
 // From the design: ink over the backdrop from the left edge to the right, the same as the spotlight's.
 private val AcrossStops = listOf(0f to 0.88f, 0.34f to 0.7f, 0.55f to 0.42f, 0.8f to 0f, 1f to 0f)
 
-// From the design: ink from the top down. Clear above 62%, just over the Overview tab at 78%, and solid at the bottom,
-// under the synopsis and facts.
-private val DownStops = listOf(0f to 0f, 0.62f to 0f, 0.84f to 0.85f, 1f to 1f)
+// From the design: ink from the top down. Clear above 280 dp, 0.85 by the facts at 415 dp, and solid at the bottom, under
+// the synopsis.
+private val DownStops = listOf(0f to 0f, 280f / 540 to 0f, 415f / 540 to 0.85f, 1f to 1f)
 
 // Lifted, the synopsis and facts sit at the top of the screen, over the clearest part of the art.
 private const val LIFTED_DIM = 0.85f
@@ -740,13 +834,6 @@ private val relationNames =
 @Composable
 private fun RelatedAnime.caption(): String =
     listOfNotNull(stringResource(relationNames.getValue(relation)), card.formatName(), card.seasonYear?.toString()).joinToString(" · ")
-
-/** What the show is, such as "TV · Fall 2026 · 12 episodes". */
-@Composable
-private fun AnimeDetails.meta(): String {
-    val episodes = card.episodes?.let { pluralStringResource(R.plurals.home_episodes, it, it) }
-    return listOfNotNull(card.formatName(), card.seasonName(), episodes).joinToString(" · ")
-}
 
 /** Such as "Fall 2026", or just the year when AniList doesn't give the season. */
 @Composable
