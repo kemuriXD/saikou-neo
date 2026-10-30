@@ -935,6 +935,32 @@ class DetailsScreenTest {
         compose.onNodeWithText("Resume E7").assertDoesNotExist()
     }
 
+    // Nothing has aired, so there's nothing to play from the header either.
+    @Test
+    fun theLiftedHeaderOffersNothingToPlayWithoutEpisodes() {
+        val unaired = details.copy(card = card(7).copy(episodes = null), status = "NOT_YET_RELEASED")
+        show(DetailsState.Loaded(unaired, logo = Logo.None))
+        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertDoesNotExist()
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(DETAILS_HEADER_TAG).assertExists()
+        compose.onNode(hasText("Play") and hasAnyAncestor(hasTestTag(DETAILS_HEADER_TAG))).assertDoesNotExist()
+    }
+
+    // A long title takes the room the header has, rather than half of it.
+    @Test
+    fun aLongTitleUsesTheHeadersRoom() {
+        val name = "Frieren: Beyond Journey's End, the Complete Second Season and Its Specials"
+        val long = details.copy(card = card(7).copy(title = card(7).title.copy(english = name)))
+        show(DetailsState.Loaded(long, logo = Logo.None))
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+
+        // Everything but the meta and the pill: 854 dp across, less about 300 for them.
+        val title = compose.onNodeWithTag(DETAILS_COMPACT_TITLE_TAG).getUnclippedBoundsInRoot()
+        assertTrue(title.right - title.left > 450.dp)
+    }
+
     @Test
     fun theLiftedHeaderShowsTheLogo() {
         imagesAre(800, 310)

@@ -18,7 +18,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -121,9 +121,9 @@ internal const val DETAILS_RATINGS_TAG = "details-ratings"
 /** One site's rating in the facts, by the site's name, such as "IMDb". */
 internal fun ratingTag(site: String) = "details-rating-$site"
 
-// From the design: the title block starts 150 dp down and the Overview tabs rest at 420 dp, with the
-// synopsis peeking below the screen. Focus on the synopsis lifts the page so the tabs sit at 72 dp,
-// and a small title stays at the top.
+// From the design: the title block starts 56 dp down and the Overview tabs rest at 352 dp, with the
+// section peeking below the screen. Focus in a section lifts the page so the tabs sit at 76 dp,
+// under a small header.
 private val HeroTop = 56.dp
 private val HeroWidth = 440.dp
 private val OverviewTop = 352.dp
@@ -333,7 +333,7 @@ private fun DetailsPage(
                     }
                 }
                 AnimatedVisibility(visible = lifted, enter = fadeIn(), exit = fadeOut()) {
-                    LiftedHeader(state, margin.padding(top = HeaderTop, end = HeaderEnd))
+                    LiftedHeader(state, hasEpisodes, margin.padding(top = HeaderTop, end = HeaderEnd))
                 }
             }
 
@@ -424,68 +424,85 @@ private fun Hero(
 
 /**
  * The top of the lifted page: the logo small, or the title in words, then the rating and what the show is, and the way
- * back to its episode on the right. The pill only shows the way: nothing can move focus up to it, since Up from a
+ * back to its episode on the right, if it has episodes. The pill only shows the way: nothing can move focus up to it, since Up from a
  * section lowers the page.
  */
 @Composable
 private fun LiftedHeader(
     state: DetailsState.Loaded,
+    hasEpisodes: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val colors = NeoTheme.colors
-    val card = state.details.card
-    val title = card.displayTitle()
     Row(
         modifier.fillMaxWidth().height(HeaderHeight).testTag(DETAILS_HEADER_TAG),
         horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space4),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val logo = state.logo as? Logo.Image
-        var failed by remember(logo) { mutableStateOf(false) }
-        if (logo != null && !failed) {
-            val context = LocalPlatformContext.current
-            AsyncImage(
-                model = remember(logo.url) { logoRequest(context, logo.url) },
-                contentDescription = title,
-                contentScale = ContentScale.Fit,
-                alignment = Alignment.CenterStart,
-                onError = { failed = true },
-                modifier = Modifier.height(HeaderHeight).widthIn(max = HeaderLogoWidth).testTag(DETAILS_HEADER_LOGO_TAG),
-            )
-        } else {
-            Text(
-                text = title,
-                style = NeoTheme.typography.title.copy(fontWeight = FontWeight.Bold),
-                color = colors.paper,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f, fill = false).testTag(DETAILS_COMPACT_TITLE_TAG),
-            )
-        }
-        Text(
-            text = state.headerMeta(),
-            style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Medium),
-            color = colors.textMuted,
-            maxLines = 1,
-        )
-        Spacer(Modifier.weight(1f))
+        // The title and meta take whatever room the pill leaves, and a long title gives way first.
         Row(
-            Modifier
-                .height(HeaderPillHeight)
-                .background(colors.fillTonal, CircleShape)
-                .padding(horizontal = HeaderPillPadding),
-            horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space2),
+            Modifier.weight(1f),
+            horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space4),
             verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(NeoIcons.Play, contentDescription = null, tint = colors.paper, modifier = Modifier.size(HeaderPillIcon))
-            Text(
-                text =
-                    state.progress?.let { stringResource(R.string.details_header_resume, it.episode) }
-                        ?: stringResource(R.string.home_play),
-                style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.SemiBold),
-                color = colors.paper,
-            )
-        }
+        ) { HeaderTitle(state) }
+        if (hasEpisodes) HeaderPill(state.progress)
+    }
+}
+
+/** The logo at the header's height, or the title in words on one line, then the rating and what the show is. */
+@Composable
+private fun RowScope.HeaderTitle(state: DetailsState.Loaded) {
+    val colors = NeoTheme.colors
+    val title = state.details.card.displayTitle()
+    val logo = state.logo as? Logo.Image
+    var failed by remember(logo) { mutableStateOf(false) }
+    if (logo != null && !failed) {
+        val context = LocalPlatformContext.current
+        AsyncImage(
+            model = remember(logo.url) { logoRequest(context, logo.url) },
+            contentDescription = title,
+            contentScale = ContentScale.Fit,
+            alignment = Alignment.CenterStart,
+            onError = { failed = true },
+            modifier = Modifier.height(HeaderHeight).widthIn(max = HeaderLogoWidth).testTag(DETAILS_HEADER_LOGO_TAG),
+        )
+    } else {
+        Text(
+            text = title,
+            style = NeoTheme.typography.title.copy(fontWeight = FontWeight.Bold),
+            color = colors.paper,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false).testTag(DETAILS_COMPACT_TITLE_TAG),
+        )
+    }
+    Text(
+        text = state.headerMeta(),
+        style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Medium),
+        color = colors.textMuted,
+        maxLines = 1,
+    )
+}
+
+/** "Resume E7", or Play without progress. */
+@Composable
+private fun HeaderPill(progress: WatchProgress?) {
+    val colors = NeoTheme.colors
+    Row(
+        Modifier
+            .height(HeaderPillHeight)
+            .background(colors.fillTonal, CircleShape)
+            .padding(horizontal = HeaderPillPadding),
+        horizontalArrangement = Arrangement.spacedBy(NeoTheme.dimensions.space2),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(NeoIcons.Play, contentDescription = null, tint = colors.paper, modifier = Modifier.size(HeaderPillIcon))
+        Text(
+            text =
+                progress?.let { stringResource(R.string.details_header_resume, it.episode) }
+                    ?: stringResource(R.string.home_play),
+            style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.SemiBold),
+            color = colors.paper,
+        )
     }
 }
 
