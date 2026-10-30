@@ -33,6 +33,9 @@ class SplashTest {
         assertEquals(app.getColor(R.color.ink), (background.getDrawable(0) as ColorDrawable).color)
         // The board's lockup is 360 dp wide.
         assertEquals(app.dp(360), background.getDrawable(1).intrinsicWidth)
+        // A still loading line sits under the lockup, so a slow start doesn't look frozen.
+        assertEquals(3, background.numberOfLayers)
+        assertEquals(app.dp(128), background.getLayerInsetTop(2))
     }
 
     @Test

@@ -4,6 +4,8 @@
     <color name="ink">#FF11121C</color>
     <!-- Paper matches NeoColors.paper, for "Saikou" in the splash lockup. -->
     <color name="paper">#FFF6F5F2</color>
+    <!-- Text muted matches NeoColors.textMuted, for the splash's loading line. -->
+    <color name="text_muted">#B8F6F5F2</color>
 
     <!-- The window background is the splash until Home draws (ADR 0018). values-v31 adds the system splash. -->
     <style name="Theme.SaikouNeo" parent="@android:style/Theme.DeviceDefault.NoActionBar">
