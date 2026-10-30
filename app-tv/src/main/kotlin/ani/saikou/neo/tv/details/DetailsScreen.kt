@@ -35,6 +35,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -51,6 +52,8 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -404,14 +407,25 @@ private fun Hero(
         // Until the player comes, Resume and Play open the episodes too.
         onMain?.let {
             NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
-                NeoButton(
-                    text =
-                        progress?.let { stringResource(R.string.details_resume, it.episode, it.minutesLeft) }
-                            ?: stringResource(R.string.home_play),
-                    onClick = it,
-                    icon = NeoIcons.Play,
-                    modifier = Modifier.focusRequester(mainFocus).remembersFocus("main").testTag(DETAILS_MAIN_BUTTON_TAG),
-                )
+                // Focus grows it from its middle, so room for that keeps the gap to Episodes.
+                val density = LocalDensity.current
+                val grows = NeoTheme.dimensions.focusScaleButton - 1
+                var width by remember { mutableIntStateOf(0) }
+                Box(Modifier.padding(end = with(density) { (width * grows / 2).toDp() })) {
+                    NeoButton(
+                        text =
+                            progress?.let { stringResource(R.string.details_resume, it.episode, it.minutesLeft) }
+                                ?: stringResource(R.string.home_play),
+                        onClick = it,
+                        icon = NeoIcons.Play,
+                        modifier =
+                            Modifier
+                                .onSizeChanged { size -> width = size.width }
+                                .focusRequester(mainFocus)
+                                .remembersFocus("main")
+                                .testTag(DETAILS_MAIN_BUTTON_TAG),
+                    )
+                }
                 NeoButton(
                     text = stringResource(R.string.details_episodes),
                     onClick = it,

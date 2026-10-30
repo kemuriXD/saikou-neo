@@ -64,6 +64,7 @@ import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.card
 import ani.saikou.neo.tv.home.loaded
 import ani.saikou.neo.tv.theme.NeoColors
+import ani.saikou.neo.tv.theme.NeoDimensions
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.fakeImages
 import ani.saikou.neo.tv.ui.fakeImagesNeverArrive
@@ -404,6 +405,18 @@ class DetailsScreenTest {
         show(DetailsState.Loaded(details, progress = WatchProgress(7, 12.minutes, 24.minutes, null)))
 
         compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused().assertTextEquals("Resume E7 · 12 min left")
+    }
+
+    // Focus grows the main button from its middle, so the room after it grows too, and the gap stays 16 dp.
+    @Test
+    fun theFocusedMainButtonKeepsItsGap() {
+        show(DetailsState.Loaded(details, progress = WatchProgress(7, 12.minutes, 24.minutes, null)))
+
+        val main = compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused().getUnclippedBoundsInRoot()
+        val episodes = compose.onNodeWithTag(DETAILS_EPISODES_BUTTON_TAG).getUnclippedBoundsInRoot()
+        val grown = (main.right - main.left) * (NeoDimensions().focusScaleButton - 1) / 2
+        // Within half a dp: the room is rounded to whole pixels.
+        assertTrue(episodes.left - (main.right + grown) >= 15.5.dp)
     }
 
     @Test
