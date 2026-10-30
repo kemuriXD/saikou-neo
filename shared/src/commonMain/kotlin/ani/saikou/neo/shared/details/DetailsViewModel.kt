@@ -49,9 +49,10 @@ public sealed interface DetailsState {
  * Loads one anime's details from AniList, and its backdrop and logo from [library] at the same time. Art found while the
  * viewer rested on the show's card is there at once; otherwise Details waits up to [ART_WAIT] for it. The title is the
  * logo only if the art came by then, so the title never swaps in front of the viewer. A backdrop found later still fades
- * in. The episodes come from AniZip once AniList's details are in, or as plain numbers without it. Those after [today]
- * haven't aired, and they're left out of the list unless [showUpcomingEpisodes]. The [raters] are asked once AniList's
- * details are in, and for IMDb once AniZip gives its id. [progress] is how far this TV got in the show, if anywhere.
+ * in. The episodes come from AniZip once AniList's details are in, with AniList's dates where AniZip has none, read on
+ * a clock [zoneOffsetSeconds] ahead of UTC. Those after [today] haven't aired, and they're left out of the list unless
+ * [showUpcomingEpisodes]. The [raters] are asked once AniList's details are in, and for IMDb once AniZip gives its id.
+ * [progress] is how far this TV got in the show, if anywhere.
  */
 public class DetailsViewModel(
     private val client: AniListClient,
@@ -62,6 +63,7 @@ public class DetailsViewModel(
     private val today: AirDate,
     private val showUpcomingEpisodes: Boolean = true,
     private val progress: WatchProgress? = null,
+    private val zoneOffsetSeconds: Int = 0,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
     public val state: StateFlow<DetailsState> = mutableState.asStateFlow()
@@ -91,7 +93,7 @@ public class DetailsViewModel(
             launch { raters.mal(result.value)?.let { score -> rate { it.copy(mal = score) } } }
             launch {
                 val aniZipEpisodes = aniZip.episodes(animeId)
-                val found = episodeList(result.value, aniZipEpisodes, today, showUpcomingEpisodes)
+                val found = episodeList(result.value, aniZipEpisodes, today, showUpcomingEpisodes, zoneOffsetSeconds)
                 episodes = found
                 mutableState.update { (it as? DetailsState.Loaded)?.copy(episodes = found) ?: it }
                 val omdb = aniZipEpisodes?.imdbId?.let { raters.omdb(result.value, it) } ?: return@launch

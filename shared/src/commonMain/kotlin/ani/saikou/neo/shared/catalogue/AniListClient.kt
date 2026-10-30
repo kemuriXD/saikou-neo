@@ -167,6 +167,17 @@ public class AniListClient internal constructor(
                             },
                     moreRecommendations = media.recommendations?.pageInfo?.hasNextPage == true,
                     malId = media.idMal,
+                    startDate =
+                        media.startDate?.let { date ->
+                            val (year, month, day) = Triple(date.year, date.month, date.day)
+                            if (year != null && month != null && day != null) AirDate(year, month, day) else null
+                        },
+                    airingAt =
+                        media.airingSchedule
+                            ?.nodes
+                            .orEmpty()
+                            .filterNotNull()
+                            .associate { it.episode to it.airingAt.toLong() },
                 )
             }
         }

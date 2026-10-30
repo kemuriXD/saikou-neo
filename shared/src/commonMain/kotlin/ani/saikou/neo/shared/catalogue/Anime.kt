@@ -64,6 +64,10 @@ public data class AnimeDetails(
     val moreRecommendations: Boolean = false,
     /** The show's id on MyAnimeList, for its MAL score. */
     val malId: Int? = null,
+    /** When the show started, or a film came out. */
+    val startDate: AirDate? = null,
+    /** When each of the first 25 episodes airs, in seconds since 1970, by episode number. */
+    val airingAt: Map<Int, Long> = emptyMap(),
 )
 
 /** One page of an anime's recommendations, and the [show] they're for. */

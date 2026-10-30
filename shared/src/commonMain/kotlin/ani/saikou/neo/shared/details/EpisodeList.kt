@@ -46,20 +46,30 @@ public fun episodeCount(
         ?: 0
 
 /**
- * The Episodes tab's list: AniList's count, with whatever [aniZip] knows of each episode. AniList's next episode and
- * those after it haven't aired. Without one, an episode dated after [today] hasn't. Unless [showUpcoming], the list
- * leaves out the episodes that haven't aired, though its count and how many have aired stay the same.
+ * The Episodes tab's list: AniList's count, with whatever [aniZip] knows of each episode. Where AniZip has no date or
+ * length, AniList's airing schedule and episode length fill in, its dates read on a clock [zoneOffsetSeconds] ahead of
+ * UTC. A film takes AniList's start date instead. AniList's next episode and those after it haven't aired.
+ * Without one, an episode dated after [today] hasn't. Unless [showUpcoming], the list leaves out the episodes that
+ * haven't aired, though its count and how many have aired stay the same.
  */
 public fun episodeList(
     details: AnimeDetails,
     aniZip: AniZipEpisodes?,
     today: AirDate,
     showUpcoming: Boolean = true,
+    zoneOffsetSeconds: Int = 0,
 ): EpisodeList {
     val count = episodeCount(details, aniZip)
     val known = aniZip?.episodes.orEmpty().associateBy { it.number }
-    val episodes = (1..count).map { known[it] ?: AniZipEpisode(it, null, null, null, null, null) }
     val film = details.card.format == "MOVIE"
+    val episodes =
+        (1..count).map { number ->
+            val episode = known[number] ?: AniZipEpisode(number, null, null, null, null, null)
+            // A film's schedule has its first showing in Japan, which can fall the day before the release AniList lists.
+            val scheduled = details.airingAt[number]?.let { AirDate.at(it, zoneOffsetSeconds) }
+            val aired = if (film) details.startDate ?: scheduled else scheduled
+            episode.copy(airDate = episode.airDate ?: aired, minutes = episode.minutes ?: details.episodeMinutes)
+        }
     val aired = episodes.filter { it.hasAired(today, details.nextEpisode?.number) }
     return EpisodeList(
         count = count,

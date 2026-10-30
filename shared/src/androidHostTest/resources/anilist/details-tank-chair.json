@@ -1,0 +1,418 @@
+{
+  "data": {
+    "Media": {
+      "__typename": "Media",
+      "id": 209499,
+      "title": {
+        "romaji": "TANK CHAIR: Sensha Isu",
+        "english": "TANK CHAIR",
+        "native": "TANK CHAIR-戦車椅子-"
+      },
+      "coverImage": {
+        "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx209499-S0sWFrCpft85.jpg",
+        "color": "#e4c95d"
+      },
+      "bannerImage": null,
+      "format": "TV",
+      "episodes": null,
+      "averageScore": 62,
+      "season": "FALL",
+      "seasonYear": 2026,
+      "countryOfOrigin": "JP",
+      "idMal": 63751,
+      "description": "Shizuka takes on the most dangerous of assassin jobs, but she's not the one doing the killing. Rather, it's her brother, Nagi, a strong assassin who took a bullet to protect his sister, leaving him in a comatose state and having to use a wheelchair. However, Shizuka has figured out the key to waking her brother up: he must be faced with killing intent! Thus begins a violent journey of recovery, battling the most dangerous foes!\n<br><br>\n(Source: Kodansha USA)",
+      "status": "RELEASING",
+      "duration": 25,
+      "genres": [
+        "Action",
+        "Sci-Fi"
+      ],
+      "studios": {
+        "nodes": [
+          {
+            "name": "POLYGON PICTURES"
+          }
+        ]
+      },
+      "nextAiringEpisode": {
+        "episode": 5,
+        "airingAt": 1793541600
+      },
+      "startDate": {
+        "year": 2026,
+        "month": 10,
+        "day": 4
+      },
+      "airingSchedule": {
+        "nodes": [
+          {
+            "episode": 1,
+            "airingAt": 1791122400
+          },
+          {
+            "episode": 2,
+            "airingAt": 1791727200
+          },
+          {
+            "episode": 3,
+            "airingAt": 1792332000
+          },
+          {
+            "episode": 4,
+            "airingAt": 1792936800
+          },
+          {
+            "episode": 5,
+            "airingAt": 1793541600
+          },
+          {
+            "episode": 6,
+            "airingAt": 1794146400
+          },
+          {
+            "episode": 7,
+            "airingAt": 1794751200
+          },
+          {
+            "episode": 8,
+            "airingAt": 1795356000
+          },
+          {
+            "episode": 9,
+            "airingAt": 1795960800
+          },
+          {
+            "episode": 10,
+            "airingAt": 1796565600
+          },
+          {
+            "episode": 11,
+            "airingAt": 1797170400
+          },
+          {
+            "episode": 12,
+            "airingAt": 1797775200
+          },
+          {
+            "episode": 13,
+            "airingAt": 1798380000
+          },
+          {
+            "episode": 14,
+            "airingAt": 1798984800
+          },
+          {
+            "episode": 15,
+            "airingAt": 1799589600
+          },
+          {
+            "episode": 16,
+            "airingAt": 1800194400
+          },
+          {
+            "episode": 17,
+            "airingAt": 1800799200
+          },
+          {
+            "episode": 18,
+            "airingAt": 1801404000
+          },
+          {
+            "episode": 19,
+            "airingAt": 1802008800
+          },
+          {
+            "episode": 20,
+            "airingAt": 1802613600
+          },
+          {
+            "episode": 21,
+            "airingAt": 1803218400
+          },
+          {
+            "episode": 22,
+            "airingAt": 1803823200
+          },
+          {
+            "episode": 23,
+            "airingAt": 1804428000
+          },
+          {
+            "episode": 24,
+            "airingAt": 1805032800
+          },
+          {
+            "episode": 25,
+            "airingAt": 1805637600
+          }
+        ]
+      },
+      "relations": {
+        "edges": [
+          {
+            "relationType": "ADAPTATION",
+            "node": {
+              "__typename": "Media",
+              "id": 157808,
+              "title": {
+                "romaji": "Sensha Isu: TANK CHAIR",
+                "english": "Tank Chair",
+                "native": "戦車椅子-TANK CHAIR-"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx157808-AozfgfGmJdkG.jpg",
+                "color": "#e45d86"
+              },
+              "bannerImage": null,
+              "format": "MANGA",
+              "episodes": null,
+              "averageScore": 69,
+              "season": null,
+              "seasonYear": null,
+              "countryOfOrigin": "JP",
+              "type": "MANGA",
+              "isAdult": false
+            }
+          }
+        ]
+      },
+      "recommendations": {
+        "pageInfo": {
+          "hasNextPage": true
+        },
+        "nodes": [
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 105228,
+              "title": {
+                "romaji": "Dorohedoro",
+                "english": "Dorohedoro",
+                "native": "ドロヘドロ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx105228-I4xr84QS9Pvk.jpg",
+                "color": "#6b431a"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/105228-QBAya2q8SP52.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 79,
+              "season": "WINTER",
+              "seasonYear": 2020,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 108478,
+              "title": {
+                "romaji": "No Guns Life",
+                "english": "No Guns Life",
+                "native": "ノー・ガンズ・ライフ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx108478-yHMnmQCtHSDb.jpg",
+                "color": "#e4c993"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/108478-1maWWL3g3vzO.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 66,
+              "season": "FALL",
+              "seasonYear": 2019,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 127230,
+              "title": {
+                "romaji": "Chainsaw Man",
+                "english": "Chainsaw Man",
+                "native": "チェンソーマン"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx127230-DdP4vAdssLoz.png",
+                "color": "#6b1a1a"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/127230-o8IRwCGVr9KW.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 83,
+              "season": "FALL",
+              "seasonYear": 2022,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 20727,
+              "title": {
+                "romaji": "Kekkai Sensen",
+                "english": "Blood Blockade Battlefront",
+                "native": "血界戦線"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20727-jgVnxLCHAKqZ.jpg",
+                "color": "#1ac9f1"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20727-jcGXKLo3lLDP.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 74,
+              "season": "SPRING",
+              "seasonYear": 2015,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 151040,
+              "title": {
+                "romaji": "TRIGUN STAMPEDE",
+                "english": "TRIGUN STAMPEDE",
+                "native": "TRIGUN STAMPEDE"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx151040-9QXRpaprfNmL.png",
+                "color": "#5da1e4"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/151040-1auPdaGqDGYd.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 77,
+              "season": "WINTER",
+              "seasonYear": 2023,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 116566,
+              "title": {
+                "romaji": "Akudama Drive",
+                "english": "Akudama Drive",
+                "native": "アクダマドライブ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx116566-PPIVQt359vQY.jpg",
+                "color": "#d6501a"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/116566-XwsHAwTxbXmC.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 74,
+              "season": "FALL",
+              "seasonYear": 2020,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 120377,
+              "title": {
+                "romaji": "Cyberpunk: Edgerunners",
+                "english": "Cyberpunk: Edgerunners",
+                "native": "サイバーパンク エッジランナーズ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx120377-ayZPoxiWt4Li.jpg",
+                "color": "#78f150"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/120377-c15oLS8CA31s.jpg",
+              "format": "ONA",
+              "episodes": 10,
+              "averageScore": 85,
+              "season": "SUMMER",
+              "seasonYear": 2022,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 13601,
+              "title": {
+                "romaji": "PSYCHO-PASS",
+                "english": "PSYCHO-PASS",
+                "native": "PSYCHO-PASS サイコパス"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx13601-i42VFuHpqEOJ.jpg",
+                "color": "#288686"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/13601-YrCmS1oY4uBZ.jpg",
+              "format": "TV",
+              "episodes": 22,
+              "averageScore": 81,
+              "season": "FALL",
+              "seasonYear": 2012,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 167336,
+              "title": {
+                "romaji": "Lazarus",
+                "english": "LAZARUS",
+                "native": "ラザロ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx167336-KpGIIBie71OX.png",
+                "color": "#e4ae5d"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/167336-tDasHGggSBcH.jpg",
+              "format": "TV",
+              "episodes": 13,
+              "averageScore": 70,
+              "season": "SPRING",
+              "seasonYear": 2025,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 2025,
+              "title": {
+                "romaji": "DARKER THAN BLACK: Kuro no Keiyakusha",
+                "english": "Darker than Black",
+                "native": "DARKER THAN BLACK -黒の契約者-"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/medium/b2025-ZKVteVzUyFLH.png",
+                "color": "#a16b28"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/2025-Fx3ALDmrOulv.jpg",
+              "format": "TV",
+              "episodes": 25,
+              "averageScore": 77,
+              "season": "SPRING",
+              "seasonYear": 2007,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          }
+        ]
+      }
+    }
+  }
+}
