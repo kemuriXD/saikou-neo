@@ -97,8 +97,9 @@ internal val rowTitles =
 
 // From the design: the spotlight's dots sit at 344 dp and the rows at 382 dp, so the first row's cards fit whole under
 // it. Once focus is in the rows they move up so the first heading is at 30 dp, and three whole rows fill the screen.
-// The spotlight may reach up to 76 dp, room for an 80 dp logo, the meta line, two lines of story and the buttons.
-private val SpotlightTop = 76.dp
+// The spotlight may reach up to 70 dp, room for the line saying why a show is featured, an 80 dp logo, the meta line,
+// two lines of story and the buttons. The logo box is 10 dp taller than the design's title, so this is 6 dp higher.
+private val SpotlightTop = 70.dp
 
 // The spotlight's buttons end 24 dp above the dots, with its text stacked on top of them.
 private val SpotlightBottom = 320.dp
@@ -223,7 +224,7 @@ fun HomeScreen(
                 Modifier
                     .padding(start = ContentStart, top = SpotlightTop)
                     .size(SpotlightWidth, SpotlightBottom - SpotlightTop)
-            SpotlightShow(spotlight, play, dots, onOpen, place.then(hide))
+            SpotlightShow(spotlight, state.progress, play, dots, onOpen, place.then(hide))
             // Centred beside the rail, as in the design.
             val dotsPlace = Modifier.align(Alignment.TopCenter).padding(start = RailWidth, top = DotsTop)
             if (spotlight == null) {

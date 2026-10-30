@@ -8,6 +8,7 @@ import ani.saikou.neo.shared.catalogue.anilist.BrowseAnimeQuery
 import ani.saikou.neo.shared.catalogue.anilist.SearchAnimeQuery
 import ani.saikou.neo.shared.catalogue.anilist.fragment.AnimeCardFields
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaFormat
+import ani.saikou.neo.shared.catalogue.anilist.type.MediaRankType
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaRelation
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaSeason
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaSort
@@ -67,13 +68,24 @@ public class AniListClient internal constructor(
             }
         }
 
-    /** Each anime's description, by id, as AniList sends it. See [ani.saikou.neo.shared.details.parseSynopsis]. */
-    public suspend fun synopses(ids: List<Int>): AniListResult<Map<Int, String?>> =
+    /** What Home's spotlight shows of each anime, by id. */
+    public suspend fun spotlightFacts(ids: List<Int>): AniListResult<Map<Int, SpotlightFacts>> =
         fetch(AnimeSynopsesQuery(ids = ids)) { data ->
             data.Page
                 ?.media
                 ?.filterNotNull()
-                ?.associate { it.id to it.description }
+                ?.associate { media ->
+                    media.id to
+                        SpotlightFacts(
+                            description = media.description,
+                            nextEpisode = media.nextAiringEpisode?.let { NextEpisode(it.episode, it.airingAt.toLong()) },
+                            ratedRank =
+                                media.rankings
+                                    ?.filterNotNull()
+                                    ?.firstOrNull { it.allTime == true && it.type == MediaRankType.RATED }
+                                    ?.rank,
+                        )
+                }
         }
 
     /**

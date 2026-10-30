@@ -34,10 +34,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
 import ani.saikou.neo.shared.catalogue.AnimeCard
+import ani.saikou.neo.shared.home.FeaturedReason
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.HomeState
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.RowState
+import ani.saikou.neo.tv.theme.NeoDimensions
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.fakeImages
 import ani.saikou.neo.tv.ui.forgetFakeImages
@@ -249,8 +251,15 @@ class HomeScreenTest {
     fun theStoryTakesTwoLinesUnderTheDetails() {
         show(withStory())
 
-        // Two 22 dp lines, cut short with an ellipsis.
-        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(44.dp)
+        // Two 20 dp lines, cut short with an ellipsis.
+        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(40.dp)
+    }
+
+    @Test
+    fun aLongStoryIsNoWiderThanTheDesign() {
+        show(loaded.copy(spotlight = loaded.spotlight!!.copy(synopses = mapOf(0 to "A story that goes on. ".repeat(40)))))
+
+        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertWidthIsEqualTo(360.dp)
     }
 
     @Test
@@ -259,7 +268,25 @@ class HomeScreenTest {
         val spotlight = withStory().spotlight!!
         show(loaded.copy(spotlight = spotlight.copy(logos = spotlight.logos + (0 to Logo.Loading))))
 
-        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(44.dp)
+        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(40.dp)
+    }
+
+    @Test
+    fun aReasonAndALogoStillLeaveTwoLinesForTheStory() {
+        val spotlight = withStory().spotlight!!
+        show(
+            loaded.copy(
+                spotlight =
+                    spotlight.copy(
+                        logos = spotlight.logos + (0 to Logo.Loading),
+                        reasons = mapOf(0 to FeaturedReason.Trending(1)),
+                    ),
+            ),
+        )
+
+        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(40.dp)
+        // The line fits in the spotlight's space, which starts 70 dp down.
+        assertTrue(compose.onNodeWithTag(SPOTLIGHT_REASON_TAG).getUnclippedBoundsInRoot().top >= 70.dp)
     }
 
     @Test
@@ -269,7 +296,7 @@ class HomeScreenTest {
         show(loaded.copy(spotlight = spotlight.copy(shows = listOf(long) + spotlight.shows.drop(1))))
 
         compose.onNodeWithTag(SPOTLIGHT_TITLE_TAG).assertHeightIsEqualTo(76.dp)
-        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(44.dp)
+        compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(40.dp)
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertTopPositionInRootIsEqualTo(276.dp)
     }
 
@@ -601,6 +628,49 @@ class HomeScreenTest {
         press(Key.DirectionRight, times = 3)
 
         compose.onNodeWithContentDescription("Details").assertIsFocused()
+    }
+
+    @Test
+    fun aLineAboveTheTitleSaysWhyTheShowIsFeatured() {
+        show(loaded.copy(spotlight = loaded.spotlight!!.copy(reasons = mapOf(0 to FeaturedReason.Trending(2)))))
+
+        compose.onNodeWithTag(SPOTLIGHT_REASON_TAG).assertTextEquals("#2 TRENDING")
+        val reason = compose.onNodeWithTag(SPOTLIGHT_REASON_TAG).getUnclippedBoundsInRoot()
+        assertTrue(reason.bottom <= compose.onNodeWithTag(SPOTLIGHT_TITLE_TAG).getUnclippedBoundsInRoot().top)
+    }
+
+    @Test
+    fun aHighlyRatedShowSaysItsPlace() {
+        show(loaded.copy(spotlight = loaded.spotlight!!.copy(reasons = mapOf(0 to FeaturedReason.HighestRated(1)))))
+
+        compose.onNodeWithTag(SPOTLIGHT_REASON_TAG).assertTextEquals("#1 HIGHEST RATED")
+    }
+
+    @Test
+    fun theReasonIsLeftOutWithNothingToSay() {
+        show()
+
+        compose.onNodeWithTag(SPOTLIGHT_REASON_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun aShowWithProgressOffersResume() {
+        show(loaded.copy(progress = continuing.progress.mapKeys { (id, _) -> id - 900 }))
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertTextEquals("Resume E7")
+    }
+
+    // Focus grows Play from its middle, and room for that keeps the design's gap to the next button.
+    @Test
+    fun theFocusedMainButtonKeepsItsGap() {
+        show()
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+        // Bounds leave out the focus scale, so the drawn edge is half the growth further right.
+        val play = compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).getUnclippedBoundsInRoot()
+        val drawnRight = play.right + play.width * (NeoDimensions().focusScaleButton - 1) / 2
+        val add = compose.onNodeWithContentDescription("Add to list").getUnclippedBoundsInRoot()
+        assertEquals(16f, (add.left - drawnRight).value, 0.5f)
     }
 
     @Test

@@ -58,10 +58,11 @@ class HomeViewModelTest {
         fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
         tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
         sampleProgress: Boolean = false,
+        now: Long = 1_793_300_000,
     ): HomeViewModel {
         val client = clientFor(engine, main)
         val library = ArtLibrary(ArtSources(client, aniZip, fanartTv, tmdb), CoroutineScope(main))
-        return HomeViewModel(client, library, AnimeSeason.FALL, 2026, sampleProgress)
+        return HomeViewModel(client, library, AnimeSeason.FALL, 2026, sampleProgress) { now }
     }
 
     private val aniListRows = listOf(HomeRow.TRENDING, HomeRow.THIS_SEASON, HomeRow.POPULAR)
@@ -311,6 +312,27 @@ class HomeViewModelTest {
             // A preview of a few lines, so its paragraphs run on rather than leave half-empty lines.
             assertTrue('\n' !in story)
             assertTrue("investigating its true nature. Meanwhile, Jinshi" in story)
+        }
+
+    // The first show's next episode is out within a day. The second has none and isn't in the top 10 rated, so it's
+    // featured for its place in Trending.
+    @Test
+    fun eachFeaturedShowSaysWhyItsFeatured() =
+        runTest(main) {
+            val viewModel = homeViewModel()
+
+            val spotlight = viewModel.state.first { it.spotlight?.reasons?.isNotEmpty() == true }.spotlight!!
+            assertEquals(FeaturedReason.NewEpisode(1_793_368_800), spotlight.reasons[195516])
+            assertEquals(FeaturedReason.Trending(2), spotlight.reasons[195539])
+        }
+
+    @Test
+    fun anEpisodeMoreThanAWeekAwayIsntAReason() =
+        runTest(main) {
+            val viewModel = homeViewModel(now = 1_792_000_000)
+
+            val spotlight = viewModel.state.first { it.spotlight?.reasons?.isNotEmpty() == true }.spotlight!!
+            assertEquals(FeaturedReason.Trending(1), spotlight.reasons[195516])
         }
 
     @Test

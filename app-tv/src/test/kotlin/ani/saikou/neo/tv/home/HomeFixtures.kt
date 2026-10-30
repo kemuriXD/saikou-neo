@@ -28,6 +28,7 @@ internal val loaded =
             rows.getValue(HomeRow.TRENDING).items.take(6).let { shows ->
                 Spotlight(
                     shows,
+                    HomeRow.TRENDING,
                     logos =
                         shows.associate {
                             it.id to

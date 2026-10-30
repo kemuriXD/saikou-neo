@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 
 private const val FEATURED_SHOWS = 6
@@ -53,6 +54,8 @@ public data class HomeState(
 /** The shows featured at the top of Home, and which one is showing. */
 public data class Spotlight(
     val shows: List<AnimeCard>,
+    /** The row the shows come from. */
+    val row: HomeRow,
     val index: Int = 0,
     /** Each show's logo, by anime id, once its art has been found. */
     val logos: Map<Int, Logo> = emptyMap(),
@@ -63,6 +66,8 @@ public data class Spotlight(
      * so paragraph breaks would leave them half empty. Shows without a story are left out.
      */
     val synopses: Map<Int, String> = emptyMap(),
+    /** Why each show is featured, by anime id, once known. Shows with nothing to say are left out. */
+    val reasons: Map<Int, FeaturedReason> = emptyMap(),
     /** True once the viewer picked a show, which stops the spotlight moving on. */
     val picked: Boolean = false,
 ) {
@@ -89,6 +94,7 @@ public sealed interface Logo {
  * Loads Home's rows from AniList. This season is [season] of [year]. The spotlight features the first shows of the
  * first row that loads, with logos and backdrops from [library]. While it's in view it moves on every 10 seconds,
  * until the viewer picks a show. With [sampleProgress], Continue watching shows made-up progress on the featured shows.
+ * [now] is the time in seconds, for how soon a show's next episode is out.
  */
 public class HomeViewModel(
     private val client: AniListClient,
@@ -96,6 +102,7 @@ public class HomeViewModel(
     private val season: AnimeSeason,
     private val year: Int,
     private val sampleProgress: Boolean = false,
+    private val now: () -> Long = { Clock.System.now().epochSeconds },
 ) : ViewModel() {
     // Nothing saves progress yet, so without samples Continue watching is empty from the start.
     private val mutableState =
@@ -120,9 +127,9 @@ public class HomeViewModel(
                 // The spotlight arrives with the row it comes from, so the screen never sees one without the other.
                 mutableState.update { state ->
                     val next = state.copy(rows = state.rows + (row to rowState))
-                    next.copy(spotlight = next.spotlight ?: next.featured()?.let(::Spotlight)).withSamples()
+                    next.copy(spotlight = next.spotlight ?: next.featured()?.let { (row, shows) -> Spotlight(shows, row) }).withSamples()
                 }
-                if (!hadSpotlight) state.value.spotlight?.let { startSpotlight(it.shows) }
+                if (!hadSpotlight) state.value.spotlight?.let(::startSpotlight)
             }
         }
     }
@@ -152,17 +159,25 @@ public class HomeViewModel(
         return copy(rows = rows + (HomeRow.CONTINUE_WATCHING to RowState.Loaded(shows.filter { it.id in progress })), progress = progress)
     }
 
-    private fun startSpotlight(shows: List<AnimeCard>) {
+    private fun startSpotlight(spotlight: Spotlight) {
+        val shows = spotlight.shows
         viewModelScope.launch {
-            val result = client.synopses(shows.map { it.id }) as? AniListResult.Success ?: return@launch
+            val facts = (client.spotlightFacts(shows.map { it.id }) as? AniListResult.Success)?.value.orEmpty()
             val stories =
-                result.value.mapNotNull { (id, description) ->
-                    parseSynopsis(description).story?.let {
-                        id to
-                            it.replace(paragraphBreak, " ")
-                    }
+                facts.mapNotNull { (id, show) ->
+                    show.description
+                        ?.let(::parseSynopsis)
+                        ?.story
+                        ?.let { id to it.replace(paragraphBreak, " ") }
                 }
-            updateSpotlight { it.copy(synopses = stories.toMap()) }
+            // Trending's own order still says something when the rest doesn't load.
+            val reasons =
+                shows.withIndex().mapNotNull { (index, show) ->
+                    val known = facts[show.id]
+                    val trending = if (spotlight.row == HomeRow.TRENDING) index + 1 else null
+                    featuredReason(known?.nextEpisode, known?.ratedRank, trending, now())?.let { show.id to it }
+                }
+            updateSpotlight { it.copy(synopses = stories.toMap(), reasons = reasons.toMap()) }
         }
         shows.forEach { show ->
             viewModelScope.launch {
@@ -211,12 +226,12 @@ internal suspend fun AniListClient.row(
         HomeRow.POPULAR -> popular(page)
     }
 
-/** The first shows of the first row that loaded, waiting for the rows above it. Null while waiting or if none did. */
-private fun HomeState.featured(): List<AnimeCard>? {
+/** The first shows of the first row that loaded, and that row, waiting for the rows above it. Null while waiting or if none did. */
+private fun HomeState.featured(): Pair<HomeRow, List<AnimeCard>>? {
     for (row in aniListRows) {
         when (val rowState = rows[row]) {
             RowState.Loading -> return null
-            is RowState.Loaded -> if (rowState.items.isNotEmpty()) return rowState.items.take(FEATURED_SHOWS)
+            is RowState.Loaded -> if (rowState.items.isNotEmpty()) return row to rowState.items.take(FEATURED_SHOWS)
             else -> continue
         }
     }
