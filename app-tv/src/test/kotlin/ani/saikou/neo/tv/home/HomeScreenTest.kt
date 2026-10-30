@@ -192,20 +192,81 @@ class HomeScreenTest {
         assertGapUnder(SPOTLIGHT_TITLE_TAG)
     }
 
-    // A logo still on its way after a second leaves the title in words until the next show, so it never swaps in.
+    // A logo still on its way after five seconds leaves the title in words until the next show, so it never swaps in.
     @Test
     fun aLogoThatIsSlowToLoadLeavesTheTitleInWords() {
         val ready = CompletableDeferred<Unit>()
         fakeImages(compose.activity, 800, 310, ready = ready)
         showWithLogo()
 
-        compose.mainClock.advanceTimeBy(1_100)
+        compose.mainClock.advanceTimeBy(5_100)
         compose.onNodeWithTag(SPOTLIGHT_TITLE_TAG).assertTextEquals("Show 0")
         ready.complete(Unit)
         compose.waitForIdle()
 
         compose.onNodeWithTag(SPOTLIGHT_LOGO_TAG).assertDoesNotExist()
         compose.onNodeWithTag(SPOTLIGHT_TITLE_TAG).assertTextEquals("Show 0")
+    }
+
+    // The first show comes in one go: its text waits for its logo, even on a TV slower than the logo's own wait.
+    @Test
+    fun theFirstShowWaitsForItsLogo() {
+        val ready = CompletableDeferred<Unit>()
+        fakeImages(compose.activity, 800, 310, ready = ready)
+        showWithLogo()
+
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.onNodeWithTag(SPOTLIGHT_META_TAG).assertDoesNotExist()
+        ready.complete(Unit)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(SPOTLIGHT_LOGO_TAG).assertExists()
+        compose.onNodeWithTag(SPOTLIGHT_META_TAG).assertExists()
+    }
+
+    @Test
+    fun theFirstShowWaitsForItsBackdrop() {
+        val ready = CompletableDeferred<Unit>()
+        val asked = fakeImages(compose.activity, 800, 310, ready = ready)
+        val spotlight = loaded.spotlight!!
+        show(loaded.copy(spotlight = spotlight.copy(fanArt = mapOf(0 to "https://art.test/0.jpg"))))
+
+        compose.waitUntil { "https://art.test/0.jpg" in asked }
+        compose.onNodeWithTag(SPOTLIGHT_META_TAG).assertDoesNotExist()
+        ready.complete(Unit)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(SPOTLIGHT_META_TAG).assertExists()
+    }
+
+    @Test
+    fun theFirstShowWaitsForItsStoryAndReason() {
+        var state by mutableStateOf(loaded.copy(spotlight = loaded.spotlight!!.copy(detailsLoaded = false)))
+        compose.setContent { NeoTheme { HomeScreen(state) } }
+
+        compose.onNodeWithTag(SPOTLIGHT_META_TAG).assertDoesNotExist()
+        state = loaded
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(SPOTLIGHT_META_TAG).assertExists()
+    }
+
+    // As the spotlight moves on, Play keeps the old show's label until the new show's text comes in.
+    @Test
+    fun theMainButtonChangesWithTheText() {
+        var state by mutableStateOf(loaded.copy(progress = continuing.progress.mapKeys { (id, _) -> id - 900 }))
+        compose.setContent { NeoTheme { HomeScreen(state) } }
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertTextEquals("Resume E7")
+
+        compose.mainClock.autoAdvance = false
+        state = state.copy(spotlight = state.spotlight!!.copy(index = 1))
+        compose.waitForIdle()
+        compose.mainClock.advanceTimeBy(100)
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertTextEquals("Resume E7")
+        compose.mainClock.advanceTimeBy(1_000)
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertTextEquals("Resume E8")
+        compose.mainClock.autoAdvance = true
     }
 
     @Test
@@ -262,11 +323,20 @@ class HomeScreenTest {
         compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertWidthIsEqualTo(360.dp)
     }
 
+    /** Shows [loaded] until the first show is in, then [next], such as a later show still loading its logo. */
+    private fun showAfterFirst(next: HomeState) {
+        var state by mutableStateOf(loaded)
+        compose.setContent { NeoTheme { HomeScreen(state) } }
+        compose.waitForIdle()
+        state = next
+        compose.waitForIdle()
+    }
+
     @Test
     fun aLogoStillLeavesTwoLinesForTheStory() {
         // A logo that's still loading keeps its full 80 dp box.
         val spotlight = withStory().spotlight!!
-        show(loaded.copy(spotlight = spotlight.copy(logos = spotlight.logos + (0 to Logo.Loading))))
+        showAfterFirst(loaded.copy(spotlight = spotlight.copy(logos = spotlight.logos + (0 to Logo.Loading))))
 
         compose.onNodeWithTag(SPOTLIGHT_SYNOPSIS_TAG).assertHeightIsEqualTo(40.dp)
     }
@@ -274,7 +344,7 @@ class HomeScreenTest {
     @Test
     fun aReasonAndALogoStillLeaveTwoLinesForTheStory() {
         val spotlight = withStory().spotlight!!
-        show(
+        showAfterFirst(
             loaded.copy(
                 spotlight =
                     spotlight.copy(
@@ -305,8 +375,10 @@ class HomeScreenTest {
     fun theArtFadesIntoTheNextShowsArt() {
         val spotlight = loaded.spotlight!!
         val withArt = spotlight.copy(shows = spotlight.shows.map { it.copy(bannerImageUrl = "https://anilist.test/art-${it.id}.jpg") })
+        fakeImages(compose.activity, 10, 10)
         var state by mutableStateOf(loaded.copy(spotlight = withArt))
         compose.setContent { NeoTheme { HomeScreen(state) } }
+        compose.waitForIdle()
 
         compose.mainClock.autoAdvance = false
         state = state.copy(spotlight = withArt.copy(index = 1))

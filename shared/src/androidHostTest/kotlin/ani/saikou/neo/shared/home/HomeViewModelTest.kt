@@ -33,6 +33,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
@@ -333,6 +334,30 @@ class HomeViewModelTest {
 
             val spotlight = viewModel.state.first { it.spotlight?.reasons?.isNotEmpty() == true }.spotlight!!
             assertEquals(FeaturedReason.Trending(1), spotlight.reasons[195516])
+        }
+
+    // The screen waits for these before showing the first show, whether they came or not.
+    @Test
+    fun theSpotlightSaysOnceItsDetailsHaveAnswered() =
+        runTest(main) {
+            val viewModel = homeViewModel()
+
+            assertFalse(viewModel.settledSpotlight().detailsLoaded)
+            assertTrue(
+                viewModel.state
+                    .first { it.spotlight?.detailsLoaded == true }
+                    .spotlight!!
+                    .synopses
+                    .isNotEmpty(),
+            )
+        }
+
+    @Test
+    fun theSpotlightsDetailsCountAsAnsweredWhenTheyFail() =
+        runTest(main) {
+            val viewModel = homeViewModel(HomeEngine(synopsesOffline = true))
+
+            viewModel.state.first { it.spotlight?.detailsLoaded == true }
         }
 
     @Test

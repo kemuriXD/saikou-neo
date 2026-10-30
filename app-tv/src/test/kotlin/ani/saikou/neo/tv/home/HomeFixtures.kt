@@ -19,7 +19,7 @@ private val rows =
 /**
  * Nothing to continue, and every AniList row loaded with 12 cards. A card's id is its row's place among them times 100,
  * plus its index.
- * The spotlight features the first six trending shows, none with a logo.
+ * The spotlight features the first six trending shows, none with a logo, and AniList has answered for their details.
  */
 internal val loaded =
     HomeState(
@@ -29,6 +29,7 @@ internal val loaded =
                 Spotlight(
                     shows,
                     HomeRow.TRENDING,
+                    detailsLoaded = true,
                     logos =
                         shows.associate {
                             it.id to
