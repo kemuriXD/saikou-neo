@@ -131,6 +131,32 @@ class NeoRailTest {
         compose.onNodeWithTag(RAIL_AVATAR_TAG, useUnmergedTree = true).assertWidthIsEqualTo(36.dp).assertHeightIsEqualTo(36.dp)
     }
 
+    // Until signing in brings the account's picture, the profile shows a person icon in the middle of its circle.
+    private fun assertPersonIconIsCentred() {
+        val picture = compose.onNodeWithTag(RAIL_AVATAR_TAG, useUnmergedTree = true).getUnclippedBoundsInRoot()
+        val icon =
+            compose
+                .onNodeWithTag(RAIL_AVATAR_ICON_TAG, useUnmergedTree = true)
+                .assertWidthIsEqualTo(18.dp)
+                .assertHeightIsEqualTo(18.dp)
+                .getUnclippedBoundsInRoot()
+        assertEquals(((picture.left + picture.right) / 2).value, ((icon.left + icon.right) / 2).value, 0.5f)
+        assertEquals(((picture.top + picture.bottom) / 2).value, ((icon.top + icon.bottom) / 2).value, 0.5f)
+    }
+
+    @Test
+    fun theProfilePictureHoldsAPersonIconClosedAndOpen() {
+        show()
+        assertPersonIconIsCentred()
+
+        press(Key.DirectionLeft)
+        press(Key.DirectionDown, times = 4)
+
+        item(Section.PROFILE).assertIsFocused()
+        compose.onNodeWithText("Profile").assertExists()
+        assertPersonIconIsCentred()
+    }
+
     @Test
     fun leftOpensTheRailOnTheCurrentSectionWithLabelsAndTheScreenDimmed() {
         show()

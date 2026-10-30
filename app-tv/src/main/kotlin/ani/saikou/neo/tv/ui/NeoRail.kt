@@ -9,6 +9,8 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -64,6 +66,7 @@ internal const val RAIL_TAG = "rail"
 internal const val RAIL_SCRIM_TAG = "rail-scrim"
 internal const val RAIL_LOGO_TAG = "rail-logo"
 internal const val RAIL_AVATAR_TAG = "rail-avatar"
+internal const val RAIL_AVATAR_ICON_TAG = "rail-avatar-icon"
 
 internal fun railTag(section: Section) = "rail-${section.name.lowercase()}"
 
@@ -114,8 +117,10 @@ private const val SCRIM_ALPHA = 0.55f
 private val FocusGlowColor = Color.White.copy(alpha = 0.32f)
 private val ShadowColor = Color.Black.copy(alpha = 0.4f)
 
-// Until signing in brings the account's picture.
-private val AvatarColors = listOf(Color(0xFF5F4BB6), Color(0xFFFF4F91))
+// Until signing in brings the account's picture: a soft grey circle with a person in it.
+private const val PICTURE_FILL_ALPHA = 0.16f
+private val PictureOutline = 1.5.dp
+private val PictureIcon = 18.dp
 
 private val PlaceholderTop = 40.dp
 private val PlaceholderGap = 6.dp
@@ -231,6 +236,8 @@ private fun RailItem(
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
     val selected = section == Section.HOME
+    val interactions = remember { MutableInteractionSource() }
+    val focused by interactions.collectIsFocusedAsState()
     Box(contentAlignment = Alignment.CenterStart) {
         // Closed, the mark sits on the rail's edge beside Home.
         if (selected && !open) {
@@ -244,6 +251,7 @@ private fun RailItem(
         Surface(
             selected = selected,
             onClick = { if (selected) onClose() else onSelect(section) },
+            interactionSource = interactions,
             modifier =
                 Modifier
                     .testTag(railTag(section))
@@ -282,13 +290,23 @@ private fun RailItem(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (icon == null) {
+                    // Light on the rail, dark on the focused item's light fill, as the icons are.
+                    val tint = if (focused) colors.onFocus else colors.paper
                     Box(
                         Modifier
                             .testTag(RAIL_AVATAR_TAG)
                             .size(PictureSize)
-                            .background(Brush.linearGradient(AvatarColors), CircleShape)
-                            .border(2.dp, colors.outline, CircleShape),
-                    )
+                            .background(tint.copy(alpha = PICTURE_FILL_ALPHA), CircleShape)
+                            .border(PictureOutline, tint.copy(alpha = colors.outline.alpha), CircleShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            NeoIcons.Profile,
+                            contentDescription = null,
+                            tint = tint,
+                            modifier = Modifier.testTag(RAIL_AVATAR_ICON_TAG).size(PictureIcon),
+                        )
+                    }
                 } else {
                     Icon(icon, contentDescription = null, modifier = Modifier.size(ItemIcon))
                 }
