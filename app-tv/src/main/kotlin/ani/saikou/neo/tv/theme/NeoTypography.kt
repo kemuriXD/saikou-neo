@@ -8,18 +8,22 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 import ani.saikou.neo.tv.R
 
-private val SpaceGrotesk =
-    FontFamily(
-        Font(R.font.space_grotesk_medium, FontWeight.Medium),
-        Font(R.font.space_grotesk_bold, FontWeight.Bold),
-    )
+// Static files, since variable font settings need API 26. Neither has CJK, so Japanese titles fall
+// back to the system font.
+internal object NeoFonts {
+    val bricolageGrotesque =
+        FontFamily(
+            Font(R.font.bricolage_grotesque_medium, FontWeight.Medium),
+            Font(R.font.bricolage_grotesque_bold, FontWeight.Bold),
+        )
 
-private val Inter =
-    FontFamily(
-        Font(R.font.inter_regular, FontWeight.Normal),
-        Font(R.font.inter_medium, FontWeight.Medium),
-        Font(R.font.inter_bold, FontWeight.Bold),
-    )
+    val atkinsonHyperlegibleNext =
+        FontFamily(
+            Font(R.font.atkinson_hyperlegible_next_regular, FontWeight.Normal),
+            Font(R.font.atkinson_hyperlegible_next_medium, FontWeight.Medium),
+            Font(R.font.atkinson_hyperlegible_next_bold, FontWeight.Bold),
+        )
+}
 
 private fun display(
     size: Int,
@@ -27,7 +31,7 @@ private fun display(
     weight: FontWeight,
     tracking: Float = 0f,
 ) = TextStyle(
-    fontFamily = SpaceGrotesk,
+    fontFamily = NeoFonts.bricolageGrotesque,
     fontSize = size.sp,
     lineHeight = lineHeight.sp,
     fontWeight = weight,
@@ -40,7 +44,7 @@ private fun text(
     weight: FontWeight,
     tracking: Float = 0f,
 ) = TextStyle(
-    fontFamily = Inter,
+    fontFamily = NeoFonts.atkinsonHyperlegibleNext,
     fontSize = size.sp,
     lineHeight = lineHeight.sp,
     fontWeight = weight,
