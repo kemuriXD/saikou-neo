@@ -183,6 +183,17 @@ class AniListClientTest {
             assertTrue(details.description.orEmpty().isNotBlank())
         }
 
+    // Steel Ball Run has no AniZip record, so its episodes' dates come from here.
+    @Test
+    fun detailsHaveTheStartDateAndWhenEachEpisodeAirs() =
+        runTest {
+            val details = clientFor(RecordedEngine("details-steel-ball-run")).details(210482).success()
+
+            assertEquals(AirDate(2026, 9, 25), details.startDate)
+            assertEquals((1..11).toList(), details.airingAt.keys.toList())
+            assertEquals(1790323200L, details.airingAt[1])
+        }
+
     // The Apothecary Diaries season 3: its manga, music videos and other versions aren't anime to watch next.
     @Test
     fun detailsListsTheShowsItComesFromFollowsAndLeadsToThenSideStories() =

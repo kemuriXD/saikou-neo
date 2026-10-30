@@ -90,7 +90,6 @@
         <item quantity="one">%1$,d episode so far</item>
         <item quantity="other">%1$,d episodes so far</item>
     </plurals>
-    <string name="details_episodes_missing">Titles and air dates unavailable</string>
     <plurals name="details_episodes_aired">
         <item quantity="one">%1$,d aired</item>
         <item quantity="other">%1$,d aired</item>

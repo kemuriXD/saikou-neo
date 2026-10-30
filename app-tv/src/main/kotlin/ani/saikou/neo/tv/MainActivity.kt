@@ -41,6 +41,7 @@ import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.Section
 import ani.saikou.neo.tv.ui.SectionPlaceholder
 import java.util.Calendar
+import java.util.TimeZone
 
 class MainActivity : ComponentActivity() {
     private val app get() = application as NeoApp
@@ -129,6 +130,7 @@ class MainActivity : ComponentActivity() {
                                         today(),
                                         settings.showUpcomingEpisodes,
                                         progress = app.history.shows.value[animeId],
+                                        zoneOffsetSeconds = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000,
                                     )
                                 }
                             val state by details.state.collectAsStateWithLifecycle()

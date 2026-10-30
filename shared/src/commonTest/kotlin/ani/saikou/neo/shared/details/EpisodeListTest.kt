@@ -30,7 +30,6 @@ class EpisodeListTest {
         assertEquals(rebirth, list.episodes.first())
         assertEquals(37, list.episodes.last().number)
         assertNull(list.episodes.last().title)
-        assertFalse(list.detailsMissing)
     }
 
     @Test
@@ -51,15 +50,43 @@ class EpisodeListTest {
         val list = episodeList(details(episodes = 201), null, today)
 
         assertEquals(201, list.episodes.size)
-        assertTrue(list.episodes.all { it.title == null })
-        assertTrue(list.detailsMissing)
+        assertTrue(list.episodes.all { it.title == null && it.airDate == null })
+    }
+
+    // Steel Ball Run's first episode, out at 08:00 UTC on 25 Sep 2026.
+    @Test
+    fun withoutAniZipEpisodesTakeTheirDatesAndLengthFromAniList() {
+        val list = episodeList(details(episodes = 11, schedule = mapOf(1 to 1790323200L), minutes = 23), null, today)
+
+        assertEquals(AirDate(2026, 9, 25), list.episodes[0].airDate)
+        assertEquals(23, list.episodes[0].minutes)
+        assertNull(list.episodes[1].airDate)
     }
 
     @Test
-    fun episodesWithNoTitlesOrDatesAreMissingTheirDetails() {
-        val blank = AniZipEpisodes(listOf(AniZipEpisode(1, null, null, null, null, 24)), emptyList())
+    fun aniListsDatesAreTheDayOnTheViewersClock() {
+        val show = details(episodes = 11, schedule = mapOf(1 to 1790323200L))
+        val elevenHoursAhead = 11 * 3600
+        val tenHoursBehind = -10 * 3600
 
-        assertTrue(episodeList(details(episodes = 12), blank, today).detailsMissing)
+        assertEquals(AirDate(2026, 9, 25), episodeList(show, null, today, zoneOffsetSeconds = elevenHoursAhead).episodes[0].airDate)
+        assertEquals(AirDate(2026, 9, 24), episodeList(show, null, today, zoneOffsetSeconds = tenHoursBehind).episodes[0].airDate)
+    }
+
+    @Test
+    fun aniZipsDetailsComeBeforeAniLists() {
+        val list = episodeList(details(episodes = 37, schedule = mapOf(1 to 1790323200L), minutes = 30), aniZip, today)
+
+        assertEquals(rebirth, list.episodes[0])
+    }
+
+    @Test
+    fun aFilmAniZipDoesNotKnowShowsItsLengthAndReleaseFromAniList() {
+        val film = details(episodes = 1, format = "MOVIE", minutes = 108, start = AirDate(2026, 1, 30))
+
+        val list = episodeList(film, null, today)
+
+        assertEquals(AniZipEpisode(1, null, null, null, AirDate(2026, 1, 30), 108), list.episodes.single())
     }
 
     @Test
@@ -188,13 +215,18 @@ class EpisodeListTest {
         episodes: Int?,
         next: Int? = null,
         format: String = "TV",
+        schedule: Map<Int, Long> = emptyMap(),
+        minutes: Int? = null,
+        start: AirDate? = null,
     ) = AnimeDetails(
         card = AnimeCard(1535, AnimeTitle("Death Note", null, null), null, null, null, format, episodes, null, null, null),
         description = null,
         status = null,
-        episodeMinutes = null,
+        episodeMinutes = minutes,
         genres = emptyList(),
         studios = emptyList(),
         nextEpisode = next?.let { NextEpisode(it, 0) },
+        startDate = start,
+        airingAt = schedule,
     )
 }

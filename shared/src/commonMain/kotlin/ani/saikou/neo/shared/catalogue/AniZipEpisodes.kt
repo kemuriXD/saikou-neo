@@ -33,6 +33,30 @@ public data class AirDate(
     val day: Int,
 ) : Comparable<AirDate> {
     override fun compareTo(other: AirDate): Int = compareValuesBy(this, other, AirDate::year, AirDate::month, AirDate::day)
+
+    internal companion object {
+        private const val SECONDS_PER_DAY = 86_400L
+
+        /**
+         * The day [epochSeconds] falls on for a clock [offsetSeconds] ahead of UTC. Howard Hinnant's `civil_from_days`,
+         * since minSdk 24 has no java.time.
+         */
+        fun at(
+            epochSeconds: Long,
+            offsetSeconds: Int,
+        ): AirDate {
+            val days = (epochSeconds + offsetSeconds).floorDiv(SECONDS_PER_DAY) + 719_468
+            val era = days.floorDiv(146_097L)
+            val dayOfEra = days - era * 146_097
+            val yearOfEra = (dayOfEra - dayOfEra / 1_460 + dayOfEra / 36_524 - dayOfEra / 146_096) / 365
+            val dayOfYear = dayOfEra - (365 * yearOfEra + yearOfEra / 4 - yearOfEra / 100)
+            val shiftedMonth = (5 * dayOfYear + 2) / 153
+            val day = (dayOfYear - (153 * shiftedMonth + 2) / 5 + 1).toInt()
+            val month = (if (shiftedMonth < 10) shiftedMonth + 3 else shiftedMonth - 9).toInt()
+            val year = (yearOfEra + era * 400 + if (month <= 2) 1 else 0).toInt()
+            return AirDate(year, month, day)
+        }
+    }
 }
 
 /**

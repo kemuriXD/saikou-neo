@@ -69,15 +69,18 @@ class DetailsViewModelTest {
         omdb: OmdbClient = OmdbClient(null, OfflineEngine, main),
         showUpcomingEpisodes: Boolean = true,
         progress: WatchProgress? = null,
+        animeId: Int = 195516,
+        zoneOffsetSeconds: Int = 0,
     ) = DetailsViewModel(
         clientFor(engine, main),
         library,
         episodes,
         Raters(mal, omdb),
-        animeId = 195516,
+        animeId = animeId,
         today = AirDate(2026, 10, 26),
         showUpcomingEpisodes = showUpcomingEpisodes,
         progress = progress,
+        zoneOffsetSeconds = zoneOffsetSeconds,
     )
 
     private fun library(
@@ -131,7 +134,6 @@ class DetailsViewModelTest {
             val episodes = loaded.episodes!!
             assertEquals(loaded.details.card.episodes, episodes.count)
             assertEquals("Day of Atonement", episodes.episodes[3].title)
-            assertEquals(false, episodes.detailsMissing)
         }
 
     @Test
@@ -151,9 +153,66 @@ class DetailsViewModelTest {
             val viewModel = detailsViewModel(episodes = AniZipClient(OfflineEngine, main))
 
             val loaded = viewModel.state.first { (it as? DetailsState.Loaded)?.episodes != null } as DetailsState.Loaded
-            assertTrue(loaded.episodes!!.detailsMissing)
+            assertTrue(loaded.episodes!!.episodes.all { it.title == null && it.airDate == null })
             assertEquals(loaded.details.card.episodes, loaded.episodes.episodes.size)
         }
+
+    // AniZip's record for Steel Ball Run is empty, so AniList's airing schedule dates its episodes.
+    @Test
+    fun withoutAniZipTheEpisodesTakeAniListsDates() =
+        runTest(main) {
+            val viewModel = recordedEpisodes("details-steel-ball-run", 210482)
+
+            val episodes = viewModel.loadedEpisodes()
+            assertEquals(AirDate(2026, 9, 25), episodes.episodes[0].airDate)
+            assertEquals(AirDate(2026, 12, 4), episodes.episodes[10].airDate)
+            assertEquals(6, episodes.aired)
+        }
+
+    // TANK CHAIR has no episode count yet, so it lists the four out so far.
+    @Test
+    fun aShowStillAiringTakesAniListsDatesForTheEpisodesOutSoFar() =
+        runTest(main) {
+            val episodes = recordedEpisodes("details-tank-chair", 209499).loadedEpisodes()
+
+            assertEquals(4, episodes.count)
+            assertEquals(AirDate(2026, 10, 4), episodes.episodes[0].airDate)
+            assertEquals(25, episodes.episodes[0].minutes)
+        }
+
+    // TANK CHAIR's first episode aired at 14:00 UTC on 4 Oct, which was already the 5th in Sydney.
+    @Test
+    fun aniListsDatesAreTheDayOnTheTVsClock() =
+        runTest(main) {
+            val sydney = 11 * 3600
+            val viewModel =
+                detailsViewModel(
+                    RecordedEngine("details-tank-chair"),
+                    episodes = AniZipClient(AniZipEngine(null), main),
+                    animeId = 209499,
+                    zoneOffsetSeconds = sydney,
+                )
+
+            assertEquals(AirDate(2026, 10, 5), viewModel.loadedEpisodes().episodes[0].airDate)
+        }
+
+    @Test
+    fun aFilmAniZipDoesNotKnowTakesItsLengthAndReleaseFromAniList() =
+        runTest(main) {
+            val film = recordedEpisodes("details-hathaway-film", 113971).loadedEpisodes()
+
+            assertTrue(film.film)
+            assertEquals(AirDate(2026, 1, 30), film.episodes.single().airDate)
+            assertEquals(108, film.episodes.single().minutes)
+        }
+
+    private fun recordedEpisodes(
+        fixture: String,
+        animeId: Int,
+    ) = detailsViewModel(RecordedEngine(fixture), episodes = AniZipClient(AniZipEngine(null), main), animeId = animeId)
+
+    private suspend fun DetailsViewModel.loadedEpisodes(): EpisodeList =
+        (state.first { (it as? DetailsState.Loaded)?.episodes != null } as DetailsState.Loaded).episodes!!
 
     @Test
     fun aniListsScoreIsThereFromTheStart() =

@@ -1,0 +1,390 @@
+{
+  "data": {
+    "Media": {
+      "__typename": "Media",
+      "id": 210482,
+      "title": {
+        "romaji": "JoJo no Kimyou na Bouken: Steel Ball Run - 2nd & 3rd STAGE",
+        "english": "STEEL BALL RUN JoJo's Bizarre Adventure 2nd - 3rd STAGE",
+        "native": "ジョジョの奇妙な冒険 スティール・ボール・ラン 2nd＆3rd STAGE"
+      },
+      "coverImage": {
+        "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx210482-P1VNKbqdJ6Zj.jpg",
+        "color": "#f1ae50"
+      },
+      "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/210482-pYAD0IbzNbgS.jpg",
+      "format": "ONA",
+      "episodes": 11,
+      "averageScore": 86,
+      "season": "FALL",
+      "seasonYear": 2026,
+      "countryOfOrigin": "JP",
+      "idMal": 61469,
+      "description": "In the 2nd STAGE, a desert crossing spanning roughly 750 miles- the land that Johnny Joestar and Gyro Zeppeli must challenge, is home to the area that is feared as the \"Devil's Palm.\" In 1875, a threat lurking in said desert wiped out a cavalry of 26 people, eliciting fear from the local native people. As ominous incidents begin to unfold, they are forced to realize that this race is far more than a mere competition. The two press forward, where countless hidden motives collide..<br><br>\n\n(Source: Warner Bros. Japan Anime, Netflix Anime, edited)",
+      "status": "RELEASING",
+      "duration": 23,
+      "genres": [
+        "Action",
+        "Adventure",
+        "Drama",
+        "Mystery",
+        "Supernatural"
+      ],
+      "studios": {
+        "nodes": [
+          {
+            "name": "david production"
+          }
+        ]
+      },
+      "nextAiringEpisode": {
+        "episode": 7,
+        "airingAt": 1793952000
+      },
+      "startDate": {
+        "year": 2026,
+        "month": 9,
+        "day": 25
+      },
+      "airingSchedule": {
+        "nodes": [
+          {
+            "episode": 1,
+            "airingAt": 1790323200
+          },
+          {
+            "episode": 2,
+            "airingAt": 1790928000
+          },
+          {
+            "episode": 3,
+            "airingAt": 1791532800
+          },
+          {
+            "episode": 4,
+            "airingAt": 1792137600
+          },
+          {
+            "episode": 5,
+            "airingAt": 1792742400
+          },
+          {
+            "episode": 6,
+            "airingAt": 1793347200
+          },
+          {
+            "episode": 7,
+            "airingAt": 1793952000
+          },
+          {
+            "episode": 8,
+            "airingAt": 1794556800
+          },
+          {
+            "episode": 9,
+            "airingAt": 1795161600
+          },
+          {
+            "episode": 10,
+            "airingAt": 1795766400
+          },
+          {
+            "episode": 11,
+            "airingAt": 1796371200
+          }
+        ]
+      },
+      "relations": {
+        "edges": [
+          {
+            "relationType": "PREQUEL",
+            "node": {
+              "__typename": "Media",
+              "id": 190327,
+              "title": {
+                "romaji": "JoJo no Kimyou na Bouken: Steel Ball Run - 1st STAGE",
+                "english": "STEEL BALL RUN JoJo's Bizarre Adventure 1st STAGE",
+                "native": "ジョジョの奇妙な冒険 スティール・ボール・ラン 1st STAGE"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx190327-riJNCFL7w9y4.jpg",
+                "color": "#5dbbf1"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/190327-bXr8tFZUdxOw.jpg",
+              "format": "ONA",
+              "episodes": 1,
+              "averageScore": 87,
+              "season": "WINTER",
+              "seasonYear": 2026,
+              "countryOfOrigin": "JP",
+              "type": "ANIME",
+              "isAdult": false
+            }
+          },
+          {
+            "relationType": "ADAPTATION",
+            "node": {
+              "__typename": "Media",
+              "id": 31706,
+              "title": {
+                "romaji": "JoJo no Kimyou na Bouken: Steel Ball Run",
+                "english": "JoJo's Bizarre Adventure: Part 7–Steel Ball Run",
+                "native": "ジョジョの奇妙な冒険 スティール・ボール・ラン"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/manga/cover/large/bx31706-lRncu9VbcBB7.png",
+                "color": "#c9e45d"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/manga/banner/31706-W4G3BFn56DOs.jpg",
+              "format": "MANGA",
+              "episodes": null,
+              "averageScore": 92,
+              "season": null,
+              "seasonYear": null,
+              "countryOfOrigin": "JP",
+              "type": "MANGA",
+              "isAdult": false
+            }
+          }
+        ]
+      },
+      "recommendations": {
+        "pageInfo": {
+          "hasNextPage": true
+        },
+        "nodes": [
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 20474,
+              "title": {
+                "romaji": "JoJo no Kimyou na Bouken: Stardust Crusaders",
+                "english": "JoJo's Bizarre Adventure: Stardust Crusaders",
+                "native": "ジョジョの奇妙な冒険 スターダストクルセイダース"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20474-xuqem5GBlBtb.jpg",
+                "color": null
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20474-peBLuUVAzNC3.jpg",
+              "format": "TV",
+              "episodes": 24,
+              "averageScore": 79,
+              "season": "SPRING",
+              "seasonYear": 2014,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 102883,
+              "title": {
+                "romaji": "JoJo no Kimyou na Bouken: Ougon no Kaze",
+                "english": "JoJo's Bizarre Adventure: Golden Wind",
+                "native": "ジョジョの奇妙な冒険 黄金の風"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx102883-S9KzdMJhDswJ.png",
+                "color": "#fff1bb"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/102883-8ffuBLnY5vNR.jpg",
+              "format": "TV",
+              "episodes": 39,
+              "averageScore": 85,
+              "season": "FALL",
+              "seasonYear": 2018,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 14719,
+              "title": {
+                "romaji": "JoJo no Kimyou na Bouken (TV)",
+                "english": "JoJo's Bizarre Adventure (TV)",
+                "native": "ジョジョの奇妙な冒険 (TV)"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx14719-VT5dRzTBSZ0w.jpg",
+                "color": "#e49343"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/14719-m7Hv2AxcNNjM.jpg",
+              "format": "TV",
+              "episodes": 26,
+              "averageScore": 77,
+              "season": "FALL",
+              "seasonYear": 2012,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 20799,
+              "title": {
+                "romaji": "JoJo no Kimyou na Bouken: Stardust Crusaders - Egypt-hen",
+                "english": "JoJo's Bizarre Adventure: Stardust Crusaders - Battle in Egypt",
+                "native": "ジョジョの奇妙な冒険 スターダストクルセイダース エジプト編"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx20799-S1eyqBDlx51E.jpg",
+                "color": "#6b281a"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/20799-Fc9I1XG4TWtJ.jpg",
+              "format": "TV",
+              "episodes": 24,
+              "averageScore": 83,
+              "season": "WINTER",
+              "seasonYear": 2015,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 21450,
+              "title": {
+                "romaji": "JoJo no Kimyou na Bouken: Diamond wa Kudakenai",
+                "english": "JoJo's Bizarre Adventure: Diamond is Unbreakable",
+                "native": "ジョジョの奇妙な冒険 ダイヤモンドは砕けない"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx21450-D7XFwEQjZ5GA.jpg",
+                "color": "#c9a150"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/21450-5mgIkvOWnF9Z.jpg",
+              "format": "TV",
+              "episodes": 39,
+              "averageScore": 84,
+              "season": "SPRING",
+              "seasonYear": 2016,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 146722,
+              "title": {
+                "romaji": "JoJo no Kimyou na Bouken: Stone Ocean Part 2",
+                "english": "JoJo's Bizarre Adventure: STONE OCEAN Part 2",
+                "native": "ジョジョの奇妙な冒険 ストーンオーシャン 2クール"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx146722-hiZU7M33fBhn.jpg",
+                "color": "#1ad643"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/146722-nfTe0Exka4d5.jpg",
+              "format": "ONA",
+              "episodes": 26,
+              "averageScore": 82,
+              "season": "SUMMER",
+              "seasonYear": 2022,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 131942,
+              "title": {
+                "romaji": "JoJo no Kimyou na Bouken: Stone Ocean",
+                "english": "JoJo's Bizarre Adventure: STONE OCEAN",
+                "native": "ジョジョの奇妙な冒険 ストーンオーシャン"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx131942-rermlZ9lplHX.png",
+                "color": "#288678"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/131942-qRGh8f8t2kMl.jpg",
+              "format": "ONA",
+              "episodes": 12,
+              "averageScore": 80,
+              "season": "FALL",
+              "seasonYear": 2021,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 172420,
+              "title": {
+                "romaji": "Uma Musume: Pretty Derby - Shin Jidai no Tobira",
+                "english": "Umamusume: Pretty Derby - Beginning of a New Era",
+                "native": "ウマ娘 プリティーダービー 新時代の扉"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx172420-4LjhmwpNMHti.jpg",
+                "color": "#f1bb43"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/172420-QVRFOAha7oy5.jpg",
+              "format": "MOVIE",
+              "episodes": 1,
+              "averageScore": 86,
+              "season": "SPRING",
+              "seasonYear": 2024,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 3603,
+              "title": {
+                "romaji": "JoJo no Kimyou na Bouken: Phantom Blood",
+                "english": null,
+                "native": "ジョジョの奇妙な冒険 ファントム ブラッド"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx3603-SlwsgQeC4fTg.png",
+                "color": "#e4ae35"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/3603-aRvNSuOcFAjb.jpg",
+              "format": "MOVIE",
+              "episodes": 1,
+              "averageScore": 77,
+              "season": "WINTER",
+              "seasonYear": 2007,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          },
+          {
+            "mediaRecommendation": {
+              "__typename": "Media",
+              "id": 99699,
+              "title": {
+                "romaji": "Golden Kamuy",
+                "english": "Golden Kamuy",
+                "native": "ゴールデンカムイ"
+              },
+              "coverImage": {
+                "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx99699-mBCjpoWpAVGX.jpg",
+                "color": "#78281a"
+              },
+              "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/99699-95D2XWA6eWAH.jpg",
+              "format": "TV",
+              "episodes": 12,
+              "averageScore": 77,
+              "season": "SPRING",
+              "seasonYear": 2018,
+              "countryOfOrigin": "JP",
+              "isAdult": false
+            }
+          }
+        ]
+      }
+    }
+  }
+}

@@ -60,6 +60,19 @@ query AnimeDetails($id: Int!) {
       episode
       airingAt
     }
+    startDate {
+      year
+      month
+      day
+    }
+
+    # When each episode airs, for the Episodes tab when AniZip has no dates. 25 is AniList's most per page.
+    airingSchedule(perPage: 25) {
+      nodes {
+        episode
+        airingAt
+      }
+    }
     relations {
       edges {
         relationType
