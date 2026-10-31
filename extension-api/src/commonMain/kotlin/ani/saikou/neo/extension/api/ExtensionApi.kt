@@ -8,6 +8,15 @@ public object ExtensionApi {
      */
     public const val VERSION: Int = 1
 
+    /** The manifest `meta-data` that holds the [VERSION] a source was built for, as an integer. */
+    public const val VERSION_KEY: String = "ani.saikou.neo.extension.api"
+
+    /**
+     * The manifest `meta-data` that names the source's class. It implements
+     * [SourceExtension] and has a constructor with no arguments.
+     */
+    public const val CLASS_KEY: String = "ani.saikou.neo.extension.class"
+
     /** Whether a source built for [builtFor] can run in this app. */
     public fun compatibility(builtFor: Int): Compatibility =
         when {
