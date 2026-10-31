@@ -46,7 +46,7 @@ class NeoNavigationRepeatTest {
                 NeoNavigation(
                     home = { openDetails, _ -> Opener("Home", "new") { openDetails(1) } },
                     seeMore = { _, _ -> },
-                    details = { animeId, openDetails, _, _ ->
+                    details = { animeId, openDetails, _, _, _ ->
                         var left by rememberSaveable { mutableStateOf(false) }
                         Opener("Show $animeId", if (left) "left" else "new") {
                             left = true

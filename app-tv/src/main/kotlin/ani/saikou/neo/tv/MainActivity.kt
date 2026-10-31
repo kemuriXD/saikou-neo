@@ -38,7 +38,9 @@ import ani.saikou.neo.shared.details.Raters
 import ani.saikou.neo.shared.discover.DiscoverViewModel
 import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
+import ani.saikou.neo.shared.playback.PlayerViewModel
 import ani.saikou.neo.shared.playback.ServersViewModel
+import ani.saikou.neo.shared.playback.playRequest
 import ani.saikou.neo.shared.search.SearchViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
 import ani.saikou.neo.shared.sources.ShortCodes
@@ -51,6 +53,8 @@ import ani.saikou.neo.tv.discover.DiscoverScreen
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SeeMoreScreen
 import ani.saikou.neo.tv.home.displayTitle
+import ani.saikou.neo.tv.player.PlayerActions
+import ani.saikou.neo.tv.player.PlayerScreen
 import ani.saikou.neo.tv.search.SearchScreen
 import ani.saikou.neo.tv.search.genreLabels
 import ani.saikou.neo.tv.settings.SettingsCategory
@@ -135,7 +139,7 @@ class MainActivity : ComponentActivity() {
                                 onRest = seeMore::rest,
                             )
                         },
-                        details = { animeId, openDetails, openRecommendations, openSources ->
+                        details = { animeId, openDetails, openRecommendations, openSources, openPlayer ->
                             val details =
                                 viewModel {
                                     DetailsViewModel(
@@ -170,11 +174,20 @@ class MainActivity : ComponentActivity() {
                                             )
                                         }
                                     val serversState by servers.state.collectAsStateWithLifecycle()
+                                    val episodeTitle =
+                                        (state as? DetailsState.Loaded)
+                                            ?.episodes
+                                            ?.episodes
+                                            ?.firstOrNull { it.number == episode }
+                                            ?.title
                                     StreamsPage(
                                         serversState,
                                         episode,
                                         show.card.displayTitle(),
-                                        onPick = servers::pick,
+                                        onPick = { source, server ->
+                                            servers.pick(source, server)
+                                            openPlayer(serversState.playRequest(source, server, show, episode, episodeTitle))
+                                        },
                                         onFilter = servers::filter,
                                         actions = StreamsActions(onRetry = servers::retry, onBack = back, onAddSource = openSources),
                                         modifier = modifier,
@@ -240,6 +253,21 @@ class MainActivity : ComponentActivity() {
                             if (section == Section.SETTINGS) SettingsSection(SettingsCategory.BROWSING) else SectionPlaceholder(section)
                         },
                         sources = { SettingsSection(SettingsCategory.SOURCES) },
+                        player = { request, back ->
+                            val player = viewModel { PlayerViewModel(app.streamFinder, request) }
+                            val state by player.state.collectAsStateWithLifecycle()
+                            PlayerScreen(
+                                state,
+                                request,
+                                PlayerActions(
+                                    onStarted = player::started,
+                                    onFailed = player::failed,
+                                    onTryNext = player::tryNext,
+                                    onTryAgain = player::tryAgain,
+                                    onChooseAnother = back,
+                                ),
+                            )
+                        },
                     )
                 }
             }

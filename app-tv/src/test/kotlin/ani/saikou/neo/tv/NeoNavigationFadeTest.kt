@@ -44,7 +44,7 @@ class NeoNavigationFadeTest {
                 NeoNavigation(
                     home = { openDetails, openSeeMore -> HomeScreen(loaded, onOpen = openDetails, onSeeMore = openSeeMore) },
                     seeMore = { _, _ -> },
-                    details = { _, _, _, _ -> Box {} },
+                    details = { _, _, _, _, _ -> Box {} },
                 )
             }
         }

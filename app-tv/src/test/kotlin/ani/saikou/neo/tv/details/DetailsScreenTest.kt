@@ -110,7 +110,7 @@ class DetailsScreenTest {
                 NeoNavigation(
                     home = { openDetails, _ -> HomeScreen(loaded, onOpen = openDetails) },
                     seeMore = { _, _ -> },
-                    details = { _, openDetails, openRecommendations, _ ->
+                    details = { _, openDetails, openRecommendations, _, _ ->
                         DetailsScreen(state, onOpen = openDetails, onRecommendations = { openRecommendations(7) })
                     },
                     recommendations = { _, _ -> Text("All the recommendations") },
