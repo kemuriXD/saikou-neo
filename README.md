@@ -50,7 +50,9 @@ GitHub. These are alpha debug builds, and each one expires after 7 days.
 | [v0.0.3 Design v2](https://github.com/kemuriXD/saikou-neo/milestone/12) | A new TV look with a side rail and full-screen artwork, plus search and Discover | ![v0.0.3 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/12?label=) |
 | [v0.0.4 Play](https://github.com/kemuriXD/saikou-neo/milestone/9) | Extensions, choosing a source and server, and the player | ![v0.0.4 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/9?label=) |
 | [v0.0.5 Sign in](https://github.com/kemuriXD/saikou-neo/milestone/10) | Phone companion, AniList sign-in and TV pairing | ![v0.0.5 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/10?label=) |
-| [v0.1.0 Sync](https://github.com/kemuriXD/saikou-neo/milestone/11) | Progress syncing and Continue Watching | ![v0.1.0 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/11?label=) |
+| [v0.1.0 Sync](https://github.com/kemuriXD/saikou-neo/milestone/11) | Progress syncing to AniList, Continue watching from your list, and the first public release | ![v0.1.0 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/11?label=) |
+| [v0.2.0 Watch better](https://github.com/kemuriXD/saikou-neo/milestone/13) | Playback settings, skipping openings, the next episode, your AniList lists and MyAnimeList | ![v0.2.0 progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/13?label=) |
+| [Later](https://github.com/kemuriXD/saikou-neo/milestone/14) | Ideas with no date yet, such as in-app updates and an extension template | ![Later progress](https://img.shields.io/github/milestones/progress/kemuriXD/saikou-neo/14?label=) |
 
 ## How it's built
 
