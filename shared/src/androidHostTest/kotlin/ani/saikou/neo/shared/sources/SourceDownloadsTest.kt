@@ -75,6 +75,34 @@ class SourceDownloadsTest {
         }
 
     @Test
+    fun anHttpsLinkCannotRedirectToPlainHttpEvenAtHome() =
+        runTest {
+            val engine =
+                PagesEngine(
+                    mapOf(
+                        "https://example.com/latest" to "->http://192.168.1.20/a.apk",
+                        "http://192.168.1.20/a.apk" to "APK",
+                    ),
+                )
+
+            assertNull(SourceDownloads(engine).fetch("https://example.com/latest"))
+            assertEquals(listOf("https://example.com/latest"), engine.urls)
+        }
+
+    @Test
+    fun aLinkTheEngineRejectsGivesNothing() =
+        runTest {
+            val engine =
+                object : HttpEngine {
+                    override suspend fun execute(request: HttpRequest): HttpResponse = throw IllegalArgumentException("Invalid URL")
+
+                    override fun close() {}
+                }
+
+            assertNull(SourceDownloads(engine).fetch("https://example.com/a.apk"))
+        }
+
+    @Test
     fun aLinkThatIsNotAllowedIsNeverAsked() =
         runTest {
             val engine = PagesEngine(mapOf("http://example.com/a.apk" to "APK"))

@@ -15,7 +15,10 @@ import okio.IOException
 /** An engine that doesn't follow redirects, so [SourceDownloads] can check each one. */
 internal expect fun noRedirectsEngine(timeoutMillis: Long): HttpEngine
 
-/** Downloads a source's APK. Every link on the way, redirects included, must pass [isAllowedSourceLink]. */
+/**
+ * Downloads a source's APK. Every link on the way, redirects included, must pass [isAllowedSourceLink], and once a
+ * link is https, the rest must be too.
+ */
 public class SourceDownloads internal constructor(
     private val engine: HttpEngine,
     private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -28,8 +31,14 @@ public class SourceDownloads internal constructor(
         withContext(io) {
             try {
                 var next = url
+                var secure = false
                 repeat(MAX_REDIRECTS + 1) {
                     if (!isAllowedSourceLink(next)) return@withContext null
+                    if (next.startsWith("https://", ignoreCase = true)) {
+                        secure = true
+                    } else if (secure) {
+                        return@withContext null
+                    }
                     val response = engine.execute(HttpRequest.Builder(HttpMethod.Get, next).build())
                     val body = response.body
                     val location = response.headers.firstOrNull { it.name.equals("Location", ignoreCase = true) }?.value
@@ -54,6 +63,9 @@ public class SourceDownloads internal constructor(
                 null
             } catch (_: IOException) {
                 null
+            } catch (_: IllegalArgumentException) {
+                // The network library refused the link.
+                null
             }
         }
 
@@ -61,8 +73,8 @@ public class SourceDownloads internal constructor(
         const val TIMEOUT_MILLIS = 30_000L
         const val MAX_REDIRECTS = 5
 
-        // Sources are a few megabytes at most.
-        const val MAX_BYTES = 64L * 1024 * 1024
+        // Sources are a few megabytes at most, and the download is held in memory on TVs with little of it.
+        const val MAX_BYTES = 16L * 1024 * 1024
         val REDIRECTS = setOf(301, 302, 303, 307, 308)
     }
 }

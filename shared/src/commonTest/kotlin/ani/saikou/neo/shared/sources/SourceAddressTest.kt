@@ -52,6 +52,8 @@ class SourceAddressTest {
             "http://10.0.0.1@example.com/a.apk",
             "http://localhost.example.com/a.apk",
             "http://10.0.0.256/a.apk",
+            // Read as octal by some resolvers: 8.0.0.1.
+            "http://010.0.0.1/a.apk",
         ).forEach { assertFalse(isAllowedSourceLink(it), it) }
     }
 
@@ -60,5 +62,13 @@ class SourceAddressTest {
         assertFalse(isAllowedSourceLink("file:///data/a.apk"))
         assertFalse(isAllowedSourceLink("content://a/b"))
         assertFalse(isAllowedSourceLink("https://"))
+    }
+
+    @Test
+    fun linksTheNetworkCannotUseAreRefused() {
+        assertFalse(isAllowedSourceLink("https://a b/x"))
+        assertFalse(isAllowedSourceLink("http://10.0.0.1:99999/a.apk"))
+        assertFalse(isAllowedSourceLink("http://10.0.0.1:/a.apk"))
+        assertTrue(isAllowedSourceLink("http://10.0.0.1:8000/a.apk"))
     }
 }

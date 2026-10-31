@@ -37,17 +37,32 @@ public fun isAllowedSourceLink(url: String): Boolean {
 
 private fun scheme(url: String): String? = listOf("https", "http").firstOrNull { url.startsWith("$it://", ignoreCase = true) }
 
-/** The host in what follows `scheme://`, or null when there's none or it names a user, which could hide the real host. */
+/**
+ * The host in what follows `scheme://`, or null when there's none, the link has spaces or a bad port, or it names a
+ * user, which could hide the real host.
+ */
 private fun host(rest: String): String? {
+    if (rest.any { it.isWhitespace() }) return null
     val authority = rest.substringBefore('/').substringBefore('?').substringBefore('#')
     if ('@' in authority) return null
+    if (':' in authority) {
+        val port = authority.substringAfter(':').toIntOrNull()
+        if (port == null || port !in 1..65535) return null
+    }
     return authority.substringBefore(':').lowercase().takeIf { it.isNotEmpty() }
 }
 
-/** localhost, or an IPv4 address on a private network: 127/8, 10/8, 172.16/12 or 192.168/16. */
+/**
+ * localhost, or an IPv4 address on a private network: 127/8, 10/8, 172.16/12 or 192.168/16. A part with a leading zero
+ * is refused, since some resolvers read it as octal.
+ */
 private fun isHome(host: String): Boolean {
     if (host == "localhost") return true
-    val parts = host.split('.').map { part -> part.toIntOrNull()?.takeIf { it in 0..255 && part.length <= 3 } ?: return false }
+    val parts =
+        host.split('.').map { part ->
+            if (part.length > 1 && part.startsWith('0')) return false
+            part.toIntOrNull()?.takeIf { it in 0..255 && part.length <= 3 } ?: return false
+        }
     if (parts.size != 4) return false
     val (a, b) = parts
     return a == 127 || a == 10 || (a == 172 && b in 16..31) || (a == 192 && b == 168)
