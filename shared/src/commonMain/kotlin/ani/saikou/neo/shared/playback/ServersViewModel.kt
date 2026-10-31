@@ -6,9 +6,13 @@ import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -57,19 +61,18 @@ public data class ServersState(
 /**
  * The servers for [episode] of [show], asking every installed source that can be used at the same time. Each one is
  * shown as it answers, so those still looking don't hold up the rest. Only the servers [subOrDub] allows are kept.
- * The server picked last for the show, from [lastServers], is the best pick when it's offered.
+ * The server picked last for the show, from [lastServers], is the best pick when it's offered. The sources asked are
+ * those [installed] holds once they've been read.
  */
 public class ServersViewModel(
     finder: ServerFinder,
-    sources: List<InstalledSource>,
+    installed: Flow<List<InstalledSource>?>,
     private val show: AnimeDetails,
     episode: Int,
     private val subOrDub: SubOrDub,
     private val lastServers: LastServers,
 ) : ViewModel() {
-    private val usable = sources.filter { it.problem == null }
-    private val mutableState =
-        MutableStateFlow(ServersState(usable.map { SourceServers(it, SourceAnswer.Looking) }, subOrDub = subOrDub))
+    private val mutableState = MutableStateFlow(ServersState(emptyList(), subOrDub = subOrDub))
     public val state: StateFlow<ServersState> = mutableState.asStateFlow()
 
     init {
@@ -77,17 +80,23 @@ public class ServersViewModel(
             val last = lastServers.get(show.card.id)
             mutableState.update { it.copy(lastUsed = last).withBest() }
         }
-        for (source in usable) {
-            viewModelScope.launch {
-                val answer =
-                    try {
-                        SourceAnswer.Found(finder.servers(source, show, episode).filter { subOrDub.shows(it.edition) })
-                    } catch (e: CancellationException) {
-                        throw e
-                    } catch (_: Exception) {
-                        SourceAnswer.Failed
-                    }
-                mutableState.update { it.answered(source, answer).withBest() }
+        viewModelScope.launch {
+            val usable = installed.filterNotNull().first().filter { it.problem == null }
+            mutableState.update { state -> state.copy(sources = usable.map { SourceServers(it, SourceAnswer.Looking) }) }
+            for (source in usable) {
+                launch {
+                    val answer =
+                        try {
+                            SourceAnswer.Found(finder.servers(source, show, episode).filter { subOrDub.shows(it.edition) })
+                        } catch (_: CancellationException) {
+                            // Leaving the page cancels the search. A source's own timeout fails only that source.
+                            ensureActive()
+                            SourceAnswer.Failed
+                        } catch (_: Exception) {
+                            SourceAnswer.Failed
+                        }
+                    mutableState.update { it.answered(source, answer).withBest() }
+                }
             }
         }
     }
@@ -97,7 +106,7 @@ public class ServersViewModel(
         source: InstalledSource,
         server: FoundServer,
     ) {
-        val last = LastServer(source.id, server.name)
+        val last = LastServer(source.id, server.name, server.edition)
         mutableState.update { it.copy(lastUsed = last) }
         viewModelScope.launch { lastServers.set(show.card.id, last) }
     }

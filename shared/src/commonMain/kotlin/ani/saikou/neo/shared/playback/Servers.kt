@@ -35,11 +35,21 @@ public fun interface ServerFinder {
     ): List<FoundServer>
 }
 
-/** The server last picked for a show. Server ids change between episodes, so it's kept by name. */
+/**
+ * The server last picked for a show. Server ids change between episodes, so it's kept by name, with its edition since a
+ * source can give its Sub and Dub servers the same name.
+ */
 public data class LastServer(
     val sourceId: String,
     val serverName: String,
-)
+    val edition: ServerEdition,
+) {
+    /** Whether [server] from [source] is this one. */
+    public fun isServer(
+        source: InstalledSource,
+        server: FoundServer,
+    ): Boolean = source.id == sourceId && server.name == serverName && server.edition == edition
+}
 
 /** The server last picked for each show. */
 public interface LastServers {
@@ -73,7 +83,7 @@ internal fun bestPick(
     val found = sources.mapNotNull { entry -> (entry.answer as? SourceAnswer.Found)?.let { entry.source to it.servers } }
     if (last != null) {
         for ((source, servers) in found) {
-            val server = servers.firstOrNull { source.id == last.sourceId && it.name == last.serverName } ?: continue
+            val server = servers.firstOrNull { last.isServer(source, it) } ?: continue
             return BestPick(source, server, lastUsed = true, answeredFirst = false)
         }
     }

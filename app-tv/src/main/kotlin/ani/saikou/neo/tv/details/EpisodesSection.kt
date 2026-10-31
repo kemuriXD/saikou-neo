@@ -126,6 +126,9 @@ internal fun EpisodesSection(
     progress: WatchProgress?,
     nextFocus: FocusRequester,
     modifier: Modifier = Modifier,
+    onPick: (AniZipEpisode) -> Unit = {},
+    picked: Int? = null,
+    pickedFocus: FocusRequester? = null,
 ) {
     val dimensions = NeoTheme.dimensions
     val ranges = remember(list.episodes.size) { episodeRanges(list.episodes.size) }
@@ -227,10 +230,11 @@ internal fun EpisodesSection(
                 val rowModifier =
                     Modifier
                         .then(if (episode.number == next) Modifier.focusRequester(nextFocus) else Modifier)
+                        .then(if (episode.number == picked && pickedFocus != null) Modifier.focusRequester(pickedFocus) else Modifier)
                         .remembersFocus(episodeTag(episode.number))
                         .testTag(episodeTag(episode.number))
                 if (rich) {
-                    EpisodeRow(episode, backdrop, mark, kind, rowModifier)
+                    EpisodeRow(episode, backdrop, mark, kind, rowModifier, onClick = { onPick(episode) })
                 } else {
                     TextRow(
                         title = episode.title ?: stringResource(R.string.details_episode_number, episode.number),
@@ -238,6 +242,7 @@ internal fun EpisodesSection(
                         modifier = rowModifier,
                         mark = mark,
                         kind = kind,
+                        onClick = { onPick(episode) },
                     )
                 }
             }
@@ -334,9 +339,10 @@ private fun EpisodeRow(
     mark: EpisodeMark?,
     kind: EpisodeKind?,
     modifier: Modifier = Modifier,
+    onClick: () -> Unit = {},
 ) {
     val dimensions = NeoTheme.dimensions
-    RowSurface(modifier) {
+    RowSurface(modifier, onClick) {
         Row(
             Modifier.padding(start = dimensions.space2, top = dimensions.space2, end = dimensions.space4, bottom = dimensions.space2),
             horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
@@ -449,9 +455,10 @@ private fun TextRow(
     modifier: Modifier = Modifier,
     mark: EpisodeMark? = null,
     kind: EpisodeKind? = null,
+    onClick: () -> Unit = {},
 ) {
     val dimensions = NeoTheme.dimensions
-    RowSurface(modifier.heightIn(min = TextRowHeight)) {
+    RowSurface(modifier.heightIn(min = TextRowHeight), onClick) {
         Row(
             Modifier.heightIn(min = TextRowHeight).padding(horizontal = dimensions.space4, vertical = dimensions.space2),
             horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
@@ -470,16 +477,17 @@ private fun TextRow(
 private fun Meta(text: String) =
     Text(text = text, style = NeoTheme.typography.caption, color = LocalContentColor.current.copy(alpha = MUTED), maxLines = 1)
 
-/** A row's box: see-through surface at rest; paper, a glow and a little growth on focus. Rows don't play anything yet. */
+/** A row's box: see-through surface at rest; paper, a glow and a little growth on focus. */
 @Composable
 private fun RowSurface(
     modifier: Modifier = Modifier,
+    onClick: () -> Unit = {},
     content: @Composable () -> Unit,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
     Surface(
-        onClick = {},
+        onClick = onClick,
         modifier = modifier.width(RowWidth),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(dimensions.radiusLg)),
         colors =

@@ -13,6 +13,8 @@ private fun sourceKey(animeId: Int) = stringPreferencesKey("show-$animeId-source
 
 private fun serverKey(animeId: Int) = stringPreferencesKey("show-$animeId-server")
 
+private fun editionKey(animeId: Int) = stringPreferencesKey("show-$animeId-edition")
+
 /**
  * Keeps [LastServers] in a file, so they're there after the app restarts. Only one store may have a file open at a time,
  * so the app makes one and shares it.
@@ -22,7 +24,11 @@ public class LastServersStore private constructor(
 ) : LastServers {
     override suspend fun get(animeId: Int): LastServer? {
         val saved = dataStore.data.first()
-        return LastServer(saved[sourceKey(animeId)] ?: return null, saved[serverKey(animeId)] ?: return null)
+        return LastServer(
+            sourceId = saved[sourceKey(animeId)] ?: return null,
+            serverName = saved[serverKey(animeId)] ?: return null,
+            edition = ServerEdition.entries.firstOrNull { it.name == saved[editionKey(animeId)] } ?: return null,
+        )
     }
 
     override suspend fun set(
@@ -32,6 +38,7 @@ public class LastServersStore private constructor(
         dataStore.edit { saved ->
             saved[sourceKey(animeId)] = server.sourceId
             saved[serverKey(animeId)] = server.serverName
+            saved[editionKey(animeId)] = server.edition.name
         }
     }
 

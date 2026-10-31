@@ -43,21 +43,21 @@ class LastServersStoreTest {
         runBlocking {
             val (store, _) = store()
 
-            store.set(1535, LastServer("com.example.demo", "Demo, Sub"))
-            store.set(21, LastServer("com.example.example", "Server 2"))
-            store.set(1535, LastServer("com.example.demo", "Demo, Dub"))
+            store.set(1535, LastServer("com.example.demo", "Demo", ServerEdition.SUB))
+            store.set(21, LastServer("com.example.example", "Server 2", ServerEdition.HARD_SUB))
+            store.set(1535, LastServer("com.example.demo", "Demo", ServerEdition.DUB))
 
-            assertEquals(LastServer("com.example.demo", "Demo, Dub"), store.get(1535))
-            assertEquals(LastServer("com.example.example", "Server 2"), store.get(21))
+            assertEquals(LastServer("com.example.demo", "Demo", ServerEdition.DUB), store.get(1535))
+            assertEquals(LastServer("com.example.example", "Server 2", ServerEdition.HARD_SUB), store.get(21))
         }
 
     @Test
     fun theLastServerIsThereAfterARestart() =
         runBlocking {
             val (first, scope) = store()
-            first.set(1535, LastServer("com.example.demo", "Demo, Sub"))
+            first.set(1535, LastServer("com.example.demo", "Demo", ServerEdition.SUB))
             scope.coroutineContext.job.cancelAndJoin()
 
-            assertEquals(LastServer("com.example.demo", "Demo, Sub"), store().first.get(1535))
+            assertEquals(LastServer("com.example.demo", "Demo", ServerEdition.SUB), store().first.get(1535))
         }
 }

@@ -117,6 +117,7 @@ internal const val DETAILS_MAIN_BUTTON_TAG = "details-main-button"
 internal const val DETAILS_EPISODES_BUTTON_TAG = "details-episodes-button"
 internal const val DETAILS_RATING_TAG = "details-rating"
 internal const val DETAILS_RATINGS_TAG = "details-ratings"
+internal const val DETAILS_STREAMS_CRUMB_TAG = "details-streams-crumb"
 
 /** One site's rating in the facts, by the site's name, such as "IMDb". */
 internal fun ratingTag(site: String) = "details-rating-$site"
@@ -135,6 +136,10 @@ private val HeaderEnd = 48.dp
 private val HeaderHeight = 40.dp
 private val HeaderLogoWidth = 200.dp
 private val HeaderTitleGap = 10.dp
+
+// From the design: the streams' breadcrumb takes the tabs' place, with the page 18 dp under it.
+private val StreamsCrumbHeight = 34.dp
+private val StreamsGap = 18.dp
 
 // A long title wraps at the title block's width, onto two lines at most.
 private val HeaderTitleWidth = HeroWidth
@@ -165,7 +170,8 @@ internal val seasonNames =
 
 /**
  * One anime over its dimmed art: what it is at the top, and an Overview with a short synopsis and the facts below.
- * Selecting the synopsis opens all of it, notes included.
+ * Selecting the synopsis opens all of it, notes included. With [streams], selecting an episode shows its streams on the
+ * lifted page, and Back returns to the episode.
  */
 @Composable
 fun DetailsScreen(
@@ -173,7 +179,8 @@ fun DetailsScreen(
     modifier: Modifier = Modifier,
     onOpen: (animeId: Int) -> Unit = {},
     onRecommendations: () -> Unit = {},
-) = RememberFocus { focus -> DetailsPage(state, focus, modifier, onOpen, onRecommendations) }
+    streams: (@Composable (episode: Int, modifier: Modifier) -> Unit)? = null,
+) = RememberFocus { focus -> DetailsPage(state, focus, modifier, onOpen, onRecommendations, streams) }
 
 @Composable
 private fun DetailsPage(
@@ -182,6 +189,7 @@ private fun DetailsPage(
     modifier: Modifier,
     onOpen: (animeId: Int) -> Unit,
     onRecommendations: () -> Unit,
+    streams: (@Composable (episode: Int, modifier: Modifier) -> Unit)?,
 ) {
     var reading by rememberSaveable { mutableStateOf(false) }
     var hasRead by rememberSaveable { mutableStateOf(false) }
@@ -191,6 +199,10 @@ private fun DetailsPage(
     // returns to what opened it, and the page can lower again.
     var opened by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(Unit) { opened = false }
+    // The episode whose streams show on the lifted page. The episodes stay underneath, so Back can return to the one picked.
+    var streamsFor by rememberSaveable { mutableStateOf<Int?>(null) }
+    var picked by rememberSaveable { mutableStateOf<Int?>(null) }
+    val pickedFocus = remember { FocusRequester() }
     val loaded = state as? DetailsState.Loaded
     val mainFocus = remember { FocusRequester() }
     val tabFocus = remember { FocusRequester() }
@@ -218,6 +230,9 @@ private fun DetailsPage(
         (if (hasEpisodes) mainFocus else tabFocus).requestFocus()
         lifted = false
     }
+    // Registered after the one above, so it comes first.
+    BackHandler(enabled = streamsFor != null) { streamsFor = null }
+    LaunchedEffect(streamsFor) { if (streamsFor == null && picked != null) pickedFocus.requestFocus() }
     val dimensions = NeoTheme.dimensions
     val overviewLift = loaded?.let { overviewLift(it) } ?: 0.dp
     val lift by animateDpAsState(
@@ -263,13 +278,20 @@ private fun DetailsPage(
                         selected = { section.takeIf { it in sections } ?: sections.first() },
                         onSelect = { section = it },
                         // The reader and another show's Details take focus from the page without lowering it.
-                        onInside = { inside -> if (!reading && !opened) lifted = inside },
+                        onInside = { inside -> if (!reading && !opened && streamsFor == null) lifted = inside },
                         // Measured at full height, so it runs past the bottom of the screen until the page lifts.
                         modifier =
                             margin
                                 .padding(top = OverviewTop)
                                 .wrapContentHeight(Alignment.Top, unbounded = true)
-                                .focusRequester(tabFocus),
+                                .focusRequester(tabFocus)
+                                .then(
+                                    if (streamsFor != null) {
+                                        Modifier.graphicsLayer { alpha = 0f }.clearAndSetSemantics {}
+                                    } else {
+                                        Modifier
+                                    },
+                                ),
                     ) { shown ->
                         when (shown) {
                             DetailsSection.OVERVIEW -> {
@@ -293,6 +315,14 @@ private fun DetailsPage(
                                         progress = state.progress,
                                         nextFocus = nextEpisodeFocus,
                                         modifier = Modifier.focusRequester(episodesFocus),
+                                        onPick = { episode ->
+                                            if (streams != null) {
+                                                picked = episode.number
+                                                streamsFor = episode.number
+                                            }
+                                        },
+                                        picked = picked,
+                                        pickedFocus = pickedFocus,
                                     )
                                     LaunchedEffect(toEpisodes) {
                                         // On the next episode to watch, or into the section if it's out of sight.
@@ -332,6 +362,24 @@ private fun DetailsPage(
                                 )
                             }
                         }
+                    }
+                }
+                val episode = streamsFor
+                if (episode != null && streams != null) {
+                    // In the tabs' place on the lifted page, which stays lifted underneath, with the rest of the screen
+                    // below for the servers.
+                    Column(
+                        margin.padding(top = (OverviewTop + lift).coerceAtLeast(0.dp)),
+                        verticalArrangement = Arrangement.spacedBy(StreamsGap),
+                    ) {
+                        StreamsCrumb(
+                            episode,
+                            state.episodes
+                                ?.episodes
+                                ?.firstOrNull { it.number == episode }
+                                ?.title,
+                        )
+                        streams(episode, Modifier)
                     }
                 }
                 AnimatedVisibility(visible = lifted, enter = fadeIn(), exit = fadeOut()) {
@@ -491,6 +539,33 @@ private fun LiftedHeader(
             modifier = Modifier.widthIn(max = HeaderTitleWidth).testTag(DETAILS_HEADER_TITLE_TAG),
         )
     }
+}
+
+/** Where the streams came from: Episodes, then the episode, such as "E8 · The Cleanup Crew". */
+@Composable
+private fun StreamsCrumb(
+    episode: Int,
+    title: String?,
+) = Row(
+    Modifier.height(StreamsCrumbHeight).semantics(mergeDescendants = true) {}.testTag(DETAILS_STREAMS_CRUMB_TAG),
+    horizontalArrangement = Arrangement.spacedBy(10.dp),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    val colors = NeoTheme.colors
+    Text(text = stringResource(R.string.details_episodes), style = NeoTheme.typography.body, color = colors.textMuted)
+    Icon(NeoIcons.Chevron, contentDescription = null, tint = colors.textFaint, modifier = Modifier.size(12.dp))
+    Text(
+        text =
+            if (title != null) {
+                stringResource(R.string.streams_episode_titled, episode, title)
+            } else {
+                stringResource(R.string.streams_episode, episode)
+            },
+        style = NeoTheme.typography.rowTitle,
+        color = colors.paper,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+    )
 }
 
 /** How far the page lifts, so the tabs sit [LiftedTabsGap] under the header, however many lines its title takes. */

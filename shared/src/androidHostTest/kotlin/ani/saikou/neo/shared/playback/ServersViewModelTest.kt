@@ -6,9 +6,11 @@ import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.SourceProblem
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
@@ -91,10 +93,66 @@ class ServersViewModelTest {
         sources: List<InstalledSource> = listOf(example),
         subOrDub: SubOrDub = SubOrDub.BOTH,
         last: LastServers = FakeLastServers(),
-    ) = ServersViewModel(finder, sources, show, 8, subOrDub, last)
+    ) = ServersViewModel(finder, MutableStateFlow(sources), show, 8, subOrDub, last)
+
+    @Test
+    fun aSourceThatTimesOutOnItsOwnHasFailed() =
+        test {
+            val servers = viewModel({ _, _, _ -> throw CancellationException("The source's own timeout") })
+
+            assertEquals(
+                SourceAnswer.Failed,
+                servers.state.value.sources
+                    .single()
+                    .answer,
+            )
+        }
+
+    @Test
+    fun aLastServerIsKnownByItsEditionAsWellAsItsName() =
+        test {
+            val demoSub = FoundServer("s", "Demo", ServerEdition.SUB, 12)
+            val demoDub = FoundServer("d", "Demo", ServerEdition.DUB, 10)
+            val last = FakeLastServers(mutableMapOf(1535 to LastServer(example.id, "Demo", ServerEdition.DUB)))
+            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(demoSub, demoDub))), last = last)
+
+            assertEquals(
+                demoDub,
+                servers.state.value.best
+                    ?.server,
+            )
+            assertEquals(
+                false,
+                servers.state.value.lastUsed
+                    ?.isServer(example, demoSub),
+            )
+            assertEquals(
+                true,
+                servers.state.value.lastUsed
+                    ?.isServer(example, demoDub),
+            )
+        }
+
+    @Test
+    fun waitsForTheInstalledSourcesToBeRead() =
+        test {
+            val installed = MutableStateFlow<List<InstalledSource>?>(null)
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1)))
+            val servers = ServersViewModel(finder, installed, show, 8, SubOrDub.BOTH, FakeLastServers())
+
+            assertEquals(emptyList(), servers.state.value.sources)
+
+            installed.value = listOf(example)
+
+            assertEquals(listOf(sub1), servers.servers(example))
+        }
 
     private fun ServersViewModel.servers(source: InstalledSource) =
-        (state.value.sources.single { it.source == source }.answer as SourceAnswer.Found).servers
+        (
+            state.value.sources
+                .single { it.source == source }
+                .answer as SourceAnswer.Found
+        ).servers
 
     @Test
     fun bothShowsEveryServer() =
@@ -140,7 +198,11 @@ class ServersViewModelTest {
             val servers = viewModel(finder, listOf(example, broken))
 
             assertEquals(listOf(example.id), finder.asked)
-            assertEquals(listOf(example), servers.state.value.sources.map { it.source })
+            assertEquals(
+                listOf(example),
+                servers.state.value.sources
+                    .map { it.source },
+            )
         }
 
     @Test
@@ -150,8 +212,17 @@ class ServersViewModelTest {
             val gate = finder.gate(example)
             val servers = viewModel(finder, listOf(example, demo))
 
-            assertEquals(listOf(demo, example), servers.state.value.sources.map { it.source })
-            assertEquals(SourceAnswer.Looking, servers.state.value.sources.last().answer)
+            assertEquals(
+                listOf(demo, example),
+                servers.state.value.sources
+                    .map { it.source },
+            )
+            assertEquals(
+                SourceAnswer.Looking,
+                servers.state.value.sources
+                    .last()
+                    .answer,
+            )
             assertEquals(listOf(dub), servers.servers(demo))
             assertEquals(1, servers.state.value.answered)
 
@@ -171,7 +242,11 @@ class ServersViewModelTest {
             gates.getValue(starter).complete(Unit)
             gates.getValue(example).complete(Unit)
 
-            assertEquals(listOf(starter, example, demo), servers.state.value.sources.map { it.source })
+            assertEquals(
+                listOf(starter, example, demo),
+                servers.state.value.sources
+                    .map { it.source },
+            )
         }
 
     @Test
@@ -179,24 +254,30 @@ class ServersViewModelTest {
         test {
             val servers = viewModel(FakeFinder(mapOf(demo.id to listOf(dub)), failing = setOf(example.id)), listOf(example, demo))
 
-            assertEquals(SourceAnswer.Failed, servers.state.value.sources.single { it.source == example }.answer)
+            assertEquals(
+                SourceAnswer.Failed,
+                servers.state.value.sources
+                    .single { it.source == example }
+                    .answer,
+            )
             assertEquals(listOf(dub), servers.servers(demo))
         }
 
     @Test
     fun theBestPickIsTheLastUsedServer() =
         test {
-            val last = FakeLastServers(mutableMapOf(1535 to LastServer(demo.id, "Server 3")))
-            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(dub))), listOf(example, demo), last = last)
+            val last = FakeLastServers(mutableMapOf(1535 to LastServer(demo.id, "Server 3", ServerEdition.DUB)))
+            val servers =
+                viewModel(FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(dub))), listOf(example, demo), last = last)
 
             assertEquals(BestPick(demo, dub, lastUsed = true, answeredFirst = false), servers.state.value.best)
-            assertEquals(LastServer(demo.id, "Server 3"), servers.state.value.lastUsed)
+            assertEquals(LastServer(demo.id, "Server 3", ServerEdition.DUB), servers.state.value.lastUsed)
         }
 
     @Test
     fun aLastUsedServerFilteredOutIsntTheBestPick() =
         test {
-            val last = FakeLastServers(mutableMapOf(1535 to LastServer(example.id, "Server 3")))
+            val last = FakeLastServers(mutableMapOf(1535 to LastServer(example.id, "Server 3", ServerEdition.DUB)))
             val servers = viewModel(FakeFinder(mapOf(example.id to listOf(dub, sub1))), subOrDub = SubOrDub.SUB, last = last)
 
             assertEquals(BestPick(example, sub1, lastUsed = false, answeredFirst = false), servers.state.value.best)
@@ -219,9 +300,24 @@ class ServersViewModelTest {
     @Test
     fun bothPrefersSubThenHardSubThenDub() =
         test {
-            assertEquals(sub1, viewModel(FakeFinder(mapOf(example.id to listOf(dub, hard, sub1)))).state.value.best?.server)
-            assertEquals(hard, viewModel(FakeFinder(mapOf(example.id to listOf(dub, hard)))).state.value.best?.server)
-            assertEquals(dub, viewModel(FakeFinder(mapOf(example.id to listOf(dub)))).state.value.best?.server)
+            assertEquals(
+                sub1,
+                viewModel(FakeFinder(mapOf(example.id to listOf(dub, hard, sub1))))
+                    .state.value.best
+                    ?.server,
+            )
+            assertEquals(
+                hard,
+                viewModel(FakeFinder(mapOf(example.id to listOf(dub, hard))))
+                    .state.value.best
+                    ?.server,
+            )
+            assertEquals(
+                dub,
+                viewModel(FakeFinder(mapOf(example.id to listOf(dub))))
+                    .state.value.best
+                    ?.server,
+            )
         }
 
     @Test
@@ -246,8 +342,8 @@ class ServersViewModelTest {
 
             servers.pick(example, dub)
 
-            assertEquals(mapOf(1535 to LastServer(example.id, "Server 3")), last.saved)
-            assertEquals(LastServer(example.id, "Server 3"), servers.state.value.lastUsed)
+            assertEquals(mapOf(1535 to LastServer(example.id, "Server 3", ServerEdition.DUB)), last.saved)
+            assertEquals(LastServer(example.id, "Server 3", ServerEdition.DUB), servers.state.value.lastUsed)
         }
 
     @Test
@@ -258,7 +354,11 @@ class ServersViewModelTest {
             servers.filter(demo.id)
 
             assertEquals(demo.id, servers.state.value.filter)
-            assertEquals(listOf(demo), servers.state.value.shown.map { it.source })
+            assertEquals(
+                listOf(demo),
+                servers.state.value.shown
+                    .map { it.source },
+            )
 
             servers.filter(null)
 
