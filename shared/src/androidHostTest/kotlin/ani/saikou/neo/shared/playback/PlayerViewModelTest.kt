@@ -247,6 +247,16 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun anExpiredLinkBeforeTheVideoStartsKeepsTheStartingView() =
+        test {
+            val player = player(FakeStreams())
+
+            player.failed(PlayerError.Expired, positionMs = 0)
+
+            assertEquals(PlayerPhase.Starting(FoundStream("fresh 1", 1080)), player.phase)
+        }
+
+    @Test
     fun aSecondExpiryStops() =
         test {
             val player = player(FakeStreams())

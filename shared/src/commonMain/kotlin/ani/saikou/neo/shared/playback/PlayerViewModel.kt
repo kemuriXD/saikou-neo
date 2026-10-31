@@ -173,8 +173,10 @@ public class PlayerViewModel<S>(
             else -> {
                 refreshed = true
                 val server = current.server
-                mutableState.update { it.copy(phase = PlayerPhase.Starting(null, quiet = true), startAtMs = at) }
-                ask(quiet = true) { finder.refresh(server.source, server.server, answered.stream) }
+                // Once the video has played, nothing shows over it while the link is fetched again.
+                val quiet = current.phase is PlayerPhase.Playing
+                mutableState.update { it.copy(phase = PlayerPhase.Starting(null, quiet), startAtMs = at) }
+                ask(quiet) { finder.refresh(server.source, server.server, answered.stream) }
             }
         }
     }

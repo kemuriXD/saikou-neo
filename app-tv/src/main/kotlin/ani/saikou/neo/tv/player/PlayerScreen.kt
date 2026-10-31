@@ -146,6 +146,8 @@ private fun BoxScope.Backdrop(
                     ImageRequest
                         .Builder(context)
                         .data(art)
+                        // Its own key, or Coil hands back the sharp copy Details already loaded.
+                        .memoryCacheKey("$art#backdrop")
                         .size(BACKDROP_WIDTH, BACKDROP_HEIGHT)
                         .build()
                 },
