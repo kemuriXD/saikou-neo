@@ -7,21 +7,20 @@ import ani.saikou.neo.extension.api.Edition
 import ani.saikou.neo.extension.api.Episode
 import ani.saikou.neo.extension.api.Season
 import ani.saikou.neo.extension.api.Server
+import ani.saikou.neo.extension.api.SourceException
 import ani.saikou.neo.extension.api.SourceExtension
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
+import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.FoundServer
 import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.shared.playback.ServerFinder
+import ani.saikou.neo.shared.playback.SourceFailure
 import ani.saikou.neo.shared.sources.InstalledSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration
-
-/** A source that wouldn't load, or threw something other than an exception. */
-private class SourceFailed(
-    cause: Throwable? = null,
-) : Exception(cause)
 
 // The most servers a source can list, and the longest name shown, so a source can't flood the page.
 private const val MAX_SERVERS = 100
@@ -29,8 +28,9 @@ private const val MAX_NAME = 60
 
 /**
  * Asks the source [load] gives for an installed source, off the main thread, for the episode the catalogue picked. A
- * source's code can throw anything, such as a linkage error when it doesn't fit the app after all, and all of it counts
- * as that source failing. A server id the source repeats is dropped, since the list tells servers apart by id.
+ * source's code can throw anything. Its typed errors keep their reason, and any other exception means the site is down.
+ * One that won't load, or throws an error such as a linkage error when it doesn't fit the app after all, won't start.
+ * A server id the source repeats is dropped, since the list tells servers apart by id.
  */
 class ExtensionServerFinder(
     private val load: suspend (InstalledSource) -> SourceExtension?,
@@ -42,18 +42,35 @@ class ExtensionServerFinder(
     ): List<FoundServer> =
         withContext(Dispatchers.IO) {
             try {
-                val extension = load(source) ?: throw SourceFailed()
+                val extension = load(source) ?: throw SourceFailure(FailReason.WontStart)
                 extension
                     .servers(Episode(show.toAnime(), episode))
                     .distinctBy { it.id }
                     .take(MAX_SERVERS)
                     .map { it.toFound() }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: SourceFailure) {
+                throw e
             } catch (e: Throwable) {
-                // Exceptions, cancellation included, pass as they are.
-                throw e as? Exception ?: SourceFailed(e)
+                throw SourceFailure(e.reason(), e)
             }
         }
 }
+
+private fun Throwable.reason(): FailReason =
+    when (this) {
+        is SourceException.NotFound -> FailReason.NotFound
+
+        is SourceException.Blocked -> FailReason.Blocked
+
+        is SourceException.RateLimited -> FailReason.RateLimited(retryAfter?.let { (it.inWholeMilliseconds + 999) / 1000 })
+
+        // An expired link only comes up while playing, so here it's a site that isn't working.
+        is Exception -> FailReason.SourceDown
+
+        else -> FailReason.WontStart
+    }
 
 private fun AnimeDetails.toAnime(): Anime {
     val title = card.title

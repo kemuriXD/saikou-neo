@@ -145,7 +145,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sourceServers(
             }
         }
 
-        SourceAnswer.Failed -> {
+        is SourceAnswer.Failed -> {
             item(key = "failed-${source.id}") { Quiet(source.name, stringResource(R.string.streams_failed)) }
         }
 

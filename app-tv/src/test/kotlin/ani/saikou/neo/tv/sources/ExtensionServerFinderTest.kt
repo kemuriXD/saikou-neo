@@ -4,14 +4,17 @@ import ani.saikou.neo.extension.api.Edition
 import ani.saikou.neo.extension.api.Episode
 import ani.saikou.neo.extension.api.Season
 import ani.saikou.neo.extension.api.Server
+import ani.saikou.neo.extension.api.SourceException
 import ani.saikou.neo.extension.api.SourceExtension
 import ani.saikou.neo.extension.api.Stream
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.FoundServer
 import ani.saikou.neo.shared.playback.ServerEdition
+import ani.saikou.neo.shared.playback.SourceFailure
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
@@ -126,23 +129,39 @@ class ExtensionServerFinderTest {
         assertEquals(60, servers.first().name.length)
     }
 
-    @Test
-    fun anyOtherThrowableFailsAsAnException() {
-        val source = FakeSource(failure = object : Throwable("Neither an error nor an exception") {})
+    /** Why the source failed, from what it threw. */
+    private fun reasonFor(failure: Throwable?) =
+        assertThrows(SourceFailure::class.java) { runBlocking { finder(failure?.let { FakeSource(failure = it) }).servers(demo, show, 8) } }
+            .reason
 
-        assertThrows(Exception::class.java) { runBlocking { finder(source).servers(demo, show, 8) } }
+    @Test
+    fun aSourceThatWontLoadWontStart() {
+        assertEquals(FailReason.WontStart, reasonFor(null))
     }
 
     @Test
-    fun aSourceThatWontLoadFails() {
-        assertThrows(Exception::class.java) { runBlocking { finder(null).servers(demo, show, 8) } }
+    fun anErrorOrOtherThrowableMeansItWontStart() {
+        assertEquals(FailReason.WontStart, reasonFor(NoSuchMethodError("Built for another app")))
+        assertEquals(FailReason.WontStart, reasonFor(object : Throwable("Neither an error nor an exception") {}))
     }
 
     @Test
-    fun aLinkageErrorFromTheSourceFailsAsAnException() {
-        val source = FakeSource(failure = AbstractMethodError("Built for another API"))
+    fun eachTypedErrorKeepsItsReason() {
+        assertEquals(FailReason.NotFound, reasonFor(SourceException.NotFound()))
+        assertEquals(FailReason.Blocked, reasonFor(SourceException.Blocked()))
+        assertEquals(FailReason.SourceDown, reasonFor(SourceException.SourceDown()))
+        assertEquals(FailReason.RateLimited(null), reasonFor(SourceException.RateLimited()))
+    }
 
-        assertThrows(Exception::class.java) { runBlocking { finder(source).servers(demo, show, 8) } }
+    @Test
+    fun aRateLimitsWaitIsInWholeSecondsRoundedUp() {
+        assertEquals(FailReason.RateLimited(31), reasonFor(SourceException.RateLimited(30.5.seconds)))
+    }
+
+    @Test
+    fun anExpiredLinkOrAnyOtherExceptionMeansTheSiteIsDown() {
+        assertEquals(FailReason.SourceDown, reasonFor(SourceException.LinkExpired()))
+        assertEquals(FailReason.SourceDown, reasonFor(IllegalStateException("Broken")))
     }
 
     @Test

@@ -13,6 +13,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
@@ -20,6 +21,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.time.Duration.Companion.seconds
 
 private val example = InstalledSource("com.example.example", "Example source", "1.0.0")
 private val demo = InstalledSource("com.example.demo", "Demo source", "1.0.0")
@@ -43,7 +45,7 @@ private val dub = FoundServer("3", "Server 3", ServerEdition.DUB, 23)
 /** Answers each source once its gate opens, with its servers or by throwing. A source without a gate answers at once. */
 private class FakeFinder(
     private val servers: Map<String, List<FoundServer>>,
-    private val failing: Set<String> = emptySet(),
+    private val failing: Map<String, Exception> = emptyMap(),
 ) : ServerFinder {
     val gates = mutableMapOf<String, CompletableDeferred<Unit>>()
     val asked = mutableListOf<String>()
@@ -57,7 +59,7 @@ private class FakeFinder(
     ): List<FoundServer> {
         asked += source.id
         gates[source.id]?.await()
-        if (source.id in failing) error("Broken")
+        failing[source.id]?.let { throw it }
         return servers[source.id].orEmpty()
     }
 }
@@ -95,17 +97,70 @@ class ServersViewModelTest {
         last: LastServers = FakeLastServers(),
     ) = ServersViewModel(finder, MutableStateFlow(sources), show, 8, subOrDub, last)
 
+    private fun ServersViewModel.answer(source: InstalledSource = example) =
+        state.value.sources
+            .single { it.source == source }
+            .answer
+
     @Test
-    fun aSourceThatTimesOutOnItsOwnHasFailed() =
+    fun aSourceThatTimesOutOnItsOwnIsDown() =
         test {
             val servers = viewModel({ _, _, _ -> throw CancellationException("The source's own timeout") })
 
-            assertEquals(
-                SourceAnswer.Failed,
-                servers.state.value.sources
-                    .single()
-                    .answer,
-            )
+            assertEquals(SourceAnswer.Failed(FailReason.SourceDown), servers.answer())
+        }
+
+    @Test
+    fun aSourceThatGivesAReasonFailsWithIt() =
+        test {
+            val failure = SourceFailure(FailReason.RateLimited(retryAfterSeconds = 30))
+            val servers = viewModel(FakeFinder(emptyMap(), failing = mapOf(example.id to failure)))
+
+            assertEquals(SourceAnswer.Failed(FailReason.RateLimited(30)), servers.answer())
+        }
+
+    @Test
+    fun anythingElseASourceThrowsMeansItsDown() =
+        test {
+            val servers = viewModel(FakeFinder(emptyMap(), failing = mapOf(example.id to IllegalStateException("Broken"))))
+
+            assertEquals(SourceAnswer.Failed(FailReason.SourceDown), servers.answer())
+        }
+
+    @Test
+    fun aSourceSilentFor25SecondsHasNoAnswer() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1)))
+            finder.gate(example)
+            val servers = viewModel(finder)
+
+            advanceTimeBy(24.9.seconds)
+            assertEquals(SourceAnswer.Looking, servers.answer())
+
+            advanceTimeBy(0.2.seconds)
+            assertEquals(SourceAnswer.Failed(FailReason.NoAnswer), servers.answer())
+        }
+
+    @Test
+    fun aSourceAnsweringJustInTimeIsShown() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1)))
+            val gate = finder.gate(example)
+            val servers = viewModel(finder)
+
+            advanceTimeBy(24.9.seconds)
+            gate.complete(Unit)
+            advanceTimeBy(1.seconds)
+
+            assertEquals(listOf(sub1), servers.servers(example))
+        }
+
+    @Test
+    fun serversTheSettingHidesAreCounted() =
+        test {
+            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(sub1, hard, dub))), subOrDub = SubOrDub.DUB)
+
+            assertEquals(SourceAnswer.Found(listOf(dub), hidden = 2), servers.answer())
         }
 
     @Test
@@ -252,14 +307,10 @@ class ServersViewModelTest {
     @Test
     fun aSourceThatThrowsHasFailed() =
         test {
-            val servers = viewModel(FakeFinder(mapOf(demo.id to listOf(dub)), failing = setOf(example.id)), listOf(example, demo))
+            val failing = mapOf(example.id to SourceFailure(FailReason.NotFound))
+            val servers = viewModel(FakeFinder(mapOf(demo.id to listOf(dub)), failing = failing), listOf(example, demo))
 
-            assertEquals(
-                SourceAnswer.Failed,
-                servers.state.value.sources
-                    .single { it.source == example }
-                    .answer,
-            )
+            assertEquals(SourceAnswer.Failed(FailReason.NotFound), servers.answer(example))
             assertEquals(listOf(dub), servers.servers(demo))
         }
 
@@ -363,5 +414,120 @@ class ServersViewModelTest {
             servers.filter(null)
 
             assertEquals(2, servers.state.value.shown.size)
+        }
+
+    @Test
+    fun noUsableSourceMeansNoSources() =
+        test {
+            val broken = starter.copy(problem = SourceProblem.BROKEN)
+
+            assertEquals(StreamsOutcome.NoSources, viewModel(FakeFinder(emptyMap()), emptyList()).state.value.outcome)
+            assertEquals(StreamsOutcome.NoSources, viewModel(FakeFinder(emptyMap()), listOf(broken)).state.value.outcome)
+        }
+
+    @Test
+    fun beforeTheSourcesAreReadThereIsNoOutcome() =
+        test {
+            val servers = ServersViewModel(FakeFinder(emptyMap()), MutableStateFlow(null), show, 8, SubOrDub.BOTH, FakeLastServers())
+
+            assertNull(servers.state.value.outcome)
+        }
+
+    @Test
+    fun aSourceAddedAfterThereWereNoneIsAsked() =
+        test {
+            val installed = MutableStateFlow<List<InstalledSource>?>(emptyList())
+            val servers =
+                ServersViewModel(FakeFinder(mapOf(example.id to listOf(sub1))), installed, show, 8, SubOrDub.BOTH, FakeLastServers())
+
+            installed.value = listOf(example)
+
+            assertEquals(listOf(sub1), servers.servers(example))
+            assertNull(servers.state.value.outcome)
+        }
+
+    @Test
+    fun onlySubWithDubChosenIsNoDub() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1), demo.id to emptyList()))
+            val servers = viewModel(finder, listOf(example, demo), subOrDub = SubOrDub.DUB)
+
+            assertEquals(StreamsOutcome.MissingEdition(missing = ServerEdition.DUB, have = ServerEdition.SUB), servers.state.value.outcome)
+        }
+
+    @Test
+    fun onlyDubWithSubChosenIsNoSub() =
+        test {
+            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(dub))), subOrDub = SubOrDub.SUB)
+
+            assertEquals(StreamsOutcome.MissingEdition(missing = ServerEdition.SUB, have = ServerEdition.DUB), servers.state.value.outcome)
+        }
+
+    @Test
+    fun aFailureAmongTheWrongEditionMeansNothingPlays() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1)), failing = mapOf(demo.id to SourceFailure(FailReason.Blocked)))
+            val servers = viewModel(finder, listOf(example, demo), subOrDub = SubOrDub.DUB)
+
+            assertEquals(StreamsOutcome.NothingPlays, servers.state.value.outcome)
+        }
+
+    @Test
+    fun everySourceFailingOrEmptyMeansNothingPlays() =
+        test {
+            val finder = FakeFinder(mapOf(demo.id to emptyList()), failing = mapOf(example.id to SourceFailure(FailReason.NotFound)))
+            val servers = viewModel(finder, listOf(example, demo))
+
+            assertEquals(StreamsOutcome.NothingPlays, servers.state.value.outcome)
+        }
+
+    @Test
+    fun whileASourceIsStillLookingThereIsNoOutcome() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1)), failing = mapOf(demo.id to SourceFailure(FailReason.Blocked)))
+            finder.gate(example)
+            val servers = viewModel(finder, listOf(example, demo))
+
+            assertNull(servers.state.value.outcome)
+        }
+
+    @Test
+    fun aServerToPickMeansNoOutcome() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1)), failing = mapOf(demo.id to SourceFailure(FailReason.Blocked)))
+
+            assertNull(viewModel(finder, listOf(example, demo)).state.value.outcome)
+        }
+
+    @Test
+    fun tryingAgainAsksOnlySourcesWithNothingToPick() =
+        test {
+            val finder =
+                FakeFinder(
+                    mapOf(example.id to listOf(sub1), demo.id to emptyList()),
+                    failing = mapOf(starter.id to SourceFailure(FailReason.Blocked)),
+                )
+            val servers = viewModel(finder, listOf(example, demo, starter))
+            finder.asked.clear()
+            finder.gate(starter)
+
+            servers.retry()
+
+            assertEquals(setOf(demo.id, starter.id), finder.asked.toSet())
+            assertEquals(SourceAnswer.Looking, servers.answer(starter))
+            assertEquals(listOf(sub1), servers.servers(example))
+        }
+
+    @Test
+    fun tryingAgainDoesntAskASourceStillLooking() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1)))
+            finder.gate(example)
+            val servers = viewModel(finder)
+            finder.asked.clear()
+
+            servers.retry()
+
+            assertEquals(emptyList(), finder.asked)
         }
 }
