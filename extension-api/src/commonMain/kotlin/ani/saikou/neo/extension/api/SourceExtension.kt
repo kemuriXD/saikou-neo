@@ -7,4 +7,7 @@ package ani.saikou.neo.extension.api
 public interface SourceExtension {
     /** The servers that have [episode]. An empty list means the source doesn't have it. */
     public suspend fun servers(episode: Episode): List<Server>
+
+    /** The stream for one of the servers from [servers]. */
+    public suspend fun stream(server: Server): Stream
 }
