@@ -14,7 +14,7 @@ class ProblemForTest {
 
     @Test
     fun anOlderOrNewerOneSaysWhichNeedsUpdating() {
-        assertEquals(SourceProblem.BUILT_FOR_OLDER_APP, problemFor(ExtensionApi.VERSION - 1))
+        assertEquals(SourceProblem.BUILT_FOR_OLDER_APP, problemFor(ExtensionApi.MIN_VERSION - 1))
         assertEquals(SourceProblem.BUILT_FOR_NEWER_APP, problemFor(ExtensionApi.VERSION + 1))
     }
 }
