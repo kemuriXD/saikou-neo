@@ -10,6 +10,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -17,6 +19,7 @@ import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -138,6 +141,20 @@ class ServersViewModelTest {
             assertEquals(SourceAnswer.Looking, servers.answer())
 
             advanceTimeBy(0.2.seconds)
+            assertEquals(SourceAnswer.Failed(FailReason.NoAnswer), servers.answer())
+        }
+
+    @Test
+    fun aSourceThatIgnoresBeingStoppedStillHasNoAnswerAfter25Seconds() =
+        test {
+            val servers =
+                viewModel({ _, _, _ ->
+                    withContext(NonCancellable) { delay(60.seconds) }
+                    listOf(sub1)
+                })
+
+            advanceTimeBy(25.1.seconds)
+
             assertEquals(SourceAnswer.Failed(FailReason.NoAnswer), servers.answer())
         }
 

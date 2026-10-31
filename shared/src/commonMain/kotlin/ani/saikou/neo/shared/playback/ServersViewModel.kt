@@ -6,6 +6,7 @@ import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.async
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -142,11 +143,16 @@ public class ServersViewModel(
         viewModelScope.launch {
             val answer =
                 try {
-                    withTimeoutOrNull(answerWithin) { finder.servers(source, show, episode) }
-                        ?.let { all ->
-                            val shown = all.filter { subOrDub.shows(it.edition) }
-                            SourceAnswer.Found(shown, hidden = all.size - shown.size)
-                        } ?: SourceAnswer.Failed(FailReason.NoAnswer)
+                    // Asked apart from the wait, so a source that won't stop can't hold up the time limit.
+                    val call = viewModelScope.async { finder.servers(source, show, episode) }
+                    val all = withTimeoutOrNull(answerWithin) { call.await() }
+                    if (all == null) {
+                        call.cancel()
+                        SourceAnswer.Failed(FailReason.NoAnswer)
+                    } else {
+                        val shown = all.filter { subOrDub.shows(it.edition) }
+                        SourceAnswer.Found(shown, hidden = all.size - shown.size)
+                    }
                 } catch (_: CancellationException) {
                     // Leaving the page cancels the search. A source's own timeout fails only that source.
                     ensureActive()

@@ -21,6 +21,8 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertThrows
 import org.junit.Test
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -156,6 +158,12 @@ class ExtensionServerFinderTest {
     @Test
     fun aRateLimitsWaitIsInWholeSecondsRoundedUp() {
         assertEquals(FailReason.RateLimited(31), reasonFor(SourceException.RateLimited(30.5.seconds)))
+    }
+
+    @Test
+    fun anEndlessWaitIsAnUnknownOneAndAVeryLongOneIsCappedAtADay() {
+        assertEquals(FailReason.RateLimited(null), reasonFor(SourceException.RateLimited(Duration.INFINITE)))
+        assertEquals(FailReason.RateLimited(86_400), reasonFor(SourceException.RateLimited(1000.days)))
     }
 
     @Test

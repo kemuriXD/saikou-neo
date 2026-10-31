@@ -21,10 +21,18 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
 
 // The most servers a source can list, and the longest name shown, so a source can't flood the page.
 private const val MAX_SERVERS = 100
 private const val MAX_NAME = 60
+
+// Sources share a few of the IO threads, so ones that block and won't stop can't take them all from the app.
+private const val SOURCE_THREADS = 8
+private val sourceThreads = Dispatchers.IO.limitedParallelism(SOURCE_THREADS)
+
+// The longest wait a rate limit can ask for. An endless one counts as not saying.
+private val LONGEST_WAIT = 1.days
 
 /**
  * Asks the source [load] gives for an installed source, off the main thread, for the episode the catalogue picked. A
@@ -40,7 +48,7 @@ class ExtensionServerFinder(
         show: AnimeDetails,
         episode: Int,
     ): List<FoundServer> =
-        withContext(Dispatchers.IO) {
+        withContext(sourceThreads) {
             try {
                 val extension = load(source) ?: throw SourceFailure(FailReason.WontStart)
                 extension
@@ -60,16 +68,28 @@ class ExtensionServerFinder(
 
 private fun Throwable.reason(): FailReason =
     when (this) {
-        is SourceException.NotFound -> FailReason.NotFound
+        is SourceException.NotFound -> {
+            FailReason.NotFound
+        }
 
-        is SourceException.Blocked -> FailReason.Blocked
+        is SourceException.Blocked -> {
+            FailReason.Blocked
+        }
 
-        is SourceException.RateLimited -> FailReason.RateLimited(retryAfter?.let { (it.inWholeMilliseconds + 999) / 1000 })
+        is SourceException.RateLimited -> {
+            FailReason.RateLimited(
+                retryAfter?.takeIf { it.isFinite() }?.let { (it.coerceAtMost(LONGEST_WAIT).inWholeMilliseconds + 999) / 1000 },
+            )
+        }
 
         // An expired link only comes up while playing, so here it's a site that isn't working.
-        is Exception -> FailReason.SourceDown
+        is Exception -> {
+            FailReason.SourceDown
+        }
 
-        else -> FailReason.WontStart
+        else -> {
+            FailReason.WontStart
+        }
     }
 
 private fun AnimeDetails.toAnime(): Anime {
