@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv.settings
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -79,6 +80,8 @@ internal const val ADD_SOURCE_TAG = "add-source"
 internal const val SOURCE_FIELD_TAG = "source-field"
 
 internal fun sourceTag(id: String) = "source-$id"
+
+internal fun removeTag(id: String) = "remove-$id"
 
 /** What Settings > Sources does when you add a source from [onAdd]'s text, close a panel, or remove a source by id. */
 class SourceActions(
@@ -291,30 +294,23 @@ private fun NoSourcesHeader() {
     )
 }
 
-/**
- * A wide row that turns paper with a glow on focus, without growing. With a [description], TalkBack reads that
- * rather than the row's text.
- */
+/** A wide row that turns paper with a glow on focus, without growing. */
 @Composable
 private fun WideRow(
     onClick: () -> Unit,
     height: Dp,
     container: Color,
     modifier: Modifier,
-    description: String? = null,
     button: Boolean = false,
-    content: @Composable RowScope.(focused: Boolean) -> Unit,
+    content: @Composable RowScope.() -> Unit,
 ) {
     val colors = NeoTheme.colors
-    var focused by remember { mutableStateOf(false) }
     Surface(
         onClick = onClick,
         modifier =
             modifier
                 .then(if (button) Modifier else Modifier.fillMaxWidth())
-                .heightIn(min = height)
-                .onFocusChanged { focused = it.isFocused }
-                .then(if (description != null) Modifier.semantics { contentDescription = description } else Modifier),
+                .heightIn(min = height),
         shape = ClickableSurfaceDefaults.shape(if (button) CircleShape else RoundedCornerShape(RowRadius)),
         colors =
             ClickableSurfaceDefaults.colors(
@@ -331,12 +327,11 @@ private fun WideRow(
         Row(
             Modifier
                 .heightIn(min = height)
-                .padding(horizontal = if (button) ButtonPadding else RowPadding, vertical = if (button) 0.dp else 8.dp)
-                .then(if (description != null) Modifier.clearAndSetSemantics {} else Modifier),
+                .padding(horizontal = if (button) ButtonPadding else RowPadding, vertical = if (button) 0.dp else 8.dp),
             horizontalArrangement = Arrangement.spacedBy(RowSpacing),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            content(focused)
+            content()
         }
     }
 }
@@ -368,7 +363,11 @@ private fun AddSource(
     }
 }
 
-/** A source: its letter, name, and version or why it can't be used, with Remove at the end. */
+/**
+ * A source: its letter, name, and version or why it can't be used, with a Remove pill at the end. The row is a card;
+ * focus goes to the pill, which turns paper, and the row lifts to the raised surface around it. [modifier] is the
+ * pill's. TalkBack reads the source with Remove.
+ */
 @Composable
 private fun SourceRow(
     source: InstalledSource,
@@ -378,44 +377,67 @@ private fun SourceRow(
     val colors = NeoTheme.colors
     val detail = source.problem?.let { stringResource(it.reason) } ?: stringResource(R.string.sources_version, source.version)
     val remove = stringResource(R.string.sources_remove)
-    WideRow(
-        onClick,
-        SourceRowHeight,
-        colors.surface,
-        modifier.testTag(sourceTag(source.id)),
-        description = "${source.name}, $detail. $remove",
-    ) { focused ->
-        LetterBadge(source, focused)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(source.name, style = RowTitle, maxLines = 1)
-            Text(detail, style = Small, color = LocalContentColor.current.copy(alpha = 0.72f))
+    var focused by remember { mutableStateOf(false) }
+    val lift by animateColorAsState(if (focused) colors.surfaceRaised else colors.surface, label = "row")
+    Row(
+        Modifier
+            .testTag(sourceTag(source.id))
+            .fillMaxWidth()
+            .heightIn(min = SourceRowHeight)
+            .background(lift, RoundedCornerShape(RowRadius))
+            .padding(horizontal = RowPadding, vertical = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(RowSpacing),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        LetterBadge(source, if (focused) colors.line else colors.surfaceRaised)
+        Column(Modifier.weight(1f).clearAndSetSemantics {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(source.name, style = RowTitle, color = colors.paper, maxLines = 1)
+            Text(detail, style = Small, color = colors.textMuted)
         }
-        Row(
-            Modifier
-                .height(RemovePill)
-                .background(if (focused) colors.ink else Color.Transparent, CircleShape)
-                .padding(horizontal = 14.dp),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
+        Surface(
+            onClick = onClick,
+            modifier =
+                modifier
+                    .testTag(removeTag(source.id))
+                    .height(RemovePill)
+                    .onFocusChanged { focused = it.isFocused }
+                    .semantics { contentDescription = "${source.name}, $detail. $remove" },
+            shape = ClickableSurfaceDefaults.shape(CircleShape),
+            colors =
+                ClickableSurfaceDefaults.colors(
+                    containerColor = colors.surfaceRaised,
+                    contentColor = colors.textMuted,
+                    focusedContainerColor = colors.focus,
+                    focusedContentColor = colors.onFocus,
+                    pressedContainerColor = colors.focus,
+                    pressedContentColor = colors.onFocus,
+                ),
+            scale = ClickableSurfaceDefaults.scale(focusedScale = NeoTheme.dimensions.focusScaleButton),
+            glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(FocusGlowColor, NeoTheme.dimensions.glowFocus)),
         ) {
-            val tint = if (focused) colors.paper else colors.textMuted
-            Icon(NeoIcons.Remove, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
-            Text(remove, style = Body.copy(fontWeight = FontWeight.SemiBold), color = tint)
+            Row(
+                Modifier.height(RemovePill).padding(horizontal = 14.dp).clearAndSetSemantics {},
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(NeoIcons.Remove, contentDescription = null, modifier = Modifier.size(16.dp))
+                Text(remove, style = Body.copy(fontWeight = FontWeight.SemiBold))
+            }
         }
     }
 }
 
-/** The source's first letter, pink on a raised square; ink on a faint one when its row has focus. Decoration only. */
+/** The source's first letter in pink, on a square of [background]. Decoration only. */
 @Composable
 private fun LetterBadge(
     source: InstalledSource,
-    focused: Boolean = false,
+    background: Color = NeoTheme.colors.surfaceRaised,
 ) {
     val colors = NeoTheme.colors
     Box(
         Modifier
             .size(Badge)
-            .background(if (focused) colors.onFocusTonal else colors.surfaceRaised, RoundedCornerShape(BadgeRadius)),
+            .background(background, RoundedCornerShape(BadgeRadius)),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -424,7 +446,7 @@ private fun LetterBadge(
                 ?.uppercase()
                 .orEmpty(),
             style = NeoTheme.typography.headline.copy(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold),
-            color = if (focused) colors.onFocus else colors.pink,
+            color = colors.pink,
         )
     }
 }

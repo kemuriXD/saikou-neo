@@ -84,6 +84,8 @@ class SourcesSettingsTest {
 
     private fun row(source: InstalledSource) = compose.onNodeWithTag(sourceTag(source.id))
 
+    private fun removeButton(source: InstalledSource) = compose.onNodeWithTag(removeTag(source.id))
+
     private fun update(change: SourcesState.() -> SourcesState) {
         state.value = state.value.change()
         compose.waitForIdle()
@@ -104,10 +106,9 @@ class SourcesSettingsTest {
 
         addSource().assertIsFocused().assertLeftPositionInRootIsEqualTo(306.dp).assertHeightIsEqualTo(60.dp)
         compose.onNodeWithText("INSTALLED").assertIsDisplayed()
-        row(example)
-            .assertHeightIsEqualTo(68.dp)
-            .assert(described("Example source, Version 1.4.0. Remove"))
-        row(demo).assert(described("Demo source, Version 0.9.0. Remove"))
+        row(example).assertHeightIsEqualTo(68.dp)
+        removeButton(example).assert(described("Example source, Version 1.4.0. Remove"))
+        removeButton(demo).assert(described("Demo source, Version 0.9.0. Remove"))
     }
 
     @Test
@@ -115,12 +116,27 @@ class SourcesSettingsTest {
         val older = example.copy(problem = SourceProblem.BUILT_FOR_OLDER_APP)
         show(SourcesState(listOf(older)))
 
-        row(older).assert(
+        removeButton(older).assert(
             described(
                 "Example source, This source was built for an older version of Saikou Neo. Get a newer version of the source, " +
                     "then add it again.. Remove",
             ),
         )
+    }
+
+    @Test
+    fun downFromAddASourceFocusesEachRemoveButtonInTurn() {
+        show(SourcesState(listOf(example, demo)))
+
+        press(Key.DirectionDown)
+        removeButton(example).assertIsFocused()
+        row(example).assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Focused))
+
+        press(Key.DirectionDown)
+        removeButton(demo).assertIsFocused()
+
+        press(Key.DirectionUp, times = 2)
+        addSource().assertIsFocused()
     }
 
     @Test
@@ -203,7 +219,7 @@ class SourcesSettingsTest {
         compose.onNodeWithText("Keep").assertIsFocused()
         press(Key.DirectionCenter)
         assertEquals(emptyList<String>(), removed)
-        row(example).assertIsFocused()
+        removeButton(example).assertIsFocused()
     }
 
     @Test
@@ -217,7 +233,7 @@ class SourcesSettingsTest {
         update { copy(installed = listOf(example)) }
 
         assertEquals(listOf(demo.id), removed)
-        row(example).assertIsFocused()
+        removeButton(example).assertIsFocused()
     }
 
     @Test
