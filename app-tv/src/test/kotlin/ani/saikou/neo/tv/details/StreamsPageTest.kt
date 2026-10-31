@@ -24,6 +24,7 @@ import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.episodeList
 import ani.saikou.neo.shared.playback.BestPick
+import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.FoundServer
 import ani.saikou.neo.shared.playback.LastServer
 import ani.saikou.neo.shared.playback.ServerEdition
@@ -43,6 +44,7 @@ import org.robolectric.annotation.GraphicsMode
 
 private val demo = InstalledSource("com.example.demo", "Demo source", "1.0.0")
 private val example = InstalledSource("com.example.example", "Example source", "1.0.0")
+private val starter = InstalledSource("com.example.starter", "Starter source", "1.0.0")
 private val sub = FoundServer("a", "Demo, Sub", ServerEdition.SUB, 24)
 private val dub = FoundServer("b", "Demo, Dub", ServerEdition.DUB, null)
 
@@ -86,18 +88,23 @@ class StreamsPageTest {
     private val picked = mutableListOf<Pair<String, String>>()
     private val filters = mutableListOf<String?>()
     private var askedFor: Int? = null
+    private var retries = 0
+    private var addedSource = false
 
     private fun show() {
         compose.setContent {
             NeoTheme {
                 DetailsScreen(
                     DetailsState.Loaded(details, episodes = episodeList(details, episodes, AirDate(2026, 10, 26))),
-                    streams = { episode, modifier ->
+                    streams = { episode, back, modifier ->
                         askedFor = episode
                         StreamsPage(
                             state = state.value,
+                            episode = episode,
+                            title = "Show 7",
                             onPick = { source, server -> picked += source.id to server.name },
                             onFilter = { filters += it },
+                            actions = StreamsActions(onRetry = { retries++ }, onBack = back, onAddSource = { addedSource = true }),
                             modifier = modifier,
                         )
                     },
@@ -188,5 +195,103 @@ class StreamsPageTest {
         press(Key.DirectionCenter)
 
         assertEquals(listOf(demo.id), filters)
+    }
+
+    @Test
+    fun withNoSourcesItOffersToAddOne() {
+        state.value = ServersState(emptyList(), ready = true)
+        openEpisodeTwo()
+
+        compose.onNodeWithText("No sources installed yet").assertExists()
+        compose.onNodeWithText("Add one with a link or code in Settings > Sources", substring = true).assertExists()
+        compose.onNodeWithTag(STREAMS_ADD_SOURCE_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(true, addedSource)
+    }
+
+    @Test
+    fun whenNothingPlaysEachSourceSaysWhy() {
+        state.value =
+            ServersState(
+                listOf(
+                    SourceServers(demo, SourceAnswer.Failed(FailReason.NoAnswer)),
+                    SourceServers(example, SourceAnswer.Failed(FailReason.NotFound)),
+                    SourceServers(starter, SourceAnswer.Found(emptyList())),
+                ),
+                ready = true,
+            )
+        openEpisodeTwo()
+
+        compose.onNodeWithText("No source could play this episode").assertExists()
+        compose.onNodeWithText("Didn’t answer in 25 s").assertExists()
+        compose.onNodeWithText("Couldn’t find Show 7. Try another source.").assertExists()
+        compose.onNodeWithText("No servers for this episode").assertExists()
+        compose.onNodeWithTag(STREAMS_TRY_AGAIN_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(1, retries)
+    }
+
+    @Test
+    fun aRateLimitSaysWhenToTryAgain() {
+        state.value =
+            ServersState(
+                listOf(
+                    SourceServers(demo, SourceAnswer.Failed(FailReason.RateLimited(30))),
+                    SourceServers(example, SourceAnswer.Failed(FailReason.RateLimited(150))),
+                    SourceServers(starter, SourceAnswer.Failed(FailReason.RateLimited(null))),
+                ),
+                ready = true,
+            )
+        openEpisodeTwo()
+
+        compose.onNodeWithText("Too many requests. Try again in 30 s").assertExists()
+        compose.onNodeWithText("Too many requests. Try again in 3 min").assertExists()
+        compose.onNodeWithText("Too many requests. Try again later").assertExists()
+    }
+
+    @Test
+    fun backToEpisodesReturnsToTheEpisode() {
+        state.value = ServersState(listOf(SourceServers(demo, SourceAnswer.Failed(FailReason.Blocked))), ready = true)
+        openEpisodeTwo()
+
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(STREAMS_BACK_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(DETAILS_STREAMS_CRUMB_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(episodeTag(2)).assertIsFocused()
+    }
+
+    @Test
+    fun noDubIsPlainTextWithOneBack() {
+        state.value =
+            ServersState(listOf(SourceServers(demo, SourceAnswer.Found(emptyList(), hidden = 2))), subOrDub = SubOrDub.DUB, ready = true)
+        openEpisodeTwo()
+
+        compose.onNodeWithText("No Dub yet for episode 2").assertExists()
+        compose.onNodeWithText("Your sources only have Sub for this one.", substring = true).assertExists()
+        compose.onNodeWithTag(STREAMS_BACK_TAG).assertIsFocused()
+        compose.onNodeWithTag(STREAMS_TRY_AGAIN_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun aFailedSourceAmongServersSaysWhy() {
+        state.value =
+            servers.copy(
+                sources =
+                    listOf(
+                        SourceServers(demo, SourceAnswer.Found(listOf(sub, dub))),
+                        SourceServers(example, SourceAnswer.Failed(FailReason.Blocked)),
+                        SourceServers(starter, SourceAnswer.Found(emptyList(), hidden = 1)),
+                    ),
+                subOrDub = SubOrDub.SUB,
+            )
+        openEpisodeTwo()
+
+        compose.onNodeWithText("The site blocked the request").assertExists()
+        compose.onNodeWithText("Only Dub here").assertExists()
     }
 }

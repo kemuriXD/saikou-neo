@@ -2,7 +2,11 @@ package ani.saikou.neo.tv
 
 import androidx.activity.BackEventCompat
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
@@ -14,9 +18,11 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
+import androidx.tv.material3.Button
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.More
@@ -69,7 +75,13 @@ class NeoNavigationTest {
                 seeMore = { row, openDetails ->
                     SeeMoreScreen(row, seeMoreState, openDetails, onLoadMore = {}, onRetry = {})
                 },
-                details = { animeId, _, _ -> Text("Details for $animeId") },
+                details = { animeId, _, _, openSources ->
+                    Column {
+                        Text("Details for $animeId")
+                        Button(onClick = openSources, modifier = Modifier.testTag("open-sources")) { Text("Add a source") }
+                    }
+                },
+                sources = { Text("Settings on Sources") },
                 search = { openDetails, openGenre ->
                     SearchScreen(
                         searchState,
@@ -355,6 +367,21 @@ class NeoNavigationTest {
         compose.onNodeWithText("Search anime").assertExists()
         back()
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun detailsCanOpenSourcesAndBackReturnsToIt() {
+        show()
+
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag("open-sources").performSemanticsAction(SemanticsActions.OnClick)
+        compose.waitForIdle()
+        compose.onNodeWithText("Settings on Sources").assertExists()
+        restoration.emulateSavedInstanceStateRestore()
+        compose.onNodeWithText("Settings on Sources").assertExists()
+        back()
+
+        compose.onNodeWithText("Details for 0").assertExists()
     }
 
     // Search takes focus from the rail. Back has to find Home's Play, not open the rail again.

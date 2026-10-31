@@ -11,6 +11,7 @@ import android.view.Choreographer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
@@ -44,6 +45,7 @@ import ani.saikou.neo.shared.sources.ShortCodes
 import ani.saikou.neo.shared.sources.SourceDownloads
 import ani.saikou.neo.shared.sources.SourcesViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
+import ani.saikou.neo.tv.details.StreamsActions
 import ani.saikou.neo.tv.details.StreamsPage
 import ani.saikou.neo.tv.discover.DiscoverScreen
 import ani.saikou.neo.tv.home.HomeScreen
@@ -51,6 +53,7 @@ import ani.saikou.neo.tv.home.SeeMoreScreen
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.search.SearchScreen
 import ani.saikou.neo.tv.search.genreLabels
+import ani.saikou.neo.tv.settings.SettingsCategory
 import ani.saikou.neo.tv.settings.SettingsScreen
 import ani.saikou.neo.tv.settings.SourceActions
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -132,7 +135,7 @@ class MainActivity : ComponentActivity() {
                                 onRest = seeMore::rest,
                             )
                         },
-                        details = { animeId, openDetails, openRecommendations ->
+                        details = { animeId, openDetails, openRecommendations, openSources ->
                             val details =
                                 viewModel {
                                     DetailsViewModel(
@@ -152,7 +155,7 @@ class MainActivity : ComponentActivity() {
                                 state,
                                 onOpen = openDetails,
                                 onRecommendations = { openRecommendations(animeId) },
-                                streams = { episode, modifier ->
+                                streams = { episode, back, modifier ->
                                     val show = (state as? DetailsState.Loaded)?.details ?: return@DetailsScreen
                                     // Asks the sources installed when the episode is picked, with the setting then.
                                     val servers =
@@ -167,7 +170,15 @@ class MainActivity : ComponentActivity() {
                                             )
                                         }
                                     val serversState by servers.state.collectAsStateWithLifecycle()
-                                    StreamsPage(serversState, onPick = servers::pick, onFilter = servers::filter, modifier = modifier)
+                                    StreamsPage(
+                                        serversState,
+                                        episode,
+                                        show.card.displayTitle(),
+                                        onPick = servers::pick,
+                                        onFilter = servers::filter,
+                                        actions = StreamsActions(onRetry = servers::retry, onBack = back, onAddSource = openSources),
+                                        modifier = modifier,
+                                    )
                                 },
                             )
                         },
@@ -226,33 +237,37 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         section = { section ->
-                            if (section == Section.SETTINGS) {
-                                val settingsScreen = viewModel { SettingsViewModel(app.settingsStore) }
-                                val state by settingsScreen.state.collectAsStateWithLifecycle()
-                                val sourcesScreen = viewModel { SourcesViewModel(app.sources, ShortCodes(), SourceDownloads()) }
-                                val sources by sourcesScreen.state.collectAsStateWithLifecycle()
-                                state?.let {
-                                    SettingsScreen(
-                                        it,
-                                        onChoose = settingsScreen::choose,
-                                        sources = sources,
-                                        sourceActions =
-                                            SourceActions(
-                                                sourcesScreen::add,
-                                                sourcesScreen::dismiss,
-                                                sourcesScreen::remove,
-                                                sourcesScreen::toggle,
-                                                sourcesScreen::addTicked,
-                                            ),
-                                    )
-                                }
-                            } else {
-                                SectionPlaceholder(section)
-                            }
+                            if (section == Section.SETTINGS) SettingsSection(SettingsCategory.BROWSING) else SectionPlaceholder(section)
                         },
+                        sources = { SettingsSection(SettingsCategory.SOURCES) },
                     )
                 }
             }
+        }
+    }
+
+    /** Settings with the installed sources, opened on [start]. */
+    @Composable
+    private fun SettingsSection(start: SettingsCategory) {
+        val settingsScreen = viewModel { SettingsViewModel(app.settingsStore) }
+        val state by settingsScreen.state.collectAsStateWithLifecycle()
+        val sourcesScreen = viewModel { SourcesViewModel(app.sources, ShortCodes(), SourceDownloads()) }
+        val sources by sourcesScreen.state.collectAsStateWithLifecycle()
+        state?.let {
+            SettingsScreen(
+                it,
+                onChoose = settingsScreen::choose,
+                sources = sources,
+                sourceActions =
+                    SourceActions(
+                        sourcesScreen::add,
+                        sourcesScreen::dismiss,
+                        sourcesScreen::remove,
+                        sourcesScreen::toggle,
+                        sourcesScreen::addTicked,
+                    ),
+                start = start,
+            )
         }
     }
 

@@ -84,6 +84,14 @@ class SettingsScreenTest {
         panel().assertDoesNotExist()
     }
 
+    @Test
+    fun canOpenOnAnotherCategory() {
+        compose.setContent { NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.SOURCES) } }
+
+        category(SettingsCategory.SOURCES).assertIsFocused().assertIsSelected()
+        category(SettingsCategory.BROWSING).assertIsNotSelected()
+    }
+
     // From the design, less the rail: the title on the safe area, categories under it and the settings beside them.
     @Test
     fun laysOutTitleCategoriesAndSettingsAsDesigned() {
