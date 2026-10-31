@@ -5,6 +5,7 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -13,6 +14,7 @@ import okio.Path.Companion.toPath
 private val UnairedAnime = booleanPreferencesKey("show_unaired_anime")
 private val UpcomingEpisodes = booleanPreferencesKey("show_upcoming_episodes")
 private val SlowTv = booleanPreferencesKey("slow_tv")
+private val SubOrDubKey = stringPreferencesKey("sub_or_dub")
 
 /**
  * Keeps [Settings] in a file, so they're there after the app restarts. Only one store may have a file open at a time,
@@ -32,6 +34,7 @@ public class SettingsStore private constructor(
             saved[UnairedAnime] = changed.showUnairedAnime
             saved[UpcomingEpisodes] = changed.showUpcomingEpisodes
             saved[SlowTv] = changed.slowTv
+            saved[SubOrDubKey] = changed.subOrDub.name
         }
     }
 
@@ -50,5 +53,6 @@ private fun Preferences.toSettings(): Settings {
         showUnairedAnime = this[UnairedAnime] ?: defaults.showUnairedAnime,
         showUpcomingEpisodes = this[UpcomingEpisodes] ?: defaults.showUpcomingEpisodes,
         slowTv = this[SlowTv] ?: defaults.slowTv,
+        subOrDub = SubOrDub.entries.firstOrNull { it.name == this[SubOrDubKey] } ?: defaults.subOrDub,
     )
 }

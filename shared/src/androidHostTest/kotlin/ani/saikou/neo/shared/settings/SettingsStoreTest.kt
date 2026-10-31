@@ -37,20 +37,26 @@ class SettingsStoreTest {
         runBlocking {
             val (store, _) = store()
 
-            assertEquals(Settings(showUnairedAnime = false, showUpcomingEpisodes = true, slowTv = false), store.settings.first())
+            assertEquals(
+                Settings(showUnairedAnime = false, showUpcomingEpisodes = true, slowTv = false, subOrDub = SubOrDub.BOTH),
+                store.settings.first(),
+            )
         }
 
     @Test
     fun aChangeIsKeptAfterARestart() =
         runBlocking {
             val (first, scope) = store()
-            first.update { it.copy(showUnairedAnime = true, slowTv = true) }
+            first.update { it.copy(showUnairedAnime = true, slowTv = true, subOrDub = SubOrDub.DUB) }
             // DataStore lets the file go once its scope ends.
             scope.coroutineContext.job.cancelAndJoin()
 
             val (second, _) = store()
 
-            assertEquals(Settings(showUnairedAnime = true, showUpcomingEpisodes = true, slowTv = true), second.settings.first())
+            assertEquals(
+                Settings(showUnairedAnime = true, showUpcomingEpisodes = true, slowTv = true, subOrDub = SubOrDub.DUB),
+                second.settings.first(),
+            )
         }
 
     @Test

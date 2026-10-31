@@ -19,7 +19,7 @@ import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
-import kotlin.test.assertFalse
+import kotlin.test.assertFailsWith
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -59,10 +59,22 @@ class SettingsViewModelTest {
             val viewModel = SettingsViewModel(store)
             viewModel.state.filterNotNull().first()
 
-            viewModel.choose(Setting.UNAIRED_ANIME, on = true)
+            viewModel.choose(Setting.UNAIRED_ANIME, true)
 
             viewModel.state.filterNotNull().first { it.showUnairedAnime }
             assertTrue(store.settings.first().showUnairedAnime)
+        }
+
+    @Test
+    fun choosingSubOrDubSavesIt() =
+        withinSeconds {
+            val viewModel = SettingsViewModel(store)
+            viewModel.state.filterNotNull().first()
+
+            viewModel.choose(Setting.SUB_OR_DUB, SubOrDub.SUB)
+
+            viewModel.state.filterNotNull().first { it.subOrDub == SubOrDub.SUB }
+            assertEquals(SubOrDub.SUB, store.settings.first().subOrDub)
         }
 
     // Picking the value a setting already has leaves it as it is, rather than switching it.
@@ -72,8 +84,8 @@ class SettingsViewModelTest {
             val viewModel = SettingsViewModel(store)
             viewModel.state.filterNotNull().first()
 
-            viewModel.choose(Setting.UPCOMING_EPISODES, on = true)
-            viewModel.choose(Setting.SLOW_TV, on = true)
+            viewModel.choose(Setting.UPCOMING_EPISODES, true)
+            viewModel.choose(Setting.SLOW_TV, true)
 
             viewModel.state.filterNotNull().first { it.slowTv }
             assertEquals(Settings(showUpcomingEpisodes = true, slowTv = true), store.settings.first())
@@ -81,10 +93,23 @@ class SettingsViewModelTest {
 
     @Test
     fun eachSettingReadsItsOwnValue() {
-        val settings = Settings(showUnairedAnime = true, showUpcomingEpisodes = false, slowTv = true)
+        val settings = Settings(showUnairedAnime = true, showUpcomingEpisodes = false, slowTv = true, subOrDub = SubOrDub.DUB)
 
-        assertTrue(settings.isOn(Setting.UNAIRED_ANIME))
-        assertFalse(settings.isOn(Setting.UPCOMING_EPISODES))
-        assertTrue(settings.isOn(Setting.SLOW_TV))
+        assertEquals(true, settings[Setting.UNAIRED_ANIME])
+        assertEquals(false, settings[Setting.UPCOMING_EPISODES])
+        assertEquals(true, settings[Setting.SLOW_TV])
+        assertEquals(SubOrDub.DUB, settings[Setting.SUB_OR_DUB])
+    }
+
+    // Each setting's value is one of its choices, so the panel always has the current one marked.
+    @Test
+    fun eachValueIsOneOfItsChoices() {
+        Setting.entries.forEach { setting -> assertTrue(Settings()[setting] in setting.choices, "$setting") }
+        assertEquals(listOf(SubOrDub.SUB, SubOrDub.DUB, SubOrDub.BOTH), Setting.SUB_OR_DUB.choices)
+    }
+
+    @Test
+    fun aValueThatIsntAChoiceIsRefused() {
+        assertFailsWith<IllegalArgumentException> { SettingsViewModel(store).choose(Setting.SLOW_TV, SubOrDub.SUB) }
     }
 }
