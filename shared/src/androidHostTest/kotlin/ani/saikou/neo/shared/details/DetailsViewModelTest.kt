@@ -5,6 +5,7 @@ import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.ArtSources
+import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.catalogue.FanartTvClient
 import ani.saikou.neo.shared.catalogue.FanartTvEngine
 import ani.saikou.neo.shared.catalogue.MalClient
@@ -234,9 +235,38 @@ class DetailsViewModelTest {
 
             val loaded = assertIs<DetailsState.Loaded>(viewModel.state.value)
             assertEquals(Ratings(aniList = 85, mal = 87, imdb = 86), loaded.ratings)
-            assertEquals("https://api.tenrai.org/v1/anime/61987", malEngine.urls.single())
+            assertEquals("https://api.tenrai.org/v1/anime/61987", malEngine.urls.single { "/episodes" !in it })
             // The IMDb id is AniZip's, from the same answer as the episodes.
             assertTrue(omdbEngine.urls.single().startsWith("https://www.omdbapi.com/?i=tt"))
+        }
+
+    @Test
+    fun fillerAndRecapsJoinTheEpisodesAsTheyCome() =
+        runTest(main) {
+            val malEngine =
+                SiteEngine("mal") { url ->
+                    if ("/episodes" in url) "naruto-episodes-${url.substringAfter("page=")}" else "anime"
+                }
+            val viewModel = detailsViewModel(mal = MalClient(malEngine, main))
+
+            advanceUntilIdle()
+
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.state.value)
+            assertEquals(EpisodeKind.Recap, loaded.episodes!!.kinds[26])
+            assertEquals(EpisodeKind.Filler, loaded.episodes.kinds[97])
+            assertEquals(5, loaded.episodes.kinds.size)
+            assertTrue(malEngine.urls.contains("https://api.tenrai.org/v1/anime/61987/episodes?page=1"))
+        }
+
+    @Test
+    fun withoutMalTheEpisodesHaveNoKinds() =
+        runTest(main) {
+            val viewModel = detailsViewModel()
+
+            advanceUntilIdle()
+
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.state.value)
+            assertTrue(loaded.episodes!!.kinds.isEmpty())
         }
 
     // AniZip sometimes gives a season or film the id of another entry, which OMDb then calls a film or a series.

@@ -1,0 +1,29 @@
+{
+  "pagination": {
+    "last_visible_page": 3,
+    "has_next_page": true
+  },
+  "data": [
+    {
+      "mal_id": 101,
+      "title": "Gotta See! Gotta Know! Kakashi-Sensei's True Face!",
+      "aired": "2004-09-15T00:00:00+00:00",
+      "filler": true,
+      "recap": false
+    },
+    {
+      "mal_id": 106,
+      "title": "The Last Leg: A Final Act of Desperation",
+      "aired": "2004-10-27T00:00:00+00:00",
+      "filler": true,
+      "recap": false
+    },
+    {
+      "mal_id": 107,
+      "title": "The Battle Begins: Naruto vs. Sasuke",
+      "aired": "2004-11-03T00:00:00+00:00",
+      "filler": false,
+      "recap": false
+    }
+  ]
+}

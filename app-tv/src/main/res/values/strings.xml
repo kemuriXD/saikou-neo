@@ -112,6 +112,10 @@
     <string name="details_released_on">Released %1$s</string>
     <string name="details_episode_watched">✓ Watched</string>
     <string name="details_episode_left">%1$d min left</string>
+    <!-- MAL marks the episode as one outside the main story. -->
+    <string name="details_episode_filler">Filler</string>
+    <!-- MAL marks the episode as a look back at earlier ones. -->
+    <string name="details_episode_recap">Recap</string>
     <string name="details_watch_order_note">Release order from AniList relations.</string>
     <string name="details_you_are_here">You are here</string>
     <string name="details_on_episode">E%1$d</string>

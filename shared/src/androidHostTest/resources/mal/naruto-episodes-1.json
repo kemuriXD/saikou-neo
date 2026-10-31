@@ -1,0 +1,36 @@
+{
+  "pagination": {
+    "last_visible_page": 3,
+    "has_next_page": true
+  },
+  "data": [
+    {
+      "mal_id": 25,
+      "title": "The Tenth Question: All or Nothing!",
+      "aired": "2003-03-27T00:00:00+00:00",
+      "filler": false,
+      "recap": false
+    },
+    {
+      "mal_id": 26,
+      "title": "Special Report: Live from the Forest of Death!",
+      "aired": "2003-04-02T00:00:00+00:00",
+      "filler": false,
+      "recap": true
+    },
+    {
+      "mal_id": 27,
+      "title": "The Chunin Exam Stage 2: The Forest of Death",
+      "aired": "2003-04-02T00:00:00+00:00",
+      "filler": false,
+      "recap": false
+    },
+    {
+      "mal_id": 97,
+      "title": "Kidnapped! Naruto's Hot Spring Adventure!",
+      "aired": "2004-08-18T00:00:00+00:00",
+      "filler": true,
+      "recap": false
+    }
+  ]
+}

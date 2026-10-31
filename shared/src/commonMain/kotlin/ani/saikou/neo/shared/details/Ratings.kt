@@ -1,6 +1,7 @@
 package ani.saikou.neo.shared.details
 
 import ani.saikou.neo.shared.catalogue.AnimeDetails
+import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.catalogue.MalClient
 import ani.saikou.neo.shared.catalogue.OmdbClient
 import ani.saikou.neo.shared.catalogue.OmdbRatings
@@ -21,12 +22,17 @@ public data class Ratings(
         }
 }
 
-/** The sites Details asks for ratings beyond AniList's: MyAnimeList, and OMDb for IMDb and Rotten Tomatoes. */
+/**
+ * The sites Details asks for ratings beyond AniList's: MyAnimeList, and OMDb for IMDb and Rotten Tomatoes. MyAnimeList
+ * also says which episodes are filler or recaps.
+ */
 public class Raters(
     private val mal: MalClient,
     private val omdb: OmdbClient,
 ) {
     internal suspend fun mal(details: AnimeDetails): Int? = details.malId?.let { mal.score(it) }
+
+    internal suspend fun episodeKinds(details: AnimeDetails): Map<Int, EpisodeKind>? = details.malId?.let { mal.episodeKinds(it) }
 
     /**
      * IMDb's rating, and Rotten Tomatoes' for a film, for the show with IMDb id [imdbId]. AniZip sometimes gives a film its

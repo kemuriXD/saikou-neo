@@ -9,6 +9,8 @@ None of them make or endorse the app.
   scores, related anime and recommendations.
 - [AniZip](https://ani.zip): episode titles, air dates and stills, and the ids
   that link a show across the other sites.
+- [MyAnimeList](https://myanimelist.net), through [Tenrai](https://api.tenrai.org):
+  which episodes are filler or recaps.
 
 ## Artwork
 

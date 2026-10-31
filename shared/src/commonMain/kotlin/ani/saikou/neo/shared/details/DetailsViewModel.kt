@@ -8,6 +8,7 @@ import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.ArtLibrary
+import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.catalogue.ShowArt
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.home.Logo
@@ -52,6 +53,7 @@ public sealed interface DetailsState {
  * in. The episodes come from AniZip once AniList's details are in, with AniList's dates where AniZip has none, read on
  * a clock [zoneOffsetSeconds] ahead of UTC. Those after [today] haven't aired, and they're left out of the list unless
  * [showUpcomingEpisodes]. The [raters] are asked once AniList's details are in, and for IMDb once AniZip gives its id.
+ * MAL's filler and recap episodes join the list when MAL answers.
  * [progress] is how far this TV got in the show, if anywhere.
  */
 public class DetailsViewModel(
@@ -84,18 +86,28 @@ public class DetailsViewModel(
             }
             // The episodes and ratings can come before or after Details shows, so they're kept here as well as in the state.
             var episodes: EpisodeList? = null
+            var kinds = emptyMap<Int, EpisodeKind>()
             var ratings = Ratings(result.value.card.averageScore)
 
             fun rate(change: (Ratings) -> Ratings) {
                 ratings = change(ratings)
                 mutableState.update { (it as? DetailsState.Loaded)?.copy(ratings = ratings) ?: it }
             }
+
+            fun show(list: EpisodeList) {
+                val shown = list.copy(kinds = kinds)
+                episodes = shown
+                mutableState.update { (it as? DetailsState.Loaded)?.copy(episodes = shown) ?: it }
+            }
             launch { raters.mal(result.value)?.let { score -> rate { it.copy(mal = score) } } }
+            // MAL can take a few seconds for a long show, so its filler and recaps join the list once it answers.
+            launch {
+                kinds = raters.episodeKinds(result.value) ?: return@launch
+                episodes?.let(::show)
+            }
             launch {
                 val aniZipEpisodes = aniZip.episodes(animeId)
-                val found = episodeList(result.value, aniZipEpisodes, today, showUpcomingEpisodes, zoneOffsetSeconds)
-                episodes = found
-                mutableState.update { (it as? DetailsState.Loaded)?.copy(episodes = found) ?: it }
+                show(episodeList(result.value, aniZipEpisodes, today, showUpcomingEpisodes, zoneOffsetSeconds))
                 val omdb = aniZipEpisodes?.imdbId?.let { raters.omdb(result.value, it) } ?: return@launch
                 rate { it.copy(imdb = omdb.imdb, rottenTomatoes = omdb.rottenTomatoes) }
             }
