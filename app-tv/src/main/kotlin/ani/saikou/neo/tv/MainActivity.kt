@@ -31,17 +31,20 @@ import ani.saikou.neo.shared.catalogue.KitsuClient
 import ani.saikou.neo.shared.catalogue.MalClient
 import ani.saikou.neo.shared.catalogue.OmdbClient
 import ani.saikou.neo.shared.catalogue.TmdbClient
+import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.DetailsViewModel
 import ani.saikou.neo.shared.details.Raters
 import ani.saikou.neo.shared.discover.DiscoverViewModel
 import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
+import ani.saikou.neo.shared.playback.ServersViewModel
 import ani.saikou.neo.shared.search.SearchViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
 import ani.saikou.neo.shared.sources.ShortCodes
 import ani.saikou.neo.shared.sources.SourceDownloads
 import ani.saikou.neo.shared.sources.SourcesViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
+import ani.saikou.neo.tv.details.StreamsPage
 import ani.saikou.neo.tv.discover.DiscoverScreen
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SeeMoreScreen
@@ -145,7 +148,28 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             val state by details.state.collectAsStateWithLifecycle()
-                            DetailsScreen(state, onOpen = openDetails, onRecommendations = { openRecommendations(animeId) })
+                            DetailsScreen(
+                                state,
+                                onOpen = openDetails,
+                                onRecommendations = { openRecommendations(animeId) },
+                                streams = { episode, modifier ->
+                                    val show = (state as? DetailsState.Loaded)?.details ?: return@DetailsScreen
+                                    // Asks the sources installed when the episode is picked, with the setting then.
+                                    val servers =
+                                        viewModel(key = "servers-$animeId-$episode") {
+                                            ServersViewModel(
+                                                app.serverFinder,
+                                                app.sources.installed,
+                                                show,
+                                                episode,
+                                                settings.subOrDub,
+                                                app.lastServers,
+                                            )
+                                        }
+                                    val serversState by servers.state.collectAsStateWithLifecycle()
+                                    StreamsPage(serversState, onPick = servers::pick, onFilter = servers::filter, modifier = modifier)
+                                },
+                            )
                         },
                         recommendations = { animeId, openDetails ->
                             val recommendations = viewModel { SeeMoreViewModel.recommendations(client, library, animeId) }

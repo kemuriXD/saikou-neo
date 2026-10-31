@@ -2,10 +2,12 @@ package ani.saikou.neo.tv
 
 import android.app.Application
 import ani.saikou.neo.shared.home.WatchHistory
+import ani.saikou.neo.shared.playback.LastServersStore
 import ani.saikou.neo.shared.search.RecentSearchesStore
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SettingsStore
 import ani.saikou.neo.tv.sources.ApkSourceStore
+import ani.saikou.neo.tv.sources.ExtensionServerFinder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -15,8 +17,8 @@ import kotlinx.coroutines.flow.stateIn
 import java.io.File
 
 /**
- * Holds what lives as long as the app: the settings, recent searches and sources, each of which only one store may have
- * open, and the watch history.
+ * Holds what lives as long as the app: the settings, recent searches, sources and last servers, each of which only one
+ * store may have open, and the watch history.
  */
 class NeoApp : Application() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -30,6 +32,12 @@ class NeoApp : Application() {
 
     /** The sources added on this TV, read from its files at start. */
     val sources by lazy { ApkSourceStore(this, scope) }
+
+    /** Asks the installed sources for an episode's servers. */
+    val serverFinder by lazy { ExtensionServerFinder(sources::extension) }
+
+    /** The server last picked for each show. */
+    val lastServers by lazy { LastServersStore.at(File(filesDir, "last_servers.preferences_pb").absolutePath, scope) }
 
     /** How far this TV got in each show. */
     val history = WatchHistory()

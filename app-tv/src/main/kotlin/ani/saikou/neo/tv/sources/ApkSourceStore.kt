@@ -44,6 +44,9 @@ class ApkSourceStore(
     private val folder = File(context.filesDir, "sources")
     private val lock = Mutex()
     private val sources = MutableStateFlow<List<InstalledSource>?>(null)
+
+    // Each source's code is loaded once, when it's first asked for servers, and again after it's replaced.
+    private val loaded = mutableMapOf<String, SourceExtension>()
     override val installed: StateFlow<List<InstalledSource>?> = sources
 
     init {
@@ -88,6 +91,7 @@ class ApkSourceStore(
             kept.delete()
             incoming.copyTo(kept)
             kept.setReadOnly()
+            loaded.remove(source.id)
             sources.value = (sources.value.orEmpty().filter { it.id != source.id } + source).sorted()
             source
         } catch (_: IOException) {
@@ -104,9 +108,31 @@ class ApkSourceStore(
                 // Only a listed id names a file here.
                 if (listed.any { it.id == id }) {
                     File(folder, id + APK).delete()
+                    loaded.remove(id)
                     sources.value = listed.filter { it.id != id }
                 }
             }
+        }
+
+    /**
+     * The code of [source], loaded in-process, or null when it isn't installed or doesn't load. The source's own code
+     * first runs outside the lock, so one that hangs as it starts doesn't hold up the other sources, installs or removes.
+     */
+    suspend fun extension(source: InstalledSource): SourceExtension? =
+        withContext(Dispatchers.IO) {
+            val (listed, type) =
+                lock.withLock {
+                    val listed =
+                        sources.value.orEmpty().firstOrNull { it.id == source.id && it.problem == null }
+                            ?: return@withContext null
+                    loaded[source.id]?.let { return@withContext it }
+                    val apk = File(folder, source.id + APK)
+                    val manifest = manifest(apk)?.takeIf { it.source.problem == null } ?: return@withContext null
+                    listed to (loadClass(apk, manifest.className) ?: return@withContext null)
+                }
+            val extension = instance(type) ?: return@withContext null
+            // Kept only if the same copy is still installed, so one replaced or removed meanwhile isn't used again.
+            lock.withLock { if (sources.value.orEmpty().any { it === listed }) loaded.getOrPut(source.id) { extension } else null }
         }
 
     private class Manifest(
@@ -136,10 +162,23 @@ class ApkSourceStore(
     private fun load(
         apk: File,
         className: String,
-    ): SourceExtension? =
+    ): SourceExtension? = loadClass(apk, className)?.let(::instance)
+
+    /** The class [className] from [apk], not yet started, so none of the source's code has run. */
+    private fun loadClass(
+        apk: File,
+        className: String,
+    ): Class<*>? =
+        loading {
+            DexClassLoader(apk.path, context.codeCacheDir.path, null, javaClass.classLoader).loadClass(className)
+        }
+
+    /** A new [type], which runs the source's static initialiser and constructor. */
+    private fun instance(type: Class<*>): SourceExtension? = loading { type.getDeclaredConstructor().newInstance() as? SourceExtension }
+
+    private fun <T> loading(block: () -> T): T? =
         try {
-            val loader = DexClassLoader(apk.path, context.codeCacheDir.path, null, javaClass.classLoader)
-            loader.loadClass(className).getDeclaredConstructor().newInstance() as? SourceExtension
+            block()
         } catch (_: ReflectiveOperationException) {
             null
         } catch (_: LinkageError) {
