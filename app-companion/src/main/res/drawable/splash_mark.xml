@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The phone splash (ADR 0022): the shared lockup 185 dp wide with the loading line 16 dp under it, centred together.
+    The window background and the system splash icon both draw it, so they line up exactly.
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:width="185dp"
+        android:height="51.1dp"
+        android:bottom="36.8dp"
+        android:drawable="@drawable/splash_lockup"
+        android:gravity="center" />
+    <item
+        android:width="105dp"
+        android:height="20.8dp"
+        android:drawable="@drawable/splash_loading"
+        android:gravity="center"
+        android:top="67.2dp" />
+</layer-list>

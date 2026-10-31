@@ -12,6 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.colorResource
 import androidx.compose.ui.res.stringResource
 
 class MainActivity : ComponentActivity() {
@@ -24,10 +25,15 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+// Ink and paper like the splash, so the splash fades into a dark screen rather than a white one.
 @Composable
 private fun PlaceholderScreen() {
     MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
+        Surface(
+            modifier = Modifier.fillMaxSize(),
+            color = colorResource(R.color.ink),
+            contentColor = colorResource(R.color.paper),
+        ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     text = stringResource(R.string.placeholder_title),
