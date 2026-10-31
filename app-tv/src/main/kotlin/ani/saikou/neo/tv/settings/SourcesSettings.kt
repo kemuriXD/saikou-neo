@@ -566,7 +566,8 @@ private fun BoxScope.AddPanel(
 
 /**
  * Choose sources: the sources a list names, with the first you can pick focused, and Add for the ticked ones. Rows you
- * can't pick say why, and focus skips them. While sources are added, Add says how far it has got.
+ * can't pick say why, and focus skips them. While sources are added, Add says how far it has got and keeps focus, so a
+ * row that changes can't take it away, and Back waits for them.
  */
 @Composable
 private fun BoxScope.ChoosePanel(
@@ -587,7 +588,7 @@ private fun BoxScope.ChoosePanel(
     val ticked = choosing.choices.count { it.ticked }
     val progress = choosing.progress
     val title = stringResource(R.string.sources_choose_title)
-    SidePanel(title, PanelWidth, active, onClose, modifier) {
+    SidePanel(title, PanelWidth, active, onClose = { if (progress == null) onClose() }, modifier) {
         Text(title, style = PaneTitle, color = colors.paper)
         Text(stringResource(R.string.sources_choose_body), style = Body, color = colors.textMuted)
         Column(
@@ -599,7 +600,9 @@ private fun BoxScope.ChoosePanel(
                     ChoiceRow(
                         choice,
                         onToggle = { actions.onToggle(choice.source.id) },
-                        modifier = if (choice.source.id == firstId) Modifier.focusRequester(first) else Modifier,
+                        modifier =
+                            (if (choice.source.id == firstId) Modifier.focusRequester(first) else Modifier)
+                                .focusProperties { canFocus = progress == null },
                     )
                 }
             }
@@ -802,4 +805,5 @@ private val AddError.message
             AddError.NOT_A_SOURCE -> R.string.sources_error_not_a_source
             AddError.BROKEN_LIST -> R.string.sources_error_broken_list
             AddError.NOTHING_IN_LIST -> R.string.sources_error_nothing_in_list
+            AddError.ALL_INSTALLED -> R.string.sources_error_all_installed
         }

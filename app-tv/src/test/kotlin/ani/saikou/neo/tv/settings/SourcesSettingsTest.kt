@@ -349,6 +349,20 @@ class SourcesSettingsTest {
     }
 
     @Test
+    fun whileAddingFocusStaysOnAddAndBackWaits() {
+        openList(choosing(ticked = setOf(starter.id)))
+        press(Key.DirectionDown, times = 2)
+        update { copy(adding = choosing(ticked = setOf(starter.id), progress = Progress(done = 0, total = 1))) }
+
+        press(Key.DirectionUp)
+        compose.onNodeWithText("Adding 1 of 1…").assertIsFocused()
+
+        back()
+        compose.onNodeWithTag(SETTINGS_PANEL_TAG).assertIsDisplayed()
+        assertEquals(0, dismissed)
+    }
+
+    @Test
     fun aSourceThatFailedSaysSo() {
         val failed = Adding.Choosing(listOf(Choice(listed(starter), ChoiceStatus.Failed, ticked = true)))
         openList(failed)
@@ -389,6 +403,9 @@ class SourcesSettingsTest {
 
         update { copy(adding = Adding.Failed(AddError.NOTHING_IN_LIST)) }
         compose.onNodeWithText("None of the sources in that list work with this version of the app.").assertIsDisplayed()
+
+        update { copy(adding = Adding.Failed(AddError.ALL_INSTALLED)) }
+        compose.onNodeWithText("You already have every source in that list.").assertIsDisplayed()
     }
 
     private fun described(text: String) = SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf(text))

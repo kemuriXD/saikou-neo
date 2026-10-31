@@ -45,6 +45,9 @@ private class FakeStore(
     val installs = mutableListOf<String>()
     var waitFor: CompletableDeferred<Unit>? = null
 
+    // Each install waits for the next of these, if there is one.
+    val gates = ArrayDeque<CompletableDeferred<Unit>>()
+
     override fun problemFor(builtFor: Int) =
         when {
             builtFor < 1 -> SourceProblem.BUILT_FOR_OLDER_APP
@@ -57,6 +60,7 @@ private class FakeStore(
         id: String?,
     ): InstalledSource? {
         waitFor?.await()
+        gates.removeFirstOrNull()?.await()
         val source = sources[apk.decodeToString()]?.takeIf { id == null || it.id == id } ?: return null
         installs += source.id
         if (source.problem == null) installed.value = installed.value.orEmpty().filter { it.id != source.id } + source
@@ -109,11 +113,13 @@ class SourcesViewModelTest {
             "https://example.com/mixed.json" to
                 list(entry(starter, "starter.apk"), entry(demo, "gone.apk"), entry(example, "starter.apk")),
             "https://example.com/stale.json" to list(entry(starter, "newer-starter.apk"), entry(demo, "demo.apk")),
+            "https://example.com/beta.json" to
+                list(entry(starter.copy(version = "1.3.0-beta.1"), "starter.apk"), entry(demo.copy(version = "v1.1.0"), "demo.apk")),
         )
 
     private fun viewModel(store: SourceStore = FakeStore()): SourcesViewModel {
         val engine = PagesEngine(pages)
-        return SourcesViewModel(store, ShortCodes(engine, main), SourceDownloads(engine, main))
+        return SourcesViewModel(store, ShortCodes(engine, main), SourceDownloads(engine, main), main)
     }
 
     @Test
@@ -291,11 +297,11 @@ class SourcesViewModelTest {
         test {
             val store = FakeStore().apply { installed.value = listOf(starter.copy(version = "1.10.0")) }
             val viewModel = viewModel(store)
-            viewModel.add("https://example.com/mine.json")
+            viewModel.add("https://example.com/two.json")
 
             viewModel.toggle(starter.id)
 
-            assertEquals(listOf(Choice(listed(starter, "starter.apk"), ChoiceStatus.Installed)), viewModel.choosing.choices)
+            assertEquals(Choice(listed(starter, "starter.apk"), ChoiceStatus.Installed), viewModel.choosing.choices.last())
         }
 
     @Test
@@ -347,15 +353,100 @@ class SourcesViewModelTest {
             viewModel.add("https://example.com/two.json")
             viewModel.toggle(starter.id)
             viewModel.toggle(demo.id)
-            store.waitFor = CompletableDeferred()
+            val first = CompletableDeferred<Unit>()
+            val second = CompletableDeferred<Unit>()
+            store.gates += listOf(first, second)
 
             viewModel.addTicked()
 
             assertEquals(Progress(done = 0, total = 2), viewModel.choosing.progress)
             viewModel.toggle(starter.id)
             assertEquals(listOf(true, true), viewModel.choosing.choices.map { it.ticked })
-            store.waitFor!!.complete(Unit)
+            first.complete(Unit)
+            assertEquals(Progress(done = 1, total = 2), viewModel.choosing.progress)
+            assertEquals(
+                ChoiceStatus.Installed,
+                viewModel.choosing.choices
+                    .first()
+                    .status,
+            )
+            second.complete(Unit)
             assertEquals(Adding.AddedAll(listOf(starter, demo)), viewModel.state.value.adding)
+        }
+
+    @Test
+    fun dismissingWhileAddingLetsItFinish() =
+        test {
+            val store = FakeStore()
+            val viewModel = viewModel(store)
+            viewModel.add("https://example.com/two.json")
+            viewModel.toggle(starter.id)
+            viewModel.toggle(demo.id)
+            val gate = CompletableDeferred<Unit>()
+            store.gates += gate
+            viewModel.addTicked()
+
+            viewModel.dismiss()
+            gate.complete(Unit)
+
+            assertEquals(listOf(starter.id, demo.id), store.installs)
+            assertEquals(Adding.AddedAll(listOf(starter, demo)), viewModel.state.value.adding)
+        }
+
+    @Test
+    fun theSameVersionCountsAsInstalled() =
+        test {
+            val store = FakeStore().apply { installed.value = listOf(starter) }
+            val viewModel = viewModel(store)
+
+            viewModel.add("https://example.com/two.json")
+
+            assertEquals(
+                listOf(ChoiceStatus.New, ChoiceStatus.Installed),
+                viewModel.choosing.choices.map { it.status },
+            )
+        }
+
+    @Test
+    fun aPreReleaseComesBeforeItsReleaseAndALeadingVIsIgnored() =
+        test {
+            val store = FakeStore().apply { installed.value = listOf(starter.copy(version = "1.3.0"), demo) }
+            val viewModel = viewModel(store)
+
+            viewModel.add("https://example.com/beta.json")
+
+            // Demo 1.0.0 is installed and the list has v1.1.0. Starter 1.3.0 is installed and the list has 1.3.0-beta.1.
+            assertEquals(
+                listOf(ChoiceStatus.Update(from = "1.0.0"), ChoiceStatus.Installed),
+                viewModel.choosing.choices.map { it.status },
+            )
+        }
+
+    @Test
+    fun aReleaseUpdatesItsPreRelease() =
+        test {
+            val store = FakeStore().apply { installed.value = listOf(starter.copy(version = "1.2.0-beta.1")) }
+            val viewModel = viewModel(store)
+
+            viewModel.add("https://example.com/mine.json")
+
+            assertEquals(
+                ChoiceStatus.Update(from = "1.2.0-beta.1"),
+                viewModel.choosing.choices
+                    .single()
+                    .status,
+            )
+        }
+
+    @Test
+    fun aListWithEverythingInstalledSaysSo() =
+        test {
+            val store = FakeStore().apply { installed.value = listOf(starter) }
+            val viewModel = viewModel(store)
+
+            viewModel.add("https://example.com/mine.json")
+
+            assertEquals(Adding.Failed(AddError.ALL_INSTALLED), viewModel.state.value.adding)
         }
 
     @Test

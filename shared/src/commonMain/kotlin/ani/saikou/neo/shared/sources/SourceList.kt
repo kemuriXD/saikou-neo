@@ -53,8 +53,13 @@ private fun JsonReader.sources(): List<ListedSource>? {
             val read = mutableListOf<ListedSource>()
             beginArray()
             while (hasNext()) {
+                // Past the limit, the rest are skipped without being read.
+                if (read.size == MAX_ENTRIES) {
+                    skipValue()
+                    continue
+                }
                 val source = readFields().toSource()
-                if (source != null && read.size < MAX_ENTRIES && read.none { it.id == source.id }) read += source
+                if (source != null && read.none { it.id == source.id }) read += source
             }
             endArray()
             sources = read
@@ -66,9 +71,21 @@ private fun JsonReader.sources(): List<ListedSource>? {
 
 private fun Map<String, String>.toSource(): ListedSource? {
     val id = get("id")?.takeIf { it.matches(sourceIdFormat) } ?: return null
-    val name = get("name")?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_TEXT) ?: return null
-    val version = get("version")?.trim()?.takeIf { it.isNotEmpty() }?.take(MAX_TEXT) ?: return null
+    val name = get("name")?.shown() ?: return null
+    val version = get("version")?.shown() ?: return null
     val api = get("api")?.toIntOrNull() ?: return null
     val apk = get("apk")?.takeIf { isAllowedSourceLink(it) } ?: return null
     return ListedSource(id, name, version, api, apk)
 }
+
+/**
+ * Text as the app shows it: without control or formatting characters, which could hide or reorder what's shown,
+ * trimmed and shortened. Null when nothing is left.
+ */
+private fun String.shown(): String? =
+    filter { it.category !in hidden }
+        .trim()
+        .take(MAX_TEXT)
+        .takeIf { it.isNotEmpty() }
+
+private val hidden = setOf(CharCategory.CONTROL, CharCategory.FORMAT, CharCategory.LINE_SEPARATOR, CharCategory.PARAGRAPH_SEPARATOR)

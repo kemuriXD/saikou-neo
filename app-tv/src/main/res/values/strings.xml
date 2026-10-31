@@ -185,6 +185,7 @@
     <string name="sources_close">Close</string>
     <string name="sources_error_broken_list">Couldn\'t read the list at that link. Check it and try again.</string>
     <string name="sources_error_nothing_in_list">None of the sources in that list work with this version of the app.</string>
+    <string name="sources_error_all_installed">You already have every source in that list.</string>
     <string name="sources_choose_title">Choose sources</string>
     <string name="sources_choose_body">This link leads to a list. Tick the sources you want.</string>
     <string name="sources_update">Update from %1$s to %2$s</string>

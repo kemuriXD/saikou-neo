@@ -2,6 +2,8 @@ package ani.saikou.neo.shared.sources
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -9,9 +11,10 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /** Why a link or code didn't add a source. */
-public enum class AddError { NO_SUCH_CODE, NOT_SECURE, NOT_A_SOURCE, BROKEN_LIST, NOTHING_IN_LIST }
+public enum class AddError { NO_SUCH_CODE, NOT_SECURE, NOT_A_SOURCE, BROKEN_LIST, NOTHING_IN_LIST, ALL_INSTALLED }
 
 /** What a source in a list is to this app. */
 public sealed interface ChoiceStatus {
@@ -92,6 +95,8 @@ public class SourcesViewModel(
     private val store: SourceStore,
     private val codes: ShortCodes,
     private val downloads: SourceDownloads,
+    // Where a list is read, off the main thread.
+    private val work: CoroutineDispatcher = Dispatchers.Default,
 ) : ViewModel() {
     private val adding = MutableStateFlow<Adding>(Adding.Idle)
     private var check: Job? = null
@@ -116,13 +121,13 @@ public class SourcesViewModel(
             } ?: return Adding.Failed(AddError.NO_SUCH_CODE)
         if (!isAllowedSourceLink(url)) return Adding.Failed(AddError.NOT_SECURE)
         val file = downloads.fetch(url) ?: return Adding.Failed(AddError.NOT_A_SOURCE)
-        if (isSourceList(file)) return choose(file)
+        if (isSourceList(file)) return choose(withContext(work) { readSourceList(file) })
         val source = store.install(file) ?: return Adding.Failed(AddError.NOT_A_SOURCE)
         return if (source.problem == null) Adding.Added(source) else Adding.CantUse(source)
     }
 
-    private fun choose(file: ByteArray): Adding {
-        val listed = readSourceList(file) ?: return Adding.Failed(AddError.BROKEN_LIST)
+    private fun choose(read: List<ListedSource>?): Adding {
+        val listed = read ?: return Adding.Failed(AddError.BROKEN_LIST)
         val installed =
             store.installed.value
                 .orEmpty()
@@ -138,6 +143,7 @@ public class SourcesViewModel(
                     }
                 }
         if (choices.all { it.status is ChoiceStatus.CantUse }) return Adding.Failed(AddError.NOTHING_IN_LIST)
+        if (choices.none { it.status.canPick }) return Adding.Failed(AddError.ALL_INSTALLED)
         return Adding.Choosing(choices)
     }
 
@@ -183,23 +189,15 @@ public class SourcesViewModel(
                             source.problem != null -> ChoiceStatus.CantUse(source.problem)
                             else -> ChoiceStatus.Installed.also { added += source }
                         }
-                    choices =
-                        choices.map {
-                            if (it.source.id ==
-                                choice.source.id
-                            ) {
-                                Choice(it.source, status, status == ChoiceStatus.Failed)
-                            } else {
-                                it
-                            }
-                        }
+                    choices = choices.withStatus(choice.source.id, status)
                 }
                 adding.value = if (added.size == ticked.size) Adding.AddedAll(added) else Adding.Choosing(choices)
             }
     }
 
-    /** Stops any check, and clears what the last one found, as when its panel closes. */
+    /** Stops any check, and clears what the last one found, as when its panel closes. Sources being added still are. */
     public fun dismiss() {
+        if ((adding.value as? Adding.Choosing)?.progress != null) return
         check?.cancel()
         adding.value = Adding.Idle
     }
@@ -210,16 +208,28 @@ public class SourcesViewModel(
     }
 }
 
-/** Compares versions such as `1.10.0` and `1.2.0` part by part, as numbers. A part that isn't one counts as 0. */
+/** [this] with the source [id] given [status]. A source that failed stays ticked, so Add tries it again. */
+private fun List<Choice>.withStatus(
+    id: String,
+    status: ChoiceStatus,
+) = map { if (it.source.id == id) Choice(it.source, status, ticked = status == ChoiceStatus.Failed) else it }
+
+/**
+ * Compares versions such as `1.10.0` and `1.2.0` part by part, as numbers, ignoring a leading `v`. A part that isn't a
+ * number counts as 0. A pre-release, such as `2.0.0-beta.1`, comes before its release.
+ */
 private fun compareVersions(
     a: String,
     b: String,
 ): Int {
-    val first = a.split('.', '-')
-    val second = b.split('.', '-')
-    for (i in 0 until maxOf(first.size, second.size)) {
-        val difference = (first.getOrNull(i)?.toIntOrNull() ?: 0).compareTo(second.getOrNull(i)?.toIntOrNull() ?: 0)
+    val first = a.removePrefix("v").split('-', '+', limit = 2)
+    val second = b.removePrefix("v").split('-', '+', limit = 2)
+    val numbers = first[0].split('.')
+    val others = second[0].split('.')
+    for (i in 0 until maxOf(numbers.size, others.size)) {
+        val difference = (numbers.getOrNull(i)?.toIntOrNull() ?: 0).compareTo(others.getOrNull(i)?.toIntOrNull() ?: 0)
         if (difference != 0) return difference
     }
-    return 0
+    // Only one is a pre-release: that one is older.
+    return (first.size == 1).compareTo(second.size == 1)
 }

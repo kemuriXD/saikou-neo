@@ -78,6 +78,14 @@ class SourceListTest {
     }
 
     @Test
+    fun dropsControlAndFormattingCharactersFromText() {
+        val read = readSourceList(list(entry(name = "\"Star\\u202Eter\\u0007 source\"", version = "\"1.2\\u200B.0\"")))!!.single()
+
+        assertEquals("Starter source", read.name)
+        assertEquals("1.2.0", read.version)
+    }
+
+    @Test
     fun aListWithNoGoodEntriesIsEmpty() {
         assertEquals(emptyList(), readSourceList(list()))
         assertEquals(emptyList(), readSourceList(list(entry(id = "\"x\""))))
