@@ -10,4 +10,14 @@ public interface SourceExtension {
 
     /** The stream for one of the servers from [servers]. */
     public suspend fun stream(server: Server): Stream
+
+    /**
+     * A fresh stream for [server] after [expired] stopped working. The app keeps
+     * the playback position and quality, so this only needs new links. By
+     * default it fetches the stream again.
+     */
+    public suspend fun refresh(
+        server: Server,
+        expired: Stream,
+    ): Stream = stream(server)
 }
