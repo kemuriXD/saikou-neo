@@ -3,10 +3,13 @@ package ani.saikou.neo.tv
 import androidx.activity.BackEventCompat
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
@@ -18,7 +21,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -30,6 +32,7 @@ import ani.saikou.neo.shared.home.SeeMoreState
 import ani.saikou.neo.shared.search.SearchGenre
 import ani.saikou.neo.shared.search.SearchResults
 import ani.saikou.neo.shared.search.SearchState
+import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SPOTLIGHT_PLAY_TAG
 import ani.saikou.neo.tv.home.SeeMoreScreen
@@ -41,6 +44,9 @@ import ani.saikou.neo.tv.home.seeMoreTag
 import ani.saikou.neo.tv.search.SUGGESTION_TAG
 import ani.saikou.neo.tv.search.SearchScreen
 import ani.saikou.neo.tv.search.genreTag
+import ani.saikou.neo.tv.settings.SettingsCategory
+import ani.saikou.neo.tv.settings.SettingsScreen
+import ani.saikou.neo.tv.settings.settingsCategoryTag
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.RAIL_SCRIM_TAG
 import ani.saikou.neo.tv.ui.RAIL_TAG
@@ -76,12 +82,18 @@ class NeoNavigationTest {
                     SeeMoreScreen(row, seeMoreState, openDetails, onLoadMore = {}, onRetry = {})
                 },
                 details = { animeId, _, _, openSources ->
+                    // Focused, as the streams page's Add a source is, so Settings opens with focus coming from it.
+                    val add = remember { FocusRequester() }
+                    LaunchedEffect(Unit) { add.requestFocus() }
                     Column {
                         Text("Details for $animeId")
-                        Button(onClick = openSources, modifier = Modifier.testTag("open-sources")) { Text("Add a source") }
+                        Button(
+                            onClick = openSources,
+                            modifier = Modifier.focusRequester(add).testTag("open-sources"),
+                        ) { Text("Add a source") }
                     }
                 },
-                sources = { Text("Settings on Sources") },
+                sources = { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.SOURCES) },
                 search = { openDetails, openGenre ->
                     SearchScreen(
                         searchState,
@@ -374,11 +386,11 @@ class NeoNavigationTest {
         show()
 
         press(Key.DirectionCenter)
-        compose.onNodeWithTag("open-sources").performSemanticsAction(SemanticsActions.OnClick)
-        compose.waitForIdle()
-        compose.onNodeWithText("Settings on Sources").assertExists()
+        compose.onNodeWithTag("open-sources").assertIsFocused()
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(settingsCategoryTag(SettingsCategory.SOURCES)).assertIsFocused().assertIsSelected()
         restoration.emulateSavedInstanceStateRestore()
-        compose.onNodeWithText("Settings on Sources").assertExists()
+        compose.onNodeWithTag(settingsCategoryTag(SettingsCategory.SOURCES)).assertIsSelected()
         back()
 
         compose.onNodeWithText("Details for 0").assertExists()

@@ -203,7 +203,7 @@ class StreamsPageTest {
         openEpisodeTwo()
 
         compose.onNodeWithText("No sources installed yet").assertExists()
-        compose.onNodeWithText("Add one with a link or code in Settings > Sources", substring = true).assertExists()
+        compose.onNodeWithText("Add one with a link or code in Settings00A0>00A0Sources", substring = true).assertExists()
         compose.onNodeWithTag(STREAMS_ADD_SOURCE_TAG).assertIsFocused()
         press(Key.DirectionCenter)
 

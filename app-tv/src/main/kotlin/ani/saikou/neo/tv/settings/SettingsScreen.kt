@@ -187,8 +187,14 @@ private fun SettingsPage(
             color = colors.paper,
             modifier = Modifier.padding(start = dimensions.gridMargin, top = dimensions.safeY),
         )
+        // Focus coming in lands on the category shown, not the first. Opened from another screen, the first request can
+        // be lost while that screen fades out, and focus then comes in from nowhere.
         Column(
-            Modifier.padding(start = dimensions.gridMargin, top = PaneTop).width(CategoryWidth),
+            Modifier
+                .padding(start = dimensions.gridMargin, top = PaneTop)
+                .width(CategoryWidth)
+                .focusProperties { onEnter = { categories.getValue(shown).requestFocus() } }
+                .focusGroup(),
             verticalArrangement = Arrangement.spacedBy(CategoryGap),
         ) {
             SettingsCategory.entries.forEach { category ->
