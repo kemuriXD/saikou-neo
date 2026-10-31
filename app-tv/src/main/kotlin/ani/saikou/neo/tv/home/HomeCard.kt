@@ -147,7 +147,7 @@ private val formatNames =
     )
 
 /** AniList gives cover colours as `#rrggbb`. */
-private fun parseColour(hex: String?): Color? =
+internal fun parseColour(hex: String?): Color? =
     hex?.removePrefix("#")?.takeIf { it.length == 6 }?.toLongOrNull(16)?.let {
         Color(0xFF000000 or it)
     }

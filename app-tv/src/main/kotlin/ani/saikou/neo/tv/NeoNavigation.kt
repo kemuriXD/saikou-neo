@@ -25,6 +25,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import ani.saikou.neo.shared.home.HomeRow
+import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.search.SearchGenre
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoRail
@@ -66,6 +67,11 @@ sealed interface Screen {
         override val visit: Int = 0,
     ) : Visited
 
+    /** The player, over the Details it was opened from. Its stream doesn't outlive the app, so it isn't saved. */
+    data class Player(
+        val request: PlayRequest,
+    ) : Screen
+
     /** A screen that can be on the back stack more than once. */
     sealed interface Visited : Screen {
         val visit: Int
@@ -77,13 +83,13 @@ private fun nextVisit(stack: List<Screen>) = (stack.filterIsInstance<Screen.Visi
 
 // Home is implied, so only the screens above it are saved, each as a letter and numbers: See more as "s" and its row's
 // position, a section as "t" and its position, a genre as "g" and its position, Details as "d" and its anime id and visit, and recommendations as "r" and theirs.
-// Settings opened on Sources is "o".
+// Settings opened on Sources is "o". The player isn't saved, so the app comes back on Details.
 private val BackStackSaver =
     listSaver<SnapshotStateList<Screen>, String>(
         save = { stack ->
             stack.mapNotNull { screen ->
                 when (screen) {
-                    Screen.Home -> null
+                    Screen.Home, is Screen.Player -> null
                     is Screen.SeeMore -> "s${screen.row.ordinal}"
                     is Screen.Section -> "t${screen.section.ordinal}"
                     Screen.Sources -> "o"
@@ -114,7 +120,7 @@ private val BackStackSaver =
 
 /**
  * Moves between [home], a row's [seeMore] page and [details], which can open another show's Details or all of its
- * [recommendations], or Settings on [sources]. The rail down the left of Home opens each [section]; Back from a section goes to
+ * [recommendations], Settings on [sources], or the [player] for an episode. The rail down the left of Home opens each [section]; Back from a section goes to
  * Home. [search]
  * opens Details or a [genre]'s page, and [discover] opens Details. Each screen
  * keeps its saved state and ViewModels while it's on the back stack, so Back finds Home as it was left. Back on Home
@@ -129,6 +135,7 @@ fun NeoNavigation(
         openDetails: (animeId: Int) -> Unit,
         openRecommendations: (animeId: Int) -> Unit,
         openSources: () -> Unit,
+        openPlayer: (PlayRequest) -> Unit,
     ) -> Unit,
     recommendations: @Composable (animeId: Int, openDetails: (animeId: Int) -> Unit) -> Unit = { _, _ -> },
     section: @Composable (section: Section) -> Unit = { SectionPlaceholder(it) },
@@ -136,6 +143,7 @@ fun NeoNavigation(
     genre: @Composable (genre: SearchGenre, openDetails: (animeId: Int) -> Unit) -> Unit = { _, _ -> },
     discover: @Composable (openDetails: (animeId: Int) -> Unit) -> Unit = { SectionPlaceholder(Section.DISCOVER) },
     sources: @Composable () -> Unit = { section(Section.SETTINGS) },
+    player: @Composable (request: PlayRequest, back: () -> Unit) -> Unit = { _, _ -> },
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
     // Takes focus back from the rail to what last had it on Home.
@@ -195,10 +203,12 @@ fun NeoNavigation(
                             openDetails,
                             { animeId -> backStack.add(Screen.Recommendations(animeId, nextVisit(backStack))) },
                             { backStack.add(Screen.Sources) },
+                            { request -> backStack.add(Screen.Player(request)) },
                         )
                     }
                 }
                 entry<Screen.Sources> { it.TakesKeysOnTop { sources() } }
+                entry<Screen.Player> { it.TakesKeysOnTop { player(it.request) { backStack.removeLastOrNull() } } }
                 entry<Screen.Recommendations> { it.TakesKeysOnTop { recommendations(it.animeId, openDetails) } }
             },
     )

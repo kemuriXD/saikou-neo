@@ -26,13 +26,19 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.tv.material3.Button
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.More
 import ani.saikou.neo.shared.home.SeeMoreState
+import ani.saikou.neo.shared.playback.FoundServer
+import ani.saikou.neo.shared.playback.PlayRequest
+import ani.saikou.neo.shared.playback.PlayServer
+import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.shared.search.SearchGenre
 import ani.saikou.neo.shared.search.SearchResults
 import ani.saikou.neo.shared.search.SearchState
 import ani.saikou.neo.shared.settings.Settings
+import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SPOTLIGHT_PLAY_TAG
 import ani.saikou.neo.tv.home.SeeMoreScreen
@@ -60,6 +66,22 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+private val playRequest =
+    PlayRequest(
+        AnimeDetails(card(0), null, null, 23, emptyList(), emptyList(), null),
+        episode = 7,
+        episodeTitle = null,
+        servers =
+            listOf(
+                PlayServer(
+                    InstalledSource("com.example.demo", "Demo source", "1.0.0"),
+                    FoundServer("1", "Server 1", ServerEdition.SUB, 24),
+                    1,
+                ),
+            ),
+        picked = 0,
+    )
+
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w960dp-h540dp-land-television-xhdpi")
@@ -81,7 +103,7 @@ class NeoNavigationTest {
                 seeMore = { row, openDetails ->
                     SeeMoreScreen(row, seeMoreState, openDetails, onLoadMore = {}, onRetry = {})
                 },
-                details = { animeId, _, _, openSources ->
+                details = { animeId, _, _, openSources, openPlayer ->
                     // Focused, as the streams page's Add a source is, so Settings opens with focus coming from it.
                     val add = remember { FocusRequester() }
                     LaunchedEffect(Unit) { add.requestFocus() }
@@ -91,6 +113,10 @@ class NeoNavigationTest {
                             onClick = openSources,
                             modifier = Modifier.focusRequester(add).testTag("open-sources"),
                         ) { Text("Add a source") }
+                        Button(
+                            onClick = { openPlayer(playRequest) },
+                            modifier = Modifier.testTag("open-player"),
+                        ) { Text("Play") }
                     }
                 },
                 sources = { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.SOURCES) },
@@ -108,6 +134,7 @@ class NeoNavigationTest {
                     )
                 },
                 genre = { genre, _ -> Text("Most popular ${genre.aniListName}") },
+                player = { request, _ -> Text("Playing E${request.episode}") },
             )
         }
     }
@@ -394,6 +421,36 @@ class NeoNavigationTest {
         back()
 
         compose.onNodeWithText("Details for 0").assertExists()
+    }
+
+    @Test
+    fun detailsOpensThePlayerAndBackReturnsToIt() {
+        show()
+        press(Key.DirectionCenter)
+        press(Key.DirectionDown)
+        compose.onNodeWithTag("open-player").assertIsFocused()
+
+        press(Key.DirectionCenter)
+        compose.onNodeWithText("Playing E7").assertExists()
+        back()
+
+        compose.onNodeWithText("Details for 0").assertExists()
+        compose.onNodeWithText("Playing E7").assertDoesNotExist()
+    }
+
+    // The stream and its links don't outlive the app, so it comes back on Details.
+    @Test
+    fun thePlayerIsNotRestoredAfterTheAppIsRecreated() {
+        show()
+        press(Key.DirectionCenter)
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+        compose.onNodeWithText("Playing E7").assertExists()
+
+        restoration.emulateSavedInstanceStateRestore()
+
+        compose.onNodeWithText("Details for 0").assertExists()
+        compose.onNodeWithText("Playing E7").assertDoesNotExist()
     }
 
     // Search takes focus from the rail. Back has to find Home's Play, not open the rail again.

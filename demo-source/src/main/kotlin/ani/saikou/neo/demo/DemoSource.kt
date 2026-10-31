@@ -24,12 +24,14 @@ class DemoSource : SourceExtension {
         listOf(
             Server(id = SUB, name = "Demo", edition = Edition.Sub, runtime = 734.seconds),
             Server(id = DUB, name = "Demo", edition = Edition.Dub, runtime = 634_567.milliseconds),
+            Server(id = LINK_EXPIRED, name = "Fails: link expired", edition = Edition.Sub, runtime = null),
         ) + failures.map { Server(id = it.id, name = it.name, edition = Edition.Sub, runtime = null) }
 
     override suspend fun stream(server: Server): Stream =
         when (server.id) {
             SUB -> sub
             DUB -> dub
+            LINK_EXPIRED -> expired
             else -> throw failures.find { it.id == server.id }?.error?.invoke() ?: SourceException.NotFound()
         }
 
@@ -45,12 +47,14 @@ class DemoSource : SourceExtension {
         const val LINK_EXPIRED = "fails-link-expired"
         const val FAILED = "The demo source was set to fail"
 
+        // Links that have run out, as a real source's do part way through. The player finds out when it loads one.
+        val expired by lazy { sub.copy(mediaLoader = { throw SourceException.LinkExpired(FAILED) }) }
+
         val failures =
             listOf(
                 Failure("fails-blocked", "Fails: blocked") { SourceException.Blocked(FAILED) },
                 Failure("fails-rate-limited", "Fails: rate limited") { SourceException.RateLimited(30.seconds, FAILED) },
                 Failure("fails-source-down", "Fails: source down") { SourceException.SourceDown(FAILED) },
-                Failure(LINK_EXPIRED, "Fails: link expired") { SourceException.LinkExpired(FAILED) },
                 Failure("fails-not-found", "Fails: not found") { SourceException.NotFound(FAILED) },
             )
 

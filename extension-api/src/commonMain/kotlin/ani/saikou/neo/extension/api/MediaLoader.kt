@@ -3,7 +3,9 @@ package ani.saikou.neo.extension.api
 /**
  * Fetches media for the player when plain HTTP with headers isn't enough. The
  * player calls it on its own loading thread, so it may block. To stop a load,
- * the player calls [MediaResponse.close] from another thread.
+ * the player interrupts that thread, then calls [MediaResponse.close] on it once
+ * [MediaResponse.read] returns. Reads should give up when interrupted or after a
+ * timeout, or a stalled one holds the thread until it does.
  */
 public fun interface MediaLoader {
     public fun open(request: MediaRequest): MediaResponse
@@ -36,7 +38,7 @@ public interface MediaResponse {
         length: Int,
     ): Int
 
-    /** Frees the connection. It can be called more than once, and from another thread to stop a [read]. */
+    /** Frees the connection. It can be called more than once. */
     public fun close()
 
     public companion object {

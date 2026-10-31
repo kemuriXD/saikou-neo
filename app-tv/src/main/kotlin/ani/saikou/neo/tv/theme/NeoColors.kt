@@ -23,5 +23,7 @@ data class NeoColors(
     val onFocusTonal: Color = ink.copy(alpha = 0.12f),
     val focus: Color = paper,
     val warning: Color = Color(0xFFFFC15E),
+    /** A step that's done, such as the player's list while it starts. */
+    val done: Color = Color(0xFF7BD389),
     val scrimPlayer: Color = Color(0xFF05060A),
 )

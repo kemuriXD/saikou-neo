@@ -8,6 +8,7 @@ import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SettingsStore
 import ani.saikou.neo.tv.sources.ApkSourceStore
 import ani.saikou.neo.tv.sources.ExtensionServerFinder
+import ani.saikou.neo.tv.sources.ExtensionStreamFinder
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,6 +36,9 @@ class NeoApp : Application() {
 
     /** Asks the installed sources for an episode's servers. */
     val serverFinder by lazy { ExtensionServerFinder(sources::extension) }
+
+    /** Asks the installed sources for a server's stream. */
+    val streamFinder by lazy { ExtensionStreamFinder(sources::extension) }
 
     /** The server last picked for each show. */
     val lastServers by lazy { LastServersStore.at(File(filesDir, "last_servers.preferences_pb").absolutePath, scope) }

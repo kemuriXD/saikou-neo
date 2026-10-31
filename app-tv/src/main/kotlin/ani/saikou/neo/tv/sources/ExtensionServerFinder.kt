@@ -29,7 +29,7 @@ private const val MAX_NAME = 60
 
 // Sources share a few of the IO threads, so ones that block and won't stop can't take them all from the app.
 private const val SOURCE_THREADS = 8
-private val sourceThreads = Dispatchers.IO.limitedParallelism(SOURCE_THREADS)
+internal val sourceThreads = Dispatchers.IO.limitedParallelism(SOURCE_THREADS)
 
 // The longest wait a rate limit can ask for. An endless one counts as not saying.
 private val LONGEST_WAIT = 1.days
@@ -61,12 +61,14 @@ class ExtensionServerFinder(
             } catch (e: SourceFailure) {
                 throw e
             } catch (e: Throwable) {
-                throw SourceFailure(e.reason(), e)
+                // An expired link only comes up while playing, so here it's a site that isn't working.
+                throw SourceFailure(e.reason().takeUnless { it == FailReason.LinkExpired } ?: FailReason.SourceDown, e)
             }
         }
 }
 
-private fun Throwable.reason(): FailReason =
+/** The reason to show for what a source threw. */
+internal fun Throwable.reason(): FailReason =
     when (this) {
         is SourceException.NotFound -> {
             FailReason.NotFound
@@ -82,7 +84,10 @@ private fun Throwable.reason(): FailReason =
             )
         }
 
-        // An expired link only comes up while playing, so here it's a site that isn't working.
+        is SourceException.LinkExpired -> {
+            FailReason.LinkExpired
+        }
+
         is Exception -> {
             FailReason.SourceDown
         }
