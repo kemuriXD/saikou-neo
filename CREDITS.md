@@ -40,7 +40,7 @@ comes from.
 The demo source plays two films by the [Blender Foundation](https://www.blender.org),
 both licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/):
 Tears of Steel, streamed from [Unified Streaming](https://www.unified-streaming.com)'s
-public demo, and Big Buck Bunny, streamed from [Mux](https://www.mux.com)'s
+public demo with Blender's English subtitles, and Big Buck Bunny, streamed from [Mux](https://www.mux.com)'s
 public test streams.
 
 Libraries, fonts and the app's own artwork are listed in

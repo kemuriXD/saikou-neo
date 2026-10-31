@@ -55,7 +55,7 @@ class DemoSource : SourceExtension {
             )
 
         // Tears of Steel (CC BY 3.0, Blender Foundation) from Unified Streaming's public demo, with the video and both
-        // audio languages in separate playlists. The subtitle is this repo's own, in demo-source/media.
+        // audio languages in separate playlists. The subtitle is the film's own, from Blender.
         const val TEARS = "https://demo.unified-streaming.com/k8s/features/stable/video/tears-of-steel/tears-of-steel-multi-lang.ism"
 
         val sub =
@@ -72,10 +72,10 @@ class DemoSource : SourceExtension {
                 subtitles =
                     listOf(
                         SubtitleTrack(
-                            url = "https://raw.githubusercontent.com/kemuriXD/saikou-neo/main/demo-source/media/subtitles-en.vtt",
+                            url = "https://download.blender.org/demo/movies/ToS/subtitles/TOS-en.srt",
                             language = "en",
                             label = "English",
-                            format = SubtitleFormat.Vtt,
+                            format = SubtitleFormat.Srt,
                         ),
                     ),
             )
