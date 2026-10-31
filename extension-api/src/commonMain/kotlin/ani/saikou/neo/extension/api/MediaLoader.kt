@@ -2,7 +2,8 @@ package ani.saikou.neo.extension.api
 
 /**
  * Fetches media for the player when plain HTTP with headers isn't enough. The
- * player calls it on its own loading thread, so it may block.
+ * player calls it on its own loading thread, so it may block. To stop a load,
+ * the player calls [MediaResponse.close] from another thread.
  */
 public fun interface MediaLoader {
     public fun open(request: MediaRequest): MediaResponse
@@ -16,19 +17,26 @@ public data class MediaRequest(
     val position: Long,
     /** How many bytes the player wants, or null for the rest. */
     val length: Long?,
-)
+) {
+    /** Leaves out header values, which often hold cookies or tokens. */
+    override fun toString(): String = "MediaRequest(url=$url, headers=${headers.keys}, position=$position, length=$length)"
+}
 
 public interface MediaResponse {
     /** Bytes left from the requested position, if known. */
     public val length: Long?
 
-    /** Reads up to [length] bytes into [buffer] at [offset]. Returns how many, or [END]. */
+    /**
+     * Reads up to [length] bytes into [buffer] at [offset]. Blocks until at least
+     * one byte is ready, so it returns how many were read, never 0, or [END].
+     */
     public fun read(
         buffer: ByteArray,
         offset: Int,
         length: Int,
     ): Int
 
+    /** Frees the connection. It can be called more than once, and from another thread to stop a [read]. */
     public fun close()
 
     public companion object {

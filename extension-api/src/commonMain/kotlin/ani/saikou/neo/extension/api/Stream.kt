@@ -8,7 +8,10 @@ public data class Stream(
     val audioTracks: List<AudioTrack> = emptyList(),
     /** Subtitles served apart from the video, if any. */
     val subtitles: List<SubtitleTrack> = emptyList(),
-    /** Sent with every playlist, segment, key and subtitle request. */
+    /**
+     * Sent with every playlist, segment, key and subtitle request for this
+     * stream, whichever host it goes to. Only put in what all of them may see.
+     */
     val headers: Map<String, String> = emptyMap(),
     /** Set this to fetch the media yourself instead of the player's HTTP stack. */
     val mediaLoader: MediaLoader? = null,
@@ -16,6 +19,11 @@ public data class Stream(
     init {
         require(qualities.isNotEmpty()) { "A stream needs at least one quality" }
     }
+
+    /** Leaves out header values, which often hold cookies or tokens. */
+    override fun toString(): String =
+        "Stream(qualities=$qualities, audioTracks=$audioTracks, subtitles=$subtitles, " +
+            "headers=${headers.keys}, mediaLoader=$mediaLoader)"
 }
 
 public data class Quality(
@@ -29,6 +37,7 @@ public data class Quality(
 ) {
     init {
         require(height > 0) { "A quality needs a real height: $height" }
+        requireWebLink(url)
     }
 }
 
@@ -40,7 +49,11 @@ public data class AudioTrack(
     val language: String?,
     /** Shown in the audio list. */
     val label: String,
-)
+) {
+    init {
+        requireWebLink(url)
+    }
+}
 
 public data class SubtitleTrack(
     val url: String,
@@ -49,6 +62,16 @@ public data class SubtitleTrack(
     /** Shown in the subtitle list. */
     val label: String,
     val format: SubtitleFormat,
-)
+) {
+    init {
+        requireWebLink(url)
+    }
+}
 
 public enum class SubtitleFormat { Vtt, Srt, Ass }
+
+/** Only web links, so a source can't point the player at the app's own files. */
+private fun requireWebLink(url: String) {
+    val scheme = url.substringBefore("://", missingDelimiterValue = "").lowercase()
+    require(scheme == "http" || scheme == "https") { "Media links must use http or https" }
+}

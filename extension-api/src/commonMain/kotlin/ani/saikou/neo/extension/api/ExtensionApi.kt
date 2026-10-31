@@ -3,8 +3,8 @@ package ani.saikou.neo.extension.api
 /** The version of this API. Breaking changes bump it (ADR 0003). */
 public object ExtensionApi {
     /**
-     * The version a source is built against. It's a constant, so its value is
-     * copied into the source when it's compiled and the app can read it back.
+     * The version a source is built against. A source declares it in its
+     * manifest, which the app reads before loading any of its code.
      */
     public const val VERSION: Int = 1
 
