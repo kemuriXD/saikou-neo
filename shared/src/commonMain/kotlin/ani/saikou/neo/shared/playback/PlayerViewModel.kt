@@ -116,6 +116,8 @@ public data class PlayerState<out S>(
     val startAtMs: Long = 0,
     /** Goes up each time there's a new stream for the player to load. */
     val load: Int = 0,
+    /** Whether the next server is tried if this one fails before the video starts. */
+    val willTryNext: Boolean = false,
 )
 
 /**
@@ -196,7 +198,10 @@ public class PlayerViewModel<S>(
         index = at
         refreshed = false
         val server = request.servers[at]
-        mutableState.update { it.copy(server = server, phase = PlayerPhase.Starting(null), startAtMs = startAtMs) }
+        val willTryNext = !triedNext && request.servers.getOrNull(at + 1) != null
+        mutableState.update {
+            it.copy(server = server, phase = PlayerPhase.Starting(null), startAtMs = startAtMs, willTryNext = willTryNext)
+        }
         ask(quiet = false) { finder.stream(server.source, server.server) }
     }
 
@@ -236,7 +241,7 @@ public class PlayerViewModel<S>(
         val current = state.value
         val next = request.servers.getOrNull(index + 1)
         val starting = (current.phase as? PlayerPhase.Starting<*>)?.quiet == false
-        if (starting && !triedNext && next != null) {
+        if (starting && current.willTryNext) {
             triedNext = true
             open(index + 1, current.startAtMs)
             return

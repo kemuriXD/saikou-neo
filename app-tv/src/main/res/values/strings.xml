@@ -280,4 +280,22 @@
     <string name="streams_missing_title">No %1$s yet for episode %2$d</string>
     <string name="streams_missing_body">Your sources only have %1$s for this one. You can change Sub or Dub in Settings\u00A0>\u00A0Playback.</string>
     <string name="streams_used">Last used</string>
+    <!-- The player, starting and when a server stops (#241). -->
+    <plurals name="player_found">
+        <item quantity="one">Found on %1$s · %2$d server</item>
+        <item quantity="other">Found on %1$s · %2$d servers</item>
+    </plurals>
+    <string name="player_asking">Asking %1$s</string>
+    <string name="player_answered">%1$s answered · %2$dp %3$s</string>
+    <string name="player_buffering">Buffering</string>
+    <string name="player_auto_next">If %1$s fails before the video starts, the next server is tried once.</string>
+    <string name="player_stopped_title">%1$s stopped answering</string>
+    <string name="player_stopped_why">%1$s.</string>
+    <string name="player_stopped_at">%1$s. E%2$d stopped at %3$s.</string>
+    <string name="player_try_server">Try %1$s</string>
+    <string name="player_choose_another">Choose another server</string>
+    <string name="player_try_again">Try %1$s again</string>
+    <string name="player_server_edition">%1$s, %2$s</string>
+    <string name="player_footer">%1$s · %2$s</string>
+    <string name="player_footer_code">%1$s · %2$s · error %3$d</string>
 </resources>

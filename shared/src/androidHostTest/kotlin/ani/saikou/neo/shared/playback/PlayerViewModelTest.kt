@@ -131,6 +131,21 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun itSaysWhetherTheNextServerWillBeTried() =
+        test {
+            val finder = FakeStreams()
+            finder.gate(one)
+            finder.gate(two)
+            val player = player(finder)
+            assertTrue(player.state.value.willTryNext)
+
+            advanceTimeBy(25.1.seconds)
+
+            assertEquals(false, player.state.value.willTryNext)
+            assertEquals(false, player(FakeStreams(), picked = 2).state.value.willTryNext)
+        }
+
+    @Test
     fun startedPlays() =
         test {
             val player = player(FakeStreams())
