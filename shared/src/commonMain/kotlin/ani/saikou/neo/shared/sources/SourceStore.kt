@@ -27,11 +27,17 @@ public interface SourceStore {
     /** The installed sources, or null until they've been read. */
     public val installed: StateFlow<List<InstalledSource>?>
 
+    /** Why a source built for API version [builtFor] can't be used, or null when it can. */
+    public fun problemFor(builtFor: Int): SourceProblem?
+
     /**
      * Installs the source in [apk] and returns it. A source with a problem is returned with it and not installed. Null
-     * when [apk] isn't a source at all.
+     * when [apk] isn't a source at all, or isn't the source with [id] when one is given.
      */
-    public suspend fun install(apk: ByteArray): InstalledSource?
+    public suspend fun install(
+        apk: ByteArray,
+        id: String? = null,
+    ): InstalledSource?
 
     /** Uninstalls the source with [id], so it isn't used again. */
     public suspend fun remove(id: String)

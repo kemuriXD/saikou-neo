@@ -10,6 +10,7 @@ import ani.saikou.neo.extension.api.SourceExtension
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.SourceProblem
 import ani.saikou.neo.shared.sources.SourceStore
+import ani.saikou.neo.shared.sources.sourceIdFormat
 import dalvik.system.DexClassLoader
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -58,9 +59,19 @@ class ApkSourceStore(
         }
     }
 
-    override suspend fun install(apk: ByteArray): InstalledSource? = withContext(Dispatchers.IO) { lock.withLock { installLocked(apk) } }
+    override fun problemFor(builtFor: Int): SourceProblem? =
+        ani.saikou.neo.tv.sources
+            .problemFor(builtFor)
 
-    private fun installLocked(apk: ByteArray): InstalledSource? {
+    override suspend fun install(
+        apk: ByteArray,
+        id: String?,
+    ): InstalledSource? = withContext(Dispatchers.IO) { lock.withLock { installLocked(apk, id) } }
+
+    private fun installLocked(
+        apk: ByteArray,
+        id: String?,
+    ): InstalledSource? {
         val incoming = File.createTempFile("source", APK, context.cacheDir)
         return try {
             incoming.writeBytes(apk)
@@ -68,6 +79,7 @@ class ApkSourceStore(
             incoming.setReadOnly()
             val manifest = manifest(incoming) ?: return null
             val source = manifest.source
+            if (id != null && source.id != id) return null
             if (source.problem != null) return source
             // Loaded once here so a source whose code doesn't fit is never kept.
             if (load(incoming, manifest.className) == null) return source.copy(problem = SourceProblem.BROKEN)
@@ -108,7 +120,7 @@ class ApkSourceStore(
         val info = archiveInfo(packages, apk.path) ?: return null
         val app = info.applicationInfo ?: return null
         val meta = app.metaData ?: return null
-        val id = info.packageName.takeIf { it.matches(packageName) } ?: return null
+        val id = info.packageName.takeIf { it.matches(sourceIdFormat) } ?: return null
         if (!meta.containsKey(ExtensionApi.VERSION_KEY)) return null
         val builtFor = meta.getInt(ExtensionApi.VERSION_KEY, -1)
         val className = meta.getString(ExtensionApi.CLASS_KEY) ?: return null
@@ -140,7 +152,6 @@ class ApkSourceStore(
     private companion object {
         const val APK = ".apk"
         const val MAX_TEXT = 60
-        val packageName = Regex("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*)+")
     }
 }
 

@@ -18,12 +18,14 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -47,10 +49,15 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -66,9 +73,12 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.sources.AddError
 import ani.saikou.neo.shared.sources.Adding
+import ani.saikou.neo.shared.sources.Choice
+import ani.saikou.neo.shared.sources.ChoiceStatus
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.SourceProblem
 import ani.saikou.neo.shared.sources.SourcesState
+import ani.saikou.neo.shared.sources.canPick
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoButton
@@ -83,11 +93,18 @@ internal fun sourceTag(id: String) = "source-$id"
 
 internal fun removeTag(id: String) = "remove-$id"
 
-/** What Settings > Sources does when you add a source from [onAdd]'s text, close a panel, or remove a source by id. */
+internal fun choiceTag(id: String) = "choice-$id"
+
+/**
+ * What Settings > Sources does when you add a source from [onAdd]'s text, close a panel, remove a source by id, tick
+ * a source in a list by id, or add the ticked ones.
+ */
 class SourceActions(
     val onAdd: (text: String) -> Unit = {},
     val onDismiss: () -> Unit = {},
     val onRemove: (id: String) -> Unit = {},
+    val onToggle: (id: String) -> Unit = {},
+    val onAddTicked: () -> Unit = {},
 )
 
 /** The panels Sources opens: adding a source, or asking before one is removed. */
@@ -128,6 +145,8 @@ private val EmptyHeight = 400.dp
 private val ButtonHeight = 52.dp
 private val ButtonPadding = 26.dp
 private val EmptyTextWidth = 430.dp
+private val ChoiceHeight = 56.dp
+private val ChoiceBadge = 36.dp
 private val FocusGlowColor = Color.White.copy(alpha = 0.3f)
 
 private val Overline
@@ -219,10 +238,11 @@ internal fun BoxScope.SourcesPanels(
     actions: SourceActions,
 ) {
     val adding = state.adding
+    val added = adding is Adding.Added || adding is Adding.AddedAll
     // Once a source is added or can't be used, the add panel has done its job.
     LaunchedEffect(adding) {
-        if (adding is Adding.Added || adding is Adding.CantUse) ui.panel = null
-        if (adding is Adding.Added) {
+        if (added || adding is Adding.CantUse) ui.panel = null
+        if (added) {
             actions.onDismiss()
             ui.focusNext = ""
         }
@@ -232,8 +252,10 @@ internal fun BoxScope.SourcesPanels(
         actions.onDismiss()
         ui.focusNext = ""
     }
-    // Closed in the same frame, so the next panel can take focus.
-    val open = ui.panel.takeUnless { adding is Adding.Added || adding is Adding.CantUse }
+    val choosing = adding as? Adding.Choosing
+    // Closed in the same frame, so the next panel can take focus. A list gets its own panel, so focus moves straight
+    // from the field to the list and never drops out to the categories.
+    val open = ui.panel.takeUnless { added || adding is Adding.CantUse || choosing != null }
     SlidingPanel(open) { panel, active, motion ->
         when (panel) {
             SourcePanel.Add -> {
@@ -261,6 +283,10 @@ internal fun BoxScope.SourcesPanels(
                 )
             }
         }
+    }
+    // Closing it clears the panel at once, so focus can leave before the list does.
+    SlidingPanel(choosing?.takeIf { ui.panel == SourcePanel.Add }) { list, active, motion ->
+        ChoosePanel(list, active, actions, onClose = closeAdd, modifier = motion)
     }
     SlidingPanel((adding as? Adding.CantUse)?.source) { source, active, motion ->
         CantUsePanel(source, active, onClose = closeAdd, modifier = motion)
@@ -389,7 +415,7 @@ private fun SourceRow(
         horizontalArrangement = Arrangement.spacedBy(RowSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LetterBadge(source, if (focused) colors.line else colors.surfaceRaised)
+        LetterBadge(source.name, if (focused) colors.line else colors.surfaceRaised)
         Column(Modifier.weight(1f).clearAndSetSemantics {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(source.name, style = RowTitle, color = colors.paper, maxLines = 1)
             Text(detail, style = Small, color = colors.textMuted)
@@ -427,21 +453,22 @@ private fun SourceRow(
     }
 }
 
-/** The source's first letter in pink, on a square of [background]. Decoration only. */
+/** The first letter of a source's [name] in pink, on a square of [background]. Decoration only. */
 @Composable
 private fun LetterBadge(
-    source: InstalledSource,
+    name: String,
     background: Color = NeoTheme.colors.surfaceRaised,
+    size: Dp = Badge,
 ) {
     val colors = NeoTheme.colors
     Box(
         Modifier
-            .size(Badge)
+            .size(size)
             .background(background, RoundedCornerShape(BadgeRadius)),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            source.name
+            name
                 .firstOrNull()
                 ?.uppercase()
                 .orEmpty(),
@@ -537,6 +564,163 @@ private fun BoxScope.AddPanel(
     }
 }
 
+/**
+ * Choose sources: the sources a list names, with the first you can pick focused, and Add for the ticked ones. Rows you
+ * can't pick say why, and focus skips them. While sources are added, Add says how far it has got and keeps focus, so a
+ * row that changes can't take it away, and Back waits for them.
+ */
+@Composable
+private fun BoxScope.ChoosePanel(
+    choosing: Adding.Choosing,
+    active: Boolean,
+    actions: SourceActions,
+    onClose: () -> Unit,
+    modifier: Modifier,
+) {
+    val colors = NeoTheme.colors
+    val first = remember { FocusRequester() }
+    val firstId =
+        choosing.choices
+            .firstOrNull { it.status.canPick }
+            ?.source
+            ?.id
+    LaunchedEffect(Unit) { first.requestFocus() }
+    val ticked = choosing.choices.count { it.ticked }
+    val progress = choosing.progress
+    val title = stringResource(R.string.sources_choose_title)
+    SidePanel(title, PanelWidth, active, onClose = { if (progress == null) onClose() }, modifier) {
+        Text(title, style = PaneTitle, color = colors.paper)
+        Text(stringResource(R.string.sources_choose_body), style = Body, color = colors.textMuted)
+        Column(
+            Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).padding(top = 4.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            choosing.choices.forEach { choice ->
+                key(choice.source.id) {
+                    ChoiceRow(
+                        choice,
+                        onToggle = { actions.onToggle(choice.source.id) },
+                        modifier =
+                            (if (choice.source.id == firstId) Modifier.focusRequester(first) else Modifier)
+                                .focusProperties { canFocus = progress == null },
+                    )
+                }
+            }
+        }
+        NeoButton(
+            when {
+                progress != null -> stringResource(R.string.sources_adding, progress.done + 1, progress.total)
+                ticked == 0 -> stringResource(R.string.sources_add_none)
+                else -> pluralStringResource(R.plurals.sources_add_count, ticked, ticked)
+            },
+            onClick = { if (ticked > 0 && progress == null) actions.onAddTicked() },
+            modifier = (if (firstId == null) Modifier.focusRequester(first) else Modifier).padding(top = 4.dp),
+        )
+    }
+}
+
+/** A source in a list: a row with a tick box when it can be picked, else a dimmed line that says why. */
+@Composable
+private fun ChoiceRow(
+    choice: Choice,
+    onToggle: () -> Unit,
+    modifier: Modifier,
+) {
+    val colors = NeoTheme.colors
+    val source = choice.source
+    val status = choice.status
+    val detail =
+        when (status) {
+            ChoiceStatus.New -> stringResource(R.string.sources_version, source.version)
+            is ChoiceStatus.Update -> stringResource(R.string.sources_update, status.from, source.version)
+            ChoiceStatus.Installed -> stringResource(R.string.sources_installed_version, source.version)
+            is ChoiceStatus.CantUse -> stringResource(status.problem.short)
+            ChoiceStatus.Failed -> stringResource(R.string.sources_failed)
+        }
+    val described = Modifier.testTag(choiceTag(source.id)).semantics { contentDescription = "${source.name}, $detail" }
+    val warn = status is ChoiceStatus.CantUse || status == ChoiceStatus.Failed
+    if (!status.canPick) {
+        Row(
+            described.fillMaxWidth().height(ChoiceHeight).padding(horizontal = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            LetterBadge(source.name, colors.surfaceRaised, ChoiceBadge)
+            ChoiceText(source.name, detail, colors.textMuted, if (warn) colors.warning else colors.textMuted)
+        }
+        return
+    }
+    var focused by remember { mutableStateOf(false) }
+    // A tick box for TalkBack, though it's drawn as a row.
+    val tick =
+        Modifier.semantics {
+            role = Role.Checkbox
+            toggleableState = ToggleableState(choice.ticked)
+        }
+    Surface(
+        onClick = onToggle,
+        modifier =
+            modifier
+                .then(described)
+                .then(tick)
+                .fillMaxWidth()
+                .height(ChoiceHeight)
+                .onFocusChanged { focused = it.isFocused },
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(12.dp)),
+        colors =
+            ClickableSurfaceDefaults.colors(
+                containerColor = colors.surfaceRaised,
+                contentColor = colors.paper,
+                focusedContainerColor = colors.focus,
+                focusedContentColor = colors.onFocus,
+                pressedContainerColor = colors.focus,
+                pressedContentColor = colors.onFocus,
+            ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(FocusGlowColor, NeoTheme.dimensions.glowFocus)),
+    ) {
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = 14.dp).clearAndSetSemantics {},
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val content = LocalContentColor.current
+            LetterBadge(source.name, colors.line, ChoiceBadge)
+            ChoiceText(source.name, detail, content, if (warn && !focused) colors.warning else content.copy(alpha = 0.72f))
+            TickBox(choice.ticked, outline = content.copy(alpha = if (focused) 1f else 0.6f))
+        }
+    }
+}
+
+@Composable
+private fun RowScope.ChoiceText(
+    name: String,
+    detail: String,
+    nameColor: Color,
+    detailColor: Color,
+) = Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    Text(name, style = RowTitle, color = nameColor, maxLines = 1)
+    Text(detail, style = Small, color = detailColor, maxLines = 1)
+}
+
+/** Pink with an ink tick when [ticked], else an empty square drawn in [outline]. */
+@Composable
+private fun TickBox(
+    ticked: Boolean,
+    outline: Color,
+) {
+    val colors = NeoTheme.colors
+    val shape = RoundedCornerShape(7.dp)
+    Box(
+        Modifier
+            .size(24.dp)
+            .then(if (ticked) Modifier.background(colors.pink, shape) else Modifier.border(2.dp, outline, shape)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (ticked) Icon(NeoIcons.Tick, contentDescription = null, tint = colors.ink, modifier = Modifier.size(16.dp))
+    }
+}
+
 /** Asks before [source] is removed, with Keep focused. */
 @Composable
 private fun BoxScope.RemovePanel(
@@ -583,7 +767,7 @@ private fun BoxScope.CantUsePanel(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                LetterBadge(source)
+                LetterBadge(source.name)
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(source.name, style = RowTitle, color = colors.paper)
                     Text(stringResource(R.string.sources_version, source.version), style = Small, color = colors.textMuted)
@@ -605,10 +789,21 @@ private val SourceProblem.reason
             SourceProblem.BROKEN -> R.string.sources_broken
         }
 
+private val SourceProblem.short
+    get() =
+        when (this) {
+            SourceProblem.BUILT_FOR_NEWER_APP -> R.string.sources_needs_newer_app
+            SourceProblem.BUILT_FOR_OLDER_APP -> R.string.sources_needs_newer_source
+            SourceProblem.BROKEN -> R.string.sources_does_not_work
+        }
+
 private val AddError.message
     get() =
         when (this) {
             AddError.NO_SUCH_CODE -> R.string.sources_error_code
             AddError.NOT_SECURE -> R.string.sources_error_not_secure
             AddError.NOT_A_SOURCE -> R.string.sources_error_not_a_source
+            AddError.BROKEN_LIST -> R.string.sources_error_broken_list
+            AddError.NOTHING_IN_LIST -> R.string.sources_error_nothing_in_list
+            AddError.ALL_INSTALLED -> R.string.sources_error_all_installed
         }

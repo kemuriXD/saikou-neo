@@ -220,6 +220,13 @@ object NeoIcons {
         }
     }
 
+    /** A tick, for a ticked box. */
+    val Tick: ImageVector by lazy {
+        icon("Tick") {
+            svgStroke(3f, "M5 12l5 5L20 7")
+        }
+    }
+
     /** A bin, for Remove. */
     val Remove: ImageVector by lazy {
         icon("Remove") {

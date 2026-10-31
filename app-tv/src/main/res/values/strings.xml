@@ -183,6 +183,23 @@
     <string name="sources_built_for_older_app">This source was built for an older version of Saikou Neo. Get a newer version of the source, then add it again.</string>
     <string name="sources_broken">This source doesn\'t work with this version of Saikou Neo. Get a newer version of the source, then add it again.</string>
     <string name="sources_close">Close</string>
+    <string name="sources_error_broken_list">Couldn\'t read the list at that link. Check it and try again.</string>
+    <string name="sources_error_nothing_in_list">None of the sources in that list work with this version of the app.</string>
+    <string name="sources_error_all_installed">You already have every source in that list.</string>
+    <string name="sources_choose_title">Choose sources</string>
+    <string name="sources_choose_body">This link leads to a list. Tick the sources you want.</string>
+    <string name="sources_update">Update from %1$s to %2$s</string>
+    <string name="sources_installed_version">Installed, version %1$s</string>
+    <string name="sources_needs_newer_app">Needs a newer version of the app</string>
+    <string name="sources_needs_newer_source">Built for an older version of the app</string>
+    <string name="sources_does_not_work">Doesn\'t work with this version of the app</string>
+    <string name="sources_failed">Couldn\'t add this source. Try again.</string>
+    <string name="sources_add_none">Add sources</string>
+    <plurals name="sources_add_count">
+        <item quantity="one">Add %d source</item>
+        <item quantity="other">Add %d sources</item>
+    </plurals>
+    <string name="sources_adding">Adding %1$d of %2$d…</string>
     <string name="search_label">Search anime</string>
     <string name="search_space">Space</string>
     <string name="search_delete">Delete</string>
