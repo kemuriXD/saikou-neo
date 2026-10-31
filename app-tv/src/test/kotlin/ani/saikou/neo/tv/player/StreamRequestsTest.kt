@@ -19,6 +19,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.net.InetSocketAddress
 import java.util.concurrent.CopyOnWriteArrayList
 
@@ -153,6 +154,18 @@ class StreamRequestsTest {
         val source = open(stream({ response }), "https://example.com/a.ts")
 
         assertThrows(IOException::class.java) { source.read(ByteArray(8), 0, 8) }
+    }
+
+    @Test
+    fun anInterruptedLoaderStaysInterrupted() {
+        val source = stream({ throw InterruptedException("Stopped") }).dataSourceFactory().createDataSource()
+
+        try {
+            assertThrows(InterruptedIOException::class.java) { source.open(DataSpec(Uri.parse("https://example.com/a.ts"))) }
+            assertTrue(Thread.currentThread().isInterrupted)
+        } finally {
+            Thread.interrupted()
+        }
     }
 
     @Test

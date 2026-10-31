@@ -2,7 +2,8 @@
 <!--
     Plain http is allowed so a source can be downloaded from a PC at home while it's tested. Android can't limit it to
     private addresses, so the app's own code does: it only asks for an http link when adding a source from a local
-    address (isAllowedSourceLink), and everything else it asks for is https.
+    address (isAllowedSourceLink). The app's own requests are https. A source's stream links can be http, and the
+    player sends that stream's headers with them, as the extension API says.
 -->
 <network-security-config xmlns:tools="http://schemas.android.com/tools">
     <base-config

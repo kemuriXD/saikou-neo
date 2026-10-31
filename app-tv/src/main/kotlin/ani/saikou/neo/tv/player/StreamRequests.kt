@@ -13,6 +13,7 @@ import ani.saikou.neo.extension.api.MediaRequest
 import ani.saikou.neo.extension.api.MediaResponse
 import ani.saikou.neo.extension.api.Stream
 import java.io.IOException
+import java.io.InterruptedIOException
 
 /**
  * Where the player gets every playlist, segment, key and subtitle of this stream: over HTTP with the stream's headers,
@@ -79,6 +80,10 @@ private inline fun <T> fromSource(call: () -> T): T =
         call()
     } catch (e: IOException) {
         throw e
+    } catch (e: InterruptedException) {
+        // The player stops a load by interrupting its thread, so the interrupt has to survive.
+        Thread.currentThread().interrupt()
+        throw InterruptedIOException(e.message)
     } catch (e: Throwable) {
         throw IOException("The source failed", e)
     }
