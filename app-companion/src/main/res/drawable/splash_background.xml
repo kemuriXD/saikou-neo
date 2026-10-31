@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    The phone splash below Android 12, and behind the system splash above it: the shared lockup 185 dp wide with the
+    loading line 16 dp under it, centred together on ink, as in the animated icon (ADR 0022).
+-->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/ink" />
+    <item
+        android:width="185dp"
+        android:height="51.1dp"
+        android:bottom="36.8dp"
+        android:drawable="@drawable/splash_lockup"
+        android:gravity="center" />
+    <item
+        android:width="105dp"
+        android:height="20.8dp"
+        android:drawable="@drawable/splash_loading"
+        android:gravity="center"
+        android:top="67.2dp" />
+</layer-list>
