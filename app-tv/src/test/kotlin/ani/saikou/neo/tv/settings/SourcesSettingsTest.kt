@@ -10,6 +10,8 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertWidthIsEqualTo
@@ -24,7 +26,11 @@ import androidx.compose.ui.unit.dp
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.sources.AddError
 import ani.saikou.neo.shared.sources.Adding
+import ani.saikou.neo.shared.sources.Choice
+import ani.saikou.neo.shared.sources.ChoiceStatus
 import ani.saikou.neo.shared.sources.InstalledSource
+import ani.saikou.neo.shared.sources.ListedSource
+import ani.saikou.neo.shared.sources.Progress
 import ani.saikou.neo.shared.sources.SourceProblem
 import ani.saikou.neo.shared.sources.SourcesState
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -49,6 +55,8 @@ class SourcesSettingsTest {
     private val added = mutableListOf<String>()
     private val removed = mutableListOf<String>()
     private var dismissed = 0
+    private val toggled = mutableListOf<String>()
+    private var addedTicked = 0
 
     private fun show(sources: SourcesState) {
         state.value = sources
@@ -58,7 +66,14 @@ class SourcesSettingsTest {
                     Settings(),
                     onChoose = { _, _ -> },
                     sources = state.value,
-                    sourceActions = SourceActions(onAdd = { added += it }, onDismiss = { dismissed++ }, onRemove = { removed += it }),
+                    sourceActions =
+                        SourceActions(
+                            onAdd = { added += it },
+                            onDismiss = { dismissed++ },
+                            onRemove = { removed += it },
+                            onToggle = { toggled += it },
+                            onAddTicked = { addedTicked++ },
+                        ),
                 )
             }
         }
@@ -248,6 +263,132 @@ class SourcesSettingsTest {
 
         addSource().assertIsFocused()
         compose.onNodeWithText("No sources yet").assertIsDisplayed()
+    }
+
+    private fun listed(
+        source: InstalledSource,
+        api: Int = 1,
+    ) = ListedSource(source.id, source.name, source.version, api, "https://example.com/${source.id}.apk")
+
+    private val starter = InstalledSource("com.example.starter", "Starter source", "1.2.0")
+    private val testSource = InstalledSource("com.example.test", "Test source", "1.0.0")
+
+    private fun choosing(
+        ticked: Set<String> = emptySet(),
+        progress: Progress? = null,
+    ) = Adding.Choosing(
+        listOf(
+            Choice(listed(starter), ChoiceStatus.New, starter.id in ticked),
+            Choice(listed(demo.copy(version = "1.0.0")), ChoiceStatus.Update(from = "0.9.0"), demo.id in ticked),
+            Choice(listed(example), ChoiceStatus.Installed),
+            Choice(listed(testSource, api = 2), ChoiceStatus.CantUse(SourceProblem.BUILT_FOR_NEWER_APP)),
+        ),
+        progress,
+    )
+
+    private fun choice(source: InstalledSource) = compose.onNodeWithTag(choiceTag(source.id))
+
+    private fun openList(adding: Adding.Choosing = choosing()) {
+        show(SourcesState(listOf(example, demo)))
+        press(Key.DirectionCenter)
+        update { copy(adding = adding) }
+    }
+
+    @Test
+    fun aListShowsEachSourceWithTheFirstFocused() {
+        openList()
+
+        compose.onNodeWithText("Choose sources").assertIsDisplayed()
+        choice(starter).assertIsFocused().assertIsOff().assert(described("Starter source, Version 1.2.0"))
+        choice(demo).assert(described("Demo source, Update from 0.9.0 to 1.0.0"))
+        choice(example).assert(described("Example source, Installed, version 1.4.0"))
+        choice(testSource).assert(described("Test source, Needs a newer version of the app"))
+        compose.onNodeWithText("Add sources").assertIsDisplayed()
+    }
+
+    @Test
+    fun okTicksASourceAndAddSaysHowMany() {
+        openList()
+
+        press(Key.DirectionCenter)
+        assertEquals(listOf(starter.id), toggled)
+
+        update { copy(adding = choosing(ticked = setOf(starter.id, demo.id))) }
+        choice(starter).assertIsOn()
+        compose.onNodeWithText("Add 2 sources").assertIsDisplayed()
+    }
+
+    @Test
+    fun focusSkipsSourcesThatCannotBePicked() {
+        openList(choosing(ticked = setOf(starter.id)))
+
+        press(Key.DirectionDown)
+        choice(demo).assertIsFocused()
+
+        press(Key.DirectionDown)
+        compose.onNodeWithText("Add 1 source").assertIsFocused()
+        press(Key.DirectionCenter)
+        assertEquals(1, addedTicked)
+    }
+
+    @Test
+    fun withNothingTickedAddDoesNothing() {
+        openList()
+
+        press(Key.DirectionDown, times = 2)
+        press(Key.DirectionCenter)
+
+        assertEquals(0, addedTicked)
+    }
+
+    @Test
+    fun whileAddingItSaysHowFarItHasGot() {
+        openList(choosing(ticked = setOf(starter.id, demo.id), progress = Progress(done = 1, total = 2)))
+
+        compose.onNodeWithText("Adding 2 of 2…").assertIsDisplayed()
+    }
+
+    @Test
+    fun aSourceThatFailedSaysSo() {
+        val failed = Adding.Choosing(listOf(Choice(listed(starter), ChoiceStatus.Failed, ticked = true)))
+        openList(failed)
+
+        choice(starter).assert(described("Starter source, Couldn't add this source. Try again."))
+    }
+
+    @Test
+    fun addingEveryTickedSourceClosesThePanel() {
+        openList(choosing(ticked = setOf(starter.id)))
+
+        update { SourcesState(listOf(example, demo, starter), Adding.AddedAll(listOf(starter))) }
+
+        compose.onNodeWithTag(SETTINGS_PANEL_TAG).assertDoesNotExist()
+        addSource().assertIsFocused()
+    }
+
+    @Test
+    fun backClosesTheList() {
+        openList()
+
+        back()
+        assertEquals(1, dismissed)
+        // Dismissing clears the list.
+        update { copy(adding = Adding.Idle) }
+
+        compose.onNodeWithTag(SETTINGS_PANEL_TAG).assertDoesNotExist()
+        addSource().assertIsFocused()
+    }
+
+    @Test
+    fun aBrokenOrUselessListSaysWhy() {
+        show(SourcesState(emptyList()))
+        press(Key.DirectionCenter)
+
+        update { copy(adding = Adding.Failed(AddError.BROKEN_LIST)) }
+        compose.onNodeWithText("Couldn't read the list at that link. Check it and try again.").assertIsDisplayed()
+
+        update { copy(adding = Adding.Failed(AddError.NOTHING_IN_LIST)) }
+        compose.onNodeWithText("None of the sources in that list work with this version of the app.").assertIsDisplayed()
     }
 
     private fun described(text: String) = SemanticsMatcher.expectValue(SemanticsProperties.ContentDescription, listOf(text))

@@ -212,7 +212,14 @@ class MainActivity : ComponentActivity() {
                                         it,
                                         onChoose = settingsScreen::choose,
                                         sources = sources,
-                                        sourceActions = SourceActions(sourcesScreen::add, sourcesScreen::dismiss, sourcesScreen::remove),
+                                        sourceActions =
+                                            SourceActions(
+                                                sourcesScreen::add,
+                                                sourcesScreen::dismiss,
+                                                sourcesScreen::remove,
+                                                sourcesScreen::toggle,
+                                                sourcesScreen::addTicked,
+                                            ),
                                     )
                                 }
                             } else {
