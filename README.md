@@ -59,6 +59,38 @@ GitHub. These are alpha debug builds, and each one expires after 7 days.
 Two Android apps, one for the TV and one for the phone, share a Kotlin
 Multiplatform core. Video sources come from separately installed extensions.
 
+## Building a source
+
+A source is an Android app (APK) that implements the extension API. The app
+loads it in-process and provides the API, so a source depends on it with
+`compileOnly` and doesn't bundle it. The API is on Maven Central:
+
+```kotlin
+// settings.gradle.kts: mavenCentral() in dependencyResolutionManagement
+dependencies {
+    compileOnly("io.github.kemurixd:saikou-neo-extension-api:1")
+}
+```
+
+The version is the API version, `ExtensionApi.VERSION`. Kotlin 2.1 or newer
+can build against it, including the Kotlin built into the Android Gradle
+plugin.
+
+The source names its class and API version in its manifest:
+
+```xml
+<application android:label="My source">
+    <meta-data android:name="ani.saikou.neo.extension.api" android:value="1" />
+    <meta-data android:name="ani.saikou.neo.extension.class" android:value="com.example.MySource" />
+</application>
+```
+
+`MySource` implements `SourceExtension` and has a constructor with no
+arguments. Add the signed APK in Settings > Sources with an https link or a
+short code. The app loads sources built for its API version or an older one
+that's still compatible. Because sources run inside the app, their licence has
+to be compatible with GPL-3.0.
+
 ## Credits
 
 | What | From |

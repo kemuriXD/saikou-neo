@@ -8,4 +8,5 @@ dependencies {
     implementation(libs.compose.compiler.gradle.plugin)
     implementation(libs.apollo.gradle.plugin)
     implementation(libs.baselineprofile.gradle.plugin)
+    implementation(libs.maven.publish.gradle.plugin)
 }

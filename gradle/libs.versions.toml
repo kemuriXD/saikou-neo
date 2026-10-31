@@ -19,6 +19,7 @@ profileinstaller = "1.4.1"
 androidx-test-junit = "1.3.0"
 uiautomator = "2.4.0"
 ktlint = "1.8.0"
+maven-publish = "0.37.0"
 
 # Android SDK levels, read by the convention plugins in build-logic.
 android-compileSdk = "37"
@@ -58,6 +59,7 @@ kotlin-gradle-plugin = { module = "org.jetbrains.kotlin:kotlin-gradle-plugin", v
 compose-compiler-gradle-plugin = { module = "org.jetbrains.kotlin:compose-compiler-gradle-plugin", version.ref = "kotlin" }
 apollo-gradle-plugin = { module = "com.apollographql.apollo:apollo-gradle-plugin", version.ref = "apollo" }
 baselineprofile-gradle-plugin = { module = "androidx.benchmark:benchmark-baseline-profile-gradle-plugin", version.ref = "benchmark" }
+maven-publish-gradle-plugin = { module = "com.vanniktech:gradle-maven-publish-plugin", version.ref = "maven-publish" }
 
 [plugins]
 spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
