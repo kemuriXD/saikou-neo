@@ -115,14 +115,15 @@ jobs:
       # testing, all for the active channel only. `check` and `assembleDebug`
       # would cover every channel and take much longer. The fanart.tv, TMDB and
       # OMDb keys are only built into the APKs (ADR 0011, ADR 0012, ADR 0014);
-      # tests and PRs without them still pass.
+      # tests and PRs without them still pass. Publishing the extension API to
+      # the local Maven folder checks its release setup.
       - name: Build
         env:
           FANART_TV_API_KEY: ${{ secrets.FANART_TV_API_KEY }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
         run: >-
-          ./gradlew spotlessCheck :shared:check :extension-api:check
+          ./gradlew spotlessCheck :shared:check :extension-api:check :extension-api:publishToMavenLocal
           :app-tv:lint${VARIANT}Debug :app-tv:test${VARIANT}DebugUnitTest
           :app-tv:assemble${VARIANT}Debug
           :app-companion:lint${VARIANT}Debug :app-companion:test${VARIANT}DebugUnitTest

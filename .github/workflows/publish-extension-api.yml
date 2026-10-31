@@ -1,0 +1,49 @@
+name: Publish extension API
+
+# Pushing a tag named api-<N> publishes :extension-api version N to Maven
+# Central, so sources in other repos can build against it. The build fails if
+# N isn't ExtensionApi.VERSION. The Central login and the signing key are
+# repository secrets.
+on:
+  push:
+    tags: ["api-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-extension-api
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      # Fails if gradle-wrapper.jar doesn't match a published Gradle release.
+      - name: Validate Gradle wrapper
+        uses: gradle/actions/wrapper-validation@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
+
+      - name: Set up JDK
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21"
+
+      # Releasing to Central doesn't work with the configuration cache yet.
+      - name: Test and publish
+        env:
+          TAG: ${{ github.ref_name }}
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.SIGNING_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.SIGNING_KEY_PASSWORD }}
+        run: >-
+          ./gradlew --no-configuration-cache -PapiTag="$TAG"
+          :extension-api:check :extension-api:publishAndReleaseToMavenCentral
