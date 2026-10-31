@@ -97,6 +97,12 @@ short code. The app loads sources built for its API version or an older one
 that's still compatible. Because sources run inside the app, their licence has
 to be compatible with GPL-3.0.
 
+[`demo-source`](demo-source) is a complete example. It plays freely licensed
+test streams for every episode, and its "Fails" servers throw each error a
+source can report. Its APK is on the
+[Releases](https://github.com/kemuriXD/saikou-neo/releases) page as
+"Demo source".
+
 ## Credits
 
 | What | From |
