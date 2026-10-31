@@ -61,6 +61,12 @@ Multiplatform core. Video sources come from separately installed extensions.
 
 ## Building a source
 
+The quickest start is the
+[extension template](https://github.com/kemuriXD/saikou-neo-extension-template).
+Copy it, set your source's details in `gradle.properties`, and push a tag. Its
+CI builds a signed APK and attaches it to a GitHub release, and that link is
+what you add in Settings > Sources.
+
 A source is an Android app (APK) that implements the extension API. The app
 loads it in-process and provides the API, so a source depends on it with
 `compileOnly` and doesn't bundle it. The API is on Maven Central:
