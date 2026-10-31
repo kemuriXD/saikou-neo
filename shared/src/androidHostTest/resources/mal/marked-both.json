@@ -1,0 +1,15 @@
+{
+  "pagination": {
+    "last_visible_page": 1,
+    "has_next_page": false
+  },
+  "data": [
+    {
+      "mal_id": 26,
+      "title": "Special Report: Live from the Forest of Death!",
+      "aired": "2003-04-02T00:00:00+00:00",
+      "filler": true,
+      "recap": true
+    }
+  ]
+}

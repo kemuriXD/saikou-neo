@@ -5,6 +5,7 @@ import ani.saikou.neo.shared.catalogue.AniZipEpisode
 import ani.saikou.neo.shared.catalogue.AniZipEpisodes
 import ani.saikou.neo.shared.catalogue.AniZipExtra
 import ani.saikou.neo.shared.catalogue.AnimeDetails
+import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.home.WatchProgress
 
 private const val RANGE = 50
@@ -28,6 +29,8 @@ public data class EpisodeList(
     val extras: List<AniZipExtra>,
     /** How many of [episodes] are out by today. One without an air date counts as out. */
     val aired: Int = count,
+    /** MAL's filler and recap episodes by number. Empty until MAL answers, and for a show it doesn't know. */
+    val kinds: Map<Int, EpisodeKind> = emptyMap(),
 )
 
 /**

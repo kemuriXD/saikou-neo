@@ -61,7 +61,7 @@ Multiplatform core. Video sources come from separately installed extensions.
 
 | What | From |
 | --- | --- |
-| Anime information | [AniList](https://anilist.co) and [AniZip](https://ani.zip) |
+| Anime information | [AniList](https://anilist.co), [AniZip](https://ani.zip), and filler and recaps from MyAnimeList through Tenrai |
 | Artwork | [TMDB](https://www.themoviedb.org), [fanart.tv](https://fanart.tv) and [TheTVDB](https://thetvdb.com) |
 | Ratings | AniList, [MyAnimeList](https://myanimelist.net) through [Tenrai](https://api.tenrai.org), and IMDb and Rotten Tomatoes through [OMDb](https://www.omdbapi.com) |
 

@@ -67,6 +67,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipEpisode
+import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.details.EpisodeList
 import ani.saikou.neo.shared.details.EpisodeMark
 import ani.saikou.neo.shared.details.episodeRanges
@@ -222,19 +223,21 @@ internal fun EpisodesSection(
         ) {
             items(shown, key = { it.number }) { episode ->
                 val mark = progress?.markFor(episode.number)
+                val kind = list.kinds[episode.number]
                 val rowModifier =
                     Modifier
                         .then(if (episode.number == next) Modifier.focusRequester(nextFocus) else Modifier)
                         .remembersFocus(episodeTag(episode.number))
                         .testTag(episodeTag(episode.number))
                 if (rich) {
-                    EpisodeRow(episode, backdrop, mark, rowModifier)
+                    EpisodeRow(episode, backdrop, mark, kind, rowModifier)
                 } else {
                     TextRow(
                         title = episode.title ?: stringResource(R.string.details_episode_number, episode.number),
                         meta = episode.meta(list.film),
                         modifier = rowModifier,
                         mark = mark,
+                        kind = kind,
                     )
                 }
             }
@@ -329,6 +332,7 @@ private fun EpisodeRow(
     episode: AniZipEpisode,
     backdrop: String?,
     mark: EpisodeMark?,
+    kind: EpisodeKind?,
     modifier: Modifier = Modifier,
 ) {
     val dimensions = NeoTheme.dimensions
@@ -374,7 +378,7 @@ private fun EpisodeRow(
                     )
                 }
             }
-            mark?.let { Badge(it) }
+            Badge(mark, kind)
         }
     }
 }
@@ -405,18 +409,28 @@ private fun BoxScope.ThumbOverlay(mark: EpisodeMark?) {
     }
 }
 
-/** "✓ Watched", or how much is left in pink. */
+/**
+ * "✓ Watched", or how much is left in pink. An episode not started here says whether it's filler or a recap, if MAL
+ * says so.
+ */
 @Composable
-private fun Badge(mark: EpisodeMark) {
+private fun Badge(
+    mark: EpisodeMark?,
+    kind: EpisodeKind?,
+) {
     val colors = NeoTheme.colors
     val resume = mark is EpisodeMark.InProgress
     val content = LocalContentColor.current
+    val text =
+        when {
+            mark == EpisodeMark.Watched -> stringResource(R.string.details_episode_watched)
+            mark is EpisodeMark.InProgress -> stringResource(R.string.details_episode_left, mark.progress.minutesLeft)
+            kind == EpisodeKind.Filler -> stringResource(R.string.details_episode_filler)
+            kind == EpisodeKind.Recap -> stringResource(R.string.details_episode_recap)
+            else -> return
+        }
     Text(
-        text =
-            when (mark) {
-                EpisodeMark.Watched -> stringResource(R.string.details_episode_watched)
-                is EpisodeMark.InProgress -> stringResource(R.string.details_episode_left, mark.progress.minutesLeft)
-            },
+        text = text,
         style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Bold),
         color = if (resume) colors.ink else content.copy(alpha = BADGE_TEXT),
         maxLines = 1,
@@ -434,6 +448,7 @@ private fun TextRow(
     meta: String?,
     modifier: Modifier = Modifier,
     mark: EpisodeMark? = null,
+    kind: EpisodeKind? = null,
 ) {
     val dimensions = NeoTheme.dimensions
     RowSurface(modifier.heightIn(min = TextRowHeight)) {
@@ -446,7 +461,7 @@ private fun TextRow(
                 Text(text = title, style = NeoTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 meta?.let { Meta(it) }
             }
-            mark?.let { Badge(it) }
+            Badge(mark, kind)
         }
     }
 }

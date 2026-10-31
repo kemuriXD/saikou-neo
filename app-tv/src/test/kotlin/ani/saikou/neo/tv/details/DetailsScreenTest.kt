@@ -51,6 +51,7 @@ import ani.saikou.neo.shared.catalogue.AniZipExtra
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.catalogue.NextEpisode
 import ani.saikou.neo.shared.catalogue.RelatedAnime
 import ani.saikou.neo.shared.catalogue.Relation
@@ -486,6 +487,21 @@ class DetailsScreenTest {
         compose.onNodeWithTag(episodeTag(2)).assert(hasText("✓ Watched"))
         compose.onNodeWithTag(episodeTag(3)).assert(hasText("12 min left"))
         compose.onNodeWithTag(episodeTag(4)).assert(!hasText("✓ Watched") and !hasText("12 min left"))
+    }
+
+    @Test
+    fun episodesNotStartedSayWhichAreFillerOrRecaps() {
+        val progress = WatchProgress(3, 12.minutes, 24.minutes, null)
+        val kinds = mapOf(2 to EpisodeKind.Filler, 3 to EpisodeKind.Filler, 4 to EpisodeKind.Recap, 5 to EpisodeKind.Filler)
+        val episodes = episodeList(details, deathNote, today).copy(kinds = kinds)
+        showEpisodes(DetailsState.Loaded(details, episodes = episodes, progress = progress))
+
+        // How far this TV got comes first.
+        compose.onNodeWithTag(episodeTag(2)).assert(hasText("✓ Watched") and !hasText("Filler"))
+        compose.onNodeWithTag(episodeTag(3)).assert(hasText("12 min left") and !hasText("Filler"))
+        compose.onNodeWithTag(episodeTag(4)).assert(hasText("Recap"))
+        compose.onNodeWithTag(episodeTag(5)).assert(hasText("Filler"))
+        compose.onNodeWithTag(episodeTag(6)).assert(!hasText("Filler") and !hasText("Recap"))
     }
 
     @Test
