@@ -58,6 +58,8 @@ android {
             dimension = "channel"
         }
     }
+    // Brand resources both apps draw the same way: the splash lockup, its loading line and their colours (ADR 0022).
+    sourceSets.named("main") { res.srcDir(rootProject.file("brand/res")) }
     // Preview resources (the app name) and tests are shared by alpha and beta.
     listOf("alpha", "beta").forEach { channel ->
         sourceSets.named(channel) { res.srcDir("src/preview/res") }

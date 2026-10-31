@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The phone splash below Android 12, and behind the system splash above it: the lockup and loading line on ink. -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/ink" />
+    <item android:drawable="@drawable/splash_mark" />
+</layer-list>

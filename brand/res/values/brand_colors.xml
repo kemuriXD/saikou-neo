@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Ink matches NeoColors.ink, so there's no grey flash before Compose draws. -->
+    <color name="ink">#FF11121C</color>
+    <!-- Paper matches NeoColors.paper, for "Saikou" in the splash lockup. -->
+    <color name="paper">#FFF6F5F2</color>
+    <!-- Text muted matches NeoColors.textMuted, for the splash's loading line. -->
+    <color name="text_muted">#B8F6F5F2</color>
+</resources>
