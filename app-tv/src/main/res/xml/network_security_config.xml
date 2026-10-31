@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Plain http is allowed so a source can be downloaded from a PC at home while it's tested. Android can't limit it to
+    private addresses, so the app's own code does: it only asks for an http link when adding a source from a local
+    address (isAllowedSourceLink), and everything else it asks for is https.
+-->
+<network-security-config xmlns:tools="http://schemas.android.com/tools">
+    <base-config
+        cleartextTrafficPermitted="true"
+        tools:ignore="InsecureBaseConfiguration" />
+</network-security-config>

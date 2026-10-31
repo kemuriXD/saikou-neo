@@ -7,6 +7,13 @@ plugins {
 kotlin {
     android {
         namespace = "ani.saikou.neo.extension.api"
+        // Apps that load sources keep this API's names in release builds.
+        optimization {
+            consumerKeepRules.apply {
+                publish = true
+                file("consumer-rules.pro")
+            }
+        }
     }
 
     sourceSets {

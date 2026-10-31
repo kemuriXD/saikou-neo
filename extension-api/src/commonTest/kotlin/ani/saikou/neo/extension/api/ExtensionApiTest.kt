@@ -2,6 +2,7 @@ package ani.saikou.neo.extension.api
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 
 class ExtensionApiTest {
     @Test
@@ -10,8 +11,8 @@ class ExtensionApiTest {
     }
 
     @Test
-    fun aSourceBuiltForAnOlderVersionNeedsUpdatingItself() {
-        assertEquals(Compatibility.BuiltForOlderApp, ExtensionApi.compatibility(ExtensionApi.VERSION - 1))
+    fun aSourceBuiltBeforeTheLastBreakingChangeNeedsUpdatingItself() {
+        assertEquals(Compatibility.BuiltForOlderApp, ExtensionApi.compatibility(ExtensionApi.MIN_VERSION - 1))
     }
 
     @Test
@@ -19,8 +20,19 @@ class ExtensionApiTest {
         assertEquals(Compatibility.BuiltForNewerApp, ExtensionApi.compatibility(ExtensionApi.VERSION + 1))
     }
 
+    // Say the API is at 3 and last broke sources at 2: sources built for 2 and 3 still work.
     @Test
-    fun theFirstVersionIsOne() {
+    fun anOlderSourceKeepsWorkingUntilABreakingChange() {
+        assertEquals(Compatibility.Compatible, compatibility(builtFor = 2, version = 3, minVersion = 2))
+        assertEquals(Compatibility.Compatible, compatibility(builtFor = 3, version = 3, minVersion = 2))
+        assertEquals(Compatibility.BuiltForOlderApp, compatibility(builtFor = 1, version = 3, minVersion = 2))
+        assertEquals(Compatibility.BuiltForNewerApp, compatibility(builtFor = 4, version = 3, minVersion = 2))
+    }
+
+    @Test
+    fun theFirstVersionIsOneAndNothingHasBrokenYet() {
         assertEquals(1, ExtensionApi.VERSION)
+        assertEquals(1, ExtensionApi.MIN_VERSION)
+        assertTrue(ExtensionApi.MIN_VERSION <= ExtensionApi.VERSION)
     }
 }
