@@ -8,4 +8,9 @@ public data class Settings(
     val showUpcomingEpisodes: Boolean = true,
     /** A lighter look with fewer effects, for TVs too slow for the full one. */
     val slowTv: Boolean = false,
+    /** Which servers the server list shows: Sub ones, Dub ones or both. */
+    val subOrDub: SubOrDub = SubOrDub.BOTH,
 )
+
+/** Which servers to show for an episode, by whether they're subtitled or dubbed. HardSub servers count as Sub. */
+public enum class SubOrDub { SUB, DUB, BOTH }

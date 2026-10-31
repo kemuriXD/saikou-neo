@@ -77,8 +77,8 @@ class SourcesSettingsTest {
                 )
             }
         }
-        // Down to Sources, after Browsing and Display, then into it.
-        press(Key.DirectionDown, times = 2)
+        // Down to Sources, after Browsing, Playback and Display, then into it.
+        press(Key.DirectionDown, times = 3)
         press(Key.DirectionRight)
     }
 

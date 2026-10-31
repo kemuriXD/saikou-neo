@@ -66,7 +66,8 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
-import ani.saikou.neo.shared.settings.isOn
+import ani.saikou.neo.shared.settings.SubOrDub
+import ani.saikou.neo.shared.settings.get
 import ani.saikou.neo.shared.sources.SourcesState
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -83,8 +84,14 @@ internal fun settingTag(setting: Setting) = "setting-${setting.name.lowercase()}
 
 internal fun settingChoiceTag(
     setting: Setting,
-    on: Boolean,
-) = "setting-${setting.name.lowercase()}-${if (on) "on" else "off"}"
+    value: Any,
+) = "setting-${setting.name.lowercase()}-" +
+    when (value) {
+        true -> "on"
+        false -> "off"
+        is Enum<*> -> value.name.lowercase()
+        else -> value.toString()
+    }
 
 /** The groups on the left of Settings, each with a line on what it covers and its settings. */
 enum class SettingsCategory(
@@ -93,6 +100,7 @@ enum class SettingsCategory(
     val settings: List<Setting>,
 ) {
     BROWSING(R.string.settings_browsing, R.string.settings_browsing_intro, listOf(Setting.UNAIRED_ANIME, Setting.UPCOMING_EPISODES)),
+    PLAYBACK(R.string.settings_playback, R.string.settings_playback_intro, listOf(Setting.SUB_OR_DUB)),
     DISPLAY(R.string.settings_display, R.string.settings_display_intro, listOf(Setting.SLOW_TV)),
 
     // Lists the installed sources rather than settings.
@@ -137,13 +145,13 @@ private const val PANEL_SLIDE_PART = 4
 /**
  * Settings: categories on the left and the shown one's settings on the right, each with its value.
  * Resting on a category shows its settings; Right goes into them and Left comes back. Selecting a setting opens its
- * choices in a panel, and selecting one there calls [onChoose]. Sources lists the installed [sources], and adds and
+ * choices in a panel, and selecting one there calls [onChoose] with it. Sources lists the installed [sources], and adds and
  * removes them through [sourceActions].
  */
 @Composable
 fun SettingsScreen(
     settings: Settings,
-    onChoose: (Setting, on: Boolean) -> Unit,
+    onChoose: (Setting, value: Any) -> Unit,
     sources: SourcesState = SourcesState(emptyList()),
     sourceActions: SourceActions = SourceActions(),
 ) = RememberFocus { focus -> SettingsPage(settings, focus, onChoose, sources, sourceActions) }
@@ -152,7 +160,7 @@ fun SettingsScreen(
 private fun SettingsPage(
     settings: Settings,
     focus: FocusMemory,
-    onChoose: (Setting, on: Boolean) -> Unit,
+    onChoose: (Setting, value: Any) -> Unit,
     sources: SourcesState,
     sourceActions: SourceActions,
 ) {
@@ -224,7 +232,7 @@ private fun SettingsPage(
                 category.settings.forEach { setting ->
                     SettingRow(
                         setting,
-                        on = settings.isOn(setting),
+                        value = settings[setting],
                         onClick = { open = setting },
                         modifier =
                             Modifier
@@ -242,10 +250,10 @@ private fun SettingsPage(
             }
             ChoicesPanel(
                 setting,
-                on = settings.isOn(setting),
+                value = settings[setting],
                 active = active,
-                onChoose = { on ->
-                    onChoose(setting, on)
+                onChoose = { value ->
+                    onChoose(setting, value)
                     close()
                 },
                 onClose = close,
@@ -385,7 +393,7 @@ private fun Category(
 @Composable
 private fun SettingRow(
     setting: Setting,
-    on: Boolean,
+    value: Any,
     onClick: () -> Unit,
     modifier: Modifier,
 ) {
@@ -422,13 +430,13 @@ private fun SettingRow(
                 Text(stringResource(text.title), style = Name)
                 Text(stringResource(text.help), style = Help, color = LocalContentColor.current.copy(alpha = 0.72f))
             }
-            val value = if (focused) colors.pinkDeep else colors.pink
+            val valueColor = if (focused) colors.pinkDeep else colors.pink
             Text(
-                stringResource(text.value(on)),
+                stringResource(text.label(value)),
                 style = NeoTheme.typography.label.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
-                color = value,
+                color = valueColor,
             )
-            Icon(NeoIcons.Chevron, contentDescription = null, tint = value, modifier = Modifier.size(Chevron))
+            Icon(NeoIcons.Chevron, contentDescription = null, tint = valueColor, modifier = Modifier.size(Chevron))
         }
     }
 }
@@ -441,16 +449,16 @@ private fun SettingRow(
 @Composable
 private fun BoxScope.ChoicesPanel(
     setting: Setting,
-    on: Boolean,
-    onChoose: (on: Boolean) -> Unit,
+    value: Any,
+    onChoose: (value: Any) -> Unit,
     onClose: () -> Unit,
     active: Boolean,
     modifier: Modifier,
 ) {
     val colors = NeoTheme.colors
-    val choices = remember { mapOf(false to FocusRequester(), true to FocusRequester()) }
+    val choices = remember { setting.choices.associateWith { FocusRequester() } }
     val text = setting.text()
-    LaunchedEffect(Unit) { choices.getValue(on).requestFocus() }
+    LaunchedEffect(Unit) { choices.getValue(value).requestFocus() }
     SidePanel(stringResource(text.title), PanelWidth, active, onClose, modifier) {
         Text(stringResource(text.title), style = PaneTitle, color = colors.paper)
         Text(
@@ -459,15 +467,15 @@ private fun BoxScope.ChoicesPanel(
             color = colors.textMuted,
             modifier = Modifier.padding(bottom = 8.dp),
         )
-        listOf(false, true).forEach { value ->
+        setting.choices.forEach { choice ->
             Choice(
-                stringResource(text.value(value)),
-                selected = value == on,
-                onClick = { onChoose(value) },
+                stringResource(text.label(choice)),
+                selected = choice == value,
+                onClick = { onChoose(choice) },
                 modifier =
                     Modifier
-                        .testTag(settingChoiceTag(setting, value))
-                        .focusRequester(choices.getValue(value)),
+                        .testTag(settingChoiceTag(setting, choice))
+                        .focusRequester(choices.getValue(choice)),
             )
         }
     }
@@ -524,20 +532,25 @@ private fun Choice(
     }
 }
 
+/** A setting's name and help line, and [label] names each of its values. */
 private class SettingText(
     @param:StringRes val title: Int,
     @param:StringRes val help: Int,
-    @param:StringRes val on: Int,
-    @param:StringRes val off: Int,
-) {
-    @StringRes
-    fun value(on: Boolean) = if (on) this.on else off
-}
+    val label: (value: Any) -> Int,
+)
+
+/** For a setting that's on or off, named [on] and [off]. */
+private fun switchText(
+    @StringRes title: Int,
+    @StringRes help: Int,
+    @StringRes on: Int,
+    @StringRes off: Int,
+) = SettingText(title, help) { if (it == true) on else off }
 
 private fun Setting.text() =
     when (this) {
         Setting.UNAIRED_ANIME -> {
-            SettingText(
+            switchText(
                 R.string.settings_unaired_anime,
                 R.string.settings_unaired_anime_help,
                 R.string.settings_shown,
@@ -546,7 +559,7 @@ private fun Setting.text() =
         }
 
         Setting.UPCOMING_EPISODES -> {
-            SettingText(
+            switchText(
                 R.string.settings_upcoming_episodes,
                 R.string.settings_upcoming_episodes_help,
                 R.string.settings_shown,
@@ -555,6 +568,16 @@ private fun Setting.text() =
         }
 
         Setting.SLOW_TV -> {
-            SettingText(R.string.settings_slow_tv, R.string.settings_slow_tv_help, R.string.settings_on, R.string.settings_off)
+            switchText(R.string.settings_slow_tv, R.string.settings_slow_tv_help, R.string.settings_on, R.string.settings_off)
+        }
+
+        Setting.SUB_OR_DUB -> {
+            SettingText(R.string.settings_sub_or_dub, R.string.settings_sub_or_dub_help) {
+                when (it as SubOrDub) {
+                    SubOrDub.SUB -> R.string.settings_sub
+                    SubOrDub.DUB -> R.string.settings_dub
+                    SubOrDub.BOTH -> R.string.settings_both
+                }
+            }
         }
     }

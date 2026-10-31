@@ -146,6 +146,8 @@
     <!-- Settings -->
     <string name="settings_browsing">Browsing</string>
     <string name="settings_browsing_intro">What shows up in rows, search and episode lists.</string>
+    <string name="settings_playback">Playback</string>
+    <string name="settings_playback_intro">How episodes start, skip and carry on.</string>
     <string name="settings_display">Display</string>
     <string name="settings_display_intro">How the app looks on this TV.</string>
     <string name="settings_unaired_anime">Anime that haven\'t aired</string>
@@ -154,6 +156,11 @@
     <string name="settings_upcoming_episodes_help">Episode lists include episodes that haven\'t aired yet.</string>
     <string name="settings_slow_tv">Slow TV mode</string>
     <string name="settings_slow_tv_help">A lighter look with fewer effects, for TVs that stutter.</string>
+    <string name="settings_sub_or_dub">Sub or Dub</string>
+    <string name="settings_sub_or_dub_help">Which servers to show</string>
+    <string name="settings_sub">Sub</string>
+    <string name="settings_dub">Dub</string>
+    <string name="settings_both">Both</string>
     <string name="settings_shown">Shown</string>
     <string name="settings_hidden">Hidden</string>
     <string name="settings_on">On</string>

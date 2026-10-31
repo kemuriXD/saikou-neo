@@ -21,6 +21,7 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
+import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -36,11 +37,11 @@ class SettingsScreenTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
 
-    private val chosen = mutableListOf<Pair<Setting, Boolean>>()
+    private val chosen = mutableListOf<Pair<Setting, Any>>()
 
     private fun show(settings: Settings = Settings()) =
         compose.setContent {
-            NeoTheme { SettingsScreen(settings, onChoose = { setting, on -> chosen += setting to on }) }
+            NeoTheme { SettingsScreen(settings, onChoose = { setting, value -> chosen += setting to value }) }
         }
 
     private fun press(
@@ -57,8 +58,8 @@ class SettingsScreenTest {
 
     private fun choice(
         setting: Setting,
-        on: Boolean,
-    ) = compose.onNodeWithTag(settingChoiceTag(setting, on))
+        value: Any,
+    ) = compose.onNodeWithTag(settingChoiceTag(setting, value))
 
     private fun panel() = compose.onNodeWithTag(SETTINGS_PANEL_TAG)
 
@@ -94,7 +95,8 @@ class SettingsScreenTest {
             .assertTopPositionInRootIsEqualTo(80.dp)
             .assertWidthIsEqualTo(220.dp)
             .assertHeightIsEqualTo(44.dp)
-        category(SettingsCategory.DISPLAY).assertTopPositionInRootIsEqualTo(128.dp)
+        category(SettingsCategory.PLAYBACK).assertTopPositionInRootIsEqualTo(128.dp)
+        category(SettingsCategory.DISPLAY).assertTopPositionInRootIsEqualTo(176.dp)
         setting(Setting.UNAIRED_ANIME)
             .assertLeftPositionInRootIsEqualTo(306.dp)
             .assertTopPositionInRootIsEqualTo(114.dp)
@@ -110,7 +112,7 @@ class SettingsScreenTest {
         openFirstSetting()
 
         panel().assertLeftPositionInRootIsEqualTo(600.dp).assertWidthIsEqualTo(360.dp)
-        choice(Setting.UNAIRED_ANIME, on = false).assertLeftPositionInRootIsEqualTo(624.dp).assertHeightIsEqualTo(64.dp)
+        choice(Setting.UNAIRED_ANIME, false).assertLeftPositionInRootIsEqualTo(624.dp).assertHeightIsEqualTo(64.dp)
     }
 
     @Test
@@ -128,7 +130,7 @@ class SettingsScreenTest {
     fun focusingACategoryShowsItsSettings() {
         show(Settings(slowTv = true))
 
-        press(Key.DirectionDown)
+        press(Key.DirectionDown, times = 2)
 
         category(SettingsCategory.DISPLAY).assertIsFocused().assertIsSelected()
         category(SettingsCategory.BROWSING).assertIsNotSelected()
@@ -144,8 +146,8 @@ class SettingsScreenTest {
         openFirstSetting()
 
         panel().assertIsDisplayed()
-        choice(Setting.UNAIRED_ANIME, on = false).assertIsFocused().assertIsSelected()
-        choice(Setting.UNAIRED_ANIME, on = true).assertIsNotSelected()
+        choice(Setting.UNAIRED_ANIME, false).assertIsFocused().assertIsSelected()
+        choice(Setting.UNAIRED_ANIME, true).assertIsNotSelected()
     }
 
     @Test
@@ -169,7 +171,7 @@ class SettingsScreenTest {
         press(Key.DirectionDown)
         back()
 
-        assertEquals(emptyList<Pair<Setting, Boolean>>(), chosen)
+        assertEquals(emptyList<Pair<Setting, Any>>(), chosen)
         panel().assertDoesNotExist()
         setting(Setting.UNAIRED_ANIME).assertIsFocused()
     }
@@ -182,19 +184,73 @@ class SettingsScreenTest {
         press(Key.DirectionLeft)
         press(Key.DirectionUp)
 
-        choice(Setting.UNAIRED_ANIME, on = false).assertIsFocused()
+        choice(Setting.UNAIRED_ANIME, false).assertIsFocused()
     }
 
     @Test
     fun leftFromASettingGoesBackToItsCategory() {
         show()
 
-        press(Key.DirectionDown)
+        press(Key.DirectionDown, times = 2)
         press(Key.DirectionRight)
         setting(Setting.SLOW_TV).assertIsFocused()
         press(Key.DirectionLeft)
 
         category(SettingsCategory.DISPLAY).assertIsFocused()
+    }
+
+    // Playback follows Browsing, as on the board, with Sub or Dub as its only setting so far.
+    @Test
+    fun playbackHasSubOrDub() {
+        show()
+
+        press(Key.DirectionDown)
+
+        category(SettingsCategory.PLAYBACK).assertIsFocused().assertIsSelected()
+        compose.onNodeWithText("How episodes start, skip and carry on.").assertIsDisplayed()
+        compose.onNodeWithText("Sub or Dub").assertIsDisplayed()
+        compose.onNodeWithText("Which servers to show").assertIsDisplayed()
+        compose.onNodeWithText("Both").assertIsDisplayed()
+    }
+
+    @Test
+    fun subOrDubOffersSubDubAndBoth() {
+        show()
+
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+
+        // Both is last and marked, with Dub and then Sub above it.
+        choice(Setting.SUB_OR_DUB, SubOrDub.BOTH).assertIsFocused().assertIsSelected()
+        press(Key.DirectionUp)
+        choice(Setting.SUB_OR_DUB, SubOrDub.DUB).assertIsFocused().assertIsNotSelected()
+        press(Key.DirectionUp)
+        choice(Setting.SUB_OR_DUB, SubOrDub.SUB).assertIsFocused().assertIsNotSelected()
+        compose.onNodeWithText("Sub").assertIsDisplayed()
+    }
+
+    @Test
+    fun choosingDubSetsIt() {
+        show()
+
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+        press(Key.DirectionUp)
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(Setting.SUB_OR_DUB to SubOrDub.DUB), chosen)
+        setting(Setting.SUB_OR_DUB).assertIsFocused()
+    }
+
+    @Test
+    fun theChosenEditionShowsAsTheValue() {
+        show(Settings(subOrDub = SubOrDub.DUB))
+
+        press(Key.DirectionDown)
+
+        compose.onNodeWithText("Dub").assertIsDisplayed()
     }
 
     /** Shows Settings, runs [before], then recreates it as after the app was killed. */
@@ -209,7 +265,7 @@ class SettingsScreenTest {
     @Test
     fun focusStaysOnASettingAfterRecreation() {
         recreate {
-            press(Key.DirectionDown)
+            press(Key.DirectionDown, times = 2)
             press(Key.DirectionRight)
         }
 
@@ -218,7 +274,7 @@ class SettingsScreenTest {
 
     @Test
     fun focusStaysOnACategoryAfterRecreation() {
-        recreate { press(Key.DirectionDown) }
+        recreate { press(Key.DirectionDown, times = 2) }
 
         category(SettingsCategory.DISPLAY).assertIsFocused()
     }
@@ -230,6 +286,6 @@ class SettingsScreenTest {
             press(Key.DirectionDown)
         }
 
-        choice(Setting.UNAIRED_ANIME, on = false).assertIsFocused()
+        choice(Setting.UNAIRED_ANIME, false).assertIsFocused()
     }
 }
