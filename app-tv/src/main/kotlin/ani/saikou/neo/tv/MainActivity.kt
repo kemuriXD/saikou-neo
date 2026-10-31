@@ -38,6 +38,9 @@ import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
 import ani.saikou.neo.shared.search.SearchViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
+import ani.saikou.neo.shared.sources.ShortCodes
+import ani.saikou.neo.shared.sources.SourceDownloads
+import ani.saikou.neo.shared.sources.SourcesViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
 import ani.saikou.neo.tv.discover.DiscoverScreen
 import ani.saikou.neo.tv.home.HomeScreen
@@ -46,6 +49,7 @@ import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.search.SearchScreen
 import ani.saikou.neo.tv.search.genreLabels
 import ani.saikou.neo.tv.settings.SettingsScreen
+import ani.saikou.neo.tv.settings.SourceActions
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.Section
 import ani.saikou.neo.tv.ui.SectionPlaceholder
@@ -201,7 +205,16 @@ class MainActivity : ComponentActivity() {
                             if (section == Section.SETTINGS) {
                                 val settingsScreen = viewModel { SettingsViewModel(app.settingsStore) }
                                 val state by settingsScreen.state.collectAsStateWithLifecycle()
-                                state?.let { SettingsScreen(it, onChoose = settingsScreen::choose) }
+                                val sourcesScreen = viewModel { SourcesViewModel(app.sources, ShortCodes(), SourceDownloads()) }
+                                val sources by sourcesScreen.state.collectAsStateWithLifecycle()
+                                state?.let {
+                                    SettingsScreen(
+                                        it,
+                                        onChoose = settingsScreen::choose,
+                                        sources = sources,
+                                        sourceActions = SourceActions(sourcesScreen::add, sourcesScreen::dismiss, sourcesScreen::remove),
+                                    )
+                                }
                             } else {
                                 SectionPlaceholder(section)
                             }

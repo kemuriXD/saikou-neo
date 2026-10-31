@@ -6,6 +6,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.PathBuilder
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.graphics.vector.path
 import androidx.compose.ui.unit.dp
 
@@ -200,6 +201,31 @@ object NeoIcons {
             }
         }
     }
+
+    /** A jigsaw piece, for Sources with none added. */
+    val Puzzle: ImageVector by lazy {
+        icon("Puzzle") {
+            svgStroke(
+                1.8f,
+                "M14 4h4a2 2 0 0 1 2 2v4h-1.5a2.5 2.5 0 0 0 0 5H20v4a2 2 0 0 1-2 2h-4v-1.5a2.5 2.5 0 0 0-5 0V21H5" +
+                    "a2 2 0 0 1-2-2v-4h1.5a2.5 2.5 0 0 0 0-5H3V6a2 2 0 0 1 2-2h4v1.5a2.5 2.5 0 0 0 5 0z",
+            )
+        }
+    }
+
+    /** A triangle with an exclamation mark, always next to words that say what's wrong. */
+    val Warning: ImageVector by lazy {
+        icon("Warning") {
+            svgStroke(2f, "M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0zM12 9v4M12 17h.01")
+        }
+    }
+
+    /** A bin, for Remove. */
+    val Remove: ImageVector by lazy {
+        icon("Remove") {
+            svgStroke(2f, "M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14")
+        }
+    }
 }
 
 /** A circle around ([x], [y]), drawn as two half arcs. */
@@ -229,4 +255,16 @@ private fun ImageVector.Builder.stroke(
     strokeLineCap = StrokeCap.Round,
     strokeLineJoin = StrokeJoin.Round,
     pathBuilder = pathBuilder,
+)
+
+/** A stroked path in SVG path syntax, as the design's boards give it. */
+private fun ImageVector.Builder.svgStroke(
+    width: Float,
+    pathData: String,
+) = addPath(
+    pathData = addPathNodes(pathData),
+    stroke = SolidColor(Color.Black),
+    strokeLineWidth = width,
+    strokeLineCap = StrokeCap.Round,
+    strokeLineJoin = StrokeJoin.Round,
 )

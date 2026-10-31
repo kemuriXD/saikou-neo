@@ -16,8 +16,7 @@ public class ShortCodes internal constructor(
     public constructor() : this(DefaultHttpEngine(TIMEOUT_MILLIS))
 
     /** The link v.gd has for [code], or null when it has none, disabled it, or can't answer. */
-    public suspend fun link(code: String): String? =
-        engine.getJson("$LOOKUP_URL?format=json&shorturl=$code", io) { readFields()["url"] }
+    public suspend fun link(code: String): String? = engine.getJson("$LOOKUP_URL?format=json&shorturl=$code", io) { readFields()["url"] }
 
     private companion object {
         const val LOOKUP_URL = "https://v.gd/forward.php"

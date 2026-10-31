@@ -47,6 +47,8 @@ configure<BaselineProfileConsumerExtension> {
 
 dependencies {
     implementation(project(":shared"))
+    // Sources implement it and are loaded in-process (ADR 0003).
+    implementation(project(":extension-api"))
     implementation(platform(libs.compose.bom))
     implementation(libs.compose.ui)
     implementation(libs.compose.foundation)

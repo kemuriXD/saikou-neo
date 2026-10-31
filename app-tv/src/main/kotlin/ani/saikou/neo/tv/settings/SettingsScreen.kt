@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -48,8 +49,11 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -63,6 +67,7 @@ import androidx.tv.material3.Text
 import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.isOn
+import ani.saikou.neo.shared.sources.SourcesState
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.FocusMemory
@@ -89,6 +94,9 @@ enum class SettingsCategory(
 ) {
     BROWSING(R.string.settings_browsing, R.string.settings_browsing_intro, listOf(Setting.UNAIRED_ANIME, Setting.UPCOMING_EPISODES)),
     DISPLAY(R.string.settings_display, R.string.settings_display_intro, listOf(Setting.SLOW_TV)),
+
+    // Lists the installed sources rather than settings.
+    SOURCES(R.string.settings_sources, R.string.settings_sources_intro, emptyList()),
 }
 
 // From the design, less the rail: the title sits on the safe area and both panes start 80 dp down. Categories are
@@ -129,19 +137,24 @@ private const val PANEL_SLIDE_PART = 4
 /**
  * Settings: categories on the left and the shown one's settings on the right, each with its value.
  * Resting on a category shows its settings; Right goes into them and Left comes back. Selecting a setting opens its
- * choices in a panel, and selecting one there calls [onChoose].
+ * choices in a panel, and selecting one there calls [onChoose]. Sources lists the installed [sources], and adds and
+ * removes them through [sourceActions].
  */
 @Composable
 fun SettingsScreen(
     settings: Settings,
     onChoose: (Setting, on: Boolean) -> Unit,
-) = RememberFocus { focus -> SettingsPage(settings, focus, onChoose) }
+    sources: SourcesState = SourcesState(emptyList()),
+    sourceActions: SourceActions = SourceActions(),
+) = RememberFocus { focus -> SettingsPage(settings, focus, onChoose, sources, sourceActions) }
 
 @Composable
 private fun SettingsPage(
     settings: Settings,
     focus: FocusMemory,
     onChoose: (Setting, on: Boolean) -> Unit,
+    sources: SourcesState,
+    sourceActions: SourceActions,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
@@ -151,6 +164,7 @@ private fun SettingsPage(
     var closed by remember { mutableStateOf<Setting?>(null) }
     val categories = remember { SettingsCategory.entries.associateWith { FocusRequester() } }
     val rows = remember { Setting.entries.associateWith { FocusRequester() } }
+    val sourcesUi = remember { SourcesUi() }
     LaunchedEffect(Unit) { focus.restoreOr { categories.getValue(shown).requestFocus() } }
     LaunchedEffect(closed) {
         closed?.let { rows.getValue(it).requestFocus() }
@@ -176,7 +190,9 @@ private fun SettingsPage(
                         Modifier
                             .focusRequester(categories.getValue(category))
                             .remembersFocus("category-${category.name}")
-                            .focusProperties { right = rows.getValue(category.settings.first()) },
+                            .focusProperties {
+                                right = category.settings.firstOrNull()?.let(rows::getValue) ?: sourcesUi.addSource
+                            },
                 )
             }
         }
@@ -199,6 +215,10 @@ private fun SettingsPage(
             },
             label = "category",
         ) { category ->
+            if (category == SettingsCategory.SOURCES) {
+                SourcesPane(sources, sourcesUi, categories.getValue(category))
+                return@AnimatedContent
+            }
             Column(verticalArrangement = Arrangement.spacedBy(RowGap)) {
                 Text(stringResource(category.intro), style = Intro, color = colors.textMuted, modifier = Modifier.padding(bottom = 6.dp))
                 category.settings.forEach { setting ->
@@ -215,43 +235,97 @@ private fun SettingsPage(
                 }
             }
         }
-        // The panel fades in with the screen dimming behind it and slides a little way in from the right, and back out.
-        // It keeps showing the setting it was opened for while it goes.
-        var panelFor by remember { mutableStateOf(open) }
-        if (open != null) panelFor = open
-        val duration = tween<Float>(dimensions.durationPanelMillis, easing = dimensions.easeStandard)
-        val slide = tween<IntOffset>(dimensions.durationPanelMillis, easing = dimensions.easeStandard)
-        AnimatedVisibility(visible = open != null, modifier = Modifier.fillMaxSize(), enter = fadeIn(duration), exit = fadeOut(duration)) {
-            val setting = panelFor ?: return@AnimatedVisibility
+        SlidingPanel(open) { setting, active, motion ->
             val close = {
                 open = null
                 closed = setting
             }
-            Box(Modifier.fillMaxSize()) {
-                ChoicesPanel(
-                    setting,
-                    on = settings.isOn(setting),
-                    active = open != null,
-                    onChoose = { on ->
-                        onChoose(setting, on)
-                        close()
-                    },
-                    onClose = close,
-                    modifier =
-                        Modifier.animateEnterExit(
-                            enter = slideInHorizontally(slide) { it / PANEL_SLIDE_PART },
-                            exit = slideOutHorizontally(slide) { it / PANEL_SLIDE_PART },
-                        ),
-                )
-            }
+            ChoicesPanel(
+                setting,
+                on = settings.isOn(setting),
+                active = active,
+                onChoose = { on ->
+                    onChoose(setting, on)
+                    close()
+                },
+                onClose = close,
+                modifier = motion,
+            )
         }
+        SourcesPanels(sources, sourcesUi, sourceActions)
+    }
+}
+
+/**
+ * A panel for [open] that fades in with the screen dimming behind it and slides a little way in from the right, and
+ * back out. It keeps showing what it was opened for while it goes, and is only [active] until then. [content] puts
+ * the motion on the panel.
+ */
+@Composable
+internal fun <T : Any> SlidingPanel(
+    open: T?,
+    content: @Composable BoxScope.(value: T, active: Boolean, motion: Modifier) -> Unit,
+) {
+    val dimensions = NeoTheme.dimensions
+    var shownFor by remember { mutableStateOf(open) }
+    if (open != null) shownFor = open
+    val duration = tween<Float>(dimensions.durationPanelMillis, easing = dimensions.easeStandard)
+    val slide = tween<IntOffset>(dimensions.durationPanelMillis, easing = dimensions.easeStandard)
+    AnimatedVisibility(visible = open != null, modifier = Modifier.fillMaxSize(), enter = fadeIn(duration), exit = fadeOut(duration)) {
+        val value = shownFor ?: return@AnimatedVisibility
+        val motion =
+            Modifier.animateEnterExit(
+                enter = slideInHorizontally(slide) { it / PANEL_SLIDE_PART },
+                exit = slideOutHorizontally(slide) { it / PANEL_SLIDE_PART },
+            )
+        Box(Modifier.fillMaxSize()) { content(value, open != null, motion) }
+    }
+}
+
+/**
+ * A dialog on the right, [width] wide, over the dimmed screen and named by [title] for TalkBack. Focus stays in it
+ * and Back calls [onClose] while it's [active]; once it isn't, as while it slides away, it lets them go.
+ */
+@Composable
+internal fun BoxScope.SidePanel(
+    title: String,
+    width: Dp,
+    active: Boolean,
+    onClose: () -> Unit,
+    modifier: Modifier,
+    tag: String = SETTINGS_PANEL_TAG,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    // Ahead of the navigation's own, so Back closes the panel and stays on Settings.
+    BackHandler(enabled = active, onBack = onClose)
+    Box(Modifier.fillMaxSize().background(NeoTheme.colors.scrimPlayer.copy(alpha = SCRIM_ALPHA)))
+    Row(modifier.align(Alignment.CenterEnd).fillMaxHeight()) {
+        Box(
+            Modifier
+                .fillMaxHeight()
+                .width(PanelShadow)
+                .background(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = PANEL_SHADOW_ALPHA)))),
+        )
+        Column(
+            Modifier
+                .testTag(tag)
+                .fillMaxHeight()
+                .width(width)
+                .background(NeoTheme.colors.surface)
+                .padding(horizontal = PanelPaddingX, vertical = NeoTheme.dimensions.safeY)
+                .semantics { paneTitle = title }
+                .focusProperties { onExit = { if (active) cancelFocusChange() } }
+                .focusGroup(),
+            verticalArrangement = Arrangement.spacedBy(PanelGap),
+            content = content,
+        )
     }
 }
 
 internal val ScreenTitle
     @Composable get() = NeoTheme.typography.headline.copy(fontSize = 26.sp, lineHeight = 32.sp)
 
-private val PaneTitle
+internal val PaneTitle
     @Composable get() = NeoTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp)
 
 // The whole line, so the settings under the intro start where the design has them.
@@ -377,45 +451,24 @@ private fun BoxScope.ChoicesPanel(
     val choices = remember { mapOf(false to FocusRequester(), true to FocusRequester()) }
     val text = setting.text()
     LaunchedEffect(Unit) { choices.getValue(on).requestFocus() }
-    // Ahead of the navigation's own, so Back closes the panel and stays on Settings.
-    BackHandler(enabled = active, onBack = onClose)
-    Box(Modifier.fillMaxSize().background(colors.scrimPlayer.copy(alpha = SCRIM_ALPHA)))
-    Row(modifier.align(Alignment.CenterEnd).fillMaxHeight()) {
-        Box(
-            Modifier
-                .fillMaxHeight()
-                .width(PanelShadow)
-                .background(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = PANEL_SHADOW_ALPHA)))),
+    SidePanel(stringResource(text.title), PanelWidth, active, onClose, modifier) {
+        Text(stringResource(text.title), style = PaneTitle, color = colors.paper)
+        Text(
+            stringResource(text.help),
+            style = NeoTheme.typography.caption.copy(lineHeight = 19.sp),
+            color = colors.textMuted,
+            modifier = Modifier.padding(bottom = 8.dp),
         )
-        Column(
-            Modifier
-                .testTag(SETTINGS_PANEL_TAG)
-                .fillMaxHeight()
-                .width(PanelWidth)
-                .background(colors.surface)
-                .padding(horizontal = PanelPaddingX, vertical = NeoTheme.dimensions.safeY)
-                .focusProperties { onExit = { if (active) cancelFocusChange() } }
-                .focusGroup(),
-            verticalArrangement = Arrangement.spacedBy(PanelGap),
-        ) {
-            Text(stringResource(text.title), style = PaneTitle, color = colors.paper)
-            Text(
-                stringResource(text.help),
-                style = NeoTheme.typography.caption.copy(lineHeight = 19.sp),
-                color = colors.textMuted,
-                modifier = Modifier.padding(bottom = 8.dp),
+        listOf(false, true).forEach { value ->
+            Choice(
+                stringResource(text.value(value)),
+                selected = value == on,
+                onClick = { onChoose(value) },
+                modifier =
+                    Modifier
+                        .testTag(settingChoiceTag(setting, value))
+                        .focusRequester(choices.getValue(value)),
             )
-            listOf(false, true).forEach { value ->
-                Choice(
-                    stringResource(text.value(value)),
-                    selected = value == on,
-                    onClick = { onChoose(value) },
-                    modifier =
-                        Modifier
-                            .testTag(settingChoiceTag(setting, value))
-                            .focusRequester(choices.getValue(value)),
-                )
-            }
         }
     }
 }
