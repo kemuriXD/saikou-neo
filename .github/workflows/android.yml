@@ -128,6 +128,7 @@ jobs:
           :app-tv:assemble${VARIANT}Debug
           :app-companion:lint${VARIANT}Debug :app-companion:test${VARIANT}DebugUnitTest
           :app-companion:assemble${VARIANT}Debug
+          :demo-source:testDebugUnitTest :demo-source:assembleDebug
 
       # Release builds go through R8, which can break a build that debug
       # builds miss. PRs skip this to stay quick; main runs catch it.

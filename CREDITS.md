@@ -35,5 +35,13 @@ The AniList, MyAnimeList, IMDb and Rotten Tomatoes logos on the Details screen
 are trademarks of their owners. They're shown only to say where each rating
 comes from.
 
+## Demo source
+
+The demo source plays two films by the [Blender Foundation](https://www.blender.org),
+both licensed under [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/):
+Tears of Steel, streamed from [Unified Streaming](https://www.unified-streaming.com)'s
+public demo with Blender's English subtitles, and Big Buck Bunny, streamed from [Mux](https://www.mux.com)'s
+public test streams.
+
 Libraries, fonts and the app's own artwork are listed in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
