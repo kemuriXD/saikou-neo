@@ -392,6 +392,22 @@ class PlayerViewModelTest {
     }
 
     @Test
+    fun playRequestCarriesTheDetailsArtwork() {
+        val state = ServersState(sources = listOf(SourceServers(demo, SourceAnswer.Found(listOf(one)))), ready = true)
+
+        val request = state.playRequest(demo, one, show, 7, null, backdrop = "https://example.com/backdrop.jpg")
+
+        assertEquals("https://example.com/backdrop.jpg", request.art)
+    }
+
+    @Test
+    fun withoutDetailsArtworkThePlayerUsesTheBanner() {
+        val banner = show.copy(card = show.card.copy(bannerImageUrl = "https://example.com/banner.jpg"))
+
+        assertEquals("https://example.com/banner.jpg", PlayRequest(banner, 7, null, servers, 0).art)
+    }
+
+    @Test
     fun playRequestKeepsToTheFilteredSource() {
         val state =
             ServersState(

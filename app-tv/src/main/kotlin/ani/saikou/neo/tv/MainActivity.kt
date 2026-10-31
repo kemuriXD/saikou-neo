@@ -186,7 +186,16 @@ class MainActivity : ComponentActivity() {
                                         show.card.displayTitle(),
                                         onPick = { source, server ->
                                             servers.pick(source, server)
-                                            openPlayer(serversState.playRequest(source, server, show, episode, episodeTitle))
+                                            openPlayer(
+                                                serversState.playRequest(
+                                                    source,
+                                                    server,
+                                                    show,
+                                                    episode,
+                                                    episodeTitle,
+                                                    (state as? DetailsState.Loaded)?.backdrop,
+                                                ),
+                                            )
                                         },
                                         onFilter = servers::filter,
                                         actions = StreamsActions(onRetry = servers::retry, onBack = back, onAddSource = openSources),

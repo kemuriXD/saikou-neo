@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.playback
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AnimeDetails
+import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -47,14 +48,21 @@ public data class PlayServer(
     val sourceServers: Int,
 )
 
-/** What the player opens with: the episode, and the [servers] the streams page listed, in its order, with the one [picked]. */
+/**
+ * What the player opens with: the episode, and the [servers] the streams page listed, in its order, with the one [picked].
+ * [backdrop] is the artwork Details showed, if it had any.
+ */
 public data class PlayRequest(
     val show: AnimeDetails,
     val episode: Int,
     val episodeTitle: String?,
     val servers: List<PlayServer>,
     val picked: Int,
-)
+    val backdrop: String? = null,
+) {
+    /** The artwork behind the player while it starts: the one Details showed, or else the show's banner or cover. */
+    val art: String? get() = backdrop ?: show.card.art
+}
 
 /** The servers shown on the page in its order, with [server] from [source] picked. */
 public fun ServersState.playRequest(
@@ -63,6 +71,7 @@ public fun ServersState.playRequest(
     show: AnimeDetails,
     episode: Int,
     episodeTitle: String?,
+    backdrop: String? = null,
 ): PlayRequest {
     val listed =
         shown.flatMap { entry ->
@@ -71,8 +80,8 @@ public fun ServersState.playRequest(
         }
     val picked = listed.indexOfFirst { it.source == source && it.server == server }
     // One no longer listed is still played, ahead of the rest.
-    if (picked < 0) return PlayRequest(show, episode, episodeTitle, listOf(PlayServer(source, server, 1)) + listed, 0)
-    return PlayRequest(show, episode, episodeTitle, listed, picked)
+    if (picked < 0) return PlayRequest(show, episode, episodeTitle, listOf(PlayServer(source, server, 1)) + listed, 0, backdrop)
+    return PlayRequest(show, episode, episodeTitle, listed, picked, backdrop)
 }
 
 /** Why the player stopped, as it tells the ViewModel. */

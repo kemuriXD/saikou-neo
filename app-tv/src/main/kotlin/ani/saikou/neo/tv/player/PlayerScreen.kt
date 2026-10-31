@@ -34,7 +34,6 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import ani.saikou.neo.extension.api.Stream
-import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.playback.PlayServer
 import ani.saikou.neo.shared.playback.PlayerError
@@ -47,6 +46,7 @@ import ani.saikou.neo.tv.details.failReasonText
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.parseColour
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.BlurTransformation
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoDialogButton
 import ani.saikou.neo.tv.ui.NeoDialogButtons
@@ -54,6 +54,7 @@ import ani.saikou.neo.tv.ui.NeoIcons
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
+import coil3.request.transformations
 
 internal const val PLAYER_STARTING_TAG = "player-starting"
 internal const val PLAYER_STOPPED_TAG = "player-stopped"
@@ -88,9 +89,10 @@ private const val STARTING_SCRIM_RIGHT = 0.5f
 private const val STOPPED_FILL = 0.96f
 private const val BODY_ALPHA = 0.8f
 
-// The art is drawn this small and stretched, which blurs it on every Android version. Blur effects need Android 12.
-private const val BACKDROP_WIDTH = 48
-private const val BACKDROP_HEIGHT = 27
+// The art is blurred at this size and stretched to fill the screen, which stays soft and costs little.
+private const val BACKDROP_WIDTH = 320
+private const val BACKDROP_HEIGHT = 180
+private const val BACKDROP_BLUR = 3
 
 /**
  * The player for [request]: the video full screen, with the show's blurred art and what's happening while it starts,
@@ -137,7 +139,7 @@ private fun BoxScope.Backdrop(
     request: PlayRequest,
     scrim: Brush,
 ) {
-    val art = request.show.card.art
+    val art = request.art
     if (art != null) {
         val context = LocalPlatformContext.current
         AsyncImage(
@@ -149,6 +151,7 @@ private fun BoxScope.Backdrop(
                         // Its own key, or Coil hands back the sharp copy Details already loaded.
                         .memoryCacheKey("$art#backdrop")
                         .size(BACKDROP_WIDTH, BACKDROP_HEIGHT)
+                        .transformations(BlurTransformation(BACKDROP_BLUR))
                         .build()
                 },
             contentDescription = null,
