@@ -270,6 +270,7 @@
     <string name="streams_rate_limited_minutes">Too many requests. Try again in %1$d min</string>
     <string name="streams_source_down">The site isn’t working right now</string>
     <string name="streams_wont_start">This source wouldn’t start</string>
+    <string name="streams_link_expired">The link stopped working</string>
     <string name="streams_no_sources_title">No sources installed yet</string>
     <string name="streams_no_sources_body">Saikou Neo doesn’t come with video sources. Add one with a link or code in Settings\u00A0>\u00A0Sources to play episode %1$d.</string>
     <string name="streams_add_source">Add a source</string>

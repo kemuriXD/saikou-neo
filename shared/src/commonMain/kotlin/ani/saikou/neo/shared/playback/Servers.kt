@@ -41,6 +41,9 @@ public sealed interface FailReason {
         val retryAfterSeconds: Long?,
     ) : FailReason
 
+    /** A link stopped working and a fresh one didn't help. */
+    public data object LinkExpired : FailReason
+
     /** The site isn't working, or the source failed in a way it didn't explain. */
     public data object SourceDown : FailReason
 

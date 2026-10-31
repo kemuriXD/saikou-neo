@@ -175,7 +175,7 @@ internal fun whyNothing(
 ): String =
     when (answer) {
         is SourceAnswer.Failed -> {
-            reason(answer.reason, title)
+            failReasonText(answer.reason, title)
         }
 
         is SourceAnswer.Found -> {
@@ -193,8 +193,9 @@ internal fun whyNothing(
         }
     }
 
+/** Why a source failed, in the words the streams page and the player both use. [title] is the show's. */
 @Composable
-private fun reason(
+internal fun failReasonText(
     reason: FailReason,
     title: String,
 ): String =
@@ -217,6 +218,10 @@ private fun reason(
 
         FailReason.WontStart -> {
             stringResource(R.string.streams_wont_start)
+        }
+
+        FailReason.LinkExpired -> {
+            stringResource(R.string.streams_link_expired)
         }
 
         is FailReason.RateLimited -> {
