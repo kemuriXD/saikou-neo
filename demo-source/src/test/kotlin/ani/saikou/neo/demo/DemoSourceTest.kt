@@ -5,6 +5,7 @@ import ani.saikou.neo.extension.api.AnimeIds
 import ani.saikou.neo.extension.api.AnimeTitles
 import ani.saikou.neo.extension.api.Edition
 import ani.saikou.neo.extension.api.Episode
+import ani.saikou.neo.extension.api.MediaRequest
 import ani.saikou.neo.extension.api.Server
 import ani.saikou.neo.extension.api.SourceException
 import ani.saikou.neo.extension.api.Stream
@@ -30,10 +31,11 @@ class DemoSourceTest {
             number = number,
         )
 
+    // The expired link gives a stream that fails once loaded, so it doesn't count.
     private suspend fun playable(): List<Pair<Server, Stream>> =
         source.servers(episode(1)).mapNotNull { server ->
             try {
-                server to source.stream(server)
+                (server to source.stream(server)).takeIf { it.second.mediaLoader == null }
             } catch (_: SourceException) {
                 null
             }
@@ -84,7 +86,8 @@ class DemoSourceTest {
             val failures =
                 source.servers(episode(1)).mapNotNull { server ->
                     try {
-                        source.stream(server)
+                        // The expired link fails when the player loads it, as a real one would.
+                        source.stream(server).mediaLoader?.open(MediaRequest(server.id, emptyMap(), 0, null))
                         null
                     } catch (error: SourceException) {
                         error::class
@@ -112,6 +115,18 @@ class DemoSourceTest {
                 fail("expected RateLimited")
             } catch (error: SourceException.RateLimited) {
                 assertNotNull(error.retryAfter)
+            }
+        }
+
+    @Test
+    fun theExpiredLinkPlaysUntilThePlayerLoadsIt() =
+        runTest {
+            val server = source.servers(episode(1)).single { it.id == "fails-link-expired" }
+            val loader = checkNotNull(source.stream(server).mediaLoader) { "expected a stream with a loader" }
+            try {
+                loader.open(MediaRequest("https://example.com/a.ts", emptyMap(), 0, null))
+                fail("expected LinkExpired")
+            } catch (_: SourceException.LinkExpired) {
             }
         }
 
