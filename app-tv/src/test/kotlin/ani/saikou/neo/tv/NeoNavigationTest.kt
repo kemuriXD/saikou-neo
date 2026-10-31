@@ -28,17 +28,17 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.home.HomeRow
+import ani.saikou.neo.shared.home.More
+import ani.saikou.neo.shared.home.SeeMoreState
 import ani.saikou.neo.shared.playback.FoundServer
 import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.playback.PlayServer
 import ani.saikou.neo.shared.playback.ServerEdition
-import ani.saikou.neo.shared.sources.InstalledSource
-import ani.saikou.neo.shared.home.More
-import ani.saikou.neo.shared.home.SeeMoreState
 import ani.saikou.neo.shared.search.SearchGenre
 import ani.saikou.neo.shared.search.SearchResults
 import ani.saikou.neo.shared.search.SearchState
 import ani.saikou.neo.shared.settings.Settings
+import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SPOTLIGHT_PLAY_TAG
 import ani.saikou.neo.tv.home.SeeMoreScreen
@@ -71,7 +71,14 @@ private val playRequest =
         AnimeDetails(card(0), null, null, 23, emptyList(), emptyList(), null),
         episode = 7,
         episodeTitle = null,
-        servers = listOf(PlayServer(InstalledSource("com.example.demo", "Demo source", "1.0.0"), FoundServer("1", "Server 1", ServerEdition.SUB, 24), 1)),
+        servers =
+            listOf(
+                PlayServer(
+                    InstalledSource("com.example.demo", "Demo source", "1.0.0"),
+                    FoundServer("1", "Server 1", ServerEdition.SUB, 24),
+                    1,
+                ),
+            ),
         picked = 0,
     )
 
