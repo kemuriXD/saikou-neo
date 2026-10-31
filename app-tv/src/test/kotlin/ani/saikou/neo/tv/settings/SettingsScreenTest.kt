@@ -1,7 +1,9 @@
 package ani.saikou.neo.tv.settings
 
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsDisplayed
@@ -82,6 +84,30 @@ class SettingsScreenTest {
         category(SettingsCategory.BROWSING).assertIsFocused().assertIsSelected()
         category(SettingsCategory.DISPLAY).assertIsNotSelected()
         panel().assertDoesNotExist()
+    }
+
+    // Opened from another screen, Settings can lose its first request while that screen fades out. Focus coming in
+    // afterwards still lands on the category it opened on.
+    @Test
+    fun focusComingInLandsOnTheCategoryShown() {
+        lateinit var focusManager: FocusManager
+        compose.setContent {
+            focusManager = LocalFocusManager.current
+            NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.SOURCES) }
+        }
+        compose.runOnIdle { focusManager.clearFocus(force = true) }
+
+        press(Key.DirectionDown)
+
+        category(SettingsCategory.SOURCES).assertIsFocused().assertIsSelected()
+    }
+
+    @Test
+    fun canOpenOnAnotherCategory() {
+        compose.setContent { NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.SOURCES) } }
+
+        category(SettingsCategory.SOURCES).assertIsFocused().assertIsSelected()
+        category(SettingsCategory.BROWSING).assertIsNotSelected()
     }
 
     // From the design, less the rail: the title on the safe area, categories under it and the settings beside them.

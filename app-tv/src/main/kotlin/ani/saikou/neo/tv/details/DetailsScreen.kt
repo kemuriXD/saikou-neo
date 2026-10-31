@@ -171,7 +171,7 @@ internal val seasonNames =
 /**
  * One anime over its dimmed art: what it is at the top, and an Overview with a short synopsis and the facts below.
  * Selecting the synopsis opens all of it, notes included. With [streams], selecting an episode shows its streams on the
- * lifted page, and Back returns to the episode.
+ * lifted page, and Back, or the page's own way back, returns to the episode.
  */
 @Composable
 fun DetailsScreen(
@@ -179,7 +179,7 @@ fun DetailsScreen(
     modifier: Modifier = Modifier,
     onOpen: (animeId: Int) -> Unit = {},
     onRecommendations: () -> Unit = {},
-    streams: (@Composable (episode: Int, modifier: Modifier) -> Unit)? = null,
+    streams: (@Composable (episode: Int, back: () -> Unit, modifier: Modifier) -> Unit)? = null,
 ) = RememberFocus { focus -> DetailsPage(state, focus, modifier, onOpen, onRecommendations, streams) }
 
 @Composable
@@ -189,7 +189,7 @@ private fun DetailsPage(
     modifier: Modifier,
     onOpen: (animeId: Int) -> Unit,
     onRecommendations: () -> Unit,
-    streams: (@Composable (episode: Int, modifier: Modifier) -> Unit)?,
+    streams: (@Composable (episode: Int, back: () -> Unit, modifier: Modifier) -> Unit)?,
 ) {
     var reading by rememberSaveable { mutableStateOf(false) }
     var hasRead by rememberSaveable { mutableStateOf(false) }
@@ -379,7 +379,7 @@ private fun DetailsPage(
                                 ?.firstOrNull { it.number == episode }
                                 ?.title,
                         )
-                        streams(episode, Modifier)
+                        streams(episode, { streamsFor = null }, Modifier)
                     }
                 }
                 AnimatedVisibility(visible = lifted, enter = fadeIn(), exit = fadeOut()) {

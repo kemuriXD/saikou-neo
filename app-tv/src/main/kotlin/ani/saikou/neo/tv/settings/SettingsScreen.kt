@@ -146,7 +146,7 @@ private const val PANEL_SLIDE_PART = 4
  * Settings: categories on the left and the shown one's settings on the right, each with its value.
  * Resting on a category shows its settings; Right goes into them and Left comes back. Selecting a setting opens its
  * choices in a panel, and selecting one there calls [onChoose] with it. Sources lists the installed [sources], and adds and
- * removes them through [sourceActions].
+ * removes them through [sourceActions]. It opens on [start].
  */
 @Composable
 fun SettingsScreen(
@@ -154,7 +154,8 @@ fun SettingsScreen(
     onChoose: (Setting, value: Any) -> Unit,
     sources: SourcesState = SourcesState(emptyList()),
     sourceActions: SourceActions = SourceActions(),
-) = RememberFocus { focus -> SettingsPage(settings, focus, onChoose, sources, sourceActions) }
+    start: SettingsCategory = SettingsCategory.BROWSING,
+) = RememberFocus { focus -> SettingsPage(settings, focus, onChoose, sources, sourceActions, start) }
 
 @Composable
 private fun SettingsPage(
@@ -163,10 +164,11 @@ private fun SettingsPage(
     onChoose: (Setting, value: Any) -> Unit,
     sources: SourcesState,
     sourceActions: SourceActions,
+    start: SettingsCategory,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
-    var shown by rememberSaveable { mutableStateOf(SettingsCategory.BROWSING) }
+    var shown by rememberSaveable { mutableStateOf(start) }
     var open by rememberSaveable { mutableStateOf<Setting?>(null) }
     // The setting whose panel just closed, to take focus back.
     var closed by remember { mutableStateOf<Setting?>(null) }
@@ -185,8 +187,14 @@ private fun SettingsPage(
             color = colors.paper,
             modifier = Modifier.padding(start = dimensions.gridMargin, top = dimensions.safeY),
         )
+        // Focus coming in lands on the category shown, not the first. Opened from another screen, the first request can
+        // be lost while that screen fades out, and focus then comes in from nowhere.
         Column(
-            Modifier.padding(start = dimensions.gridMargin, top = PaneTop).width(CategoryWidth),
+            Modifier
+                .padding(start = dimensions.gridMargin, top = PaneTop)
+                .width(CategoryWidth)
+                .focusProperties { onEnter = { categories.getValue(shown).requestFocus() } }
+                .focusGroup(),
             verticalArrangement = Arrangement.spacedBy(CategoryGap),
         ) {
             SettingsCategory.entries.forEach { category ->

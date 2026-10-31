@@ -53,6 +53,7 @@ import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.shared.playback.ServersState
 import ani.saikou.neo.shared.playback.SourceAnswer
 import ani.saikou.neo.shared.playback.SourceServers
+import ani.saikou.neo.shared.playback.StreamsOutcome
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.tv.R
@@ -80,15 +81,36 @@ private const val ROW_FOCUS_SCALE = 1.02f
 
 /**
  * An episode's streams: the best pick on the left, with chips to show one source, and each source's servers on the
- * right. Sources still looking say so while the others can be picked. Focus stays on the page, and starts on the best
- * pick once there is one, unless the viewer has moved by then.
+ * right. Sources still looking say so while the others can be picked. When nothing can play, it says why and offers
+ * the next step through [actions]. [title] names the show where a source couldn't find it. Focus stays on the page.
  */
 @Composable
 internal fun StreamsPage(
     state: ServersState,
+    episode: Int,
+    title: String,
     onPick: (InstalledSource, FoundServer) -> Unit,
     onFilter: (String?) -> Unit,
+    actions: StreamsActions,
     modifier: Modifier = Modifier,
+) {
+    val page = modifier.focusProperties { onExit = { cancelFocusChange() } }.focusGroup()
+    when (val outcome = state.outcome) {
+        StreamsOutcome.NoSources -> NoSources(episode, actions.onAddSource, page)
+        StreamsOutcome.NothingPlays -> NothingPlays(state, title, actions, page)
+        is StreamsOutcome.MissingEdition -> MissingEdition(episode, outcome.missing, outcome.have, actions.onBack, page)
+        null -> ServersList(state, title, onPick, onFilter, modifier)
+    }
+}
+
+/** The servers to pick from. Focus starts on the best pick once there is one, unless the viewer has moved by then. */
+@Composable
+private fun ServersList(
+    state: ServersState,
+    title: String,
+    onPick: (InstalledSource, FoundServer) -> Unit,
+    onFilter: (String?) -> Unit,
+    modifier: Modifier,
 ) {
     val dimensions = NeoTheme.dimensions
     val bestFocus = remember { FocusRequester() }
@@ -120,7 +142,7 @@ internal fun StreamsPage(
             verticalArrangement = Arrangement.spacedBy(dimensions.space2),
             contentPadding = PaddingValues(bottom = dimensions.space6),
         ) {
-            for (entry in state.shown) sourceServers(entry, state, onPick)
+            for (entry in state.shown) sourceServers(entry, state, title, onPick)
         }
     }
 }
@@ -128,6 +150,7 @@ internal fun StreamsPage(
 private fun androidx.compose.foundation.lazy.LazyListScope.sourceServers(
     entry: SourceServers,
     state: ServersState,
+    title: String,
     onPick: (InstalledSource, FoundServer) -> Unit,
 ) {
     val source = entry.source
@@ -145,13 +168,13 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sourceServers(
             }
         }
 
-        SourceAnswer.Failed -> {
-            item(key = "failed-${source.id}") { Quiet(source.name, stringResource(R.string.streams_failed)) }
+        is SourceAnswer.Failed -> {
+            item(key = "failed-${source.id}") { Quiet(source.name, whyNothing(answer, title, state.subOrDub)) }
         }
 
         is SourceAnswer.Found -> {
             if (answer.servers.isEmpty()) {
-                item(key = "none-${source.id}") { Quiet(source.name, stringResource(R.string.streams_none)) }
+                item(key = "none-${source.id}") { Quiet(source.name, whyNothing(answer, title, state.subOrDub)) }
             } else {
                 item(key = "heading-${source.id}") {
                     Heading(pluralStringResource(R.plurals.streams_source_servers, answer.servers.size, source.name, answer.servers.size))
@@ -379,7 +402,7 @@ private fun ServerRow(
 }
 
 @Composable
-private fun editionName(edition: ServerEdition) =
+internal fun editionName(edition: ServerEdition) =
     stringResource(
         when (edition) {
             ServerEdition.SUB -> R.string.streams_sub

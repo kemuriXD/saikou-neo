@@ -25,6 +25,35 @@ public data class FoundServer(
     val runtimeMinutes: Int?,
 )
 
+/** Why a source couldn't give its servers. */
+public sealed interface FailReason {
+    /** It didn't answer in time. */
+    public data object NoAnswer : FailReason
+
+    /** The site doesn't have the anime or episode. */
+    public data object NotFound : FailReason
+
+    /** The site refused the request. */
+    public data object Blocked : FailReason
+
+    /** Too many requests. Try again after [retryAfterSeconds], if the site said. */
+    public data class RateLimited(
+        val retryAfterSeconds: Long?,
+    ) : FailReason
+
+    /** The site isn't working, or the source failed in a way it didn't explain. */
+    public data object SourceDown : FailReason
+
+    /** The source couldn't be loaded or run. */
+    public data object WontStart : FailReason
+}
+
+/** Thrown by a [ServerFinder] when a source fails for a known [reason]. Anything else counts as [FailReason.SourceDown]. */
+public class SourceFailure(
+    public val reason: FailReason,
+    cause: Throwable? = null,
+) : Exception(cause)
+
 /** Asks an installed source which servers have an episode. The TV app loads the source and calls it. */
 public fun interface ServerFinder {
     /** The servers [source] has for [episode] of [show]. Throws when the source can't answer. */

@@ -213,6 +213,13 @@ object NeoIcons {
         }
     }
 
+    /** A plug, for an episode with no sources to play it. */
+    val Plug: ImageVector by lazy {
+        icon("Plug") {
+            svgStroke(2f, "M9 3v4M15 3v4M6 7h12v4c0 3.5-2.5 6-6 6s-6-2.5-6-6zM12 17v4")
+        }
+    }
+
     /** A triangle with an exclamation mark, always next to words that say what's wrong. */
     val Warning: ImageVector by lazy {
         icon("Warning") {

@@ -260,7 +260,23 @@
         <item quantity="other">%1$s · %2$d servers</item>
     </plurals>
     <string name="streams_still_looking">%1$s · still looking</string>
-    <string name="streams_none">Nothing to show here</string>
-    <string name="streams_failed">Couldn’t get servers</string>
+    <string name="streams_no_servers">No servers for this episode</string>
+    <string name="streams_only_edition">Only %1$s here</string>
+    <string name="streams_no_answer">Didn’t answer in %1$d s</string>
+    <string name="streams_not_found">Couldn’t find %1$s. Try another source.</string>
+    <string name="streams_blocked">The site blocked the request</string>
+    <string name="streams_rate_limited">Too many requests. Try again later</string>
+    <string name="streams_rate_limited_seconds">Too many requests. Try again in %1$d s</string>
+    <string name="streams_rate_limited_minutes">Too many requests. Try again in %1$d min</string>
+    <string name="streams_source_down">The site isn’t working right now</string>
+    <string name="streams_wont_start">This source wouldn’t start</string>
+    <string name="streams_no_sources_title">No sources installed yet</string>
+    <string name="streams_no_sources_body">Saikou Neo doesn’t come with video sources. Add one with a link or code in Settings\u00A0>\u00A0Sources to play episode %1$d.</string>
+    <string name="streams_add_source">Add a source</string>
+    <string name="streams_nothing_plays">No source could play this episode</string>
+    <string name="streams_try_again">Try again</string>
+    <string name="streams_back">Back to episodes</string>
+    <string name="streams_missing_title">No %1$s yet for episode %2$d</string>
+    <string name="streams_missing_body">Your sources only have %1$s for this one. You can change Sub or Dub in Settings\u00A0>\u00A0Playback.</string>
     <string name="streams_used">Last used</string>
 </resources>

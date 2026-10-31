@@ -47,6 +47,9 @@ sealed interface Screen {
         val section: ani.saikou.neo.tv.ui.Section,
     ) : Screen
 
+    /** Settings, on Sources, opened from an episode with no sources to play it. */
+    data object Sources : Screen
+
     /** The most popular anime of one genre, opened from Search. */
     data class Genre(
         val genre: SearchGenre,
@@ -74,6 +77,7 @@ private fun nextVisit(stack: List<Screen>) = (stack.filterIsInstance<Screen.Visi
 
 // Home is implied, so only the screens above it are saved, each as a letter and numbers: See more as "s" and its row's
 // position, a section as "t" and its position, a genre as "g" and its position, Details as "d" and its anime id and visit, and recommendations as "r" and theirs.
+// Settings opened on Sources is "o".
 private val BackStackSaver =
     listSaver<SnapshotStateList<Screen>, String>(
         save = { stack ->
@@ -82,6 +86,7 @@ private val BackStackSaver =
                     Screen.Home -> null
                     is Screen.SeeMore -> "s${screen.row.ordinal}"
                     is Screen.Section -> "t${screen.section.ordinal}"
+                    Screen.Sources -> "o"
                     is Screen.Genre -> "g${screen.genre.ordinal}"
                     is Screen.Details -> "d${screen.animeId}.${screen.visit}"
                     is Screen.Recommendations -> "r${screen.animeId}.${screen.visit}"
@@ -92,6 +97,7 @@ private val BackStackSaver =
             mutableStateListOf<Screen>(Screen.Home).apply {
                 addAll(
                     saved.map {
+                        if (it == "o") return@map Screen.Sources
                         val (number, visit) = it.drop(1).split('.').map(String::toInt) + 0
                         when (it.first()) {
                             's' -> Screen.SeeMore(HomeRow.entries[number])
@@ -108,7 +114,8 @@ private val BackStackSaver =
 
 /**
  * Moves between [home], a row's [seeMore] page and [details], which can open another show's Details or all of its
- * [recommendations]. The rail down the left of Home opens each [section]; Back from a section goes to Home. [search]
+ * [recommendations], or Settings on [sources]. The rail down the left of Home opens each [section]; Back from a section goes to
+ * Home. [search]
  * opens Details or a [genre]'s page, and [discover] opens Details. Each screen
  * keeps its saved state and ViewModels while it's on the back stack, so Back finds Home as it was left. Back on Home
  * leaves the app.
@@ -117,12 +124,18 @@ private val BackStackSaver =
 fun NeoNavigation(
     home: @Composable (openDetails: (animeId: Int) -> Unit, openSeeMore: (row: HomeRow) -> Unit) -> Unit,
     seeMore: @Composable (row: HomeRow, openDetails: (animeId: Int) -> Unit) -> Unit,
-    details: @Composable (animeId: Int, openDetails: (animeId: Int) -> Unit, openRecommendations: (animeId: Int) -> Unit) -> Unit,
+    details: @Composable (
+        animeId: Int,
+        openDetails: (animeId: Int) -> Unit,
+        openRecommendations: (animeId: Int) -> Unit,
+        openSources: () -> Unit,
+    ) -> Unit,
     recommendations: @Composable (animeId: Int, openDetails: (animeId: Int) -> Unit) -> Unit = { _, _ -> },
     section: @Composable (section: Section) -> Unit = { SectionPlaceholder(it) },
     search: @Composable (openDetails: (animeId: Int) -> Unit, openGenre: (genre: SearchGenre) -> Unit) -> Unit = { _, _ -> },
     genre: @Composable (genre: SearchGenre, openDetails: (animeId: Int) -> Unit) -> Unit = { _, _ -> },
     discover: @Composable (openDetails: (animeId: Int) -> Unit) -> Unit = { SectionPlaceholder(Section.DISCOVER) },
+    sources: @Composable () -> Unit = { section(Section.SETTINGS) },
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
     // Takes focus back from the rail to what last had it on Home.
@@ -180,9 +193,12 @@ fun NeoNavigation(
                         details(
                             it.animeId,
                             openDetails,
-                        ) { animeId -> backStack.add(Screen.Recommendations(animeId, nextVisit(backStack))) }
+                            { animeId -> backStack.add(Screen.Recommendations(animeId, nextVisit(backStack))) },
+                            { backStack.add(Screen.Sources) },
+                        )
                     }
                 }
+                entry<Screen.Sources> { it.TakesKeysOnTop { sources() } }
                 entry<Screen.Recommendations> { it.TakesKeysOnTop { recommendations(it.animeId, openDetails) } }
             },
     )
