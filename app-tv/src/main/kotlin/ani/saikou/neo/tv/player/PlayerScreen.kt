@@ -268,7 +268,14 @@ private fun BoxScope.Stopped(
             color = colors.paper,
         )
         Text(
-            phase.atMs?.let { stringResource(R.string.player_stopped_at, why, request.episode, formatPlaybackTime(it)) }
+            phase.atMs?.let {
+                stringResource(
+                    R.string.player_stopped_at,
+                    why,
+                    stringResource(R.string.streams_episode, request.episode),
+                    formatPlaybackTime(it),
+                )
+            }
                 ?: stringResource(R.string.player_stopped_why, why),
             style = typography.body.copy(lineHeight = 22.sp),
             color = colors.paper.copy(alpha = BODY_ALPHA),

@@ -291,7 +291,7 @@
     <string name="player_auto_next">If %1$s fails before the video starts, the next server is tried once.</string>
     <string name="player_stopped_title">%1$s stopped answering</string>
     <string name="player_stopped_why">%1$s.</string>
-    <string name="player_stopped_at">%1$s. E%2$d stopped at %3$s.</string>
+    <string name="player_stopped_at">%1$s. %2$s stopped at %3$s.</string>
     <string name="player_try_server">Try %1$s</string>
     <string name="player_choose_another">Choose another server</string>
     <string name="player_try_again">Try %1$s again</string>
