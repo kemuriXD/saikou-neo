@@ -62,20 +62,25 @@ class SourceIconFileTest {
 
     @Test
     fun anIconThatThrowsLeavesNoFile() {
-        val broken =
-            object : Drawable() {
-                override fun draw(canvas: Canvas) = throw IllegalStateException("broken")
-
-                override fun setAlpha(alpha: Int) {}
-
-                override fun setColorFilter(colorFilter: ColorFilter?) {}
-
-                @Deprecated("Deprecated in Java")
-                override fun getOpacity() = PixelFormat.OPAQUE
-            }
+        listOf(IllegalStateException("broken"), StackOverflowError(), OutOfMemoryError()).forEach { thrown ->
+            assertFalse(saveIcon(throwing(thrown), folder.newFile()))
+        }
         val file = folder.newFile("broken.png")
 
-        assertFalse(saveIcon(broken, file))
+        assertFalse(saveIcon(throwing(IllegalStateException("broken")), file))
         assertFalse(file.exists())
     }
+
+    // A layer list that holds itself, or a huge bitmap, fails with an Error rather than an exception.
+    private fun throwing(thrown: Throwable) =
+        object : Drawable() {
+            override fun draw(canvas: Canvas) = throw thrown
+
+            override fun setAlpha(alpha: Int) {}
+
+            override fun setColorFilter(colorFilter: ColorFilter?) {}
+
+            @Deprecated("Deprecated in Java")
+            override fun getOpacity() = PixelFormat.OPAQUE
+        }
 }

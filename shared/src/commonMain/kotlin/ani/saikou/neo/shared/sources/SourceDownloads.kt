@@ -30,19 +30,27 @@ public class SourceDownloads internal constructor(
     /** The file at [url], or null when it isn't allowed, can't be fetched, or is too big to be a source. */
     public suspend fun fetch(url: String): ByteArray? = download(url, maxBytes)
 
-    /** The logo at [url] (ADR 0028), or null when it isn't allowed, can't be fetched, or isn't a small enough PNG. */
-    public suspend fun fetchIcon(url: String): ByteArray? = download(url, maxIconBytes)?.takeIf(::isUsableIcon)
+    /**
+     * The logo at [url] (ADR 0028), or null when it isn't allowed, can't be fetched, or isn't a small enough PNG. A logo
+     * is fetched as soon as its list opens, with no click, so one at home is only fetched for a list [fromHome]. That
+     * stops a list from the internet making the TV call devices on the same network.
+     */
+    public suspend fun fetchIcon(
+        url: String,
+        fromHome: Boolean,
+    ): ByteArray? = download(url, maxIconBytes, allowHome = fromHome)?.takeIf(::isUsableIcon)
 
     private suspend fun download(
         url: String,
         maxBytes: Long,
+        allowHome: Boolean = true,
     ): ByteArray? =
         withContext(io) {
             try {
                 var next = url
                 var secure = false
                 repeat(MAX_REDIRECTS + 1) {
-                    if (!isAllowedSourceLink(next)) return@withContext null
+                    if (!isAllowedSourceLink(next) || (!allowHome && isHomeLink(next))) return@withContext null
                     if (next.startsWith("https://", ignoreCase = true)) {
                         secure = true
                     } else if (secure) {

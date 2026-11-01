@@ -5,6 +5,7 @@ import android.graphics.Canvas
 import android.graphics.drawable.AdaptiveIconDrawable
 import android.graphics.drawable.Drawable
 import android.os.Build
+import androidx.core.graphics.createBitmap
 import java.io.File
 
 /** The size of a saved logo: enough for the 40 dp tile on a 1080p TV (ADR 0028). */
@@ -19,7 +20,7 @@ internal fun saveIcon(
     icon: Drawable,
     file: File,
 ): Boolean {
-    val bitmap = Bitmap.createBitmap(ICON_PIXELS, ICON_PIXELS, Bitmap.Config.ARGB_8888)
+    val bitmap = createBitmap(ICON_PIXELS, ICON_PIXELS)
     return try {
         val canvas = Canvas(bitmap)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && icon is AdaptiveIconDrawable) {
@@ -37,6 +38,14 @@ internal fun saveIcon(
         file.outputStream().use { bitmap.compress(Bitmap.CompressFormat.PNG, 100, it) }
     } catch (_: RuntimeException) {
         // A source's own drawable can throw while it draws.
+        file.delete()
+        false
+    } catch (_: StackOverflowError) {
+        // A layer list that holds itself.
+        file.delete()
+        false
+    } catch (_: OutOfMemoryError) {
+        // A huge bitmap.
         file.delete()
         false
     } finally {

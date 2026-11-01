@@ -12,6 +12,8 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 
 /** Why a link or code didn't add a source. */
@@ -110,6 +112,9 @@ public class SourcesViewModel(
     // Kept apart from the check, so adding the ticked sources doesn't stop the logos arriving.
     private var iconLoads: Job? = null
 
+    // Whether the list being chosen from came from a link at home, which lets its logos come from home too.
+    private var listFromHome = false
+
     public val state: StateFlow<SourcesState> =
         combine(store.installed, adding, icons, ::SourcesState)
             .stateIn(viewModelScope, SharingStarted.Eagerly, SourcesState(store.installed.value, Adding.Idle))
@@ -127,13 +132,18 @@ public class SourcesViewModel(
             }
     }
 
-    /** Fetches the logo of each source in a list that names one, all at once. One that fails is simply left out. */
+    /** Fetches the logo of each source in a list that names one, a few at a time. One that fails is simply left out. */
     private fun loadIcons(choices: List<Choice>) {
+        val fromHome = listFromHome
+        val slots = Semaphore(ICONS_AT_ONCE)
         iconLoads =
             viewModelScope.launch {
                 for (choice in choices) {
                     val link = choice.source.icon ?: continue
-                    launch { downloads.fetchIcon(link)?.let { icon -> icons.update { it + (choice.source.id to icon) } } }
+                    launch {
+                        val icon = slots.withPermit { downloads.fetchIcon(link, fromHome) } ?: return@launch
+                        icons.update { it + (choice.source.id to icon) }
+                    }
                 }
             }
     }
@@ -152,7 +162,10 @@ public class SourcesViewModel(
             } ?: return Adding.Failed(AddError.NO_SUCH_CODE)
         if (!isAllowedSourceLink(url)) return Adding.Failed(AddError.NOT_SECURE)
         val file = downloads.fetch(url) ?: return Adding.Failed(AddError.NOT_A_SOURCE)
-        if (isSourceList(file)) return choose(withContext(work) { readSourceList(file) })
+        if (isSourceList(file)) {
+            listFromHome = isHomeLink(url)
+            return choose(withContext(work) { readSourceList(file) })
+        }
         val source = store.install(file) ?: return Adding.Failed(AddError.NOT_A_SOURCE)
         return if (source.problem == null) Adding.Added(source) else Adding.CantUse(source)
     }
@@ -239,6 +252,9 @@ public class SourcesViewModel(
         viewModelScope.launch { store.remove(id) }
     }
 }
+
+// A list can name 50 sources, so its logos come in a few at a time.
+private const val ICONS_AT_ONCE = 4
 
 /** [this] with the source [id] given [status]. A source that failed stays ticked, so Add tries it again. */
 private fun List<Choice>.withStatus(

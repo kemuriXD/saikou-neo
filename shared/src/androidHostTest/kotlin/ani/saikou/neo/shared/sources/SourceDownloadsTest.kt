@@ -145,9 +145,9 @@ class SourceDownloadsTest {
                 )
             val downloads = SourceDownloads(engine, maxIconBytes = icon.size + 39L)
 
-            assertContentEquals(icon, downloads.fetchIcon("https://example.com/latest.png"))
-            assertNull(downloads.fetchIcon("https://example.com/big.png"))
-            assertNull(downloads.fetchIcon("https://example.com/text.png"))
+            assertContentEquals(icon, downloads.fetchIcon("https://example.com/latest.png", fromHome = false))
+            assertNull(downloads.fetchIcon("https://example.com/big.png", fromHome = false))
+            assertNull(downloads.fetchIcon("https://example.com/text.png", fromHome = false))
             // An APK is held to its own, larger limit.
             assertContentEquals(icon + ByteArray(40), downloads.fetch("https://example.com/big.png"))
         }
@@ -157,8 +157,27 @@ class SourceDownloadsTest {
         runTest {
             val engine = PagesEngine(emptyMap(), mapOf("http://example.com/a.png" to png(96, 96)))
 
-            assertNull(SourceDownloads(engine).fetchIcon("http://example.com/a.png"))
+            assertNull(SourceDownloads(engine).fetchIcon("http://example.com/a.png", fromHome = false))
             assertEquals(emptyList(), engine.urls)
+        }
+
+    // A logo is fetched as soon as a list opens, with no click, so a list from the internet can't make the TV call
+    // devices at home, such as the router, even over https or through a redirect.
+    @Test
+    fun anIconAtHomeIsOnlyFetchedForAListFromHome() =
+        runTest {
+            val icon = png(96, 96)
+            val engine =
+                PagesEngine(
+                    mapOf("https://example.com/sneaky.png" to "->https://192.168.1.1/reboot"),
+                    mapOf("https://192.168.1.1/reboot" to icon, "http://192.168.1.20:8000/a.png" to icon),
+                )
+            val downloads = SourceDownloads(engine)
+
+            assertNull(downloads.fetchIcon("https://192.168.1.1/reboot", fromHome = false))
+            assertNull(downloads.fetchIcon("https://example.com/sneaky.png", fromHome = false))
+            assertEquals(listOf("https://example.com/sneaky.png"), engine.urls)
+            assertContentEquals(icon, downloads.fetchIcon("http://192.168.1.20:8000/a.png", fromHome = true))
         }
 
     @Test

@@ -35,6 +35,12 @@ public fun isAllowedSourceLink(url: String): Boolean {
     return scheme == "https" || isHome(host)
 }
 
+/** Whether [url] leads to an address at home, such as a PC or router on the same network, over either scheme. */
+public fun isHomeLink(url: String): Boolean {
+    val scheme = scheme(url) ?: return false
+    return host(url.substring(scheme.length + "://".length))?.let(::isHome) == true
+}
+
 private fun scheme(url: String): String? = listOf("https", "http").firstOrNull { url.startsWith("$it://", ignoreCase = true) }
 
 /**

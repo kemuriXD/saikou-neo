@@ -57,7 +57,7 @@ class ApkSourceStore(
                     folder
                         .listFiles { file -> file.name.endsWith(APK) }
                         .orEmpty()
-                        .mapNotNull { manifest(it)?.source?.withSavedIcon() }
+                        .mapNotNull { apk -> manifest(apk)?.let(::withIcon) }
                         .sorted()
             }
         }
@@ -146,8 +146,14 @@ class ApkSourceStore(
     /** Where the logo of the source with [id] is kept, next to its APK (ADR 0028). */
     private fun iconFile(id: String) = File(folder, id + PNG)
 
-    /** [this] with the logo saved when it was installed, if there is one. */
-    private fun InstalledSource.withSavedIcon() = copy(icon = iconFile(id).takeIf { it.exists() }?.path)
+    /**
+     * The source in [manifest] with the logo saved when it was installed. A source kept before logos were saved gets
+     * one now, if its APK has an icon.
+     */
+    private fun withIcon(manifest: Manifest): InstalledSource {
+        val saved = iconFile(manifest.source.id).takeIf { it.exists() }?.path
+        return manifest.source.copy(icon = saved ?: keepIcon(manifest))
+    }
 
     /**
      * Saves the icon the APK in [manifest] names, replacing any from an older copy, and returns its path. Null, with
@@ -162,6 +168,10 @@ class ApkSourceStore(
             try {
                 manifest.app.loadIcon(context.packageManager)
             } catch (_: RuntimeException) {
+                return null
+            } catch (_: OutOfMemoryError) {
+                return null
+            } catch (_: StackOverflowError) {
                 return null
             }
         return file.path.takeIf { saveIcon(icon, file) }

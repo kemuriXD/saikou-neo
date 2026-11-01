@@ -290,6 +290,24 @@ class SourcesViewModelTest {
         }
 
     @Test
+    fun onlyAListFromHomeCanShowALogoFromHome() =
+        test {
+            val home = """{ "sources": [ { "icon": "http://192.168.1.20/a.png", ${entry(starter, "starter.apk").drop(1)} ] }"""
+            val engine =
+                PagesEngine(
+                    mapOf("https://example.com/home-logo.json" to home, "http://192.168.1.20/list.json" to home),
+                    mapOf("http://192.168.1.20/a.png" to starterLogo),
+                )
+            val viewModel = SourcesViewModel(FakeStore(), ShortCodes(engine, main), SourceDownloads(engine, main), main)
+
+            viewModel.add("https://example.com/home-logo.json")
+            assertEquals(emptyMap(), viewModel.state.value.icons)
+
+            viewModel.add("http://192.168.1.20/list.json")
+            assertEquals(setOf(starter.id), viewModel.state.value.icons.keys)
+        }
+
+    @Test
     fun closingTheListOrAddingAnotherLinkDropsItsLogos() =
         test {
             val viewModel = viewModel()
