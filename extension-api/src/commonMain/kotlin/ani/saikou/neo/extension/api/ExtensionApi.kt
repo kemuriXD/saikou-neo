@@ -9,7 +9,7 @@ public object ExtensionApi {
      * The version a source is built against. A source declares it in its
      * manifest, which the app reads before loading any of its code.
      */
-    public const val VERSION: Int = 1
+    public const val VERSION: Int = 2
 
     /**
      * The oldest version a source can be built for and still run. It only goes
