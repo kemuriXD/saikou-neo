@@ -129,6 +129,9 @@ public class ControlsViewModel(
         }
     }
 
+    /** Left or Right was let go, so the next hold starts slow again. */
+    public fun released(): Unit = endHold()
+
     /** OK while scrubbing: gives where to seek, and ends the scrub. */
     public fun jump(): Long? {
         val target = state.value.scrub?.targetMs ?: return null

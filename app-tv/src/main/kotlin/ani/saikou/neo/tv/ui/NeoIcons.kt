@@ -240,6 +240,38 @@ object NeoIcons {
             svgStroke(2f, "M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2M6 6l1 14a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-14")
         }
     }
+
+    /** Two bars, for Pause. */
+    val Pause: ImageVector by lazy {
+        icon("Pause") {
+            addPath(
+                pathData =
+                    addPathNodes(
+                        "M7 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" +
+                            "M15 5h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z",
+                    ),
+                fill = SolidColor(Color.Black),
+            )
+        }
+    }
+
+    /** Two stills with lines beside them, for Episodes. */
+    val Episodes: ImageVector by lazy {
+        icon("Episodes") {
+            svgStroke(
+                2f,
+                "M4.5 5h4A1.5 1.5 0 0 1 10 6.5v3A1.5 1.5 0 0 1 8.5 11h-4A1.5 1.5 0 0 1 3 9.5v-3A1.5 1.5 0 0 1 4.5 5zM13 7h8" +
+                    "M4.5 13h4a1.5 1.5 0 0 1 1.5 1.5v3A1.5 1.5 0 0 1 8.5 19h-4A1.5 1.5 0 0 1 3 17.5v-3A1.5 1.5 0 0 1 4.5 13zM13 15h8",
+            )
+        }
+    }
+
+    /** A screen with lines of text, for Audio and subtitles. */
+    val Subtitles: ImageVector by lazy {
+        icon("Subtitles") {
+            svgStroke(2f, "M5 5h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM7 11h3M13 11h4M7 15h7")
+        }
+    }
 }
 
 /** A circle around ([x], [y]), drawn as two half arcs. */

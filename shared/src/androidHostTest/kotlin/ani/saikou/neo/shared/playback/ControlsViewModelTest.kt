@@ -134,6 +134,17 @@ class ControlsViewModelTest {
         }
 
     @Test
+    fun lettingGoEndsTheHold() =
+        test {
+            controls.scrub(forward = true, held = true, positionMs = 100_000, durationMs = LENGTH)
+            controls.released()
+            advanceTimeBy(5.seconds)
+
+            controls.scrub(forward = true, held = true, positionMs = 100_000, durationMs = LENGTH)
+            assertEquals(120_000L, state.scrub?.targetMs)
+        }
+
+    @Test
     fun scrubbingStopsAtTheStartAndTheEnd() {
         controls.scrub(forward = false, held = false, positionMs = 4_000, durationMs = LENGTH)
         assertEquals(0L, state.scrub?.targetMs)

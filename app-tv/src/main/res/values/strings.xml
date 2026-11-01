@@ -298,4 +298,32 @@
     <string name="player_server_edition">%1$s, %2$s</string>
     <string name="player_footer">%1$s · %2$s</string>
     <string name="player_footer_code">%1$s · %2$s · error %3$d</string>
+    <!-- The controls over the video: source · server · quality · edition. -->
+    <string name="player_stream_line">%1$s · %2$s · %3$dp · %4$s</string>
+    <string name="player_time">%1$s / %2$s</string>
+    <string name="player_time_part">%1$s / %2$s · %3$s</string>
+    <string name="player_ends">Ends %1$s</string>
+    <string name="player_part_episode">Episode</string>
+    <string name="player_part_recap">Recap</string>
+    <string name="player_part_opening">Opening</string>
+    <string name="player_part_ending">Ending</string>
+    <string name="player_part_preview">Preview</string>
+    <string name="player_play">Play</string>
+    <string name="player_pause">Pause</string>
+    <string name="player_position">Position</string>
+    <string name="player_episodes">Episodes</string>
+    <string name="player_audio_subtitles">Audio and subtitles</string>
+    <string name="player_quality">%1$dp</string>
+    <string name="player_speed">%1$s×</string>
+    <string name="player_next">Next</string>
+    <!-- Quick presses of Left or Right, added up, such as −20 s or +10 s. -->
+    <string name="player_nudge">%1$s%2$d s</string>
+    <string name="player_scrub_jump">· %1$s</string>
+    <!-- Hints while scrubbing: the key in bold, then what it does. -->
+    <string name="player_key_ok">OK</string>
+    <string name="player_hint_jump">jump here</string>
+    <string name="player_key_back">Back</string>
+    <string name="player_hint_stay">stay at %1$s</string>
+    <string name="player_key_hold">Hold</string>
+    <string name="player_hint_faster">scrub faster</string>
 </resources>
