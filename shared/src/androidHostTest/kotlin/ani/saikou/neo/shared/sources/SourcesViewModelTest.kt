@@ -12,6 +12,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlin.test.AfterTest
 import kotlin.test.Test
+import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
@@ -31,7 +32,14 @@ private fun entry(
     source: InstalledSource,
     apk: String,
     api: Int = 1,
-) = """{ "id": "${source.id}", "name": "${source.name}", "version": "${source.version}", "api": $api, "apk": "https://example.com/$apk" }"""
+    icon: String? = null,
+): String {
+    val logo = icon?.let { """, "icon": "https://example.com/$it"""" }.orEmpty()
+    val fields = """"id": "${source.id}", "name": "${source.name}", "version": "${source.version}", "api": $api"""
+    return """{ $fields, "apk": "https://example.com/$apk"$logo }"""
+}
+
+private val starterLogo = png(96, 96)
 
 private fun list(vararg entries: String) = """{ "sources": [ ${entries.joinToString()} ] }"""
 
@@ -115,10 +123,18 @@ class SourcesViewModelTest {
             "https://example.com/stale.json" to list(entry(starter, "newer-starter.apk"), entry(demo, "demo.apk")),
             "https://example.com/beta.json" to
                 list(entry(starter.copy(version = "1.3.0-beta.1"), "starter.apk"), entry(demo.copy(version = "v1.1.0"), "demo.apk")),
+            "https://example.com/logos.json" to
+                list(
+                    entry(starter, "starter.apk", icon = "starter.png"),
+                    entry(demo, "demo.apk", icon = "huge.png"),
+                    entry(example, "source.apk"),
+                ),
         )
 
+    private val files = mapOf("https://example.com/starter.png" to starterLogo, "https://example.com/huge.png" to png(4096, 4096))
+
     private fun viewModel(store: SourceStore = FakeStore()): SourcesViewModel {
-        val engine = PagesEngine(pages)
+        val engine = PagesEngine(pages, files)
         return SourcesViewModel(store, ShortCodes(engine, main), SourceDownloads(engine, main), main)
     }
 
@@ -259,6 +275,51 @@ class SourcesViewModelTest {
         }
 
     private val SourcesViewModel.choosing get() = state.value.adding as Adding.Choosing
+
+    @Test
+    fun aListShowsTheLogosItCanFetch() =
+        test {
+            val viewModel = viewModel()
+
+            viewModel.add("https://example.com/logos.json")
+
+            // The demo's logo is too big to draw, so it has none, but it can still be picked.
+            assertEquals(setOf(starter.id), viewModel.state.value.icons.keys)
+            assertContentEquals(starterLogo, viewModel.state.value.icons[starter.id])
+            assertEquals(3, viewModel.choosing.choices.count { it.status.canPick })
+        }
+
+    @Test
+    fun onlyAListFromHomeCanShowALogoFromHome() =
+        test {
+            val home = """{ "sources": [ { "icon": "http://192.168.1.20/a.png", ${entry(starter, "starter.apk").drop(1)} ] }"""
+            val engine =
+                PagesEngine(
+                    mapOf("https://example.com/home-logo.json" to home, "http://192.168.1.20/list.json" to home),
+                    mapOf("http://192.168.1.20/a.png" to starterLogo),
+                )
+            val viewModel = SourcesViewModel(FakeStore(), ShortCodes(engine, main), SourceDownloads(engine, main), main)
+
+            viewModel.add("https://example.com/home-logo.json")
+            assertEquals(emptyMap(), viewModel.state.value.icons)
+
+            viewModel.add("http://192.168.1.20/list.json")
+            assertEquals(setOf(starter.id), viewModel.state.value.icons.keys)
+        }
+
+    @Test
+    fun closingTheListOrAddingAnotherLinkDropsItsLogos() =
+        test {
+            val viewModel = viewModel()
+            viewModel.add("https://example.com/logos.json")
+
+            viewModel.dismiss()
+            assertEquals(emptyMap(), viewModel.state.value.icons)
+
+            viewModel.add("https://example.com/logos.json")
+            viewModel.add("https://example.com/two.json")
+            assertEquals(emptyMap(), viewModel.state.value.icons)
+        }
 
     @Test
     fun aListShowsItsSourcesWithNoneTicked() =

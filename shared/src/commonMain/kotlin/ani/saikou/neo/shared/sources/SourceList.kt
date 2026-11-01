@@ -7,13 +7,17 @@ import com.apollographql.apollo.exception.ApolloException
 import okio.Buffer
 import okio.IOException
 
-/** A source as a list names it (ADR 0025): its id, name, version, the API version it was built for, and its APK. */
+/**
+ * A source as a list names it (ADR 0025): its id, name, version, the API version it was built for, its APK, and a link
+ * to its logo when the list has one the app would download (ADR 0028).
+ */
 public data class ListedSource(
     val id: String,
     val name: String,
     val version: String,
     val api: Int,
     val apk: String,
+    val icon: String? = null,
 )
 
 /** A source's id: its package name. */
@@ -75,7 +79,9 @@ private fun Map<String, String>.toSource(): ListedSource? {
     val version = get("version")?.shown() ?: return null
     val api = get("api")?.toIntOrNull() ?: return null
     val apk = get("apk")?.takeIf { isAllowedSourceLink(it) } ?: return null
-    return ListedSource(id, name, version, api, apk)
+    // A logo is only for show, so a bad one leaves the entry without it rather than dropping the entry.
+    val icon = get("icon")?.takeIf { isAllowedSourceLink(it) }
+    return ListedSource(id, name, version, api, apk, icon)
 }
 
 /**

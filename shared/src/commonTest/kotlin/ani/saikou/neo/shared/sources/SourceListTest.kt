@@ -48,6 +48,21 @@ class SourceListTest {
     }
 
     @Test
+    fun readsAnIconLink() {
+        val text = """{ "sources": [ { "icon": "https://example.com/starter.png", ${entry().drop(1)} ] }"""
+
+        assertEquals("https://example.com/starter.png", readSourceList(text.encodeToByteArray())?.single()?.icon)
+    }
+
+    @Test
+    fun keepsAnEntryWhoseIconLinkIsNotAllowed() {
+        val icons = listOf("\"http://example.com/starter.png\"", "\"javascript:alert(1)\"", "\"\"", "7")
+        val read = icons.map { readSourceList("""{ "sources": [ { "icon": $it, ${entry().drop(1)} ] }""".encodeToByteArray()) }
+
+        assertEquals(icons.map { listOf(starter) }, read)
+    }
+
+    @Test
     fun keepsTheFirstEntryForAnId() {
         val again = entry(name = "\"Another\"")
 
