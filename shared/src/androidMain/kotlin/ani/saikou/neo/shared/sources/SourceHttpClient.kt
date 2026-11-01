@@ -37,8 +37,14 @@ internal class SourceHttpClient(
         }
 }
 
-/** The shared client. The pinned User-Agent is forced on every request, so a source can't change it. */
-internal fun sharedHttpClient(cookieJar: CookieJar = InMemoryCookieJar()): OkHttpClient =
+/**
+ * The shared client. The pinned User-Agent is forced on every request, so a source can't change it. With a [clearer] it
+ * also clears Cloudflare and keeps the clearance in [cookieJar] for later requests and the player.
+ */
+internal fun sharedHttpClient(
+    cookieJar: CookieJar = InMemoryCookieJar(),
+    clearer: CloudflareClearer? = null,
+): OkHttpClient =
     OkHttpClient
         .Builder()
         .cookieJar(cookieJar)
@@ -52,7 +58,8 @@ internal fun sharedHttpClient(cookieJar: CookieJar = InMemoryCookieJar()): OkHtt
                     .header("User-Agent", SOURCE_USER_AGENT)
                     .build(),
             )
-        }.build()
+        }.apply { if (clearer != null) addInterceptor(CloudflareInterceptor(clearer)) }
+        .build()
 
 private fun HostRequest.toOkHttpRequest(): Request {
     val builder = Request.Builder().url(url)
