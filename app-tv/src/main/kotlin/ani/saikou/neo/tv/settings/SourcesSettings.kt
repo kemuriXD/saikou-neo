@@ -47,7 +47,7 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -65,6 +65,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.SoftwareKeyboardControllerCompat
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
@@ -480,7 +481,10 @@ private fun BoxScope.AddPanel(
     val colors = NeoTheme.colors
     val text = rememberTextFieldState()
     val field = remember { FocusRequester() }
-    val keyboard = LocalSoftwareKeyboardController.current
+    // LocalSoftwareKeyboardController can't open the keyboard for a BasicTextField whose session we don't
+    // show on focus, so ask the IME for this view directly (same thing a tap would do).
+    val view = LocalView.current
+    val keyboard = remember(view) { SoftwareKeyboardControllerCompat(view) }
     var focused by remember { mutableStateOf(false) }
     val checking = adding == Adding.Checking
     val add = { if (!checking) onAdd(text.text.toString()) }
@@ -506,7 +510,7 @@ private fun BoxScope.AddPanel(
                     // OK opens the keyboard, so moving through the panel doesn't.
                     .onPreviewKeyEvent { event ->
                         val ok = event.key == Key.DirectionCenter || event.key == Key.Enter
-                        if (ok && event.type == KeyEventType.KeyUp) keyboard?.show()
+                        if (ok && event.type == KeyEventType.KeyUp) keyboard.show()
                         ok
                     }.semantics { contentDescription = label },
             textStyle = NeoTheme.typography.body.copy(fontSize = 16.sp, color = colors.paper),
@@ -518,7 +522,7 @@ private fun BoxScope.AddPanel(
                     showKeyboardOnFocus = false,
                 ),
             onKeyboardAction = {
-                keyboard?.hide()
+                keyboard.hide()
                 add()
             },
             lineLimits = TextFieldLineLimits.SingleLine,
