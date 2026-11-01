@@ -213,6 +213,16 @@ class PlayerControlsTest {
     }
 
     @Test
+    fun upFromPlayAndPauseGoesBackToTheBar() {
+        show()
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+        press(Key.DirectionUp)
+
+        compose.onNodeWithTag(PLAYER_BAR_TAG).assertIsFocused()
+    }
+
+    @Test
     fun backHidesTheControls() {
         show()
         press(Key.DirectionDown)

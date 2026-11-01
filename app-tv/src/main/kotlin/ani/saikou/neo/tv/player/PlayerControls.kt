@@ -230,9 +230,9 @@ internal fun BoxScope.PlayerControls(
                 !(shown.shown && onBar && !scrubbing)
             }
 
-            // The episodes drawer comes with #243.
+            // From the buttons, Up goes back to the bar. Elsewhere it waits for the episodes drawer (#243).
             Key.DirectionUp -> {
-                true
+                !(shown.shown && !onBar && !scrubbing)
             }
 
             else -> {
