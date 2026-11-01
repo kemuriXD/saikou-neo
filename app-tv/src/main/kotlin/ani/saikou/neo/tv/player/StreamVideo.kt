@@ -24,6 +24,7 @@ import ani.saikou.neo.shared.playback.PlayerError
 import ani.saikou.neo.shared.playback.PlayerPhase
 import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.ServerEdition
+import okhttp3.Call
 
 /**
  * Plays each stream [state] hands over, from its start position, and says when the video [onStarted] or the player
@@ -38,6 +39,7 @@ internal fun StreamVideo(
     playback: ExoPlayback,
     onStarted: () -> Unit,
     onFailed: (PlayerError, positionMs: Long) -> Unit,
+    callFactory: Call.Factory,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -67,7 +69,7 @@ internal fun StreamVideo(
     // A new stream: a new server, the same one again, or a fresh link.
     LaunchedEffect(state.load) {
         val answered = (state.phase as? PlayerPhase.Starting)?.answered ?: return@LaunchedEffect
-        player.setMediaSource(answered.stream.mediaSource(context, edition), state.startAtMs)
+        player.setMediaSource(answered.stream.mediaSource(context, edition, callFactory), state.startAtMs)
         player.prepare()
         player.playWhenReady = true
     }

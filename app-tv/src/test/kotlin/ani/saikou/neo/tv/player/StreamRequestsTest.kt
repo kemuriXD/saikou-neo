@@ -10,6 +10,7 @@ import ani.saikou.neo.extension.api.Quality
 import ani.saikou.neo.extension.api.Stream
 import ani.saikou.neo.extension.api.StreamFormat
 import com.sun.net.httpserver.HttpServer
+import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertSame
@@ -72,12 +73,14 @@ class StreamRequestsTest {
     @After
     fun stop() = server.stop(0)
 
+    private val client = OkHttpClient()
+
     private fun open(
         stream: Stream,
         url: String,
         position: Long = 0,
         length: Long = C.LENGTH_UNSET.toLong(),
-    ) = stream.dataSourceFactory().createDataSource().also {
+    ) = stream.dataSourceFactory(client).createDataSource().also {
         it.open(
             DataSpec
                 .Builder()
@@ -96,6 +99,28 @@ class StreamRequestsTest {
         listOf("$base/playlist.m3u8", "$base/subtitles.srt").forEach { open(stream(), it).close() }
 
         assertEquals(listOf(headers, headers), received.toList())
+    }
+
+    @Test
+    fun theHttpPathStreamsThroughTheGivenClient() {
+        serve()
+        val seen = CopyOnWriteArrayList<String>()
+        // A stream with no media loader of its own reads over HTTP; that HTTP has to go through the shared client.
+        val tagged =
+            OkHttpClient
+                .Builder()
+                .addInterceptor { chain ->
+                    seen += chain.request().url.toString()
+                    chain.proceed(chain.request())
+                }.build()
+        val base = "http://127.0.0.1:${server.address.port}"
+
+        stream().dataSourceFactory(tagged).createDataSource().also {
+            it.open(DataSpec.Builder().setUri(Uri.parse("$base/x.m3u8")).build())
+            it.close()
+        }
+
+        assertTrue(seen.any { it.endsWith("/x.m3u8") })
     }
 
     @Test
@@ -130,7 +155,7 @@ class StreamRequestsTest {
     @Test
     fun anErrorFromTheLoaderBecomesAnIoException() {
         val thrown = StackOverflowError("A broken source")
-        val source = stream({ throw thrown }).dataSourceFactory().createDataSource()
+        val source = stream({ throw thrown }).dataSourceFactory(client).createDataSource()
 
         val error = assertThrows(IOException::class.java) { source.open(DataSpec(Uri.parse("https://example.com/a.ts"))) }
 
@@ -158,7 +183,7 @@ class StreamRequestsTest {
 
     @Test
     fun anInterruptedLoaderStaysInterrupted() {
-        val source = stream({ throw InterruptedException("Stopped") }).dataSourceFactory().createDataSource()
+        val source = stream({ throw InterruptedException("Stopped") }).dataSourceFactory(client).createDataSource()
 
         try {
             assertThrows(InterruptedIOException::class.java) { source.open(DataSpec(Uri.parse("https://example.com/a.ts"))) }

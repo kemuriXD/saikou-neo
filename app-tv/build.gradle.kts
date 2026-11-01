@@ -66,6 +66,8 @@ dependencies {
     implementation(libs.media3.exoplayer.hls)
     implementation(libs.media3.exoplayer.dash)
     implementation(libs.media3.ui)
+    // The player streams through the app's shared OkHttp client, so clearance and cookies carry into playback.
+    implementation(libs.media3.datasource.okhttp)
 
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)

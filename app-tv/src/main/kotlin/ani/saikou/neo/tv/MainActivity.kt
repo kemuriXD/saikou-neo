@@ -282,7 +282,14 @@ class MainActivity : ComponentActivity() {
                                 playback,
                                 viewModel { ControlsViewModel() },
                                 video = {
-                                    StreamVideo(state, state.server.server.edition, playback, player::started, player::failed)
+                                    StreamVideo(
+                                        state,
+                                        state.server.server.edition,
+                                        playback,
+                                        player::started,
+                                        player::failed,
+                                        app.sourceHost.client,
+                                    )
                                 },
                             )
                         },
