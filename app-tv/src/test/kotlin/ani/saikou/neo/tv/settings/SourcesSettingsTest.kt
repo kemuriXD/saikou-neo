@@ -1,5 +1,7 @@
 package ani.saikou.neo.tv.settings
 
+import android.content.Context
+import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.input.key.Key
@@ -19,6 +21,7 @@ import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.test.pressKey
@@ -39,6 +42,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 private val example = InstalledSource("ani.saikou.neo.example", "Example source", "1.4.0")
@@ -164,6 +168,40 @@ class SourcesSettingsTest {
         compose.onNodeWithText("Add").performClickByKey()
 
         assertEquals(listOf("https://example.com/source.apk"), added)
+    }
+
+    @Test
+    @Config(sdk = [29])
+    fun okOnTheFieldOpensTheKeyboard() {
+        show(SourcesState(emptyList()))
+        press(Key.DirectionCenter)
+
+        val imm = compose.activity.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        // The field is focused when the panel opens, but the keyboard stays down until OK.
+        compose.onNodeWithTag(SOURCE_FIELD_TAG).assertIsFocused()
+        assertEquals(false, shadowOf(imm).isSoftInputVisible)
+
+        press(Key.DirectionCenter)
+
+        assertEquals(true, shadowOf(imm).isSoftInputVisible)
+    }
+
+    @Test
+    @Config(sdk = [29])
+    fun doneOnTheKeyboardClosesItAndSendsTheLink() {
+        show(SourcesState(emptyList()))
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(SOURCE_FIELD_TAG).performTextInput("abc")
+
+        val imm = compose.activity.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        press(Key.DirectionCenter)
+        assertEquals(true, shadowOf(imm).isSoftInputVisible)
+
+        compose.onNodeWithTag(SOURCE_FIELD_TAG).performImeAction()
+        compose.waitForIdle()
+
+        assertEquals(false, shadowOf(imm).isSoftInputVisible)
+        assertEquals(listOf("abc"), added)
     }
 
     @Test
