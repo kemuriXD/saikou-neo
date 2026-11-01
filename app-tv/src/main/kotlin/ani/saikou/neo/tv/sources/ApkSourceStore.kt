@@ -1,6 +1,7 @@
 package ani.saikou.neo.tv.sources
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageInfo
 import android.content.pm.PackageManager
 import android.os.Build
@@ -56,7 +57,7 @@ class ApkSourceStore(
                     folder
                         .listFiles { file -> file.name.endsWith(APK) }
                         .orEmpty()
-                        .mapNotNull { manifest(it)?.source }
+                        .mapNotNull { manifest(it)?.source?.withSavedIcon() }
                         .sorted()
             }
         }
@@ -81,16 +82,16 @@ class ApkSourceStore(
             // Android 14 and later only load code from files that can't be written.
             incoming.setReadOnly()
             val manifest = manifest(incoming) ?: return null
-            val source = manifest.source
-            if (id != null && source.id != id) return null
-            if (source.problem != null) return source
+            if (id != null && manifest.source.id != id) return null
+            if (manifest.source.problem != null) return manifest.source
             // Loaded once here so a source whose code doesn't fit is never kept.
-            if (load(incoming, manifest.className) == null) return source.copy(problem = SourceProblem.BROKEN)
+            if (load(incoming, manifest.className) == null) return manifest.source.copy(problem = SourceProblem.BROKEN)
             folder.mkdirs()
-            val kept = File(folder, source.id + APK)
+            val kept = File(folder, manifest.source.id + APK)
             kept.delete()
             incoming.copyTo(kept)
             kept.setReadOnly()
+            val source = manifest.source.copy(icon = keepIcon(manifest))
             loaded.remove(source.id)
             sources.value = (sources.value.orEmpty().filter { it.id != source.id } + source).sorted()
             source
@@ -108,6 +109,7 @@ class ApkSourceStore(
                 // Only a listed id names a file here.
                 if (listed.any { it.id == id }) {
                     File(folder, id + APK).delete()
+                    iconFile(id).delete()
                     loaded.remove(id)
                     sources.value = listed.filter { it.id != id }
                 }
@@ -138,7 +140,32 @@ class ApkSourceStore(
     private class Manifest(
         val source: InstalledSource,
         val className: String,
+        val app: ApplicationInfo,
     )
+
+    /** Where the logo of the source with [id] is kept, next to its APK (ADR 0028). */
+    private fun iconFile(id: String) = File(folder, id + PNG)
+
+    /** [this] with the logo saved when it was installed, if there is one. */
+    private fun InstalledSource.withSavedIcon() = copy(icon = iconFile(id).takeIf { it.exists() }?.path)
+
+    /**
+     * Saves the icon the APK in [manifest] names, replacing any from an older copy, and returns its path. Null, with
+     * any older logo removed, when the APK names no icon or it can't be drawn.
+     */
+    private fun keepIcon(manifest: Manifest): String? {
+        val file = iconFile(manifest.source.id)
+        file.delete()
+        // With no icon of its own, loadIcon would give Android's default one.
+        if (manifest.app.icon == 0) return null
+        val icon =
+            try {
+                manifest.app.loadIcon(context.packageManager)
+            } catch (_: RuntimeException) {
+                return null
+            }
+        return file.path.takeIf { saveIcon(icon, file) }
+    }
 
     /** What [apk]'s manifest says about the source, or null when it isn't a source. */
     private fun manifest(apk: File): Manifest? {
@@ -155,7 +182,7 @@ class ApkSourceStore(
         app.publicSourceDir = apk.path
         val name = app.loadLabel(packages).toString().take(MAX_TEXT)
         val version = info.versionName.orEmpty().take(MAX_TEXT)
-        return Manifest(InstalledSource(id, name, version, problemFor(builtFor)), className)
+        return Manifest(InstalledSource(id, name, version, problemFor(builtFor)), className, app)
     }
 
     /** An instance of [className] from [apk], or null when its code doesn't fit the app. */
@@ -190,6 +217,7 @@ class ApkSourceStore(
 
     private companion object {
         const val APK = ".apk"
+        const val PNG = ".png"
         const val MAX_TEXT = 60
     }
 }

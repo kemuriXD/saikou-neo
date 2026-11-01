@@ -16,18 +16,27 @@ import okio.IOException
 internal expect fun noRedirectsEngine(timeoutMillis: Long): HttpEngine
 
 /**
- * Downloads a source's APK. Every link on the way, redirects included, must pass [isAllowedSourceLink], and once a
- * link is https, the rest must be too.
+ * Downloads a source's APK or logo. Every link on the way, redirects included, must pass [isAllowedSourceLink], and
+ * once a link is https, the rest must be too.
  */
 public class SourceDownloads internal constructor(
     private val engine: HttpEngine,
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val maxBytes: Long = MAX_BYTES,
+    private val maxIconBytes: Long = MAX_ICON_BYTES,
 ) {
     public constructor() : this(noRedirectsEngine(TIMEOUT_MILLIS))
 
     /** The file at [url], or null when it isn't allowed, can't be fetched, or is too big to be a source. */
-    public suspend fun fetch(url: String): ByteArray? =
+    public suspend fun fetch(url: String): ByteArray? = download(url, maxBytes)
+
+    /** The logo at [url] (ADR 0028), or null when it isn't allowed, can't be fetched, or isn't a small enough PNG. */
+    public suspend fun fetchIcon(url: String): ByteArray? = download(url, maxIconBytes)?.takeIf(::isUsableIcon)
+
+    private suspend fun download(
+        url: String,
+        maxBytes: Long,
+    ): ByteArray? =
         withContext(io) {
             try {
                 var next = url
@@ -75,6 +84,9 @@ public class SourceDownloads internal constructor(
 
         // Sources are a few megabytes at most, and the download is held in memory on TVs with little of it.
         const val MAX_BYTES = 16L * 1024 * 1024
+
+        // A logo is drawn at 96 px, so anything bigger than this is not one.
+        const val MAX_ICON_BYTES = 256L * 1024
         val REDIRECTS = setOf(301, 302, 303, 307, 308)
     }
 }

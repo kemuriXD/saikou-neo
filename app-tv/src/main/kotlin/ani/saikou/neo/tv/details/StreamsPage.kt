@@ -40,6 +40,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
@@ -60,6 +61,8 @@ import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.NeoTab
+import ani.saikou.neo.tv.ui.SourceLogo
+import java.io.File
 
 internal const val STREAMS_BEST_TAG = "streams-best"
 
@@ -77,6 +80,8 @@ private val ColumnGap = 28.dp
 private val ServersWidth = 476.dp
 private val RowHeight = 44.dp
 private val ChipHeight = 28.dp
+private val PickLogo = 28.dp
+private val HeadingLogo = 20.dp
 private const val ROW_FOCUS_SCALE = 1.02f
 
 /**
@@ -169,15 +174,18 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sourceServers(
         }
 
         is SourceAnswer.Failed -> {
-            item(key = "failed-${source.id}") { Quiet(source.name, whyNothing(answer, title, state.subOrDub)) }
+            item(key = "failed-${source.id}") { Quiet(source, whyNothing(answer, title, state.subOrDub)) }
         }
 
         is SourceAnswer.Found -> {
             if (answer.servers.isEmpty()) {
-                item(key = "none-${source.id}") { Quiet(source.name, whyNothing(answer, title, state.subOrDub)) }
+                item(key = "none-${source.id}") { Quiet(source, whyNothing(answer, title, state.subOrDub)) }
             } else {
                 item(key = "heading-${source.id}") {
-                    Heading(pluralStringResource(R.plurals.streams_source_servers, answer.servers.size, source.name, answer.servers.size))
+                    Heading(
+                        pluralStringResource(R.plurals.streams_source_servers, answer.servers.size, source.name, answer.servers.size),
+                        logo = source,
+                    )
                 }
                 items(answer.servers, key = { "server-${source.id}-${it.id}" }) { server ->
                     val used = state.lastUsed?.isServer(source, server) == true
@@ -223,12 +231,23 @@ private fun BestPickCard(
                     color = colors.pink,
                 )
             }
-            Text(
-                text = stringResource(R.string.streams_best_server, best.source.name, best.server.name),
-                style = NeoTheme.typography.rowTitle,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(dimensions.space3), verticalAlignment = Alignment.CenterVertically) {
+                val source = best.source
+                SourceLogo(
+                    source.name,
+                    source.icon?.let(::File),
+                    PickLogo,
+                    radius = 7.dp,
+                    background = colors.surfaceRaised,
+                    letterSize = 14.sp,
+                )
+                Text(
+                    text = stringResource(R.string.streams_best_server, source.name, best.server.name),
+                    style = NeoTheme.typography.rowTitle,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
             Text(
                 text = best.why(),
                 style = NeoTheme.typography.caption,
@@ -311,10 +330,12 @@ private fun ServersState.status(): String {
     return setting + " " + pluralStringResource(R.plurals.streams_answered, answered, answered, sources.size)
 }
 
+/** A source's heading: a still ring while it's [looking], else the [logo] of the source it names, if given. */
 @Composable
 private fun Heading(
     text: String,
     looking: Boolean = false,
+    logo: InstalledSource? = null,
 ) {
     val colors = NeoTheme.colors
     Row(
@@ -325,6 +346,16 @@ private fun Heading(
         if (looking) {
             // A still ring, as on the board. Nothing spins, to keep slow TVs smooth.
             Box(Modifier.size(10.dp).border(2.dp, colors.textMuted, CircleShape))
+        }
+        logo?.let {
+            SourceLogo(
+                it.name,
+                it.icon?.let(::File),
+                HeadingLogo,
+                radius = 5.dp,
+                background = colors.surfaceRaised,
+                letterSize = 12.sp,
+            )
         }
         Text(
             text = text,
@@ -337,10 +368,10 @@ private fun Heading(
 /** A source with nothing to pick: its name and why. */
 @Composable
 private fun Quiet(
-    name: String,
+    source: InstalledSource,
     why: String,
 ) = Column {
-    Heading(name)
+    Heading(source.name, logo = source)
     Text(text = why, style = NeoTheme.typography.caption, color = NeoTheme.colors.textFaint)
 }
 

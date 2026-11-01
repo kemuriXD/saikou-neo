@@ -85,6 +85,8 @@ import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoDialogButton
 import ani.saikou.neo.tv.ui.NeoDialogButtons
 import ani.saikou.neo.tv.ui.NeoIcons
+import ani.saikou.neo.tv.ui.SourceLogo
+import java.io.File
 
 internal const val ADD_SOURCE_TAG = "add-source"
 internal const val SOURCE_FIELD_TAG = "source-field"
@@ -129,7 +131,7 @@ internal class SourcesUi {
     fun row(id: String) = rows.getOrPut(id) { FocusRequester() }
 }
 
-// From the design: Add a source is 60 dp tall, each source 68 dp with a 40 dp letter badge. The add panel is 376 dp.
+// From the design: Add a source is 60 dp tall, each source 68 dp with a 40 dp logo or letter. The add panel is 376 dp.
 private val AddRowHeight = 60.dp
 private val SourceRowHeight = 68.dp
 private val RowPadding = 18.dp
@@ -286,7 +288,7 @@ internal fun BoxScope.SourcesPanels(
     }
     // Closing it clears the panel at once, so focus can leave before the list does.
     SlidingPanel(choosing?.takeIf { ui.panel == SourcePanel.Add }) { list, active, motion ->
-        ChoosePanel(list, active, actions, onClose = closeAdd, modifier = motion)
+        ChoosePanel(list, state.icons, active, actions, onClose = closeAdd, modifier = motion)
     }
     SlidingPanel((adding as? Adding.CantUse)?.source) { source, active, motion ->
         CantUsePanel(source, active, onClose = closeAdd, modifier = motion)
@@ -415,7 +417,7 @@ private fun SourceRow(
         horizontalArrangement = Arrangement.spacedBy(RowSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        LetterBadge(source.name, if (focused) colors.line else colors.surfaceRaised)
+        SourceBadge(source.name, source.icon?.let(::File), if (focused) colors.line else colors.surfaceRaised)
         Column(Modifier.weight(1f).clearAndSetSemantics {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(source.name, style = RowTitle, color = colors.paper, maxLines = 1)
             Text(detail, style = Small, color = colors.textMuted)
@@ -453,30 +455,15 @@ private fun SourceRow(
     }
 }
 
-/** The first letter of a source's [name] in pink, on a square of [background]. Decoration only. */
+/** A source's logo, [icon], or else the first letter of its [name], on a square of [background]. Decoration only. */
 @Composable
-private fun LetterBadge(
+private fun SourceBadge(
     name: String,
+    icon: Any?,
     background: Color = NeoTheme.colors.surfaceRaised,
     size: Dp = Badge,
-) {
-    val colors = NeoTheme.colors
-    Box(
-        Modifier
-            .size(size)
-            .background(background, RoundedCornerShape(BadgeRadius)),
-        contentAlignment = Alignment.Center,
-    ) {
-        Text(
-            name
-                .firstOrNull()
-                ?.uppercase()
-                .orEmpty(),
-            style = NeoTheme.typography.headline.copy(fontSize = 18.sp, lineHeight = 24.sp, fontWeight = FontWeight.Bold),
-            color = colors.pink,
-        )
-    }
-}
+    dimmed: Boolean = false,
+) = SourceLogo(name, icon, size, radius = size / 4, background = background, dimmed = dimmed)
 
 /**
  * Add a source: a field for the link or code, which opens the TV's keyboard on OK, and Add. While the app checks,
@@ -572,6 +559,7 @@ private fun BoxScope.AddPanel(
 @Composable
 private fun BoxScope.ChoosePanel(
     choosing: Adding.Choosing,
+    icons: Map<String, ByteArray>,
     active: Boolean,
     actions: SourceActions,
     onClose: () -> Unit,
@@ -599,6 +587,7 @@ private fun BoxScope.ChoosePanel(
                 key(choice.source.id) {
                     ChoiceRow(
                         choice,
+                        icons[choice.source.id],
                         onToggle = { actions.onToggle(choice.source.id) },
                         modifier =
                             (if (choice.source.id == firstId) Modifier.focusRequester(first) else Modifier)
@@ -619,10 +608,14 @@ private fun BoxScope.ChoosePanel(
     }
 }
 
-/** A source in a list: a row with a tick box when it can be picked, else a dimmed line that says why. */
+/**
+ * A source in a list: a row with a tick box when it can be picked, else a dimmed line that says why. [icon] is the
+ * logo the list links to, once it has arrived.
+ */
 @Composable
 private fun ChoiceRow(
     choice: Choice,
+    icon: ByteArray?,
     onToggle: () -> Unit,
     modifier: Modifier,
 ) {
@@ -645,7 +638,7 @@ private fun ChoiceRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            LetterBadge(source.name, colors.surfaceRaised, ChoiceBadge)
+            SourceBadge(source.name, icon, colors.surfaceRaised, ChoiceBadge, dimmed = true)
             ChoiceText(source.name, detail, colors.textMuted, if (warn) colors.warning else colors.textMuted)
         }
         return
@@ -685,7 +678,7 @@ private fun ChoiceRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val content = LocalContentColor.current
-            LetterBadge(source.name, colors.line, ChoiceBadge)
+            SourceBadge(source.name, icon, colors.line, ChoiceBadge)
             ChoiceText(source.name, detail, content, if (warn && !focused) colors.warning else content.copy(alpha = 0.72f))
             TickBox(choice.ticked, outline = content.copy(alpha = if (focused) 1f else 0.6f))
         }
@@ -767,7 +760,8 @@ private fun BoxScope.CantUsePanel(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                LetterBadge(source.name)
+                // Not installed, so there's no logo saved for it.
+                SourceBadge(source.name, icon = null)
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(source.name, style = RowTitle, color = colors.paper)
                     Text(stringResource(R.string.sources_version, source.version), style = Small, color = colors.textMuted)

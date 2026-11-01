@@ -2,12 +2,16 @@ package ani.saikou.neo.shared.sources
 
 import kotlinx.coroutines.flow.StateFlow
 
-/** A source as Settings > Sources lists it. A source with a [problem] doesn't load. */
+/**
+ * A source as Settings > Sources lists it. A source with a [problem] doesn't load. [icon] is the path of its logo, a
+ * PNG the app saved from its APK, or null when it has none (ADR 0028).
+ */
 public data class InstalledSource(
     val id: String,
     val name: String,
     val version: String,
     val problem: SourceProblem? = null,
+    val icon: String? = null,
 )
 
 /** Why a source can't be used. */

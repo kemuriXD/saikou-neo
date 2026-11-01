@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The source's logo. The app draws it once, at 96 px, when the source is installed (ADR 0028). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="48dp"
+    android:height="48dp"
+    android:viewportWidth="48"
+    android:viewportHeight="48">
+    <path
+        android:fillColor="#2A8F86"
+        android:pathData="M0,0h48v48h-48z" />
+    <path
+        android:pathData="M10,30c5,-9 9,-9 14,0s9,9 14,0"
+        android:strokeWidth="4.5"
+        android:strokeColor="#F6F5F2"
+        android:strokeLineCap="round" />
+</vector>

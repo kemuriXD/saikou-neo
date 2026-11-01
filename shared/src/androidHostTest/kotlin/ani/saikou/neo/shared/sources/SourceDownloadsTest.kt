@@ -12,14 +12,19 @@ import kotlin.test.assertContentEquals
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
 
-/** Answers each url from [pages]: a body, or a redirect when the text starts with `->`. Keeps the urls asked for. */
+/**
+ * Answers each url from [pages]: a body, or a redirect when the text starts with `->`, or else from [files]. Keeps the
+ * urls asked for.
+ */
 internal class PagesEngine(
     private val pages: Map<String, String>,
+    private val files: Map<String, ByteArray> = emptyMap(),
 ) : HttpEngine {
     val urls = mutableListOf<String>()
 
     override suspend fun execute(request: HttpRequest): HttpResponse {
         urls += request.url
+        files[request.url]?.let { return HttpResponse.Builder(200).body(Buffer().write(it)).build() }
         val page = pages[request.url] ?: return HttpResponse.Builder(404).body(Buffer()).build()
         return if (page.startsWith("->")) {
             HttpResponse
@@ -127,6 +132,33 @@ class SourceDownloadsTest {
 
             assertNull(SourceDownloads(engine, maxBytes = 4).fetch("https://example.com/a.apk"))
             assertContentEquals("12345".encodeToByteArray(), SourceDownloads(engine, maxBytes = 5).fetch("https://example.com/a.apk"))
+        }
+
+    @Test
+    fun anIconIsAPngUnderItsOwnLimit() =
+        runTest {
+            val icon = png(96, 96)
+            val engine =
+                PagesEngine(
+                    mapOf("https://example.com/text.png" to "not a picture", "https://example.com/latest.png" to "->/a.png"),
+                    mapOf("https://example.com/a.png" to icon, "https://example.com/big.png" to icon + ByteArray(40)),
+                )
+            val downloads = SourceDownloads(engine, maxIconBytes = icon.size + 39L)
+
+            assertContentEquals(icon, downloads.fetchIcon("https://example.com/latest.png"))
+            assertNull(downloads.fetchIcon("https://example.com/big.png"))
+            assertNull(downloads.fetchIcon("https://example.com/text.png"))
+            // An APK is held to its own, larger limit.
+            assertContentEquals(icon + ByteArray(40), downloads.fetch("https://example.com/big.png"))
+        }
+
+    @Test
+    fun anIconLinkIsCheckedLikeAnApkLink() =
+        runTest {
+            val engine = PagesEngine(emptyMap(), mapOf("http://example.com/a.png" to png(96, 96)))
+
+            assertNull(SourceDownloads(engine).fetchIcon("http://example.com/a.png"))
+            assertEquals(emptyList(), engine.urls)
         }
 
     @Test
