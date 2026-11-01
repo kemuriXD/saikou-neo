@@ -14,8 +14,15 @@ kotlin {
             implementation(libs.datastore.preferences.core)
             api(libs.lifecycle.viewmodel)
         }
+        androidMain.dependencies {
+            implementation(project(":extension-api"))
+            implementation(libs.okhttp)
+        }
         commonTest.dependencies {
             implementation(libs.kotlinx.coroutines.test)
+        }
+        getByName("androidHostTest").dependencies {
+            implementation(libs.okhttp.mockwebserver)
         }
     }
 }
