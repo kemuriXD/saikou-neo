@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.webkit.CookieManager
 import android.webkit.RenderProcessGoneDetail
+import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebResourceResponse
 import android.webkit.WebView
@@ -122,6 +123,15 @@ internal class WebViewStreamExtractor(
                         // and subresources (the stream's own CDN included) are free to load.
                         if (!req.isForMainFrame) return false
                         return !session.sameHostAsEmbed(req.url)
+                    }
+
+                    override fun onReceivedError(
+                        view: WebView,
+                        req: WebResourceRequest,
+                        error: WebResourceError,
+                    ) {
+                        // The embed itself wouldn't load, so there's nothing to read back: fail now rather than wait out the timeout.
+                        if (req.isForMainFrame) session.fatal.complete(SourceException.SourceDown("The embed page could not load"))
                     }
 
                     override fun onRenderProcessGone(
