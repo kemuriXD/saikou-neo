@@ -456,7 +456,7 @@ private fun SourceRow(
     }
 }
 
-/** A source's logo, [icon], or else the first letter of its [name], on a square of [background]. Decoration only. */
+/** A source's logo, [icon], on its own, or else the first letter of its [name] on a square of [background]. Decoration only. */
 @Composable
 private fun SourceBadge(
     name: String,
