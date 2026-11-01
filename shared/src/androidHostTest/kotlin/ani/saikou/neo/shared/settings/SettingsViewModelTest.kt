@@ -1,5 +1,6 @@
 package ani.saikou.neo.shared.settings
 
+import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -20,6 +21,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -27,14 +29,27 @@ class SettingsViewModelTest {
     private val folder = createTempDirectory("settings").toFile()
     private val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private val store = SettingsStore.at(File(folder, "settings.preferences_pb").absolutePath, scope)
+    private val viewModels = mutableListOf<SettingsViewModel>()
+
+    private fun viewModel() = SettingsViewModel(store).also { viewModels += it }
+
+    // Waits for each view model's work to finish, so none of it is left to carry on once the test is over.
+    private fun endViewModels() =
+        runBlocking {
+            viewModels.forEach {
+                it.viewModelScope.coroutineContext.job
+                    .cancelAndJoin()
+            }
+        }
 
     @BeforeTest
     fun useTestMain() = Dispatchers.setMain(UnconfinedTestDispatcher())
 
-    // The file's scope ends first, while Main is still the test's: ending it finishes any save a view model is waiting on,
-    // and that save carries on on Main.
+    // The view models and then the file's scope end while Main is still the test's. Work a view model was waiting on
+    // the file for carries on on Main when it ends, so it has to be over before Main is reset.
     @AfterTest
     fun cleanUp() {
+        endViewModels()
         runBlocking { scope.coroutineContext.job.cancelAndJoin() }
         Dispatchers.resetMain()
         folder.deleteRecursively()
@@ -48,7 +63,7 @@ class SettingsViewModelTest {
         withinSeconds {
             store.update { it.copy(slowTv = true) }
 
-            val settings = SettingsViewModel(store).state.filterNotNull().first()
+            val settings = viewModel().state.filterNotNull().first()
 
             assertEquals(Settings(slowTv = true), settings)
         }
@@ -56,7 +71,7 @@ class SettingsViewModelTest {
     @Test
     fun choosingAValueSetsItAndSavesIt() =
         withinSeconds {
-            val viewModel = SettingsViewModel(store)
+            val viewModel = viewModel()
             viewModel.state.filterNotNull().first()
 
             viewModel.choose(Setting.UNAIRED_ANIME, true)
@@ -68,7 +83,7 @@ class SettingsViewModelTest {
     @Test
     fun choosingSubOrDubSavesIt() =
         withinSeconds {
-            val viewModel = SettingsViewModel(store)
+            val viewModel = viewModel()
             viewModel.state.filterNotNull().first()
 
             viewModel.choose(Setting.SUB_OR_DUB, SubOrDub.SUB)
@@ -81,7 +96,7 @@ class SettingsViewModelTest {
     @Test
     fun choosingTheCurrentValueKeepsIt() =
         withinSeconds {
-            val viewModel = SettingsViewModel(store)
+            val viewModel = viewModel()
             viewModel.state.filterNotNull().first()
 
             viewModel.choose(Setting.UPCOMING_EPISODES, true)
@@ -110,6 +125,22 @@ class SettingsViewModelTest {
 
     @Test
     fun aValueThatIsntAChoiceIsRefused() {
-        assertFailsWith<IllegalArgumentException> { SettingsViewModel(store).choose(Setting.SLOW_TV, SubOrDub.SUB) }
+        assertFailsWith<IllegalArgumentException> { viewModel().choose(Setting.SLOW_TV, SubOrDub.SUB) }
     }
+
+    // A view model left running would carry on on Main after the test resets it, and fail whichever test runs next.
+    @Test
+    fun cleanUpEndsEachViewModelsWork() =
+        withinSeconds {
+            val viewModel = viewModel()
+            viewModel.state.filterNotNull().first()
+
+            endViewModels()
+
+            assertFalse(viewModel.viewModelScope.coroutineContext.job.isActive)
+            assertTrue(
+                viewModel.viewModelScope.coroutineContext.job.children
+                    .none(),
+            )
+        }
 }
