@@ -16,7 +16,8 @@ kotlin {
         }
         androidMain.dependencies {
             implementation(project(":extension-api"))
-            implementation(libs.okhttp)
+            // The player reuses the shared client (ADR 0027), so it's part of this module's surface.
+            api(libs.okhttp)
         }
         commonTest.dependencies {
             implementation(libs.kotlinx.coroutines.test)

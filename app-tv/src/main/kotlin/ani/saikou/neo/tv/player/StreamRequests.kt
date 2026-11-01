@@ -7,21 +7,23 @@ import androidx.media3.common.util.UnstableApi
 import androidx.media3.datasource.BaseDataSource
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
-import androidx.media3.datasource.DefaultHttpDataSource
+import androidx.media3.datasource.okhttp.OkHttpDataSource
 import ani.saikou.neo.extension.api.MediaLoader
 import ani.saikou.neo.extension.api.MediaRequest
 import ani.saikou.neo.extension.api.MediaResponse
 import ani.saikou.neo.extension.api.Stream
+import okhttp3.Call
 import java.io.IOException
 import java.io.InterruptedIOException
 
 /**
- * Where the player gets every playlist, segment, key and subtitle of this stream: over HTTP with the stream's headers,
- * or from the source's own [Stream.mediaLoader] when it has one.
+ * Where the player gets every playlist, segment, key and subtitle of this stream: over HTTP through the app's shared
+ * client [callFactory], so the cookie jar, pinned User-Agent and Cloudflare clearance carry into playback, or from the
+ * source's own [Stream.mediaLoader] when it has one.
  */
 @OptIn(UnstableApi::class)
-fun Stream.dataSourceFactory(): DataSource.Factory {
-    val loader = mediaLoader ?: return DefaultHttpDataSource.Factory().setDefaultRequestProperties(headers)
+fun Stream.dataSourceFactory(callFactory: Call.Factory): DataSource.Factory {
+    val loader = mediaLoader ?: return OkHttpDataSource.Factory(callFactory).setDefaultRequestProperties(headers)
     return DataSource.Factory { LoaderDataSource(loader, headers) }
 }
 

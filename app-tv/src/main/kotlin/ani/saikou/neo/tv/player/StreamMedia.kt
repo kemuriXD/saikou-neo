@@ -20,6 +20,7 @@ import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.PlayerError
 import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.tv.sources.reason
+import okhttp3.Call
 
 /** What plays: the [video], with its subtitles, and the [audio] served apart from it, if any. */
 class StreamParts(
@@ -63,13 +64,14 @@ fun Stream.parts(edition: ServerEdition): StreamParts {
     return StreamParts(video, audio)
 }
 
-/** The media for [parts] of this stream, with every request going through [dataSourceFactory]. */
+/** The media for [parts] of this stream, with every request going through the shared client [callFactory]. */
 @OptIn(UnstableApi::class)
 fun Stream.mediaSource(
     context: Context,
     edition: ServerEdition,
+    callFactory: Call.Factory,
 ): MediaSource {
-    val factory = DefaultMediaSourceFactory(context).setDataSourceFactory(dataSourceFactory())
+    val factory = DefaultMediaSourceFactory(context).setDataSourceFactory(dataSourceFactory(callFactory))
     val parts = parts(edition)
     val video = factory.createMediaSource(parts.video)
     val audio = parts.audio ?: return video

@@ -7,12 +7,14 @@ import android.content.pm.PackageManager
 import android.os.Build
 import ani.saikou.neo.extension.api.Compatibility
 import ani.saikou.neo.extension.api.ExtensionApi
+import ani.saikou.neo.extension.api.HostServices
 import ani.saikou.neo.extension.api.SourceExtension
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.SourceProblem
 import ani.saikou.neo.shared.sources.SourceStore
 import ani.saikou.neo.shared.sources.sourceIdFormat
 import dalvik.system.DexClassLoader
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -41,6 +43,7 @@ internal fun problemFor(builtFor: Int): SourceProblem? =
 class ApkSourceStore(
     private val context: Context,
     scope: CoroutineScope,
+    private val host: HostServices,
 ) : SourceStore {
     private val folder = File(context.filesDir, "sources")
     private val lock = Mutex()
@@ -133,6 +136,8 @@ class ApkSourceStore(
                     listed to (loadClass(apk, manifest.className) ?: return@withContext null)
                 }
             val extension = instance(type) ?: return@withContext null
+            // Hand over the host services once, before servers() or stream(), on the source's own thread.
+            if (!attach(extension)) return@withContext null
             // Kept only if the same copy is still installed, so one replaced or removed meanwhile isn't used again.
             lock.withLock { if (sources.value.orEmpty().any { it === listed }) loaded.getOrPut(source.id) { extension } else null }
         }
@@ -212,6 +217,21 @@ class ApkSourceStore(
 
     /** A new [type], which runs the source's static initialiser and constructor. */
     private fun instance(type: Class<*>): SourceExtension? = loading { type.getDeclaredConstructor().newInstance() as? SourceExtension }
+
+    /**
+     * Gives [extension] the host handle, treating a source whose attach throws as one that doesn't load. attach is a
+     * direct call rather than reflection, so this catches every throwable a source might raise, not only the ones
+     * [loading] unwraps, while letting coroutine cancellation through.
+     */
+    private fun attach(extension: SourceExtension): Boolean =
+        try {
+            extension.attach(host)
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+            false
+        }
 
     private fun <T> loading(block: () -> T): T? =
         try {
