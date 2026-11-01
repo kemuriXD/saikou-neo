@@ -127,6 +127,8 @@ public data class PlayerState<out S>(
     val load: Int = 0,
     /** Whether the next server is tried if this one fails before the video starts. */
     val willTryNext: Boolean = false,
+    /** The recap, opening, ending and preview, when their times are known. Nothing gives them yet (#76). */
+    val segments: List<Segment> = emptyList(),
 )
 
 /**

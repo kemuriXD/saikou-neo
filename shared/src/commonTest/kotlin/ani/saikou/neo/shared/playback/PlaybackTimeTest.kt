@@ -22,4 +22,17 @@ class PlaybackTimeTest {
     fun clampsNegativePositionsToZero() {
         assertEquals("0:00", formatPlaybackTime(-5_000))
     }
+
+    @Test
+    fun formatsAJumpWithItsSign() {
+        assertEquals("−5:00", formatJump(-300_000))
+        assertEquals("+0:30", formatJump(30_000))
+        assertEquals("+0:00", formatJump(0))
+    }
+
+    @Test
+    fun endsWhatsLeftAfterNow() {
+        assertEquals(1_000_000L + 696_000, endsAtMs(nowMs = 1_000_000, positionMs = 724_000, durationMs = 1_420_000))
+        assertEquals(null, endsAtMs(nowMs = 1_000_000, positionMs = 0, durationMs = 0))
+    }
 }
