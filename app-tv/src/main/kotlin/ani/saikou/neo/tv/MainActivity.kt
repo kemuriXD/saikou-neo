@@ -38,6 +38,7 @@ import ani.saikou.neo.shared.details.Raters
 import ani.saikou.neo.shared.discover.DiscoverViewModel
 import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
+import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.PlayerViewModel
 import ani.saikou.neo.shared.playback.ServersViewModel
 import ani.saikou.neo.shared.playback.playRequest
@@ -55,6 +56,8 @@ import ani.saikou.neo.tv.home.SeeMoreScreen
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.player.PlayerActions
 import ani.saikou.neo.tv.player.PlayerScreen
+import ani.saikou.neo.tv.player.StreamVideo
+import ani.saikou.neo.tv.player.rememberExoPlayback
 import ani.saikou.neo.tv.search.SearchScreen
 import ani.saikou.neo.tv.search.genreLabels
 import ani.saikou.neo.tv.settings.SettingsCategory
@@ -265,6 +268,7 @@ class MainActivity : ComponentActivity() {
                         player = { request, back ->
                             val player = viewModel { PlayerViewModel(app.streamFinder, request) }
                             val state by player.state.collectAsStateWithLifecycle()
+                            val playback = rememberExoPlayback()
                             PlayerScreen(
                                 state,
                                 request,
@@ -275,6 +279,11 @@ class MainActivity : ComponentActivity() {
                                     onTryAgain = player::tryAgain,
                                     onChooseAnother = back,
                                 ),
+                                playback,
+                                viewModel { ControlsViewModel() },
+                                video = {
+                                    StreamVideo(state, state.server.server.edition, playback, player::started, player::failed)
+                                },
                             )
                         },
                     )

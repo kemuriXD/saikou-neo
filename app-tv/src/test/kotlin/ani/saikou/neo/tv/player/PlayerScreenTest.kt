@@ -16,6 +16,7 @@ import ani.saikou.neo.extension.api.StreamFormat
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.FoundServer
 import ani.saikou.neo.shared.playback.FoundStream
@@ -61,6 +62,8 @@ class PlayerScreenTest {
 
     private val state = mutableStateOf(PlayerState<Stream>(one, PlayerPhase.Starting(null), willTryNext = true))
     private val pressed = mutableListOf<String>()
+    private val playback = FakePlayback()
+    private val controls = ControlsViewModel()
 
     private fun show() {
         compose.setContent {
@@ -73,6 +76,8 @@ class PlayerScreenTest {
                         onTryAgain = { pressed += "again" },
                         onChooseAnother = { pressed += "choose" },
                     ),
+                    playback,
+                    controls,
                     video = {},
                 )
             }

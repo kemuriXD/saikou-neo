@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import ani.saikou.neo.extension.api.Stream
+import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.playback.PlayServer
 import ani.saikou.neo.shared.playback.PlayerError
@@ -96,17 +97,18 @@ private const val BACKDROP_BLUR = 3
 
 /**
  * The player for [request]: the video full screen, with the show's blurred art and what's happening while it starts,
- * and a dialog when the server stops answering. Once it plays, nothing sits over the video. [video] draws the player.
+ * and a dialog when the server stops answering. Once it plays, the remote's [controls] work [playback]. [video] draws
+ * the player.
  */
 @Composable
 internal fun PlayerScreen(
     state: PlayerState<Stream>,
     request: PlayRequest,
     actions: PlayerActions,
+    playback: Playback,
+    controls: ControlsViewModel,
+    video: @Composable () -> Unit,
     modifier: Modifier = Modifier,
-    video: @Composable () -> Unit = {
-        StreamVideo(state, state.server.server.edition, actions.onStarted, actions.onFailed)
-    },
 ) {
     val scrim = NeoTheme.colors.scrimPlayer
     Box(modifier.fillMaxSize().background(scrim)) {
@@ -127,8 +129,9 @@ internal fun PlayerScreen(
                 Stopped(state.server, phase, request, actions)
             }
 
-            // Nothing over the video.
-            is PlayerPhase.Playing -> {}
+            is PlayerPhase.Playing -> {
+                PlayerControls(state, phase.answered, request, playback, controls)
+            }
         }
     }
 }
@@ -314,7 +317,7 @@ private fun BoxScope.Stopped(
 }
 
 @Composable
-private fun episodeTitle(request: PlayRequest) =
+internal fun episodeTitle(request: PlayRequest) =
     request.episodeTitle?.let { stringResource(R.string.streams_episode_titled, request.episode, it) }
         ?: stringResource(R.string.streams_episode, request.episode)
 

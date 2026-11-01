@@ -7,7 +7,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -15,12 +14,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.DefaultLifecycleObserver
 import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.media3.common.AudioAttributes
-import androidx.media3.common.C
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import ani.saikou.neo.extension.api.Stream
@@ -31,30 +27,21 @@ import ani.saikou.neo.shared.playback.ServerEdition
 
 /**
  * Plays each stream [state] hands over, from its start position, and says when the video [onStarted] or the player
- * [onFailed]. The player lives as long as the screen and is released when it leaves. The view draws the video and
- * subtitles and never takes focus; the remote's controls come with #114.
+ * [onFailed], on [playback]'s player. The view draws the video and subtitles and never takes focus; the controls sit
+ * over it.
  */
 @OptIn(UnstableApi::class)
 @Composable
 internal fun StreamVideo(
     state: PlayerState<Stream>,
     edition: ServerEdition,
+    playback: ExoPlayback,
     onStarted: () -> Unit,
     onFailed: (PlayerError, positionMs: Long) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
-    val player =
-        remember {
-            // Takes audio focus, so other apps go quiet while it plays and it pauses for a call.
-            val audio =
-                AudioAttributes
-                    .Builder()
-                    .setUsage(C.USAGE_MEDIA)
-                    .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
-                    .build()
-            ExoPlayer.Builder(context).setAudioAttributes(audio, true).build()
-        }
+    val player = playback.player
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     DisposableEffect(player, lifecycle) {
         val observer = PauseInBackground({ player.playWhenReady }, player::pause, player::play)
@@ -75,10 +62,7 @@ internal fun StreamVideo(
                 }
             }
         player.addListener(listener)
-        onDispose {
-            player.removeListener(listener)
-            player.release()
-        }
+        onDispose { player.removeListener(listener) }
     }
     // A new stream: a new server, the same one again, or a fresh link.
     LaunchedEffect(state.load) {
