@@ -62,6 +62,8 @@ class PlayerScreenTest {
 
     private val state = mutableStateOf(PlayerState<Stream>(one, PlayerPhase.Starting(null), willTryNext = true))
     private val pressed = mutableListOf<String>()
+    private val playback = FakePlayback()
+    private val controls = ControlsViewModel()
 
     private fun show() {
         compose.setContent {
@@ -74,8 +76,8 @@ class PlayerScreenTest {
                         onTryAgain = { pressed += "again" },
                         onChooseAnother = { pressed += "choose" },
                     ),
-                    FakePlayback(),
-                    ControlsViewModel(),
+                    playback,
+                    controls,
                     video = {},
                 )
             }
