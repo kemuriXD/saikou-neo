@@ -30,9 +30,15 @@ class ExtensionApiTest {
     }
 
     @Test
-    fun theFirstVersionIsOneAndNothingHasBrokenYet() {
-        assertEquals(1, ExtensionApi.VERSION)
+    fun theApiIsAtVersionTwoAndNothingHasBrokenYet() {
+        assertEquals(2, ExtensionApi.VERSION)
         assertEquals(1, ExtensionApi.MIN_VERSION)
         assertTrue(ExtensionApi.MIN_VERSION <= ExtensionApi.VERSION)
+    }
+
+    // The host handle was added, not a breaking change, so a source built for version 1 still loads.
+    @Test
+    fun aVersionOneSourceStillLoadsUnderVersionTwo() {
+        assertEquals(Compatibility.Compatible, ExtensionApi.compatibility(1))
     }
 }

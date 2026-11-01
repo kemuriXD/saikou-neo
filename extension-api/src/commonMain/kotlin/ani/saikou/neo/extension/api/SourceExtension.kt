@@ -5,6 +5,13 @@ package ani.saikou.neo.extension.api
  * take a while, so they should check for cancellation rather than time out early.
  */
 public interface SourceExtension {
+    /**
+     * Hands the source the app's [HostServices]. The app calls it once, after it
+     * builds the source and before [servers] or [stream]. A source that doesn't
+     * need host services can ignore it.
+     */
+    public fun attach(host: HostServices) {}
+
     /** The servers that have [episode]. An empty list means the source doesn't have it. */
     public suspend fun servers(episode: Episode): List<Server>
 
