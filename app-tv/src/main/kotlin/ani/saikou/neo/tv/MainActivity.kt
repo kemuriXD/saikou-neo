@@ -201,7 +201,14 @@ class MainActivity : ComponentActivity() {
                                             )
                                         },
                                         onFilter = servers::filter,
-                                        actions = StreamsActions(onRetry = servers::retry, onBack = back, onAddSource = openSources),
+                                        actions =
+                                            StreamsActions(
+                                                onRetry = servers::retry,
+                                                onBack = back,
+                                                onAddSource = openSources,
+                                                // The answers outlive the page, so reopening it gives a failed source another chance.
+                                                onOpen = servers::retry,
+                                            ),
                                         modifier = modifier,
                                     )
                                 },
