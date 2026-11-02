@@ -316,6 +316,18 @@
     <string name="player_quality">%1$dp</string>
     <string name="player_speed">%1$s×</string>
     <string name="player_next">Next</string>
+    <string name="player_panel_speed">Speed</string>
+    <!-- List titles in the side panel, with how many rows each has. -->
+    <string name="player_panel_audio">Audio · %1$d</string>
+    <string name="player_panel_subtitles">Subtitles · %1$d</string>
+    <string name="player_panel_off">Off</string>
+    <!-- A track with no name or language, by its place in the list. -->
+    <string name="player_panel_track">Track %1$d</string>
+    <plurals name="player_panel_more">
+        <item quantity="one">%1$d more below</item>
+        <item quantity="other">%1$d more below</item>
+    </plurals>
+    <string name="player_panel_hint">The video keeps playing. Left and Right move between tabs. Back closes.</string>
     <!-- Quick presses of Left or Right, added up, such as −20 s or +10 s. -->
     <string name="player_nudge">%1$s%2$d s</string>
     <string name="player_scrub_jump">· %1$s</string>

@@ -35,4 +35,21 @@ class PlaybackTimeTest {
         assertEquals(1_000_000L + 696_000, endsAtMs(nowMs = 1_000_000, positionMs = 724_000, durationMs = 1_420_000))
         assertEquals(null, endsAtMs(nowMs = 1_000_000, positionMs = 0, durationMs = 0))
     }
+
+    @Test
+    fun endsSoonerAtAFasterSpeed() {
+        assertEquals(1_000_000L + 348_000, endsAtMs(nowMs = 1_000_000, positionMs = 724_000, durationMs = 1_420_000, speed = 2f))
+        assertEquals(1_000_000L + 1_392_000, endsAtMs(nowMs = 1_000_000, positionMs = 724_000, durationMs = 1_420_000, speed = 0.5f))
+    }
+
+    @Test
+    fun speedsLeaveOffAWholeNumbersPoint() {
+        assertEquals("1", formatSpeed(1f))
+        assertEquals("2", formatSpeed(2f))
+        assertEquals("0.75", formatSpeed(0.75f))
+        assertEquals("1.5", formatSpeed(1.5f))
+    }
+
+    @Test
+    fun normalSpeedIsOnTheList() = assertEquals(true, 1f in PLAYBACK_SPEEDS)
 }

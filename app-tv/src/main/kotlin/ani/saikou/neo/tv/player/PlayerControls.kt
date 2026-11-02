@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -33,6 +34,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
@@ -62,6 +64,7 @@ import androidx.tv.material3.Text
 import ani.saikou.neo.extension.api.Stream
 import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.FoundStream
+import ani.saikou.neo.shared.playback.PanelTab
 import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.SegmentKind
@@ -70,6 +73,7 @@ import ani.saikou.neo.shared.playback.at
 import ani.saikou.neo.shared.playback.endsAtMs
 import ani.saikou.neo.shared.playback.formatJump
 import ani.saikou.neo.shared.playback.formatPlaybackTime
+import ani.saikou.neo.shared.playback.formatSpeed
 import ani.saikou.neo.shared.playback.stretches
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.details.editionName
@@ -78,6 +82,7 @@ import ani.saikou.neo.tv.home.parseColour
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoIconButton
 import ani.saikou.neo.tv.ui.NeoIcons
+import ani.saikou.neo.tv.ui.NeoSurface
 import java.util.Date
 import kotlin.math.abs
 
@@ -119,10 +124,12 @@ private const val DIMMED_ALPHA = 0.38f
 // How often the time on screen is read from the player while it shows.
 private const val TICK_MS = 250L
 
+private val VideoKeys = setOf(Key.MediaFastForward, Key.MediaRewind, Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause)
+
 /**
  * The remote's controls over the playing video. Hidden, OK pauses and shows them, Down shows them, and Left or Right
  * seek 10 s with a slim line. Shown, they sit on the bar. Holding Left or Right picks a spot to jump to: OK jumps there
- * and Back stays. Back hides them.
+ * and Back stays. Back hides them. Menu, or a button for it, opens the side panel over the video.
  */
 @Composable
 internal fun BoxScope.PlayerControls(
@@ -159,9 +166,24 @@ internal fun BoxScope.PlayerControls(
 
     val root = remember { FocusRequester() }
     val bar = remember { FocusRequester() }
+    val playPause = remember { FocusRequester() }
     var onBar by remember { mutableStateOf(false) }
     val hold = remember { HeldKey() }
-    LaunchedEffect(shown.shown) { if (shown.shown) bar.requestFocus() else root.requestFocus() }
+    val pills = remember { PanelTab.entries.associateWith { FocusRequester() } }
+    var panelFrom by remember { mutableStateOf<PanelTab?>(null) }
+    // The panel takes focus itself, and gives it back to the button that opened it.
+    LaunchedEffect(shown.shown, shown.panel == null) {
+        if (shown.panel != null) return@LaunchedEffect
+        if (shown.shown) (panelFrom?.let(pills::getValue) ?: bar).requestFocus() else root.requestFocus()
+        panelFrom = null
+    }
+    // A panel left open would come back over the next stream.
+    DisposableEffect(controls) { onDispose { if (controls.state.value.panel != null) controls.closePanel(playing = false) } }
+
+    fun openPanel(tab: PanelTab) {
+        panelFrom = tab
+        controls.openPanel(tab)
+    }
 
     fun toggle() {
         if (playback.playing) playback.pause() else playback.play()
@@ -178,7 +200,16 @@ internal fun BoxScope.PlayerControls(
         val scrubbing = shown.scrub != null
         val native = event.nativeKeyEvent
         val forward = event.key == Key.DirectionRight || event.key == Key.MediaFastForward
+        // The panel's rows take the arrows and OK. The remote's play and seek keys still work the video.
+        if (shown.panel != null && event.key !in VideoKeys && event.key != Key.Menu) return false
         return when (event.key) {
+            Key.Menu -> {
+                if (event.type == KeyEventType.KeyDown && native.repeatCount == 0 && !scrubbing) {
+                    if (shown.panel == null) controls.openPanel(PanelTab.Tracks) else controls.closePanel(playback.playing)
+                }
+                true
+            }
+
             Key.DirectionLeft, Key.DirectionRight -> {
                 // On the buttons, Left and Right move between them.
                 if (shown.shown && !onBar && !scrubbing) return false
@@ -241,7 +272,13 @@ internal fun BoxScope.PlayerControls(
         }
     }
 
-    BackHandler(enabled = shown.shown) { if (shown.scrub != null) controls.stay() else controls.hide() }
+    BackHandler(enabled = shown.shown || shown.panel != null) {
+        when {
+            shown.panel != null -> controls.closePanel(playback.playing)
+            shown.scrub != null -> controls.stay()
+            else -> controls.hide()
+        }
+    }
 
     Box(
         Modifier
@@ -256,7 +293,12 @@ internal fun BoxScope.PlayerControls(
         val bars = remember(state.segments, durationMs) { stretches(state.segments, durationMs) }
         val scrub = shown.scrub
         val headMs = scrub?.targetMs ?: positionMs
+        val panel = shown.panel
         when {
+            panel != null -> {
+                PlayerPanel(panel, playback, controls)
+            }
+
             shown.shown -> {
                 Box(Modifier.matchParentSize().background(controlsScrim(scrub != null)).testTag(PLAYER_CONTROLS_TAG))
                 TopStrip(state, answered, request, nowMs, Modifier.align(Alignment.TopStart))
@@ -275,14 +317,15 @@ internal fun BoxScope.PlayerControls(
                         modifier =
                             Modifier
                                 .focusRequester(bar)
+                                .focusProperties { down = playPause }
                                 .onFocusChanged { onBar = it.isFocused }
                                 .focusable()
                                 .testTag(PLAYER_BAR_TAG),
                     )
-                    TimeLine(bars, headMs, durationMs, nowMs, state.segments.isNotEmpty())
+                    TimeLine(bars, headMs, durationMs, nowMs, playback.speed, state.segments.isNotEmpty())
                 }
                 if (scrub == null) {
-                    Buttons(answered, request, playback, controls, Modifier.align(Alignment.BottomStart))
+                    Buttons(answered, request, playback, controls, playPause, pills, ::openPanel, Modifier.align(Alignment.BottomStart))
                 } else {
                     ScrubReadout(scrub.targetMs, scrub.jumpMs, durationMs)
                     ScrubHints(scrub.fromMs, Modifier.align(Alignment.BottomCenter))
@@ -490,6 +533,7 @@ private fun TimeLine(
     headMs: Long,
     durationMs: Long,
     nowMs: Long,
+    speed: Float,
     named: Boolean,
 ) {
     val colors = NeoTheme.colors
@@ -504,7 +548,7 @@ private fun TimeLine(
                 else -> stringResource(R.string.player_time, head, formatPlaybackTime(durationMs))
             }
         Text(text, style = style, color = colors.paper)
-        endsAtMs(nowMs, headMs, durationMs)?.let {
+        endsAtMs(nowMs, headMs, durationMs, speed)?.let {
             Text(
                 stringResource(R.string.player_ends, DateFormat.getTimeFormat(context).format(Date(it))),
                 style = style,
@@ -526,13 +570,16 @@ private fun partName(kind: SegmentKind?) =
         },
     )
 
-/** Play or pause, then the buttons later issues bring to life, dimmed and passed over by focus. */
+/** Play or pause, what opens the side panel, and the buttons later issues bring to life, dimmed and passed over by focus. */
 @Composable
 private fun Buttons(
     answered: FoundStream<Stream>,
     request: PlayRequest,
     playback: Playback,
     controls: ControlsViewModel,
+    playPause: FocusRequester,
+    pills: Map<PanelTab, FocusRequester>,
+    openPanel: (PanelTab) -> Unit,
     modifier: Modifier,
 ) {
     Row(
@@ -548,16 +595,45 @@ private fun Buttons(
                 if (playback.playing) playback.pause() else playback.play()
                 controls.touched(playback.playing)
             },
-            Modifier.testTag(PLAYER_PLAY_PAUSE_TAG),
+            Modifier.focusRequester(playPause).testTag(PLAYER_PLAY_PAUSE_TAG),
         )
-        // Episodes come with #243, and the tracks, quality and speed with #242.
+        // Episodes come with #243, and quality with #314.
         DimmedPill(stringResource(R.string.player_episodes), NeoIcons.Episodes)
-        DimmedPill(stringResource(R.string.player_audio_subtitles), NeoIcons.Subtitles)
+        Pill(
+            stringResource(R.string.player_audio_subtitles),
+            NeoIcons.Subtitles,
+            { openPanel(PanelTab.Tracks) },
+            Modifier.focusRequester(pills.getValue(PanelTab.Tracks)),
+        )
         DimmedPill(stringResource(R.string.player_quality, answered.height), null)
-        DimmedPill(stringResource(R.string.player_speed, "1"), null)
+        Pill(
+            stringResource(R.string.player_speed, formatSpeed(playback.speed)),
+            null,
+            { openPanel(PanelTab.Speed) },
+            Modifier.focusRequester(pills.getValue(PanelTab.Speed)),
+        )
         Spacer(Modifier.weight(1f))
         val episodes = request.show.card.episodes
         if (episodes == null || request.episode < episodes) NextCard(request)
+    }
+}
+
+@Composable
+private fun Pill(
+    text: String,
+    icon: ImageVector?,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    NeoSurface(onClick, CircleShape, NeoTheme.dimensions.focusScaleButton, modifier.height(PillHeight)) {
+        Row(
+            Modifier.fillMaxHeight().padding(horizontal = PillPadding),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(18.dp)) }
+            Text(text, style = NeoTheme.typography.label.copy(fontSize = 14.sp))
+        }
     }
 }
 

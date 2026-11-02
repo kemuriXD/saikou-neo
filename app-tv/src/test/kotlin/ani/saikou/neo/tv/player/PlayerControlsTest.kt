@@ -2,6 +2,7 @@ package ani.saikou.neo.tv.player
 
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -21,8 +22,10 @@ import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.playback.ControlsViewModel
+import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.FoundServer
 import ani.saikou.neo.shared.playback.FoundStream
+import ani.saikou.neo.shared.playback.PanelTab
 import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.playback.PlayServer
 import ani.saikou.neo.shared.playback.PlayerPhase
@@ -65,6 +68,22 @@ internal class FakePlayback : Playback {
     override var positionMs by mutableLongStateOf(724_000L)
     override val durationMs = 1_420_000L
     override var playing by mutableStateOf(true)
+    override val audio = listOf(TrackOption(0, 0, "Japanese", selected = true), TrackOption(1, 0, null, selected = false))
+    override val subtitles = listOf(TrackOption(2, 0, "English", selected = true), TrackOption(3, 0, "French", selected = false))
+    override var speed by mutableFloatStateOf(1f)
+
+    override fun selectTrack(option: TrackOption) {
+        calls += "track ${option.label}"
+    }
+
+    override fun subtitlesOff() {
+        calls += "subtitles off"
+    }
+
+    override fun changeSpeed(speed: Float) {
+        calls += "speed $speed"
+        this.speed = speed
+    }
 
     override fun play() {
         calls += "play"
@@ -128,6 +147,142 @@ class PlayerControlsTest {
     }
 
     private fun controlsShown() = compose.onAllNodes(hasTestTag(PLAYER_CONTROLS_TAG)).fetchSemanticsNodes().isNotEmpty()
+
+    private fun panelOpen() = compose.onAllNodes(hasTestTag(PLAYER_PANEL_TAG)).fetchSemanticsNodes().isNotEmpty()
+
+    @Test
+    fun menuOpensThePanelOnThePickedSubtitleWithoutPausing() {
+        show()
+        press(Key.Menu)
+
+        assertTrue(panelOpen())
+        assertFalse(controlsShown())
+        assertEquals(emptyList<String>(), playback.calls)
+        compose.onNodeWithText("English").assertIsFocused()
+    }
+
+    @Test
+    fun aServerStoppingClosesThePanel() {
+        var phase by mutableStateOf<PlayerPhase<Stream>>(PlayerPhase.Playing(answered))
+        compose.setContent {
+            NeoTheme {
+                PlayerScreen(PlayerState(sub, phase), request, PlayerActions(), playback, controls, video = {})
+            }
+        }
+        compose.waitForIdle()
+        press(Key.Menu)
+        assertTrue(panelOpen())
+
+        phase = PlayerPhase.Stopped(FailReason.SourceDown, null, 1_000, null)
+        compose.waitForIdle()
+
+        assertEquals(null, controls.state.value.panel)
+    }
+
+    @Test
+    fun menuAgainClosesThePanel() {
+        show()
+        press(Key.Menu)
+        press(Key.Menu)
+
+        assertFalse(panelOpen())
+    }
+
+    @Test
+    fun backClosesThePanelLeavingTheVideo() {
+        show()
+        press(Key.Menu)
+        back()
+
+        assertFalse(panelOpen())
+        assertFalse(controlsShown())
+    }
+
+    @Test
+    fun picksASubtitleAndStaysOpen() {
+        show()
+        press(Key.Menu)
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf("track French"), playback.calls)
+        assertTrue(panelOpen())
+    }
+
+    @Test
+    fun offTurnsSubtitlesOff() {
+        show()
+        press(Key.Menu)
+        press(Key.DirectionUp)
+        compose.onNodeWithText("Off").assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf("subtitles off"), playback.calls)
+    }
+
+    @Test
+    fun leftMovesToAudioWithoutSeekingAndNamesAnUnnamedTrack() {
+        show()
+        press(Key.Menu)
+        press(Key.DirectionLeft)
+        compose.onNodeWithText("Track 2").assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf("track null"), playback.calls)
+    }
+
+    @Test
+    fun leftAndRightPastTheColumnsMoveBetweenTabs() {
+        show()
+        press(Key.Menu)
+        press(Key.DirectionRight)
+        compose.onNodeWithText("1×").assertIsFocused()
+        press(Key.DirectionLeft)
+        compose.onNodeWithText("English").assertIsFocused()
+        assertEquals(emptyList<String>(), playback.calls)
+    }
+
+    @Test
+    fun upFromTheTopOfAListGoesToItsTabWithoutChangingIt() {
+        show()
+        press(Key.Menu)
+        press(Key.DirectionUp)
+        press(Key.DirectionUp)
+
+        compose.onNodeWithTag(playerPanelTabTag(PanelTab.Tracks)).assertIsFocused()
+        compose.onNodeWithText("Off").assertExists()
+    }
+
+    @Test
+    fun changingSpeedShowsOnTheButton() {
+        show()
+        press(Key.Menu)
+        press(Key.DirectionRight)
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+        assertEquals(listOf("speed 1.25"), playback.calls)
+        back()
+        press(Key.DirectionDown)
+
+        compose.onNodeWithText("1.25×").assertExists()
+    }
+
+    @Test
+    fun aButtonOpensItsTabAndBackReturnsToIt() {
+        show()
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+        compose.onNodeWithText("1×").assertIsFocused()
+        press(Key.DirectionCenter)
+        assertEquals(PanelTab.Speed, controls.state.value.panel)
+
+        back()
+        assertFalse(panelOpen())
+        assertTrue(controlsShown())
+        compose.onNodeWithText("1×").assertIsFocused()
+    }
 
     @Test
     fun nothingShowsOverTheVideoAtFirst() {
@@ -200,16 +355,17 @@ class PlayerControlsTest {
     }
 
     @Test
-    fun onlyPlayAndPauseTakesFocusInTheRow() {
+    fun downFromTheBarLandsOnPlayAndFocusPassesOverDimmedButtons() {
         show()
         press(Key.DirectionDown)
         press(Key.DirectionDown)
         compose.onNodeWithTag(PLAYER_PLAY_PAUSE_TAG).assertIsFocused()
 
         press(Key.DirectionRight)
-        compose.onNodeWithTag(PLAYER_PLAY_PAUSE_TAG).assertIsFocused()
         compose.onNodeWithText("Episodes").assertExists()
-        compose.onNodeWithText("Audio and subtitles").assertExists()
+        compose.onNodeWithText("Audio and subtitles").assertIsFocused()
+        press(Key.DirectionRight)
+        compose.onNodeWithText("1×").assertIsFocused()
     }
 
     @Test

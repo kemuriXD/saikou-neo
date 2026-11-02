@@ -187,4 +187,47 @@ class ControlsViewModelTest {
         controls.hide()
         assertEquals(ControlsState(), state)
     }
+
+    @Test
+    fun thePanelOpensOnTheTabAsked() {
+        controls.openPanel(PanelTab.Speed)
+        assertEquals(PanelTab.Speed, state.panel)
+    }
+
+    @Test
+    fun thePanelStaysOpenPastTheHideTime() =
+        test {
+            controls.show(playing = true)
+            controls.openPanel(PanelTab.Tracks)
+            controls.touched(playing = true)
+            advanceTimeBy(30.seconds)
+            assertEquals(PanelTab.Tracks, state.panel)
+            assertTrue(state.shown)
+        }
+
+    @Test
+    fun closingThePanelGoesBackToTheControlsThenHidesThem() =
+        test {
+            controls.show(playing = true)
+            controls.openPanel(PanelTab.Tracks)
+            controls.closePanel(playing = true)
+            assertNull(state.panel)
+            assertTrue(state.shown)
+            advanceTimeBy(6.seconds)
+            assertFalse(state.shown)
+        }
+
+    @Test
+    fun closingAPanelOpenedOverTheVideoLeavesTheControlsHidden() {
+        controls.openPanel(PanelTab.Tracks)
+        controls.closePanel(playing = true)
+        assertEquals(ControlsState(), state)
+    }
+
+    @Test
+    fun openingThePanelDropsTheScrub() {
+        controls.scrub(forward = true, held = false, positionMs = 0, durationMs = LENGTH)
+        controls.openPanel(PanelTab.Tracks)
+        assertNull(state.scrub)
+    }
 }
