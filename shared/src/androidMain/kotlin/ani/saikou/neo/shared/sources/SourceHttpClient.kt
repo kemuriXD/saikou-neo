@@ -44,6 +44,7 @@ internal class SourceHttpClient(
 internal fun sharedHttpClient(
     cookieJar: CookieJar = InMemoryCookieJar(),
     clearer: CloudflareClearer? = null,
+    userAgent: String = SOURCE_USER_AGENT,
 ): OkHttpClient =
     OkHttpClient
         .Builder()
@@ -55,7 +56,7 @@ internal fun sharedHttpClient(
                 chain
                     .request()
                     .newBuilder()
-                    .header("User-Agent", SOURCE_USER_AGENT)
+                    .header("User-Agent", userAgent)
                     .build(),
             )
         }.apply { if (clearer != null) addInterceptor(CloudflareInterceptor(clearer)) }

@@ -22,17 +22,18 @@ import kotlin.time.Duration.Companion.seconds
 
 /**
  * Mints a Cloudflare clearance by loading the site in an offscreen WebView with
- * the pinned User-Agent and letting Cloudflare's own JavaScript run. When the
- * `cf_clearance` cookie appears it goes into the shared [cookieJar], so the next
- * request and the player send it. It gives up at [timeout] (a challenge needing
- * a person), returning null, and reports a page that won't load as
- * [SourceException.SourceDown]. The WebView has no bridge back into the app and
- * is destroyed after each call.
+ * the pinned User-Agent and letting Cloudflare's own JavaScript run. Once the page
+ * has left the challenge, its `cf_clearance` cookie goes into the shared
+ * [cookieJar], so the next request and the player send it. It gives up at
+ * [timeout] (a challenge needing a person), returning null, and reports a page
+ * that won't load as [SourceException.SourceDown]. The WebView has no bridge back
+ * into the app and is destroyed after each call.
  */
 internal class WebViewCloudflareClearer(
     private val context: Context,
     private val cookieJar: CookieJar,
-    private val timeout: Duration = 20.seconds,
+    private val userAgent: String = SOURCE_USER_AGENT,
+    private val timeout: Duration = 25.seconds,
     private val clearanceLifetime: Duration = 30.minutes,
 ) : CloudflareClearer {
     private val lastByHost = mutableMapOf<String, Clearance>()
@@ -44,7 +45,8 @@ internal class WebViewCloudflareClearer(
             val webView = WebView(context.applicationContext)
             try {
                 val failed = AtomicBoolean(false)
-                prepare(webView, failed)
+                val loaded = AtomicBoolean(false)
+                prepare(webView, failed, loaded)
                 webView.loadUrl(url.toString())
 
                 val token =
@@ -52,7 +54,15 @@ internal class WebViewCloudflareClearer(
                         var found: String? = null
                         while (found == null) {
                             if (failed.get()) throw SourceException.SourceDown("the WebView could not load the page")
-                            found = CookieManager.getInstance().getCookie(url.toString())?.let(::cfClearanceFrom)
+                            // Before the first load the page is blank, and a cookie from an earlier run can't be judged yet.
+                            if (loaded.get()) {
+                                found =
+                                    clearedToken(
+                                        cookies = CookieManager.getInstance().getCookie(url.toString()),
+                                        // A page moving on can drop the answer, so an answer that never comes means ask again.
+                                        onChallengePage = withTimeoutOrNull(ASK_MILLIS) { webView.evaluate(ON_CHALLENGE_PAGE) } != "false",
+                                    )
+                            }
                             if (found == null) delay(POLL_MILLIS)
                         }
                         found
@@ -71,7 +81,7 @@ internal class WebViewCloudflareClearer(
                 )
                 Clearance(
                     cookie = "cf_clearance=$token",
-                    userAgent = SOURCE_USER_AGENT,
+                    userAgent = userAgent,
                     expiresAtMillis = System.currentTimeMillis() + clearanceLifetime.inWholeMilliseconds,
                 ).also { lastByHost[url.host] = it }
             } finally {
@@ -86,12 +96,13 @@ internal class WebViewCloudflareClearer(
     private fun prepare(
         webView: WebView,
         failed: AtomicBoolean,
+        loaded: AtomicBoolean,
     ) {
         CookieManager.getInstance().setAcceptCookie(true)
         CookieManager.getInstance().setAcceptThirdPartyCookies(webView, true)
         webView.settings.javaScriptEnabled = true
         webView.settings.domStorageEnabled = true
-        webView.settings.userAgentString = SOURCE_USER_AGENT
+        webView.settings.userAgentString = userAgent
         // The challenge page has no business reaching the app's own files.
         webView.settings.allowFileAccess = false
         webView.settings.allowContentAccess = false
@@ -99,6 +110,13 @@ internal class WebViewCloudflareClearer(
         webView.settings.allowUniversalAccessFromFileURLs = false
         webView.webViewClient =
             object : WebViewClient() {
+                override fun onPageFinished(
+                    view: WebView,
+                    url: String,
+                ) {
+                    loaded.set(true)
+                }
+
                 override fun onReceivedError(
                     view: WebView,
                     request: WebResourceRequest,
@@ -111,8 +129,21 @@ internal class WebViewCloudflareClearer(
 
     private companion object {
         const val POLL_MILLIS = 250L
+        const val ASK_MILLIS = 500L
+
+        // Set by the challenge page in every language, and gone once Cloudflare sends the browser on to the real page.
+        const val ON_CHALLENGE_PAGE = "typeof window._cf_chl_opt !== 'undefined'"
     }
 }
+
+/**
+ * The clearance in [cookies], once it can be trusted. Cloudflare sets a `cf_clearance` while its check is still
+ * running, so the cookie alone proves nothing: the check is over only when the browser has left the challenge page.
+ */
+internal fun clearedToken(
+    cookies: String?,
+    onChallengePage: Boolean,
+): String? = if (onChallengePage) null else cookies?.let(::cfClearanceFrom)
 
 /** Pulls the `cf_clearance` value out of a `getCookie` string such as `a=b; cf_clearance=xyz; c=d`. */
 private fun cfClearanceFrom(cookies: String): String? =
