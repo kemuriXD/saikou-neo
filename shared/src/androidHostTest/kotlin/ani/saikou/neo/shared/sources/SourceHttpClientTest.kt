@@ -75,6 +75,17 @@ class SourceHttpClientTest {
         }
 
     @Test
+    fun theClientSendsTheUserAgentItIsGiven() =
+        runTest {
+            server.enqueue(MockResponse(body = "ok"))
+            val webViewAgent = "Mozilla/5.0 (Linux; Android 16; wv) Chrome/156.0 Mobile Safari/537.36"
+
+            SourceHttpClient(sharedHttpClient(userAgent = webViewAgent)).http(HostRequest(url = server.url("/x").toString()))
+
+            assertEquals(webViewAgent, server.takeRequest().headers["User-Agent"])
+        }
+
+    @Test
     fun aCookieSetByOneCallIsSentOnTheNext() =
         runTest {
             server.enqueue(MockResponse(headers = headers("Set-Cookie" to "sid=abc123"), body = "one"))

@@ -198,7 +198,7 @@ internal class WebViewStreamExtractor(
 }
 
 /** Reads one `evaluateJavascript` call back as a suspending call. */
-private suspend fun WebView.evaluate(script: String): String? =
+internal suspend fun WebView.evaluate(script: String): String? =
     suspendCancellableCoroutine { cont ->
         evaluateJavascript(script) { value -> cont.resume(value) }
     }
