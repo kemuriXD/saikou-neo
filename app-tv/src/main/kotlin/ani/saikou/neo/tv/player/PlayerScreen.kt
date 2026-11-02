@@ -70,6 +70,9 @@ internal data class PlayerActions(
     val onTryNext: () -> Unit = {},
     val onTryAgain: () -> Unit = {},
     val onChooseAnother: () -> Unit = {},
+    val onQuality: (height: Int, positionMs: Long) -> Unit = { _, _ -> },
+    val onAudio: (audio: Int, positionMs: Long) -> Unit = { _, _ -> },
+    val onServer: (PlayServer, positionMs: Long) -> Unit = { _, _ -> },
 )
 
 // From the design.
@@ -130,7 +133,7 @@ internal fun PlayerScreen(
             }
 
             is PlayerPhase.Playing -> {
-                PlayerControls(state, phase.answered, request, playback, controls)
+                PlayerControls(state, phase.answered, request, actions, playback, controls)
             }
         }
     }

@@ -30,6 +30,8 @@ public data class Scrub(
 /** The tabs of the side panel, in order. */
 public enum class PanelTab {
     Tracks,
+    Quality,
+    Server,
     Speed,
 }
 

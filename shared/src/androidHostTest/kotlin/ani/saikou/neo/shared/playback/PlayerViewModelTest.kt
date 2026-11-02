@@ -130,6 +130,89 @@ class PlayerViewModelTest {
             assertEquals(1, player.state.value.load)
         }
 
+    private fun playing(finder: FakeStreams = FakeStreams()) = player(finder).also { it.started() }
+
+    @Test
+    fun changingQualityLoadsTheSameStreamAgainFromTheSameSpot() =
+        test {
+            val finder = FakeStreams()
+            val player = playing(finder)
+
+            player.changeQuality(720, positionMs = 60_000)
+
+            val state = player.state.value
+            assertEquals(PlayerPhase.Starting(FoundStream("stream 1", 1080), quiet = true), state.phase)
+            assertEquals(720, state.pickedHeight)
+            assertEquals(60_000, state.startAtMs)
+            assertEquals(2, state.load)
+            assertEquals(listOf("1"), finder.asked)
+        }
+
+    @Test
+    fun changingToTheQualityPlayingDoesNothing() =
+        test {
+            val player = playing()
+
+            player.changeQuality(1080, positionMs = 60_000)
+
+            assertEquals(1, player.state.value.load)
+            assertEquals(1080, player.state.value.height(FoundStream("stream 1", 1080)))
+        }
+
+    @Test
+    fun changingSeparateAudioLoadsAgainFromTheSameSpot() =
+        test {
+            val player = playing()
+
+            player.changeAudio(1, positionMs = 60_000)
+
+            assertEquals(1, player.state.value.pickedAudio)
+            assertEquals(60_000, player.state.value.startAtMs)
+            assertEquals(2, player.state.value.load)
+        }
+
+    @Test
+    fun changingServerKeepsYourPlaceAndDropsTheQuality() =
+        test {
+            val finder = FakeStreams()
+            val player = playing(finder)
+            player.changeQuality(720, positionMs = 10_000)
+            player.started()
+
+            player.changeServer(servers[2], positionMs = 60_000)
+
+            val state = player.state.value
+            assertEquals(servers[2], state.server)
+            assertEquals(60_000, state.startAtMs)
+            assertEquals(null, state.pickedHeight)
+            assertEquals(listOf("1", "3"), finder.asked)
+            assertEquals(PlayerPhase.Starting(FoundStream("stream 3", 1080)), state.phase)
+        }
+
+    @Test
+    fun changingToTheServerPlayingDoesNothing() =
+        test {
+            val finder = FakeStreams()
+            val player = playing(finder)
+
+            player.changeServer(servers[0], positionMs = 60_000)
+
+            assertEquals(listOf("1"), finder.asked)
+            assertEquals(1, player.state.value.load)
+        }
+
+    @Test
+    fun aRefreshedLinkKeepsThePickedQuality() =
+        test {
+            val player = playing()
+            player.changeQuality(720, positionMs = 10_000)
+            player.started()
+
+            player.failed(PlayerError.Expired, positionMs = 20_000)
+
+            assertEquals(720, player.state.value.pickedHeight)
+        }
+
     @Test
     fun itSaysWhetherTheNextServerWillBeTried() =
         test {

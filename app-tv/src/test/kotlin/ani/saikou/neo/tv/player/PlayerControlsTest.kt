@@ -10,6 +10,7 @@ import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -161,6 +162,76 @@ class PlayerControlsTest {
         compose.onNodeWithText("English").assertIsFocused()
     }
 
+    private fun showForPicking(
+        calls: MutableList<String>,
+        stream: FoundStream<Stream> = answered.copy(heights = listOf(1080, 720, 480)),
+    ) {
+        val other = PlayServer(demo, FoundServer("2", "Demo, Dub", ServerEdition.DUB, 24), 2)
+        compose.setContent {
+            NeoTheme {
+                PlayerScreen(
+                    PlayerState(sub, PlayerPhase.Playing(stream)),
+                    request.copy(servers = listOf(sub, other)),
+                    PlayerActions(
+                        onQuality = { height, at -> calls += "quality $height at $at" },
+                        onAudio = { audio, at -> calls += "audio $audio at $at" },
+                        onServer = { server, at -> calls += "server ${server.server.id} at $at" },
+                    ),
+                    playback,
+                    controls,
+                    video = {},
+                )
+            }
+        }
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun qualityListsEveryHeightWithNoAutoAndPicksFromTheSameSpot() {
+        val calls = mutableListOf<String>()
+        showForPicking(calls)
+        controls.openPanel(PanelTab.Quality)
+        compose.waitForIdle()
+
+        compose.onNodeWithText("1080p").assertExists()
+        compose.onNodeWithText("720p").assertExists()
+        compose.onNodeWithText("480p").assertExists()
+        assertEquals(0, compose.onAllNodesWithText("Auto").fetchSemanticsNodes().size)
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf("quality 720 at 724000"), calls)
+    }
+
+    @Test
+    fun serverListsEachOneAndPicksFromTheSameSpot() {
+        val calls = mutableListOf<String>()
+        showForPicking(calls)
+        controls.openPanel(PanelTab.Server)
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Demo source · Demo, Sub · Sub").assertIsFocused()
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf("server 2 at 724000"), calls)
+    }
+
+    @Test
+    fun audioServedApartIsListedFromTheStream() {
+        val calls = mutableListOf<String>()
+        showForPicking(calls, answered.copy(audio = listOf("Korean", "Hindi")))
+        controls.openPanel(PanelTab.Tracks)
+        compose.waitForIdle()
+
+        assertEquals(0, compose.onAllNodesWithText("Japanese").fetchSemanticsNodes().size)
+        press(Key.DirectionLeft)
+        compose.onNodeWithText("Hindi").assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf("audio 1 at 724000"), calls)
+    }
+
     @Test
     fun aServerStoppingClosesThePanel() {
         var phase by mutableStateOf<PlayerPhase<Stream>>(PlayerPhase.Playing(answered))
@@ -236,7 +307,7 @@ class PlayerControlsTest {
         show()
         press(Key.Menu)
         press(Key.DirectionRight)
-        compose.onNodeWithText("1×").assertIsFocused()
+        compose.onNodeWithText("1080p").assertIsFocused()
         press(Key.DirectionLeft)
         compose.onNodeWithText("English").assertIsFocused()
         assertEquals(emptyList<String>(), playback.calls)
@@ -258,6 +329,8 @@ class PlayerControlsTest {
         show()
         press(Key.Menu)
         press(Key.DirectionRight)
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
         press(Key.DirectionDown)
         press(Key.DirectionCenter)
         assertEquals(listOf("speed 1.25"), playback.calls)
@@ -272,6 +345,7 @@ class PlayerControlsTest {
         show()
         press(Key.DirectionDown)
         press(Key.DirectionDown)
+        press(Key.DirectionRight)
         press(Key.DirectionRight)
         press(Key.DirectionRight)
         compose.onNodeWithText("1×").assertIsFocused()
@@ -364,6 +438,8 @@ class PlayerControlsTest {
         press(Key.DirectionRight)
         compose.onNodeWithText("Episodes").assertExists()
         compose.onNodeWithText("Audio and subtitles").assertIsFocused()
+        press(Key.DirectionRight)
+        compose.onNodeWithText("1080p").assertIsFocused()
         press(Key.DirectionRight)
         compose.onNodeWithText("1×").assertIsFocused()
     }

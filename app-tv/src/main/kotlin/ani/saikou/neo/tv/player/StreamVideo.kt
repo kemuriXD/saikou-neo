@@ -69,7 +69,10 @@ internal fun StreamVideo(
     // A new stream: a new server, the same one again, or a fresh link.
     LaunchedEffect(state.load) {
         val answered = (state.phase as? PlayerPhase.Starting)?.answered ?: return@LaunchedEffect
-        player.setMediaSource(answered.stream.mediaSource(context, edition, callFactory), state.startAtMs)
+        player.setMediaSource(
+            answered.stream.mediaSource(context, edition, callFactory, state.pickedHeight, state.pickedAudio),
+            state.startAtMs,
+        )
         player.prepare()
         player.playWhenReady = true
     }
@@ -77,6 +80,8 @@ internal fun StreamVideo(
         factory = {
             PlayerView(it).apply {
                 useController = false
+                // The last frame stays up while a quality or link is swapped, not a black screen.
+                setKeepContentOnPlayerReset(true)
                 resizeMode = AspectRatioFrameLayout.RESIZE_MODE_FIT
                 isFocusable = false
                 descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS

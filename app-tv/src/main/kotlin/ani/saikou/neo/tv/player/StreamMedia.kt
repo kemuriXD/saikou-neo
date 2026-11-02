@@ -29,12 +29,16 @@ class StreamParts(
 )
 
 /**
- * The best quality, with the first separate audio track and every subtitle. On a Sub server the first subtitle is on.
- * The side panel changes the subtitle, and the rest come with #314.
+ * The quality of [height], or else the best, with the separate audio track at [audio] and every subtitle. On a Sub
+ * server the first subtitle is on.
  */
-fun Stream.parts(edition: ServerEdition): StreamParts {
-    val best = qualities.maxBy { it.height }
-    val type = best.format.mimeType()
+fun Stream.parts(
+    edition: ServerEdition,
+    height: Int? = null,
+    audio: Int = 0,
+): StreamParts {
+    val quality = qualities.firstOrNull { it.height == height } ?: qualities.maxBy { it.height }
+    val type = quality.format.mimeType()
     val subtitles =
         subtitles.mapIndexed { index, track ->
             MediaItem.SubtitleConfiguration
@@ -48,20 +52,20 @@ fun Stream.parts(edition: ServerEdition): StreamParts {
     val video =
         MediaItem
             .Builder()
-            .setUri(best.url)
+            .setUri(quality.url)
             .setMimeType(type)
             .setSubtitleConfigurations(subtitles)
             .build()
     // Audio playlists come in the video's format, whatever their links look like.
-    val audio =
-        audioTracks.firstOrNull()?.let {
+    val apart =
+        (audioTracks.getOrNull(audio) ?: audioTracks.firstOrNull())?.let {
             MediaItem
                 .Builder()
                 .setUri(it.url)
                 .setMimeType(type)
                 .build()
         }
-    return StreamParts(video, audio)
+    return StreamParts(video, apart)
 }
 
 /** The media for [parts] of this stream, with every request going through the shared client [callFactory]. */
@@ -70,9 +74,11 @@ fun Stream.mediaSource(
     context: Context,
     edition: ServerEdition,
     callFactory: Call.Factory,
+    height: Int? = null,
+    audio: Int = 0,
 ): MediaSource {
     val factory = DefaultMediaSourceFactory(context).setDataSourceFactory(dataSourceFactory(callFactory))
-    val parts = parts(edition)
+    val parts = parts(edition, height, audio)
     val video = factory.createMediaSource(parts.video)
     val audio = parts.audio ?: return video
     return MergingMediaSource(video, factory.createMediaSource(audio))
