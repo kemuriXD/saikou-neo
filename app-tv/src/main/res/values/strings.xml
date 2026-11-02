@@ -316,7 +316,11 @@
     <string name="player_quality">%1$dp</string>
     <string name="player_speed">%1$s×</string>
     <string name="player_next">Next</string>
+    <string name="player_panel_quality">Quality</string>
+    <string name="player_panel_server_tab">Server</string>
     <string name="player_panel_speed">Speed</string>
+    <!-- A server in the side panel: source · server · edition. -->
+    <string name="player_panel_server">%1$s · %2$s · %3$s</string>
     <!-- List titles in the side panel, with how many rows each has. -->
     <string name="player_panel_audio">Audio · %1$d</string>
     <string name="player_panel_subtitles">Subtitles · %1$d</string>

@@ -40,7 +40,12 @@ class ExtensionStreamFinder(
             try {
                 val extension = load(source) ?: throw SourceFailure(FailReason.WontStart)
                 val stream = call(extension)
-                FoundStream(stream, stream.qualities.maxOf { it.height })
+                val heights =
+                    stream.qualities
+                        .map { it.height }
+                        .distinct()
+                        .sortedDescending()
+                FoundStream(stream, heights.first(), heights, stream.audioTracks.map { it.label })
             } catch (e: CancellationException) {
                 throw e
             } catch (e: SourceFailure) {

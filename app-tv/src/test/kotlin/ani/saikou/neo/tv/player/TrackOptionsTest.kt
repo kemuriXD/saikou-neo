@@ -92,6 +92,16 @@ class TrackOptionsTest {
     }
 
     @Test
+    fun aPickedTrackIsFoundAgainByNameAfterAReload() {
+        val options = listOf(TrackOption(0, 0, "English", selected = true), TrackOption(1, 0, "French", selected = false))
+
+        assertEquals(options[1], options.toRestore("French"))
+        assertEquals(null, options.toRestore("English"))
+        assertEquals(null, options.toRestore("German"))
+        assertEquals(null, options.toRestore(null))
+    }
+
+    @Test
     fun pickingASubtitleTurnsSubtitlesBackOn() {
         val track = TrackGroup(text("English"))
         val off = TrackSelectionParameters.DEFAULT.withoutSubtitles()

@@ -56,11 +56,16 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import ani.saikou.neo.extension.api.Stream
 import ani.saikou.neo.shared.playback.ControlsViewModel
+import ani.saikou.neo.shared.playback.FoundStream
 import ani.saikou.neo.shared.playback.PLAYBACK_SPEEDS
 import ani.saikou.neo.shared.playback.PanelTab
+import ani.saikou.neo.shared.playback.PlayRequest
+import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.formatSpeed
 import ani.saikou.neo.tv.R
+import ani.saikou.neo.tv.details.editionName
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoTab
 import kotlin.math.ceil
@@ -93,6 +98,7 @@ private const val PANEL_FILL = 0.94f
 
 // Five rows show at once, and the rest scroll with focus.
 private const val ROWS_SHOWN = 5
+private const val ROWS_SHOWN_ALONE = 7
 
 /** One row of a list: picking it takes effect at once, and the panel stays open. */
 private class Choice(
@@ -108,6 +114,10 @@ private class Choice(
 @Composable
 internal fun BoxScope.PlayerPanel(
     tab: PanelTab,
+    state: PlayerState<Stream>,
+    answered: FoundStream<Stream>,
+    request: PlayRequest,
+    actions: PlayerActions,
     playback: Playback,
     controls: ControlsViewModel,
 ) {
@@ -155,8 +165,60 @@ internal fun BoxScope.PlayerPanel(
             }
         }
         when (tab) {
-            PanelTab.Tracks -> Tracks(playback, picked, currentTab, ::move)
-            PanelTab.Speed -> Speeds(playback, picked, currentTab, ::move)
+            PanelTab.Tracks -> {
+                val apart =
+                    answered.audio.mapIndexed { index, name ->
+                        Choice(name, index == state.pickedAudio) { actions.onAudio(index, playback.positionMs) }
+                    }
+                Tracks(apart, playback, picked, currentTab, ::move)
+            }
+
+            PanelTab.Quality -> {
+                val height = state.height(answered)
+                OneList(
+                    answered.heights.map { each ->
+                        Choice(
+                            stringResource(R.string.player_quality, each),
+                            each == height,
+                        ) { actions.onQuality(each, playback.positionMs) }
+                    },
+                    picked,
+                    currentTab,
+                    ::move,
+                )
+            }
+
+            PanelTab.Server -> {
+                OneList(
+                    request.servers.map { each ->
+                        val name =
+                            stringResource(
+                                R.string.player_panel_server,
+                                each.source.name,
+                                each.server.name,
+                                editionName(each.server.edition),
+                            )
+                        Choice(name, each == state.server) { actions.onServer(each, playback.positionMs) }
+                    },
+                    picked,
+                    currentTab,
+                    ::move,
+                )
+            }
+
+            PanelTab.Speed -> {
+                OneList(
+                    PLAYBACK_SPEEDS.map { speed ->
+                        Choice(
+                            stringResource(R.string.player_speed, formatSpeed(speed)),
+                            speed == playback.speed,
+                        ) { playback.changeSpeed(speed) }
+                    },
+                    picked,
+                    currentTab,
+                    ::move,
+                )
+            }
         }
         Text(
             stringResource(R.string.player_panel_hint),
@@ -171,6 +233,8 @@ private fun tabName(tab: PanelTab) =
     stringResource(
         when (tab) {
             PanelTab.Tracks -> R.string.player_audio_subtitles
+            PanelTab.Quality -> R.string.player_panel_quality
+            PanelTab.Server -> R.string.player_panel_server_tab
             PanelTab.Speed -> R.string.player_panel_speed
         },
     )
@@ -178,17 +242,19 @@ private fun tabName(tab: PanelTab) =
 /** Audio and subtitles, side by side. Focus starts on the picked subtitle, or Off. */
 @Composable
 private fun Tracks(
+    apartAudio: List<Choice>,
     playback: Playback,
     picked: FocusRequester,
     tabs: FocusRequester,
     move: (Int) -> Unit,
 ) {
-    val audio = playback.audio
+    // Audio served apart from the video is the source's to list. The player only knows the one playing.
+    val audio = apartAudio.ifEmpty { playback.audio.mapIndexed { index, track -> track.choice(index) { playback.selectTrack(track) } } }
     val subtitles = playback.subtitles
     Row(horizontalArrangement = Arrangement.spacedBy(PanelGap)) {
         ChoiceList(
             stringResource(R.string.player_panel_audio, audio.size),
-            audio.mapIndexed { index, track -> track.choice(index) { playback.selectTrack(track) } },
+            audio,
             focus = null,
             up = tabs,
             height = rowsHeight(ROWS_SHOWN),
@@ -212,21 +278,20 @@ private fun TrackOption.choice(
     pick: () -> Unit,
 ) = Choice(label ?: stringResource(R.string.player_panel_track, index + 1), selected, pick)
 
+/** A tab with one list, the panel's width, where Left and Right only move between tabs. */
 @Composable
-private fun Speeds(
-    playback: Playback,
+private fun OneList(
+    choices: List<Choice>,
     picked: FocusRequester,
     tabs: FocusRequester,
     move: (Int) -> Unit,
 ) {
     ChoiceList(
         null,
-        PLAYBACK_SPEEDS.map { speed ->
-            Choice(stringResource(R.string.player_speed, formatSpeed(speed)), speed == playback.speed) { playback.changeSpeed(speed) }
-        },
+        choices,
         focus = picked,
         up = tabs,
-        height = rowsHeight(PLAYBACK_SPEEDS.size),
+        height = rowsHeight(choices.size.coerceAtMost(ROWS_SHOWN_ALONE)),
         modifier = Modifier.sideKeys(left = { move(-1) }, right = { move(1) }),
     )
 }

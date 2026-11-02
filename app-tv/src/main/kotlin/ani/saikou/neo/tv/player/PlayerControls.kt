@@ -136,6 +136,7 @@ internal fun BoxScope.PlayerControls(
     state: PlayerState<Stream>,
     answered: FoundStream<Stream>,
     request: PlayRequest,
+    actions: PlayerActions,
     playback: Playback,
     controls: ControlsViewModel,
 ) {
@@ -296,7 +297,7 @@ internal fun BoxScope.PlayerControls(
         val panel = shown.panel
         when {
             panel != null -> {
-                PlayerPanel(panel, playback, controls)
+                PlayerPanel(panel, state, answered, request, actions, playback, controls)
             }
 
             shown.shown -> {
@@ -325,7 +326,16 @@ internal fun BoxScope.PlayerControls(
                     TimeLine(bars, headMs, durationMs, nowMs, playback.speed, state.segments.isNotEmpty())
                 }
                 if (scrub == null) {
-                    Buttons(answered, request, playback, controls, playPause, pills, ::openPanel, Modifier.align(Alignment.BottomStart))
+                    Buttons(
+                        state.height(answered),
+                        request,
+                        playback,
+                        controls,
+                        playPause,
+                        pills,
+                        ::openPanel,
+                        Modifier.align(Alignment.BottomStart),
+                    )
                 } else {
                     ScrubReadout(scrub.targetMs, scrub.jumpMs, durationMs)
                     ScrubHints(scrub.fromMs, Modifier.align(Alignment.BottomCenter))
@@ -416,7 +426,7 @@ private fun TopStrip(
                     R.string.player_stream_line,
                     server.source.name,
                     server.server.name,
-                    answered.height,
+                    state.height(answered),
                     editionName(server.server.edition),
                 ),
                 style = typography.caption.copy(fontSize = 12.sp, lineHeight = 16.sp),
@@ -573,7 +583,7 @@ private fun partName(kind: SegmentKind?) =
 /** Play or pause, what opens the side panel, and the buttons later issues bring to life, dimmed and passed over by focus. */
 @Composable
 private fun Buttons(
-    answered: FoundStream<Stream>,
+    height: Int,
     request: PlayRequest,
     playback: Playback,
     controls: ControlsViewModel,
@@ -597,7 +607,7 @@ private fun Buttons(
             },
             Modifier.focusRequester(playPause).testTag(PLAYER_PLAY_PAUSE_TAG),
         )
-        // Episodes come with #243, and quality with #314.
+        // Episodes come with #243.
         DimmedPill(stringResource(R.string.player_episodes), NeoIcons.Episodes)
         Pill(
             stringResource(R.string.player_audio_subtitles),
@@ -605,7 +615,12 @@ private fun Buttons(
             { openPanel(PanelTab.Tracks) },
             Modifier.focusRequester(pills.getValue(PanelTab.Tracks)),
         )
-        DimmedPill(stringResource(R.string.player_quality, answered.height), null)
+        Pill(
+            stringResource(R.string.player_quality, height),
+            null,
+            { openPanel(PanelTab.Quality) },
+            Modifier.focusRequester(pills.getValue(PanelTab.Quality)),
+        )
         Pill(
             stringResource(R.string.player_speed, formatSpeed(playback.speed)),
             null,

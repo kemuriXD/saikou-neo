@@ -71,6 +71,29 @@ class StreamMediaTest {
     }
 
     @Test
+    fun aPickedHeightPlaysInsteadOfTheBest() {
+        val video = Stream(qualities).parts(ServerEdition.SUB, height = 480).video
+
+        assertEquals("https://example.com/480.m3u8", video.localConfiguration!!.uri.toString())
+    }
+
+    @Test
+    fun aHeightTheStreamLacksPlaysTheBest() {
+        val video = Stream(qualities).parts(ServerEdition.SUB, height = 144).video
+
+        assertEquals("https://example.com/1080.m3u8", video.localConfiguration!!.uri.toString())
+    }
+
+    @Test
+    fun thePickedSeparateAudioPlays() {
+        val tracks =
+            listOf(AudioTrack("https://example.com/ja.m3u8", "ja", "Japanese"), AudioTrack("https://example.com/en.m3u8", "en", "English"))
+        val audio = Stream(qualities, audioTracks = tracks).parts(ServerEdition.SUB, audio = 1).audio
+
+        assertEquals("https://example.com/en.m3u8", audio!!.localConfiguration!!.uri.toString())
+    }
+
+    @Test
     fun eachFormatHasItsType() {
         fun type(format: StreamFormat) =
             Stream(listOf(Quality(720, "https://example.com/v", format)))

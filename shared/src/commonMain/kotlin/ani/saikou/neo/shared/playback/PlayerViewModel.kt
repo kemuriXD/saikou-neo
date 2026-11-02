@@ -17,10 +17,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration
 
-/** A stream a source gave, and the height of its best quality, as the player shows it. */
+/**
+ * A stream a source gave, and the height of its best quality, as the player shows it, with every height it offers and
+ * the names of any audio tracks served apart from the video.
+ */
 public data class FoundStream<S>(
     val stream: S,
     val height: Int,
+    val heights: List<Int> = listOf(height),
+    val audio: List<String> = emptyList(),
 )
 
 /**
@@ -129,7 +134,14 @@ public data class PlayerState<out S>(
     val willTryNext: Boolean = false,
     /** The recap, opening, ending and preview, when their times are known. Nothing gives them yet (#76). */
     val segments: List<Segment> = emptyList(),
-)
+    /** The height the viewer picked for this server, or null for the best. */
+    val pickedHeight: Int? = null,
+    /** Which of the stream's separate audio tracks plays. */
+    val pickedAudio: Int = 0,
+) {
+    /** The height playing out of [answered]. */
+    public fun height(answered: FoundStream<*>): Int = pickedHeight ?: answered.height
+}
 
 /**
  * Plays the server [request] picked. A server gets [answerWithin] to give its stream. If one fails before the video
@@ -204,6 +216,46 @@ public class PlayerViewModel<S>(
         open(index, stopped.atMs ?: state.value.startAtMs)
     }
 
+    /** Plays [height] of the same stream from [positionMs], with nothing shown over the video. */
+    public fun changeQuality(
+        height: Int,
+        positionMs: Long,
+    ) {
+        val answered = (state.value.phase as? PlayerPhase.Playing)?.answered ?: return
+        if (height == state.value.height(answered)) return
+        reload(answered, positionMs) { it.copy(pickedHeight = height) }
+    }
+
+    /** Plays the stream's separate audio track at [audio] from [positionMs], with nothing shown over the video. */
+    public fun changeAudio(
+        audio: Int,
+        positionMs: Long,
+    ) {
+        val answered = (state.value.phase as? PlayerPhase.Playing)?.answered ?: return
+        if (audio == state.value.pickedAudio) return
+        reload(answered, positionMs) { it.copy(pickedAudio = audio) }
+    }
+
+    /** Plays [server] from [positionMs]. */
+    public fun changeServer(
+        server: PlayServer,
+        positionMs: Long,
+    ) {
+        if (state.value.phase !is PlayerPhase.Playing || server == state.value.server) return
+        val at = request.servers.indexOf(server)
+        if (at >= 0) open(at, positionMs)
+    }
+
+    private fun reload(
+        answered: FoundStream<S>,
+        positionMs: Long,
+        pick: (PlayerState<S>) -> PlayerState<S>,
+    ) {
+        mutableState.update {
+            pick(it).copy(phase = PlayerPhase.Starting(answered, quiet = true), startAtMs = positionMs, load = it.load + 1)
+        }
+    }
+
     private fun open(
         at: Int,
         startAtMs: Long,
@@ -213,7 +265,14 @@ public class PlayerViewModel<S>(
         val server = request.servers[at]
         val willTryNext = !triedNext && request.servers.getOrNull(at + 1) != null
         mutableState.update {
-            it.copy(server = server, phase = PlayerPhase.Starting(null), startAtMs = startAtMs, willTryNext = willTryNext)
+            it.copy(
+                server = server,
+                phase = PlayerPhase.Starting(null),
+                startAtMs = startAtMs,
+                willTryNext = willTryNext,
+                pickedHeight = null,
+                pickedAudio = 0,
+            )
         }
         ask(quiet = false) { finder.stream(server.source, server.server) }
     }

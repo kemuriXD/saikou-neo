@@ -90,6 +90,9 @@ private fun Format.name() =
             ?.let { Locale.forLanguageTag(it).displayName }
             ?.takeIf { it.isNotBlank() }
 
+/** The track named [wanted], if it isn't playing. A reload forgets what was picked, so it's found again by name. */
+internal fun List<TrackOption>.toRestore(wanted: String?) = firstOrNull { wanted != null && it.label == wanted }?.takeIf { !it.selected }
+
 /** Plays [track] of [group], with its type turned on if it was off. */
 @OptIn(UnstableApi::class)
 internal fun TrackSelectionParameters.picking(
@@ -129,12 +132,17 @@ internal class ExoPlayback(
 
     override fun seekTo(positionMs: Long) = player.seekTo(positionMs)
 
+    // What was picked, by track type.
+    private val wanted = mutableMapOf<Int, String?>()
+
     override fun selectTrack(option: TrackOption) {
         val group = player.currentTracks.groups.getOrNull(option.group) ?: return
+        wanted[group.type] = option.label
         player.trackSelectionParameters = player.trackSelectionParameters.picking(group.mediaTrackGroup, option.track)
     }
 
     override fun subtitlesOff() {
+        wanted.remove(C.TRACK_TYPE_TEXT)
         player.trackSelectionParameters = player.trackSelectionParameters.withoutSubtitles()
     }
 
@@ -150,6 +158,8 @@ internal class ExoPlayback(
     override fun onTracksChanged(tracks: Tracks) {
         audio = tracks.options(C.TRACK_TYPE_AUDIO)
         subtitles = tracks.options(C.TRACK_TYPE_TEXT)
+        audio.toRestore(wanted[C.TRACK_TYPE_AUDIO])?.let(::selectTrack)
+        subtitles.toRestore(wanted[C.TRACK_TYPE_TEXT])?.let(::selectTrack)
     }
 
     override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
