@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.sources
 import android.annotation.SuppressLint
 import android.content.Context
 import android.webkit.CookieManager
+import android.webkit.RenderProcessGoneDetail
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
@@ -60,7 +61,8 @@ internal class WebViewCloudflareClearer(
                                     clearedToken(
                                         cookies = CookieManager.getInstance().getCookie(url.toString()),
                                         // A page moving on can drop the answer, so an answer that never comes means ask again.
-                                        onChallengePage = withTimeoutOrNull(ASK_MILLIS) { webView.evaluate(ON_CHALLENGE_PAGE) } != "false",
+                                        onChallengePage =
+                                            withTimeoutOrNull(EVALUATE_LIMIT_MS) { webView.evaluate(ON_CHALLENGE_PAGE) } != "false",
                                     )
                             }
                             if (found == null) delay(POLL_MILLIS)
@@ -108,31 +110,45 @@ internal class WebViewCloudflareClearer(
         webView.settings.allowContentAccess = false
         webView.settings.allowFileAccessFromFileURLs = false
         webView.settings.allowUniversalAccessFromFileURLs = false
-        webView.webViewClient =
-            object : WebViewClient() {
-                override fun onPageFinished(
-                    view: WebView,
-                    url: String,
-                ) {
-                    loaded.set(true)
-                }
-
-                override fun onReceivedError(
-                    view: WebView,
-                    request: WebResourceRequest,
-                    error: WebResourceError,
-                ) {
-                    if (request.isForMainFrame) failed.set(true)
-                }
-            }
+        webView.webViewClient = ClearerWebClient(failed, loaded)
     }
 
     private companion object {
         const val POLL_MILLIS = 250L
-        const val ASK_MILLIS = 500L
 
         // Set by the challenge page in every language, and gone once Cloudflare sends the browser on to the real page.
         const val ON_CHALLENGE_PAGE = "typeof window._cf_chl_opt !== 'undefined'"
+    }
+}
+
+/** Tells the waiting clearer that the page has loaded, or that it never will. */
+internal class ClearerWebClient(
+    private val failed: AtomicBoolean,
+    private val loaded: AtomicBoolean,
+) : WebViewClient() {
+    override fun onPageFinished(
+        view: WebView,
+        url: String,
+    ) {
+        loaded.set(true)
+    }
+
+    override fun onReceivedError(
+        view: WebView,
+        request: WebResourceRequest,
+        error: WebResourceError,
+    ) {
+        if (request.isForMainFrame) failed.set(true)
+    }
+
+    override fun onRenderProcessGone(
+        view: WebView,
+        detail: RenderProcessGoneDetail,
+    ): Boolean {
+        // The renderer died, often a hostile page running itself out of memory. Fail this
+        // check rather than hang, and return true so the framework doesn't kill the app.
+        failed.set(true)
+        return true
     }
 }
 

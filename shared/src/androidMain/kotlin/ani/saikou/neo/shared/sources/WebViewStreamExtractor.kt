@@ -29,6 +29,9 @@ import kotlin.coroutines.resume
 /** How often the recipe's script is re-read while the player settles. */
 private const val POLL_INTERVAL_MS: Long = 250
 
+/** How long to wait for one answer from [evaluate]. */
+internal const val EVALUATE_LIMIT_MS: Long = 500
+
 /**
  * Resolves a stream a site only exposes after its own player runs. It loads the
  * embed in an offscreen [WebView] with the pinned [userAgent], lets the site's
@@ -164,7 +167,7 @@ internal class WebViewStreamExtractor(
         session: ExtractionSession,
     ): ExtractionResult =
         coroutineScope {
-            val poll = async { pollForResult(webView, request, session) }
+            val poll = async { pollForResult(request, session.captured) { webView.evaluate(it) } }
             try {
                 select {
                     // A dead renderer fails the whole call; it won't ever finish the poll.
@@ -175,25 +178,27 @@ internal class WebViewStreamExtractor(
                 poll.cancel()
             }
         }
+}
 
-    private suspend fun pollForResult(
-        webView: WebView,
-        request: ExtractionRequest,
-        session: ExtractionSession,
-    ): ExtractionResult {
-        val scriptWanted = request.script != null
-        while (true) {
-            val scriptValue = if (scriptWanted) decodeJsEvalResult(webView.evaluate(request.script!!)) else null
-            val match = session.captured.match()
-            if (extractionDone(request.urlPattern != null, scriptWanted, match?.url, scriptValue)) {
-                return ExtractionResult(
-                    url = match?.url,
-                    requestHeaders = match?.headers ?: emptyMap(),
-                    value = scriptValue,
-                )
-            }
-            delay(POLL_INTERVAL_MS)
+/** Asks until the page has given up everything [request] wants: reads its script with [read] and checks [captured]. */
+internal suspend fun pollForResult(
+    request: ExtractionRequest,
+    captured: CapturedRequest,
+    read: suspend (String) -> String?,
+): ExtractionResult {
+    val scriptWanted = request.script != null
+    while (true) {
+        // A page moving on can drop the answer, so an answer that never comes means ask again.
+        val scriptValue = if (scriptWanted) decodeJsEvalResult(withTimeoutOrNull(EVALUATE_LIMIT_MS) { read(request.script!!) }) else null
+        val match = captured.match()
+        if (extractionDone(request.urlPattern != null, scriptWanted, match?.url, scriptValue)) {
+            return ExtractionResult(
+                url = match?.url,
+                requestHeaders = match?.headers ?: emptyMap(),
+                value = scriptValue,
+            )
         }
+        delay(POLL_INTERVAL_MS)
     }
 }
 
@@ -223,7 +228,7 @@ private class ExtractionSession(
 }
 
 /** The first request whose URL matched, captured from the WebView's own thread. */
-private class CapturedRequest(
+internal class CapturedRequest(
     pattern: String?,
 ) {
     data class Match(
