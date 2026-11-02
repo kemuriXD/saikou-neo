@@ -30,7 +30,7 @@ class StreamParts(
 
 /**
  * The best quality, with the first separate audio track and every subtitle. On a Sub server the first subtitle is on.
- * Choosing others is the player's side panel (#242).
+ * The side panel changes the subtitle, and the rest come with #314.
  */
 fun Stream.parts(edition: ServerEdition): StreamParts {
     val best = qualities.maxBy { it.height }

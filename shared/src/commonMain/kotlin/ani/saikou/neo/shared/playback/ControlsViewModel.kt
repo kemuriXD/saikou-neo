@@ -27,19 +27,26 @@ public data class Scrub(
     val jumpMs: Long get() = targetMs - fromMs
 }
 
+/** The tabs of the side panel, in order. */
+public enum class PanelTab {
+    Tracks,
+    Speed,
+}
+
 /**
  * What sits over the playing video: the controls when [shown], how far quick presses of Left or Right have seeked in
- * all ([nudgeMs]), and a [scrub] while one is being picked.
+ * all ([nudgeMs]), a [scrub] while one is being picked, and the side [panel] while it's open, in place of the controls.
  */
 public data class ControlsState(
     val shown: Boolean = false,
     val nudgeMs: Long? = null,
     val scrub: Scrub? = null,
+    val panel: PanelTab? = null,
 )
 
 /**
- * The player's controls. They hide [hideAfter] the last key while the video plays, and stay up while it's paused or a
- * scrub is being picked. Holding Left or Right scrubs faster the longer it's held. The TV app does the seeking.
+ * The player's controls. They hide [hideAfter] the last key while the video plays, and stay up while it's paused, a
+ * scrub is being picked or the side panel is open. Holding Left or Right scrubs faster the longer it's held. The TV app does the seeking.
  */
 public class ControlsViewModel(
     private val time: TimeSource.WithComparableMarks = TimeSource.Monotonic,
@@ -63,12 +70,25 @@ public class ControlsViewModel(
     /** A key was pressed: the controls stay up another [hideAfter] while [playing]. */
     public fun touched(playing: Boolean) {
         hiding?.cancel()
-        if (!playing || !state.value.shown) return
+        if (!playing || !state.value.shown || state.value.panel != null) return
         hiding =
             viewModelScope.launch {
                 delay(hideAfter)
                 if (state.value.scrub == null) hide()
             }
+    }
+
+    /** Opens the side panel on [tab], or moves it there, dropping any scrub. */
+    public fun openPanel(tab: PanelTab) {
+        hiding?.cancel()
+        endHold()
+        mutableState.update { it.copy(panel = tab, scrub = null) }
+    }
+
+    /** Closes the side panel, back to the controls if they were up, which then stay another [hideAfter] while [playing]. */
+    public fun closePanel(playing: Boolean) {
+        mutableState.update { it.copy(panel = null) }
+        touched(playing)
     }
 
     /** Hides the controls, dropping any scrub. */

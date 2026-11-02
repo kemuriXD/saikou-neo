@@ -36,7 +36,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.takeOrElse
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
 import androidx.tv.material3.Icon
@@ -183,6 +185,8 @@ fun NeoTab(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     height: Dp = TabHeight,
+    padding: Dp = NeoTabPadding,
+    fontSize: TextUnit = TextUnit.Unspecified,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
@@ -219,10 +223,16 @@ fun NeoTab(
                 focusedSelectedGlow = focusedGlow,
             ),
     ) {
-        Box(Modifier.fillMaxHeight().padding(horizontal = NeoTabPadding), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxHeight().padding(horizontal = padding), contentAlignment = Alignment.Center) {
             Text(
                 text = text,
-                style = NeoTheme.typography.labelLarge.copy(fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium),
+                style =
+                    NeoTheme.typography.labelLarge.run {
+                        copy(
+                            fontSize = fontSize.takeOrElse { this.fontSize },
+                            fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                        )
+                    },
                 maxLines = 1,
             )
         }
@@ -305,7 +315,7 @@ fun NeoSectionTab(
 
 /** What every button shares: a tonal fill at rest; paper, a glow and growth on focus. */
 @Composable
-private fun NeoSurface(
+internal fun NeoSurface(
     onClick: () -> Unit,
     shape: Shape,
     focusedScale: Float,

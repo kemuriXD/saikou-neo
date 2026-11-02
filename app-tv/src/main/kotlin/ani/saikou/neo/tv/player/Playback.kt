@@ -1,16 +1,27 @@
 package ani.saikou.neo.tv.player
 
+import androidx.annotation.OptIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.platform.LocalContext
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Format
+import androidx.media3.common.MimeTypes
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.TrackGroup
+import androidx.media3.common.TrackSelectionOverride
+import androidx.media3.common.TrackSelectionParameters
+import androidx.media3.common.Tracks
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import java.util.Locale
 
 /** What the controls do to the video, and what they read from it. */
 internal interface Playback {
@@ -27,7 +38,74 @@ internal interface Playback {
     fun pause()
 
     fun seekTo(positionMs: Long)
+
+    /** The audio tracks the video offers. Compose reads it as state, as with the rest below. */
+    val audio: List<TrackOption>
+
+    val subtitles: List<TrackOption>
+
+    val speed: Float
+
+    fun selectTrack(option: TrackOption)
+
+    fun subtitlesOff()
+
+    fun changeSpeed(speed: Float)
 }
+
+/** A track to offer: where it is in the video, its name if it has one, and whether it's the one playing. */
+internal data class TrackOption(
+    val group: Int,
+    val track: Int,
+    val label: String?,
+    val selected: Boolean,
+)
+
+/** The tracks of [type] this device can play. The same name twice, such as a language at two bitrates, is one choice. */
+@OptIn(UnstableApi::class)
+internal fun Tracks.options(type: Int): List<TrackOption> {
+    val all =
+        groups.flatMapIndexed { index, group ->
+            if (group.type != type) return@flatMapIndexed emptyList()
+            (0 until group.length).filter { group.isTrackSupported(it) && !group.getTrackFormat(it).isCaptionGuess() }.map {
+                TrackOption(index, it, group.getTrackFormat(it).name(), group.isTrackSelected(it))
+            }
+        }
+    val named =
+        all.filter { it.label != null }.groupBy { it.label }.mapValues { (_, same) ->
+            same.firstOrNull { it.selected }
+                ?: same.first()
+        }
+    return all.filter { it.label == null || named[it.label] == it }
+}
+
+// A playlist that doesn't rule captions out gets this nameless track whether or not the video has any.
+private fun Format.isCaptionGuess() =
+    (sampleMimeType == MimeTypes.APPLICATION_CEA608 || sampleMimeType == MimeTypes.APPLICATION_CEA708) && name() == null
+
+private fun Format.name() =
+    label?.takeIf { it.isNotBlank() }
+        ?: language
+            ?.takeIf { it != C.LANGUAGE_UNDETERMINED }
+            ?.let { Locale.forLanguageTag(it).displayName }
+            ?.takeIf { it.isNotBlank() }
+
+/** Plays [track] of [group], with its type turned on if it was off. */
+@OptIn(UnstableApi::class)
+internal fun TrackSelectionParameters.picking(
+    group: TrackGroup,
+    track: Int,
+): TrackSelectionParameters =
+    buildUpon()
+        .setTrackTypeDisabled(group.type, false)
+        .setOverrideForType(TrackSelectionOverride(group, track))
+        .build()
+
+internal fun TrackSelectionParameters.withoutSubtitles(): TrackSelectionParameters =
+    buildUpon()
+        .clearOverridesOfType(C.TRACK_TYPE_TEXT)
+        .setTrackTypeDisabled(C.TRACK_TYPE_TEXT, true)
+        .build()
 
 /** The screen's ExoPlayer, as the controls see it. */
 internal class ExoPlayback(
@@ -38,6 +116,12 @@ internal class ExoPlayback(
     override val durationMs get() = player.duration.takeIf { it != C.TIME_UNSET } ?: 0
     override var playing by mutableStateOf(player.playWhenReady)
         private set
+    override var audio by mutableStateOf(player.currentTracks.options(C.TRACK_TYPE_AUDIO))
+        private set
+    override var subtitles by mutableStateOf(player.currentTracks.options(C.TRACK_TYPE_TEXT))
+        private set
+    override var speed by mutableFloatStateOf(player.playbackParameters.speed)
+        private set
 
     override fun play() = player.play()
 
@@ -45,11 +129,31 @@ internal class ExoPlayback(
 
     override fun seekTo(positionMs: Long) = player.seekTo(positionMs)
 
+    override fun selectTrack(option: TrackOption) {
+        val group = player.currentTracks.groups.getOrNull(option.group) ?: return
+        player.trackSelectionParameters = player.trackSelectionParameters.picking(group.mediaTrackGroup, option.track)
+    }
+
+    override fun subtitlesOff() {
+        player.trackSelectionParameters = player.trackSelectionParameters.withoutSubtitles()
+    }
+
+    override fun changeSpeed(speed: Float) = player.setPlaybackSpeed(speed)
+
     override fun onPlayWhenReadyChanged(
         playWhenReady: Boolean,
         reason: Int,
     ) {
         playing = playWhenReady
+    }
+
+    override fun onTracksChanged(tracks: Tracks) {
+        audio = tracks.options(C.TRACK_TYPE_AUDIO)
+        subtitles = tracks.options(C.TRACK_TYPE_TEXT)
+    }
+
+    override fun onPlaybackParametersChanged(playbackParameters: PlaybackParameters) {
+        speed = playbackParameters.speed
     }
 }
 
