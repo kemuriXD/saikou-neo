@@ -41,11 +41,15 @@ internal const val STREAMS_TRY_AGAIN_TAG = "streams-try-again"
 internal const val STREAMS_BACK_TAG = "streams-back"
 internal const val STREAMS_ADD_SOURCE_TAG = "streams-add-source"
 
-/** What the streams page can do when nothing plays: ask again, go back to the episodes, or add a source in Settings. */
+/**
+ * What the streams page can do when nothing plays: ask again, go back to the episodes, or add a source in Settings.
+ * [onOpen] runs each time the page opens.
+ */
 internal data class StreamsActions(
     val onRetry: () -> Unit = {},
     val onBack: () -> Unit = {},
     val onAddSource: () -> Unit = {},
+    val onOpen: () -> Unit = {},
 )
 
 // From the design: the message is 520 dp wide with no sources, 560 dp with the sources listed.

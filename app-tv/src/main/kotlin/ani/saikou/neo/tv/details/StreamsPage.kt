@@ -99,6 +99,7 @@ internal fun StreamsPage(
     actions: StreamsActions,
     modifier: Modifier = Modifier,
 ) {
+    LaunchedEffect(Unit) { actions.onOpen() }
     val page = modifier.focusProperties { onExit = { cancelFocusChange() } }.focusGroup()
     when (val outcome = state.outcome) {
         StreamsOutcome.NoSources -> NoSources(episode, actions.onAddSource, page)

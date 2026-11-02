@@ -89,6 +89,7 @@ class StreamsPageTest {
     private val filters = mutableListOf<String?>()
     private var askedFor: Int? = null
     private var retries = 0
+    private var opens = 0
     private var addedSource = false
 
     private fun show() {
@@ -104,7 +105,13 @@ class StreamsPageTest {
                             title = "Show 7",
                             onPick = { source, server -> picked += source.id to server.name },
                             onFilter = { filters += it },
-                            actions = StreamsActions(onRetry = { retries++ }, onBack = back, onAddSource = { addedSource = true }),
+                            actions =
+                                StreamsActions(
+                                    onRetry = { retries++ },
+                                    onBack = back,
+                                    onAddSource = { addedSource = true },
+                                    onOpen = { opens++ },
+                                ),
                             modifier = modifier,
                         )
                     },
@@ -231,6 +238,30 @@ class StreamsPageTest {
         press(Key.DirectionCenter)
 
         assertEquals(1, retries)
+    }
+
+    @Test
+    fun comingBackToTheEpisodeAsksAgain() {
+        openEpisodeTwo()
+        assertEquals(1, opens)
+
+        Espresso.pressBack()
+        compose.waitForIdle()
+        compose.onNodeWithTag(episodeTag(2)).assertIsFocused()
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+
+        assertEquals(2, opens)
+    }
+
+    @Test
+    fun aNewAnswerIsNotOpeningThePageAgain() {
+        openEpisodeTwo()
+
+        state.value = servers.copy(filter = demo.id)
+        compose.waitForIdle()
+
+        assertEquals(1, opens)
     }
 
     @Test
