@@ -59,12 +59,12 @@ class ExtensionStreamFinderTest {
         }.reason
 
     @Test
-    fun theStreamComesWithItsBestHeight() {
+    fun theStreamComesWithItsBestHeightAndEveryOtherBestFirst() {
         val given = stream(480, 1080, 720)
 
         val found = runBlocking { finder(StreamSource(given)).stream(demo, dub) }
 
-        assertEquals(FoundStream(given, 1080), found)
+        assertEquals(FoundStream(given, 1080, listOf(1080, 720, 480)), found)
     }
 
     @Test
