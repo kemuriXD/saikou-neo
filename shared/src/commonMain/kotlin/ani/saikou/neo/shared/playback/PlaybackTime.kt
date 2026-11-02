@@ -29,6 +29,27 @@ public fun endsAtMs(
     speed: Float = 1f,
 ): Long? = if (durationMs <= 0) null else nowMs + ((durationMs - positionMs).coerceAtLeast(0) / speed).toLong()
 
+private const val SUBTITLE_STEP_MS = 100
+private const val SUBTITLE_MAX_MS = 60_000
+
+/** Subtitle timing a step [later] or earlier than [delayMs], up to a minute either way. */
+public fun nextSubtitleDelay(
+    delayMs: Int,
+    later: Boolean,
+): Int = (delayMs + if (later) SUBTITLE_STEP_MS else -SUBTITLE_STEP_MS).coerceIn(-SUBTITLE_MAX_MS, SUBTITLE_MAX_MS)
+
+/** Formats subtitle timing with its sign, such as `+0.5 s`, `−1.2 s` or `0.0 s`. */
+public fun formatSubtitleDelay(delayMs: Int): String {
+    val sign =
+        when {
+            delayMs > 0 -> "+"
+            delayMs < 0 -> "−"
+            else -> ""
+        }
+    val tenths = abs(delayMs) / SUBTITLE_STEP_MS
+    return "$sign${tenths / 10}.${tenths % 10} s"
+}
+
 /** The speeds the player offers. */
 public val PLAYBACK_SPEEDS: List<Float> = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 1.75f, 2f)
 

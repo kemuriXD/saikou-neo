@@ -47,6 +47,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -64,6 +65,8 @@ import ani.saikou.neo.shared.playback.PanelTab
 import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.formatSpeed
+import ani.saikou.neo.shared.playback.formatSubtitleDelay
+import ani.saikou.neo.shared.playback.nextSubtitleDelay
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.details.editionName
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -71,6 +74,7 @@ import ani.saikou.neo.tv.ui.NeoTab
 import kotlin.math.ceil
 
 internal const val PLAYER_PANEL_TAG = "player-panel"
+internal const val PLAYER_PANEL_TIMING_TAG = "player-panel-timing"
 
 internal fun playerPanelTabTag(tab: PanelTab) = "player-panel-$tab"
 
@@ -122,6 +126,7 @@ internal fun BoxScope.PlayerPanel(
     controls: ControlsViewModel,
 ) {
     val colors = NeoTheme.colors
+    var onTiming by remember { mutableStateOf(false) }
     val picked = remember { FocusRequester() }
     val currentTab = remember { FocusRequester() }
     // Set when focus should land on the next tab's list, not stay on the tabs.
@@ -171,6 +176,8 @@ internal fun BoxScope.PlayerPanel(
                         Choice(name, index == state.pickedAudio) { actions.onAudio(index, playback.positionMs) }
                     }
                 Tracks(apart, playback, picked, currentTab, ::move)
+                Box(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
+                SubtitleTiming(playback) { onTiming = it }
             }
 
             PanelTab.Quality -> {
@@ -221,7 +228,7 @@ internal fun BoxScope.PlayerPanel(
             }
         }
         Text(
-            stringResource(R.string.player_panel_hint),
+            stringResource(if (onTiming && tab == PanelTab.Tracks) R.string.player_panel_timing_hint else R.string.player_panel_hint),
             style = NeoTheme.typography.caption.copy(fontSize = 12.sp, lineHeight = 17.sp),
             color = colors.textFaint,
         )
@@ -269,6 +276,54 @@ private fun Tracks(
             height = rowsHeight(ROWS_SHOWN),
             modifier = Modifier.weight(1f).sideKeys(left = if (audio.isEmpty()) ({ move(-1) }) else null, right = { move(1) }),
         )
+    }
+}
+
+/** Left and Right move subtitles earlier and later, held to go on moving, and OK puts them back. */
+@Composable
+private fun SubtitleTiming(
+    playback: Playback,
+    onFocused: (Boolean) -> Unit,
+) {
+    val colors = NeoTheme.colors
+    val interactions = remember { MutableInteractionSource() }
+    val focused by interactions.collectIsFocusedAsState()
+    LaunchedEffect(focused) { onFocused(focused) }
+    val label = stringResource(R.string.player_panel_timing)
+    val value = formatSubtitleDelay(playback.subtitleDelayMs)
+    Surface(
+        onClick = { playback.changeSubtitleDelay(0) },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .height(ChoiceHeight)
+                .onKeyEvent { event ->
+                    if (event.key != Key.DirectionLeft && event.key != Key.DirectionRight) return@onKeyEvent false
+                    if (event.type == KeyEventType.KeyDown) {
+                        playback.changeSubtitleDelay(nextSubtitleDelay(playback.subtitleDelayMs, later = event.key == Key.DirectionRight))
+                    }
+                    true
+                }.semantics { stateDescription = value }
+                .testTag(PLAYER_PANEL_TIMING_TAG),
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(ChoiceRadius)),
+        colors =
+            ClickableSurfaceDefaults.colors(
+                containerColor = colors.surface,
+                contentColor = colors.paper,
+                focusedContainerColor = colors.focus,
+                focusedContentColor = colors.onFocus,
+                pressedContainerColor = colors.focus,
+                pressedContentColor = colors.onFocus,
+            ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = CHOICE_SCALE),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(FocusGlowColor, ChoiceGlow)),
+        interactionSource = interactions,
+    ) {
+        Row(Modifier.fillMaxHeight().padding(horizontal = ChoicePadding), verticalAlignment = Alignment.CenterVertically) {
+            val style = NeoTheme.typography.label.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium)
+            Text(label, style = style, modifier = Modifier.weight(1f))
+            Text(value, style = style.copy(fontFeatureSettings = "tnum"), color = if (focused) colors.onFocusMuted else colors.textMuted)
+        }
     }
 }
 
