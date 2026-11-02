@@ -1,18 +1,32 @@
 package ani.saikou.neo.shared.sources
 
+import ani.saikou.neo.extension.api.HostRequest
 import ani.saikou.neo.extension.api.SourceException
+import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.Cookie
 import okhttp3.CookieJar
+import okhttp3.Dispatcher
 import okhttp3.Headers
 import okhttp3.HttpUrl
 import okhttp3.Request
+import okhttp3.Response
+import java.io.IOException
+import java.util.concurrent.CompletableFuture
+import java.util.concurrent.CopyOnWriteArrayList
+import java.util.concurrent.Executors
+import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertIs
+import kotlin.test.assertNull
 
 class CloudflareInterceptorTest {
     private val server = MockWebServer()
@@ -42,6 +56,56 @@ class CloudflareInterceptorTest {
             .newCall(Request.Builder().url(server.url("/")).build())
             .execute()
 
+    private fun hostHttp(clearer: CloudflareClearer) =
+        runBlocking {
+            SourceHttpClient(sharedHttpClient(cookieJar = jar, clearer = clearer)).http(HostRequest(url = server.url("/").toString()))
+        }
+
+    /** Makes the call as Media3 does, on OkHttp's dispatcher, and reports how the call failed and what killed its thread. */
+    private fun failEnqueued(clearer: CloudflareClearer): EnqueuedFailure {
+        val uncaught = AtomicReference<Throwable?>()
+        val threads = CopyOnWriteArrayList<Thread>()
+        val executor =
+            Executors.newSingleThreadExecutor { task ->
+                Thread(task).apply {
+                    setUncaughtExceptionHandler { _, error -> uncaught.set(error) }
+                    threads += this
+                }
+            }
+        val failure = CompletableFuture<IOException>()
+        sharedHttpClient(cookieJar = jar, clearer = clearer)
+            .newBuilder()
+            .dispatcher(Dispatcher(executor))
+            .build()
+            .newCall(Request.Builder().url(server.url("/")).build())
+            .enqueue(
+                object : Callback {
+                    override fun onFailure(
+                        call: Call,
+                        e: IOException,
+                    ) {
+                        failure.complete(e)
+                    }
+
+                    override fun onResponse(
+                        call: Call,
+                        response: Response,
+                    ) {
+                        response.close()
+                        failure.completeExceptionally(AssertionError("The call should have failed"))
+                    }
+                },
+            )
+        val error = failure.get(TEN_SECONDS, TimeUnit.SECONDS)
+        executor.shutdown()
+        // The executor reports terminated before a dying thread's handler runs, so wait for the threads themselves.
+        threads.forEach { it.join(TimeUnit.SECONDS.toMillis(TEN_SECONDS)) }
+        return EnqueuedFailure(
+            generateSequence<Throwable>(error) { it.cause }.firstNotNullOfOrNull { it as? SourceException },
+            uncaught.get(),
+        )
+    }
+
     @Test
     fun aChallengeIsClearedThenTheRequestSucceeds() {
         val clearer = FakeClearer(jar, FakeClearer.Outcome.Clear)
@@ -69,14 +133,14 @@ class CloudflareInterceptorTest {
     fun aChallengeThatNeedsAPersonFailsAsBlocked() {
         server.enqueue(challenge())
 
-        assertFailsWith<SourceException.Blocked> { get(FakeClearer(jar, FakeClearer.Outcome.NeedsPerson)) }
+        assertFailsWith<SourceException.Blocked> { hostHttp(FakeClearer(jar, FakeClearer.Outcome.NeedsPerson)) }
     }
 
     @Test
     fun aClearanceThatCantBeMintedFailsAsTheSiteBeingDown() {
         server.enqueue(challenge())
 
-        assertFailsWith<SourceException.SourceDown> { get(FakeClearer(jar, FakeClearer.Outcome.Error)) }
+        assertFailsWith<SourceException.SourceDown> { hostHttp(FakeClearer(jar, FakeClearer.Outcome.Error)) }
     }
 
     @Test
@@ -84,16 +148,72 @@ class CloudflareInterceptorTest {
         server.enqueue(challenge())
         server.enqueue(challenge())
 
-        assertFailsWith<SourceException.Blocked> { get(FakeClearer(jar, FakeClearer.Outcome.Clear)) }
+        assertFailsWith<SourceException.Blocked> { hostHttp(FakeClearer(jar, FakeClearer.Outcome.Clear)) }
+    }
+
+    @Test
+    fun aBlockedEnqueuedCallFailsWithoutKillingItsThread() {
+        server.enqueue(challenge())
+
+        val failed = failEnqueued(FakeClearer(jar, FakeClearer.Outcome.NeedsPerson))
+
+        assertNull(failed.threadDeath)
+        assertIs<SourceException.Blocked>(failed.reason)
+    }
+
+    @Test
+    fun aChallengeThatStaysFailsAnEnqueuedCallWithoutKillingItsThread() {
+        server.enqueue(challenge())
+        server.enqueue(challenge())
+
+        val failed = failEnqueued(FakeClearer(jar, FakeClearer.Outcome.Clear))
+
+        assertNull(failed.threadDeath)
+        assertIs<SourceException.Blocked>(failed.reason)
+    }
+
+    @Test
+    fun aPageThatWontLoadFailsAnEnqueuedCallWithoutKillingItsThread() {
+        server.enqueue(challenge())
+
+        val failed = failEnqueued(FakeClearer(jar, FakeClearer.Outcome.Error))
+
+        assertNull(failed.threadDeath)
+        assertIs<SourceException.SourceDown>(failed.reason)
+    }
+
+    @Test
+    fun aClearerThatCrashesFailsAnEnqueuedCallWithoutKillingItsThread() {
+        server.enqueue(challenge())
+
+        val failed = failEnqueued(FakeClearer(jar, FakeClearer.Outcome.Crash))
+
+        assertNull(failed.threadDeath)
+        assertIs<SourceException.SourceDown>(failed.reason)
+    }
+
+    @Test
+    fun aClearerThatCrashesFailsHostHttpAsTheSiteBeingDown() {
+        server.enqueue(challenge())
+
+        assertFailsWith<SourceException.SourceDown> { hostHttp(FakeClearer(jar, FakeClearer.Outcome.Crash)) }
     }
 }
 
-/** Stands in for the WebView clearer: it clears, needs a person, or errors, as the test asks. */
+private const val TEN_SECONDS = 10L
+
+/** How an enqueued call ended: the [reason] its error carries, and what, if anything, killed the dispatcher's thread. */
+private class EnqueuedFailure(
+    val reason: SourceException?,
+    val threadDeath: Throwable?,
+)
+
+/** Stands in for the WebView clearer: it clears, needs a person, errors or crashes, as the test asks. */
 private class FakeClearer(
     private val jar: CookieJar,
     private val outcome: Outcome,
 ) : CloudflareClearer {
-    enum class Outcome { Clear, NeedsPerson, Error }
+    enum class Outcome { Clear, NeedsPerson, Error, Crash }
 
     var calls = 0
 
@@ -121,6 +241,10 @@ private class FakeClearer(
 
             Outcome.Error -> {
                 throw SourceException.SourceDown("the WebView could not load the page")
+            }
+
+            Outcome.Crash -> {
+                throw IllegalStateException("no WebView on this device")
             }
         }
     }

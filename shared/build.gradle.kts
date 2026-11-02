@@ -24,6 +24,8 @@ kotlin {
         }
         getByName("androidHostTest").dependencies {
             implementation(libs.okhttp.mockwebserver)
+            implementation(libs.robolectric)
+            implementation(libs.junit)
         }
     }
 }

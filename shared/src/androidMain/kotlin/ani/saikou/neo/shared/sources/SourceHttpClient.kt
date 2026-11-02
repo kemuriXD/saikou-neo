@@ -33,7 +33,11 @@ internal class SourceHttpClient(
 ) {
     suspend fun http(request: HostRequest): HostResponse =
         withContext(io) {
-            client.newCall(request.toOkHttpRequest()).execute().use { it.toHostResponse(maxBodyBytes) }
+            try {
+                client.newCall(request.toOkHttpRequest()).execute().use { it.toHostResponse(maxBodyBytes) }
+            } catch (e: SourceFailure) {
+                throw e.failure
+            }
         }
 }
 
