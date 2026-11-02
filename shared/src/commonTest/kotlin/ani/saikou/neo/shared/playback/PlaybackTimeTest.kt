@@ -51,5 +51,21 @@ class PlaybackTimeTest {
     }
 
     @Test
+    fun subtitleTimingShowsItsSignInTenths() {
+        assertEquals("0.0 s", formatSubtitleDelay(0))
+        assertEquals("+0.5 s", formatSubtitleDelay(500))
+        assertEquals("−1.2 s", formatSubtitleDelay(-1_200))
+        assertEquals("+12.0 s", formatSubtitleDelay(12_000))
+    }
+
+    @Test
+    fun subtitleTimingMovesInStepsUpToAMinute() {
+        assertEquals(100, nextSubtitleDelay(0, later = true))
+        assertEquals(-100, nextSubtitleDelay(0, later = false))
+        assertEquals(60_000, nextSubtitleDelay(60_000, later = true))
+        assertEquals(-60_000, nextSubtitleDelay(-60_000, later = false))
+    }
+
+    @Test
     fun normalSpeedIsOnTheList() = assertEquals(true, 1f in PLAYBACK_SPEEDS)
 }

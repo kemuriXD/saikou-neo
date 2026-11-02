@@ -331,6 +331,8 @@
         <item quantity="one">%1$d more below</item>
         <item quantity="other">%1$d more below</item>
     </plurals>
+    <string name="player_panel_timing">Subtitle timing</string>
+    <string name="player_panel_timing_hint">Left moves subtitles earlier and Right later. OK goes back to 0.</string>
     <string name="player_panel_hint">The video keeps playing. Left and Right move between tabs. Back closes.</string>
     <!-- Quick presses of Left or Right, added up, such as −20 s or +10 s. -->
     <string name="player_nudge">%1$s%2$d s</string>

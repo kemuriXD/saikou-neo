@@ -3,6 +3,7 @@ package ani.saikou.neo.tv.player
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
@@ -72,6 +73,12 @@ internal class FakePlayback : Playback {
     override val audio = listOf(TrackOption(0, 0, "Japanese", selected = true), TrackOption(1, 0, null, selected = false))
     override val subtitles = listOf(TrackOption(2, 0, "English", selected = true), TrackOption(3, 0, "French", selected = false))
     override var speed by mutableFloatStateOf(1f)
+
+    override var subtitleDelayMs by mutableIntStateOf(0)
+
+    override fun changeSubtitleDelay(delayMs: Int) {
+        subtitleDelayMs = delayMs
+    }
 
     override fun selectTrack(option: TrackOption) {
         calls += "track ${option.label}"
@@ -230,6 +237,30 @@ class PlayerControlsTest {
         press(Key.DirectionCenter)
 
         assertEquals(listOf("audio 1 at 724000"), calls)
+    }
+
+    @Test
+    fun subtitleTimingMovesEarlierAndLaterAndOkPutsItBack() {
+        show()
+        press(Key.Menu)
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(PLAYER_PANEL_TIMING_TAG).assertIsFocused()
+        compose.onNodeWithText("0.0 s").assertExists()
+
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+        assertEquals(200, playback.subtitleDelayMs)
+        compose.onNodeWithText("+0.2 s").assertExists()
+
+        press(Key.DirectionLeft)
+        press(Key.DirectionLeft)
+        press(Key.DirectionLeft)
+        assertEquals(-100, playback.subtitleDelayMs)
+        compose.onNodeWithTag(PLAYER_PANEL_TIMING_TAG).assertIsFocused()
+
+        press(Key.DirectionCenter)
+        assertEquals(0, playback.subtitleDelayMs)
     }
 
     @Test

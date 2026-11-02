@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -51,6 +52,11 @@ internal interface Playback {
     fun subtitlesOff()
 
     fun changeSpeed(speed: Float)
+
+    /** How far subtitles run behind the video, or ahead when negative. */
+    val subtitleDelayMs: Int
+
+    fun changeSubtitleDelay(delayMs: Int)
 }
 
 /** A track to offer: where it is in the video, its name if it has one, and whether it's the one playing. */
@@ -113,6 +119,7 @@ internal fun TrackSelectionParameters.withoutSubtitles(): TrackSelectionParamete
 /** The screen's ExoPlayer, as the controls see it. */
 internal class ExoPlayback(
     val player: ExoPlayer,
+    private val delay: SubtitleDelay,
 ) : Playback,
     Player.Listener {
     override val positionMs get() = player.currentPosition
@@ -148,6 +155,14 @@ internal class ExoPlayback(
 
     override fun changeSpeed(speed: Float) = player.setPlaybackSpeed(speed)
 
+    override var subtitleDelayMs by mutableIntStateOf(0)
+        private set
+
+    override fun changeSubtitleDelay(delayMs: Int) {
+        subtitleDelayMs = delayMs
+        delay.ms = delayMs
+    }
+
     override fun onPlayWhenReadyChanged(
         playWhenReady: Boolean,
         reason: Int,
@@ -168,6 +183,7 @@ internal class ExoPlayback(
 }
 
 /** An ExoPlayer that lives as long as the screen and is released when it leaves. */
+@OptIn(UnstableApi::class)
 @Composable
 internal fun rememberExoPlayback(): ExoPlayback {
     val context = LocalContext.current
@@ -180,7 +196,8 @@ internal fun rememberExoPlayback(): ExoPlayback {
                     .setUsage(C.USAGE_MEDIA)
                     .setContentType(C.AUDIO_CONTENT_TYPE_MOVIE)
                     .build()
-            ExoPlayback(ExoPlayer.Builder(context).setAudioAttributes(audio, true).build())
+            val delay = SubtitleDelay()
+            ExoPlayback(ExoPlayer.Builder(context, DelayedSubtitlesFactory(context, delay)).setAudioAttributes(audio, true).build(), delay)
         }
     DisposableEffect(playback) {
         playback.player.addListener(playback)
