@@ -13,6 +13,9 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
@@ -100,6 +103,8 @@ class MainActivity : ComponentActivity() {
         setContent(parent = window.decorView.createLifecycleAwareWindowRecomposer(heldKeys, lifecycle)) {
             // The settings take a moment to read at start, and nothing shows until they're in.
             val settings = app.settings.collectAsStateWithLifecycle().value ?: return@setContent
+            // An episode picked in the player, for the Details under it to open as the player goes.
+            var episodeFromPlayer by remember { mutableStateOf<Int?>(null) }
             NeoTheme(light = settings.slowTv) {
                 // Every key passes through HeldKeys before it can move focus. Test tags double as resource IDs, so
                 // :benchmark-tv can find the cards.
@@ -190,14 +195,18 @@ class MainActivity : ComponentActivity() {
                                         onPick = { source, server ->
                                             servers.pick(source, server)
                                             openPlayer(
-                                                serversState.playRequest(
-                                                    source,
-                                                    server,
-                                                    show,
-                                                    episode,
-                                                    episodeTitle,
-                                                    (state as? DetailsState.Loaded)?.backdrop,
-                                                ),
+                                                serversState
+                                                    .playRequest(
+                                                        source,
+                                                        server,
+                                                        show,
+                                                        episode,
+                                                        episodeTitle,
+                                                        (state as? DetailsState.Loaded)?.backdrop,
+                                                    ).copy(
+                                                        episodes = (state as? DetailsState.Loaded)?.episodes,
+                                                        progress = (state as? DetailsState.Loaded)?.progress,
+                                                    ),
                                             )
                                         },
                                         onFilter = servers::filter,
@@ -212,6 +221,8 @@ class MainActivity : ComponentActivity() {
                                         modifier = modifier,
                                     )
                                 },
+                                openStreams = episodeFromPlayer,
+                                onStreamsOpened = { episodeFromPlayer = null },
                             )
                         },
                         recommendations = { animeId, openDetails ->
@@ -288,6 +299,10 @@ class MainActivity : ComponentActivity() {
                                     onQuality = player::changeQuality,
                                     onAudio = player::changeAudio,
                                     onServer = player::changeServer,
+                                    onEpisode = { episode ->
+                                        episodeFromPlayer = episode
+                                        back()
+                                    },
                                 ),
                                 playback,
                                 viewModel { ControlsViewModel() },

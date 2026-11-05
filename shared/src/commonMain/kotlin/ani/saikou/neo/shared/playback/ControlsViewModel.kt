@@ -37,18 +37,20 @@ public enum class PanelTab {
 
 /**
  * What sits over the playing video: the controls when [shown], how far quick presses of Left or Right have seeked in
- * all ([nudgeMs]), a [scrub] while one is being picked, and the side [panel] while it's open, in place of the controls.
+ * all ([nudgeMs]), a [scrub] while one is being picked, and the side [panel] or the [episodes] drawer while it's open,
+ * in place of the controls.
  */
 public data class ControlsState(
     val shown: Boolean = false,
     val nudgeMs: Long? = null,
     val scrub: Scrub? = null,
     val panel: PanelTab? = null,
+    val episodes: Boolean = false,
 )
 
 /**
  * The player's controls. They hide [hideAfter] the last key while the video plays, and stay up while it's paused, a
- * scrub is being picked or the side panel is open. Holding Left or Right scrubs faster the longer it's held. The TV app does the seeking.
+ * scrub is being picked, or the side panel or episodes drawer is open. Holding Left or Right scrubs faster the longer it's held. The TV app does the seeking.
  */
 public class ControlsViewModel(
     private val time: TimeSource.WithComparableMarks = TimeSource.Monotonic,
@@ -72,7 +74,7 @@ public class ControlsViewModel(
     /** A key was pressed: the controls stay up another [hideAfter] while [playing]. */
     public fun touched(playing: Boolean) {
         hiding?.cancel()
-        if (!playing || !state.value.shown || state.value.panel != null) return
+        if (!playing || !state.value.shown || state.value.panel != null || state.value.episodes) return
         hiding =
             viewModelScope.launch {
                 delay(hideAfter)
@@ -84,12 +86,25 @@ public class ControlsViewModel(
     public fun openPanel(tab: PanelTab) {
         hiding?.cancel()
         endHold()
-        mutableState.update { it.copy(panel = tab, scrub = null) }
+        mutableState.update { it.copy(panel = tab, episodes = false, scrub = null) }
     }
 
     /** Closes the side panel, back to the controls if they were up, which then stay another [hideAfter] while [playing]. */
     public fun closePanel(playing: Boolean) {
         mutableState.update { it.copy(panel = null) }
+        touched(playing)
+    }
+
+    /** Opens the episodes drawer, dropping any scrub. */
+    public fun openEpisodes() {
+        hiding?.cancel()
+        endHold()
+        mutableState.update { it.copy(episodes = true, panel = null, scrub = null) }
+    }
+
+    /** Closes the episodes drawer, back to the controls if they were up, which then stay another [hideAfter] while [playing]. */
+    public fun closeEpisodes(playing: Boolean) {
+        mutableState.update { it.copy(episodes = false) }
         touched(playing)
     }
 

@@ -4,6 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.art
+import ani.saikou.neo.shared.details.EpisodeList
+import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -55,7 +57,8 @@ public data class PlayServer(
 
 /**
  * What the player opens with: the episode, and the [servers] the streams page listed, in its order, with the one [picked].
- * [backdrop] is the artwork Details showed, if it had any.
+ * [backdrop] is the artwork Details showed, if it had any. The [episodes] Details listed, and the [progress] it showed
+ * them with, fill the player's episodes drawer.
  */
 public data class PlayRequest(
     val show: AnimeDetails,
@@ -64,6 +67,8 @@ public data class PlayRequest(
     val servers: List<PlayServer>,
     val picked: Int,
     val backdrop: String? = null,
+    val episodes: EpisodeList? = null,
+    val progress: WatchProgress? = null,
 ) {
     /** The artwork behind the player while it starts: the one Details showed, or else the show's banner or cover. */
     val art: String? get() = backdrop ?: show.card.art

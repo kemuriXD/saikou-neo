@@ -129,7 +129,8 @@ private val VideoKeys = setOf(Key.MediaFastForward, Key.MediaRewind, Key.MediaPl
 /**
  * The remote's controls over the playing video. Hidden, OK pauses and shows them, Down shows them, and Left or Right
  * seek 10 s with a slim line. Shown, they sit on the bar. Holding Left or Right picks a spot to jump to: OK jumps there
- * and Back stays. Back hides them. Menu, or a button for it, opens the side panel over the video.
+ * and Back stays. Back hides them. Menu, or a button for it, opens the side panel over the video. Up, from the video
+ * or the bar, or the Episodes button, opens the episodes drawer.
  */
 @Composable
 internal fun BoxScope.PlayerControls(
@@ -171,19 +172,35 @@ internal fun BoxScope.PlayerControls(
     var onBar by remember { mutableStateOf(false) }
     val hold = remember { HeldKey() }
     val pills = remember { PanelTab.entries.associateWith { FocusRequester() } }
+    val episodesPill = remember { FocusRequester() }
     var panelFrom by remember { mutableStateOf<PanelTab?>(null) }
-    // The panel takes focus itself, and gives it back to the button that opened it.
-    LaunchedEffect(shown.shown, shown.panel == null) {
-        if (shown.panel != null) return@LaunchedEffect
-        if (shown.shown) (panelFrom?.let(pills::getValue) ?: bar).requestFocus() else root.requestFocus()
+    var drawerFromPill by remember { mutableStateOf(false) }
+    val episodes = request.episodes?.takeIf { it.canSwitch }
+    val covered = shown.panel != null || shown.episodes
+    // The panel and the drawer take focus themselves, and give it back to the button that opened them.
+    LaunchedEffect(shown.shown, covered) {
+        if (covered) return@LaunchedEffect
+        val from = panelFrom?.let(pills::getValue) ?: episodesPill.takeIf { drawerFromPill } ?: bar
+        if (shown.shown) from.requestFocus() else root.requestFocus()
         panelFrom = null
+        drawerFromPill = false
     }
-    // A panel left open would come back over the next stream.
-    DisposableEffect(controls) { onDispose { if (controls.state.value.panel != null) controls.closePanel(playing = false) } }
+    // One left open would come back over the next stream.
+    DisposableEffect(controls) {
+        onDispose {
+            if (controls.state.value.panel != null) controls.closePanel(playing = false)
+            if (controls.state.value.episodes) controls.closeEpisodes(playing = false)
+        }
+    }
 
     fun openPanel(tab: PanelTab) {
         panelFrom = tab
         controls.openPanel(tab)
+    }
+
+    fun openEpisodes() {
+        drawerFromPill = true
+        controls.openEpisodes()
     }
 
     fun toggle() {
@@ -201,8 +218,8 @@ internal fun BoxScope.PlayerControls(
         val scrubbing = shown.scrub != null
         val native = event.nativeKeyEvent
         val forward = event.key == Key.DirectionRight || event.key == Key.MediaFastForward
-        // The panel's rows take the arrows and OK. The remote's play and seek keys still work the video.
-        if (shown.panel != null && event.key !in VideoKeys && event.key != Key.Menu) return false
+        // The panel's and the drawer's rows take the arrows and OK. The remote's play and seek keys still work the video.
+        if (covered && event.key !in VideoKeys && event.key != Key.Menu) return false
         return when (event.key) {
             Key.Menu -> {
                 if (event.type == KeyEventType.KeyDown && native.repeatCount == 0 && !scrubbing) {
@@ -262,9 +279,13 @@ internal fun BoxScope.PlayerControls(
                 !(shown.shown && onBar && !scrubbing)
             }
 
-            // From the buttons, Up goes back to the bar. Elsewhere it waits for the episodes drawer (#243).
+            // From the buttons, Up goes back to the bar. Elsewhere it opens the episodes drawer.
             Key.DirectionUp -> {
-                !(shown.shown && !onBar && !scrubbing)
+                val toBar = shown.shown && !onBar && !scrubbing
+                if (!toBar && !scrubbing && episodes != null && event.type == KeyEventType.KeyDown && native.repeatCount == 0) {
+                    controls.openEpisodes()
+                }
+                !toBar
             }
 
             else -> {
@@ -273,9 +294,10 @@ internal fun BoxScope.PlayerControls(
         }
     }
 
-    BackHandler(enabled = shown.shown || shown.panel != null) {
+    BackHandler(enabled = shown.shown || covered) {
         when {
             shown.panel != null -> controls.closePanel(playback.playing)
+            shown.episodes -> controls.closeEpisodes(playback.playing)
             shown.scrub != null -> controls.stay()
             else -> controls.hide()
         }
@@ -298,6 +320,16 @@ internal fun BoxScope.PlayerControls(
         when {
             panel != null -> {
                 PlayerPanel(panel, state, answered, request, actions, playback, controls)
+            }
+
+            shown.episodes && episodes != null -> {
+                PlayerEpisodes(
+                    request,
+                    episodes,
+                    playback,
+                    onPick = actions.onEpisode,
+                    onClose = { controls.closeEpisodes(playback.playing) },
+                )
             }
 
             shown.shown -> {
@@ -334,6 +366,9 @@ internal fun BoxScope.PlayerControls(
                         playPause,
                         pills,
                         ::openPanel,
+                        // With no other episode to go to, there's nothing for it to open.
+                        (::openEpisodes).takeIf { episodes != null },
+                        episodesPill,
                         Modifier.align(Alignment.BottomStart),
                     )
                 } else {
@@ -590,6 +625,8 @@ private fun Buttons(
     playPause: FocusRequester,
     pills: Map<PanelTab, FocusRequester>,
     openPanel: (PanelTab) -> Unit,
+    openEpisodes: (() -> Unit)?,
+    episodesPill: FocusRequester,
     modifier: Modifier,
 ) {
     Row(
@@ -607,8 +644,11 @@ private fun Buttons(
             },
             Modifier.focusRequester(playPause).testTag(PLAYER_PLAY_PAUSE_TAG),
         )
-        // Episodes come with #243.
-        DimmedPill(stringResource(R.string.player_episodes), NeoIcons.Episodes)
+        if (openEpisodes != null) {
+            Pill(stringResource(R.string.player_episodes), NeoIcons.Episodes, openEpisodes, Modifier.focusRequester(episodesPill))
+        } else {
+            DimmedPill(stringResource(R.string.player_episodes), NeoIcons.Episodes)
+        }
         Pill(
             stringResource(R.string.player_audio_subtitles),
             NeoIcons.Subtitles,

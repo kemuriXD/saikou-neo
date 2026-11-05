@@ -312,6 +312,7 @@
     <string name="player_pause">Pause</string>
     <string name="player_position">Position</string>
     <string name="player_episodes">Episodes</string>
+    <string name="player_episode_playing">Playing now</string>
     <string name="player_audio_subtitles">Audio and subtitles</string>
     <string name="player_quality">%1$dp</string>
     <string name="player_speed">%1$s×</string>

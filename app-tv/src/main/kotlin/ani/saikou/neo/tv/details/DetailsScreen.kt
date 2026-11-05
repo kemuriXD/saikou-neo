@@ -33,6 +33,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -171,7 +172,8 @@ internal val seasonNames =
 /**
  * One anime over its dimmed art: what it is at the top, and an Overview with a short synopsis and the facts below.
  * Selecting the synopsis opens all of it, notes included. With [streams], selecting an episode shows its streams on the
- * lifted page, and Back, or the page's own way back, returns to the episode.
+ * lifted page, and Back, or the page's own way back, returns to the episode. [openStreams] is an episode picked in the
+ * player's drawer, which opens the same way, and [onStreamsOpened] says it has.
  */
 @Composable
 fun DetailsScreen(
@@ -180,7 +182,9 @@ fun DetailsScreen(
     onOpen: (animeId: Int) -> Unit = {},
     onRecommendations: () -> Unit = {},
     streams: (@Composable (episode: Int, back: () -> Unit, modifier: Modifier) -> Unit)? = null,
-) = RememberFocus { focus -> DetailsPage(state, focus, modifier, onOpen, onRecommendations, streams) }
+    openStreams: Int? = null,
+    onStreamsOpened: () -> Unit = {},
+) = RememberFocus { focus -> DetailsPage(state, focus, modifier, onOpen, onRecommendations, streams, openStreams, onStreamsOpened) }
 
 @Composable
 private fun DetailsPage(
@@ -190,6 +194,8 @@ private fun DetailsPage(
     onOpen: (animeId: Int) -> Unit,
     onRecommendations: () -> Unit,
     streams: (@Composable (episode: Int, back: () -> Unit, modifier: Modifier) -> Unit)?,
+    openStreams: Int?,
+    onStreamsOpened: () -> Unit,
 ) {
     var reading by rememberSaveable { mutableStateOf(false) }
     var hasRead by rememberSaveable { mutableStateOf(false) }
@@ -203,6 +209,12 @@ private fun DetailsPage(
     var streamsFor by rememberSaveable { mutableStateOf<Int?>(null) }
     var picked by rememberSaveable { mutableStateOf<Int?>(null) }
     val pickedFocus = remember { FocusRequester() }
+    LaunchedEffect(openStreams) {
+        val episode = openStreams ?: return@LaunchedEffect
+        picked = episode
+        streamsFor = episode
+        onStreamsOpened()
+    }
     val loaded = state as? DetailsState.Loaded
     val mainFocus = remember { FocusRequester() }
     val tabFocus = remember { FocusRequester() }
@@ -379,7 +391,8 @@ private fun DetailsPage(
                                 ?.firstOrNull { it.number == episode }
                                 ?.title,
                         )
-                        streams(episode, { streamsFor = null }, Modifier)
+                        // Its own page for each episode, as coming back from the player can change it in place.
+                        key(episode) { streams(episode, { streamsFor = null }, Modifier) }
                     }
                 }
                 AnimatedVisibility(visible = lifted, enter = fadeIn(), exit = fadeOut()) {

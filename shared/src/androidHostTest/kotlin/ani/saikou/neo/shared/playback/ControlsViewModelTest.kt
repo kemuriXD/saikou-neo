@@ -230,4 +230,51 @@ class ControlsViewModelTest {
         controls.openPanel(PanelTab.Tracks)
         assertNull(state.scrub)
     }
+
+    @Test
+    fun theEpisodesDrawerStaysOpenPastTheHideTime() =
+        test {
+            controls.show(playing = true)
+            controls.openEpisodes()
+            controls.touched(playing = true)
+            advanceTimeBy(30.seconds)
+            assertTrue(state.episodes)
+            assertTrue(state.shown)
+        }
+
+    @Test
+    fun closingTheDrawerGoesBackToTheControlsThenHidesThem() =
+        test {
+            controls.show(playing = true)
+            controls.openEpisodes()
+            controls.closeEpisodes(playing = true)
+            assertFalse(state.episodes)
+            assertTrue(state.shown)
+            advanceTimeBy(6.seconds)
+            assertFalse(state.shown)
+        }
+
+    @Test
+    fun closingADrawerOpenedOverTheVideoLeavesTheControlsHidden() {
+        controls.openEpisodes()
+        controls.closeEpisodes(playing = true)
+        assertEquals(ControlsState(), state)
+    }
+
+    @Test
+    fun openingTheDrawerDropsTheScrub() {
+        controls.scrub(forward = true, held = false, positionMs = 0, durationMs = LENGTH)
+        controls.openEpisodes()
+        assertNull(state.scrub)
+    }
+
+    @Test
+    fun thePanelAndTheDrawerTakeEachOthersPlace() {
+        controls.openEpisodes()
+        controls.openPanel(PanelTab.Tracks)
+        assertFalse(state.episodes)
+        controls.openEpisodes()
+        assertNull(state.panel)
+        assertTrue(state.episodes)
+    }
 }
