@@ -27,6 +27,7 @@ import androidx.compose.foundation.text.input.TextFieldLineLimits
 import androidx.compose.foundation.text.input.rememberTextFieldState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -42,6 +43,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -77,6 +79,7 @@ import ani.saikou.neo.shared.sources.Adding
 import ani.saikou.neo.shared.sources.Choice
 import ani.saikou.neo.shared.sources.ChoiceStatus
 import ani.saikou.neo.shared.sources.InstalledSource
+import ani.saikou.neo.shared.sources.SourceCheck
 import ani.saikou.neo.shared.sources.SourceProblem
 import ani.saikou.neo.shared.sources.SourcesState
 import ani.saikou.neo.shared.sources.canPick
@@ -100,7 +103,7 @@ internal fun choiceTag(id: String) = "choice-$id"
 
 /**
  * What Settings > Sources does when you add a source from [onAdd]'s text, close a panel, remove a source by id, tick
- * a source in a list by id, or add the ticked ones.
+ * a source in a list by id, add the ticked ones, check a source, check them all, or stop the checks.
  */
 class SourceActions(
     val onAdd: (text: String) -> Unit = {},
@@ -108,6 +111,9 @@ class SourceActions(
     val onRemove: (id: String) -> Unit = {},
     val onToggle: (id: String) -> Unit = {},
     val onAddTicked: () -> Unit = {},
+    val onCheck: (InstalledSource) -> Unit = {},
+    val onCheckAll: () -> Unit = {},
+    val onStopChecks: () -> Unit = {},
 )
 
 /** The panels Sources opens: adding a source, or asking before one is removed. */
@@ -123,6 +129,12 @@ internal sealed interface SourcePanel {
 internal class SourcesUi {
     var panel by mutableStateOf<SourcePanel?>(null)
     val addSource = FocusRequester()
+    val checkAll = FocusRequester()
+    val checks = mutableStateMapOf<String, FocusRequester>()
+
+    /** The source whose check is open, and the one whose Check takes focus once it closes. */
+    var checking by mutableStateOf<InstalledSource?>(null)
+    var focusCheck by mutableStateOf<String?>(null)
     val rows = mutableStateMapOf<String, FocusRequester>()
 
     /** The source to focus next, or "" for Add a source, once [waitingFor] has left the list. */
@@ -130,6 +142,8 @@ internal class SourcesUi {
     var waitingFor by mutableStateOf<String?>(null)
 
     fun row(id: String) = rows.getOrPut(id) { FocusRequester() }
+
+    fun check(id: String) = checks.getOrPut(id) { FocusRequester() }
 }
 
 // From the design: Add a source is 60 dp tall, each source 68 dp with a 40 dp logo or letter. The add panel is 376 dp.
@@ -140,8 +154,8 @@ private val RowRadius = 14.dp
 private val RowSpacing = 14.dp
 private val Badge = 40.dp
 private val BadgeRadius = 10.dp
-private val RemovePill = 36.dp
-private val PanelWidth = 376.dp
+private val RowPillHeight = 36.dp
+internal val SourcePanelWidth = 376.dp
 private val FieldHeight = 52.dp
 private val EmptyIcon = 72.dp
 private val EmptyHeight = 400.dp
@@ -161,25 +175,35 @@ private val Overline
             letterSpacing = 0.6.sp,
         )
 
-private val Small
+internal val Small
     @Composable get() = NeoTheme.typography.caption.copy(fontSize = 12.sp, lineHeight = 16.sp)
 
-private val Body
+internal val Body
     @Composable get() = NeoTheme.typography.caption.copy(fontSize = 14.sp, lineHeight = 20.sp)
 
-private val RowTitle
+internal val RowTitle
     @Composable get() = NeoTheme.typography.label.copy(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
 
 /**
  * The installed sources, under a line on what sources are and Add a source. With none, a short explanation and Add a
- * source on their own. Left goes back to [category].
+ * source on their own. Left goes back to [category]. Each source can be checked, or all at once; while [checks] run,
+ * the rows rest and focus stays on Stop checks. Leaving Sources stops them.
  */
 @Composable
 internal fun SourcesPane(
     state: SourcesState,
     ui: SourcesUi,
     category: FocusRequester,
+    checks: Map<String, SourceCheck>,
+    actions: SourceActions,
 ) {
+    DisposableEffect(Unit) { onDispose(actions.onStopChecks) }
+    val going = checks.values.any { it.going }
+    LaunchedEffect(ui.focusCheck) {
+        val id = ui.focusCheck ?: return@LaunchedEffect
+        (if (going) ui.checkAll else ui.check(id)).requestFocus()
+        ui.focusCheck = null
+    }
     val installed = state.installed ?: return
     // Focus moves at once, so it never falls back to the categories, and again once a removed source has gone.
     LaunchedEffect(ui.focusNext, installed) {
@@ -214,19 +238,34 @@ internal fun SourcesPane(
                 modifier = Modifier.widthIn(max = EmptyTextWidth).padding(top = 10.dp),
             )
         } else {
-            Text(
-                stringResource(R.string.sources_installed).uppercase(),
-                style = Overline,
-                color = colors.textFaint,
-                modifier = Modifier.padding(top = 8.dp, bottom = 2.dp),
-            )
+            Row(Modifier.fillMaxWidth().padding(end = RowPadding), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    stringResource(R.string.sources_installed).uppercase(),
+                    style = Overline,
+                    color = colors.textFaint,
+                    modifier = Modifier.weight(1f),
+                )
+                CheckAllPill(
+                    going,
+                    onCheckAll = actions.onCheckAll,
+                    onStop = actions.onStopChecks,
+                    modifier = toCategory.testTag(CHECK_ALL_TAG).focusRequester(ui.checkAll),
+                )
+            }
         }
+        val resting = Modifier.focusProperties { canFocus = !going }
         installed.forEach { source ->
             key(source.id) {
                 SourceRow(
                     source,
-                    onClick = { ui.panel = SourcePanel.Remove(source) },
-                    modifier = toCategory.focusRequester(ui.row(source.id)),
+                    checks[source.id],
+                    onCheck = {
+                        ui.checking = source
+                        actions.onCheck(source)
+                    },
+                    onRemove = { ui.panel = SourcePanel.Remove(source) },
+                    modifier = toCategory.then(resting).focusRequester(ui.check(source.id)),
+                    removeModifier = resting.focusRequester(ui.row(source.id)),
                 )
             }
         }
@@ -239,7 +278,22 @@ internal fun BoxScope.SourcesPanels(
     state: SourcesState,
     ui: SourcesUi,
     actions: SourceActions,
+    checks: Map<String, SourceCheck>,
 ) {
+    SlidingPanel(ui.checking) { source, active, motion ->
+        CheckPanel(
+            source,
+            checks[source.id],
+            active,
+            onStop = actions.onStopChecks,
+            onAgain = { actions.onCheck(source) },
+            onClose = {
+                ui.checking = null
+                ui.focusCheck = source.id
+            },
+            modifier = motion,
+        )
+    }
     val adding = state.adding
     val added = adding is Adding.Added || adding is Adding.AddedAll
     // Once a source is added or can't be used, the add panel has done its job.
@@ -393,19 +447,23 @@ private fun AddSource(
 }
 
 /**
- * A source: its letter, name, and version or why it can't be used, with a Remove pill at the end. The row is a card;
- * focus goes to the pill, which turns paper, and the row lifts to the raised surface around it. [modifier] is the
- * pill's. TalkBack reads the source with Remove.
+ * A source: its letter, name, and version, why it can't be used or how its check went, with Check and Remove pills at
+ * the end. The row is a card; focus goes to a pill, which turns paper, and the row lifts to the raised surface around
+ * it. [modifier] is the Check pill's. TalkBack reads the source with each pill.
  */
 @Composable
 private fun SourceRow(
     source: InstalledSource,
-    onClick: () -> Unit,
+    sourceCheck: SourceCheck?,
+    onCheck: () -> Unit,
+    onRemove: () -> Unit,
     modifier: Modifier,
+    removeModifier: Modifier,
 ) {
     val colors = NeoTheme.colors
-    val detail = source.problem?.let { stringResource(it.reason) } ?: stringResource(R.string.sources_version, source.version)
-    val remove = stringResource(R.string.sources_remove)
+    val status = sourceCheck?.let { checkStatus(it) }
+    val detail =
+        source.problem?.let { stringResource(it.reason) } ?: status?.first ?: stringResource(R.string.sources_version, source.version)
     var focused by remember { mutableStateOf(false) }
     val lift by animateColorAsState(if (focused) colors.surfaceRaised else colors.surface, label = "row")
     Row(
@@ -414,51 +472,68 @@ private fun SourceRow(
             .fillMaxWidth()
             .heightIn(min = SourceRowHeight)
             .background(lift, RoundedCornerShape(RowRadius))
-            .padding(horizontal = RowPadding, vertical = 8.dp),
+            .padding(horizontal = RowPadding, vertical = 8.dp)
+            .onFocusChanged { focused = it.hasFocus },
         horizontalArrangement = Arrangement.spacedBy(RowSpacing),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SourceBadge(source.name, source.icon?.let(::File), if (focused) colors.line else colors.surfaceRaised)
         Column(Modifier.weight(1f).clearAndSetSemantics {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(source.name, style = RowTitle, color = colors.paper, maxLines = 1)
-            Text(detail, style = Small, color = colors.textMuted)
-        }
-        Surface(
-            onClick = onClick,
-            modifier =
-                modifier
-                    .testTag(removeTag(source.id))
-                    .height(RemovePill)
-                    .onFocusChanged { focused = it.isFocused }
-                    .semantics { contentDescription = "${source.name}, $detail. $remove" },
-            shape = ClickableSurfaceDefaults.shape(CircleShape),
-            colors =
-                ClickableSurfaceDefaults.colors(
-                    containerColor = colors.surfaceRaised,
-                    contentColor = colors.textMuted,
-                    focusedContainerColor = colors.focus,
-                    focusedContentColor = colors.onFocus,
-                    pressedContainerColor = colors.focus,
-                    pressedContentColor = colors.onFocus,
-                ),
-            scale = ClickableSurfaceDefaults.scale(focusedScale = NeoTheme.dimensions.focusScaleButton),
-            glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(FocusGlowColor, NeoTheme.dimensions.glowFocus)),
-        ) {
-            Row(
-                Modifier.height(RemovePill).padding(horizontal = 14.dp).clearAndSetSemantics {},
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Icon(NeoIcons.Remove, contentDescription = null, modifier = Modifier.size(16.dp))
-                Text(remove, style = Body.copy(fontWeight = FontWeight.SemiBold))
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                status?.takeIf { source.problem == null }?.second?.let { (icon, tint) ->
+                    Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
+                }
+                Text(detail, style = Small, color = colors.textMuted)
             }
+        }
+        val checkText = stringResource(R.string.checks_check)
+        val removeText = stringResource(R.string.sources_remove)
+        RowPill(checkText, NeoIcons.Pulse, "${source.name}, $detail. $checkText", onCheck, modifier.testTag(checkTag(source.id)))
+        RowPill(removeText, NeoIcons.Remove, "${source.name}, $detail. $removeText", onRemove, removeModifier.testTag(removeTag(source.id)))
+    }
+}
+
+/** A small pill with an icon and words, read out as [description]. It turns paper and grows on focus. */
+@Composable
+internal fun RowPill(
+    text: String,
+    icon: ImageVector,
+    description: String,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    val colors = NeoTheme.colors
+    Surface(
+        onClick = onClick,
+        modifier = modifier.height(RowPillHeight).semantics { contentDescription = description },
+        shape = ClickableSurfaceDefaults.shape(CircleShape),
+        colors =
+            ClickableSurfaceDefaults.colors(
+                containerColor = colors.surfaceRaised,
+                contentColor = colors.textMuted,
+                focusedContainerColor = colors.focus,
+                focusedContentColor = colors.onFocus,
+                pressedContainerColor = colors.focus,
+                pressedContentColor = colors.onFocus,
+            ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = NeoTheme.dimensions.focusScaleButton),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(FocusGlowColor, NeoTheme.dimensions.glowFocus)),
+    ) {
+        Row(
+            Modifier.height(RowPillHeight).padding(horizontal = 14.dp).clearAndSetSemantics {},
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(icon, contentDescription = null, modifier = Modifier.size(16.dp))
+            Text(text, style = Body.copy(fontWeight = FontWeight.SemiBold))
         }
     }
 }
 
 /** A source's logo, [icon], on its own, or else the first letter of its [name] on a square of [background]. Decoration only. */
 @Composable
-private fun SourceBadge(
+internal fun SourceBadge(
     name: String,
     icon: Any?,
     background: Color = NeoTheme.colors.surfaceRaised,
@@ -490,7 +565,7 @@ private fun BoxScope.AddPanel(
     val add = { if (!checking) onAdd(text.text.toString()) }
     LaunchedEffect(Unit) { field.requestFocus() }
     val title = stringResource(R.string.sources_add)
-    SidePanel(title, PanelWidth, active, onClose, modifier) {
+    SidePanel(title, SourcePanelWidth, active, onClose, modifier) {
         Text(title, style = PaneTitle, color = colors.paper)
         Text(stringResource(R.string.sources_add_body), style = Body, color = colors.textMuted)
         Text(
@@ -580,7 +655,7 @@ private fun BoxScope.ChoosePanel(
     val ticked = choosing.choices.count { it.ticked }
     val progress = choosing.progress
     val title = stringResource(R.string.sources_choose_title)
-    SidePanel(title, PanelWidth, active, onClose = { if (progress == null) onClose() }, modifier) {
+    SidePanel(title, SourcePanelWidth, active, onClose = { if (progress == null) onClose() }, modifier) {
         Text(title, style = PaneTitle, color = colors.paper)
         Text(stringResource(R.string.sources_choose_body), style = Body, color = colors.textMuted)
         Column(
@@ -730,7 +805,7 @@ private fun BoxScope.RemovePanel(
     val keep = remember { FocusRequester() }
     LaunchedEffect(Unit) { keep.requestFocus() }
     val title = stringResource(R.string.sources_remove_title, source.name)
-    SidePanel(title, PanelWidth, active, onKeep, modifier) {
+    SidePanel(title, SourcePanelWidth, active, onKeep, modifier) {
         Text(title, style = PaneTitle, color = NeoTheme.colors.paper, modifier = Modifier.padding(bottom = 8.dp))
         NeoDialogButtons {
             NeoDialogButton(stringResource(R.string.sources_remove), onClick = onRemove, icon = NeoIcons.Remove)
@@ -751,7 +826,7 @@ private fun BoxScope.CantUsePanel(
     val close = remember { FocusRequester() }
     LaunchedEffect(Unit) { close.requestFocus() }
     val title = stringResource(R.string.sources_cant_use)
-    SidePanel(title, PanelWidth, active, onClose, modifier) {
+    SidePanel(title, SourcePanelWidth, active, onClose, modifier) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(NeoIcons.Warning, contentDescription = null, tint = colors.warning, modifier = Modifier.size(24.dp))
             Text(title, style = PaneTitle, color = colors.paper)

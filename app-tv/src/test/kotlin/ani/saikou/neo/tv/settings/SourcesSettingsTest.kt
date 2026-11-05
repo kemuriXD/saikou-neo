@@ -144,9 +144,11 @@ class SourcesSettingsTest {
     }
 
     @Test
-    fun downFromAddASourceFocusesEachRemoveButtonInTurn() {
+    fun downFromAddASourceFocusesCheckAllThenEachRemoveButtonInTurn() {
         show(SourcesState(listOf(example, demo)))
 
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(CHECK_ALL_TAG).assertIsFocused()
         press(Key.DirectionDown)
         removeButton(example).assertIsFocused()
         row(example).assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Focused))
@@ -154,7 +156,7 @@ class SourcesSettingsTest {
         press(Key.DirectionDown)
         removeButton(demo).assertIsFocused()
 
-        press(Key.DirectionUp, times = 2)
+        press(Key.DirectionUp, times = 3)
         addSource().assertIsFocused()
     }
 
@@ -264,7 +266,7 @@ class SourcesSettingsTest {
     @Test
     fun removeAsksFirstWithKeepFocused() {
         show(SourcesState(listOf(example, demo)))
-        press(Key.DirectionDown)
+        press(Key.DirectionDown, times = 2)
 
         press(Key.DirectionCenter)
 
@@ -278,7 +280,7 @@ class SourcesSettingsTest {
     @Test
     fun removingMovesFocusToTheNextSource() {
         show(SourcesState(listOf(demo, example)))
-        press(Key.DirectionDown)
+        press(Key.DirectionDown, times = 2)
         press(Key.DirectionCenter)
 
         press(Key.DirectionUp)
@@ -292,7 +294,7 @@ class SourcesSettingsTest {
     @Test
     fun removingTheLastSourceMovesFocusToAddASource() {
         show(SourcesState(listOf(example)))
-        press(Key.DirectionDown)
+        press(Key.DirectionDown, times = 2)
         press(Key.DirectionCenter)
 
         press(Key.DirectionUp)
