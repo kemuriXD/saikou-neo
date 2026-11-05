@@ -183,8 +183,8 @@ internal fun whyNothing(
         }
 
         is SourceAnswer.Found -> {
-            if (answer.hidden > 0) {
-                // The setting hid them all, so they were the edition it leaves out. Both leaves none out.
+            if (answer.servers.isNotEmpty()) {
+                // The page hid them all, so they were the edition it leaves out. Both leaves none out.
                 val other = if (subOrDub == SubOrDub.DUB) ServerEdition.SUB else ServerEdition.DUB
                 stringResource(R.string.streams_only_edition, editionName(other))
             } else {

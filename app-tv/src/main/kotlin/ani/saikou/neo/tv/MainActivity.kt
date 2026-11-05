@@ -178,7 +178,6 @@ class MainActivity : ComponentActivity() {
                                                 show,
                                                 episode,
                                                 settings.subOrDub,
-                                                app.lastServers,
                                             )
                                         }
                                     val serversState by servers.state.collectAsStateWithLifecycle()
@@ -193,7 +192,6 @@ class MainActivity : ComponentActivity() {
                                         episode,
                                         show.card.displayTitle(),
                                         onPick = { source, server ->
-                                            servers.pick(source, server)
                                             openPlayer(
                                                 serversState
                                                     .playRequest(

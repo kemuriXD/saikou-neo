@@ -6,7 +6,9 @@ import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -29,14 +31,15 @@ public val ANSWER_WITHIN: Duration = 25.seconds
 public sealed interface SourceAnswer {
     public data object Looking : SourceAnswer
 
-    /** The servers the setting shows, and how many it [hidden]. Empty when the source has none, or none of the edition chosen. */
+    /** Every server the source has, in its own order. Empty when it has none. */
     public data class Found(
         val servers: List<FoundServer>,
-        val hidden: Int = 0,
     ) : SourceAnswer
 
+    /** Why the source failed. For a rate limit, [waitSeconds] counts down the seconds left before it can be asked again. */
     public data class Failed(
         val reason: FailReason,
+        val waitSeconds: Long? = null,
     ) : SourceAnswer
 }
 
@@ -45,20 +48,12 @@ public data class SourceServers(
     val answer: SourceAnswer,
 )
 
-/** The server suggested first, and why: it was [lastUsed], or its source [answeredFirst] of several. */
-public data class BestPick(
-    val source: InstalledSource,
-    val server: FoundServer,
-    val lastUsed: Boolean,
-    val answeredFirst: Boolean,
-)
-
 /** Why the page has nothing to pick, once it knows. */
 public sealed interface StreamsOutcome {
     /** No source is installed that can be used. */
     public data object NoSources : StreamsOutcome
 
-    /** Every source answered, and the only servers were of the edition the setting hides: [have] rather than [missing]. */
+    /** Every source answered, and the only servers were of the edition the page hides: [have] rather than [missing]. */
     public data class MissingEdition(
         val missing: ServerEdition,
         val have: ServerEdition,
@@ -69,13 +64,11 @@ public sealed interface StreamsOutcome {
 }
 
 public data class ServersState(
-    /** Each source, in the order they answered, then those still looking. */
+    /** Each source, in the order they're installed. */
     val sources: List<SourceServers>,
-    val best: BestPick? = null,
-    /** The server last picked for this show, which may not be offered this time. */
-    val lastUsed: LastServer? = null,
     /** The id of the one source shown, or null for all of them. */
     val filter: String? = null,
+    /** The editions the page shows. It starts from the setting and can be changed for the page alone. */
     val subOrDub: SubOrDub = SubOrDub.BOTH,
     /** Whether the installed sources have been read, so [sources] being empty means there are none. */
     val ready: Boolean = false,
@@ -86,14 +79,16 @@ public data class ServersState(
     /** How many sources have answered, with servers or not. */
     val answered: Int get() = sources.count { it.answer != SourceAnswer.Looking }
 
+    /** [entry]'s servers that the page shows, by edition. Both are empty unless it found some. */
+    public fun groups(entry: SourceServers): ServerGroups = groupServers((entry.answer as? SourceAnswer.Found)?.servers.orEmpty(), subOrDub)
+
     /** Why there's nothing to pick, or null while there may still be something, or is. */
     val outcome: StreamsOutcome? get() {
         if (!ready) return null
         if (sources.isEmpty()) return StreamsOutcome.NoSources
-        val answers = sources.map { it.answer }
-        if (answers.any { it == SourceAnswer.Looking || (it is SourceAnswer.Found && it.servers.isNotEmpty()) }) return null
-        val hidden = answers.any { it is SourceAnswer.Found && it.hidden > 0 }
-        if (hidden && answers.none { it is SourceAnswer.Failed }) {
+        if (sources.any { it.answer == SourceAnswer.Looking || groups(it).all.isNotEmpty() }) return null
+        val hidden = sources.any { (it.answer as? SourceAnswer.Found)?.servers?.isNotEmpty() == true }
+        if (hidden && sources.none { it.answer is SourceAnswer.Failed }) {
             return when (subOrDub) {
                 SubOrDub.DUB -> StreamsOutcome.MissingEdition(missing = ServerEdition.DUB, have = ServerEdition.SUB)
                 else -> StreamsOutcome.MissingEdition(missing = ServerEdition.SUB, have = ServerEdition.DUB)
@@ -105,27 +100,25 @@ public data class ServersState(
 
 /**
  * The servers for [episode] of [show], asking every installed source that can be used at the same time. Each one is
- * shown as it answers, so those still looking don't hold up the rest. Only the servers [subOrDub] allows are kept.
- * The server picked last for the show, from [lastServers], is the best pick when it's offered. The sources asked are
- * those [installed] holds once they've been read, or the first it holds after there were none. A source that hasn't answered within [answerWithin] has no answer.
+ * shown as it answers, in the order they're installed, so those still looking don't hold up the rest. The page shows
+ * the editions [subOrDub] allows until it's changed. The sources asked are those [installed] holds once they've been
+ * read, or the first it holds after there were none. A source that hasn't answered within [answerWithin] has no answer.
  */
 public class ServersViewModel(
     private val finder: ServerFinder,
     installed: Flow<List<InstalledSource>?>,
     private val show: AnimeDetails,
     private val episode: Int,
-    private val subOrDub: SubOrDub,
-    private val lastServers: LastServers,
+    subOrDub: SubOrDub,
     private val answerWithin: Duration = ANSWER_WITHIN,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(ServersState(emptyList(), subOrDub = subOrDub))
     public val state: StateFlow<ServersState> = mutableState.asStateFlow()
 
+    // The countdown of each rate-limited source's wait, by source id.
+    private val waits = mutableMapOf<String, Job>()
+
     init {
-        viewModelScope.launch {
-            val last = lastServers.get(show.card.id)
-            mutableState.update { it.copy(lastUsed = last).withBest() }
-        }
         viewModelScope.launch {
             // With none, it waits, so one added in Settings is asked on coming back.
             installed
@@ -139,7 +132,8 @@ public class ServersViewModel(
 
     /** Asks [source] for its servers, showing it as still looking until it answers. */
     private fun ask(source: InstalledSource) {
-        mutableState.update { it.answered(source, SourceAnswer.Looking).copy(ready = true).withBest() }
+        waits.remove(source.id)?.cancel()
+        mutableState.update { it.answered(source, SourceAnswer.Looking).copy(ready = true) }
         viewModelScope.launch {
             val answer =
                 try {
@@ -150,37 +144,58 @@ public class ServersViewModel(
                         call.cancel()
                         SourceAnswer.Failed(FailReason.NoAnswer)
                     } else {
-                        val shown = all.filter { subOrDub.shows(it.edition) }
-                        SourceAnswer.Found(shown, hidden = all.size - shown.size)
+                        SourceAnswer.Found(all)
                     }
                 } catch (_: CancellationException) {
                     // Leaving the page cancels the search. A source's own timeout fails only that source.
                     ensureActive()
                     SourceAnswer.Failed(FailReason.SourceDown)
                 } catch (e: SourceFailure) {
-                    SourceAnswer.Failed(e.reason)
+                    val wait = (e.reason as? FailReason.RateLimited)?.retryAfterSeconds?.takeIf { it > 0 }
+                    SourceAnswer.Failed(e.reason, wait)
                 } catch (_: Exception) {
                     SourceAnswer.Failed(FailReason.SourceDown)
                 }
-            mutableState.update { it.answered(source, answer).withBest() }
+            mutableState.update { it.answered(source, answer) }
+            if (answer is SourceAnswer.Failed && answer.waitSeconds != null) countDown(source)
         }
     }
+
+    /** Takes a second off [source]'s wait each second, until none is left. */
+    private fun countDown(source: InstalledSource) {
+        waits[source.id] =
+            viewModelScope.launch {
+                do {
+                    delay(1.seconds)
+                    val failed = answer(source) as? SourceAnswer.Failed ?: return@launch
+                    val left = failed.waitSeconds?.minus(1)?.takeIf { it > 0 }
+                    mutableState.update { it.answered(source, failed.copy(waitSeconds = left)) }
+                } while (left != null)
+            }
+    }
+
+    private fun answer(source: InstalledSource) =
+        state.value.sources
+            .firstOrNull { it.source == source }
+            ?.answer
 
     /** Asks again every source that failed or had nothing to show. Those still looking or with servers are left alone. */
     public fun retry() {
         state.value.sources
-            .filter { it.answer is SourceAnswer.Failed || (it.answer as? SourceAnswer.Found)?.servers?.isEmpty() == true }
+            .filter { it.answer.hasNothing() }
             .forEach { ask(it.source) }
     }
 
-    /** Remembers [server] from [source] as the one last used for this show. */
-    public fun pick(
-        source: InstalledSource,
-        server: FoundServer,
-    ) {
-        val last = LastServer(source.id, server.name, server.edition)
-        mutableState.update { it.copy(lastUsed = last) }
-        viewModelScope.launch { lastServers.set(show.card.id, last) }
+    /** Asks [source] again if it failed or had nothing to show, unless it's still waiting out a rate limit. */
+    public fun retry(source: InstalledSource) {
+        val answer = answer(source) ?: return
+        if (!answer.hasNothing() || (answer as? SourceAnswer.Failed)?.waitSeconds != null) return
+        ask(source)
+    }
+
+    /** Shows the editions [subOrDub] allows, on this page alone. */
+    public fun showEdition(subOrDub: SubOrDub) {
+        mutableState.update { it.copy(subOrDub = subOrDub) }
     }
 
     /** Shows only the source with [sourceId], or all of them for null. */
@@ -189,16 +204,14 @@ public class ServersViewModel(
     }
 }
 
-/** [source] moved after the others that have answered, with its [answer], or after the rest while it's looking again. */
+private fun SourceAnswer.hasNothing() = this is SourceAnswer.Failed || (this as? SourceAnswer.Found)?.servers?.isEmpty() == true
+
+/** [source] with its [answer], in its place, or at the end the first time it's asked. */
 private fun ServersState.answered(
     source: InstalledSource,
     answer: SourceAnswer,
 ): ServersState {
-    val (done, looking) = sources.filter { it.source != source }.partition { it.answer != SourceAnswer.Looking }
-    // One asked again goes to the end, after those still looking.
     val entry = SourceServers(source, answer)
-    return copy(sources = if (answer == SourceAnswer.Looking) done + looking + entry else done + entry + looking)
+    val at = sources.indexOfFirst { it.source == source }
+    return copy(sources = if (at < 0) sources + entry else sources.toMutableList().also { it[at] = entry })
 }
-
-// The best pick only changes as sources answer, not when the viewer picks, so it doesn't jump under them.
-private fun ServersState.withBest() = copy(best = bestPick(sources, lastUsed))

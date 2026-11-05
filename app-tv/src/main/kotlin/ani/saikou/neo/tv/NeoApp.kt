@@ -2,7 +2,6 @@ package ani.saikou.neo.tv
 
 import android.app.Application
 import ani.saikou.neo.shared.home.WatchHistory
-import ani.saikou.neo.shared.playback.LastServersStore
 import ani.saikou.neo.shared.search.RecentSearchesStore
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SettingsStore
@@ -43,9 +42,6 @@ class NeoApp : Application() {
 
     /** Asks the installed sources for a server's stream. */
     val streamFinder by lazy { ExtensionStreamFinder(sources::extension) }
-
-    /** The server last picked for each show. */
-    val lastServers by lazy { LastServersStore.at(File(filesDir, "last_servers.preferences_pb").absolutePath, scope) }
 
     /** How far this TV got in each show. */
     val history = WatchHistory()

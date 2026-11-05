@@ -237,12 +237,6 @@
     <!-- The streams for an episode, from the installed sources. -->
     <string name="streams_episode">E%1$d</string>
     <string name="streams_episode_titled">E%1$d · %2$s</string>
-    <string name="streams_best_pick">Best pick</string>
-    <string name="streams_best_server">%1$s · %2$s</string>
-    <string name="streams_why">%1$s · %2$s</string>
-    <string name="streams_last_used">last used</string>
-    <string name="streams_answered_first">answered first</string>
-    <string name="streams_reasons">%1$s, %2$s</string>
     <string name="streams_sub">Sub</string>
     <string name="streams_dub">Dub</string>
     <string name="streams_hard_sub">Hard sub</string>
@@ -279,7 +273,6 @@
     <string name="streams_back">Back to episodes</string>
     <string name="streams_missing_title">No %1$s yet for episode %2$d</string>
     <string name="streams_missing_body">Your sources only have %1$s for this one. You can change Sub or Dub in Settings\u00A0>\u00A0Playback.</string>
-    <string name="streams_used">Last used</string>
     <!-- The player, starting and when a server stops (#241). -->
     <plurals name="player_found">
         <item quantity="one">Found on %1$s · %2$d server</item>

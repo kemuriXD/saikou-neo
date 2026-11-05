@@ -1,6 +1,5 @@
 package ani.saikou.neo.tv.details
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
@@ -41,14 +40,11 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.tv.material3.Border
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
-import androidx.tv.material3.Icon
 import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
-import ani.saikou.neo.shared.playback.BestPick
 import ani.saikou.neo.shared.playback.FoundServer
 import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.shared.playback.ServersState
@@ -59,12 +55,9 @@ import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
-import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.NeoTab
 import ani.saikou.neo.tv.ui.SourceLogo
 import java.io.File
-
-internal const val STREAMS_BEST_TAG = "streams-best"
 
 internal fun serverTag(
     sourceId: String,
@@ -74,18 +67,17 @@ internal fun serverTag(
 /** The chip for the source with [sourceId], or All for null. */
 internal fun sourceChipTag(sourceId: String?) = "streams-chip-${sourceId ?: "all"}"
 
-// From the design: a 340 dp column for the best pick, 28 dp, then 476 dp of servers.
+// From the design: a 340 dp column for the chips, 28 dp, then 476 dp of servers.
 private val PickWidth = 340.dp
 private val ColumnGap = 28.dp
 private val ServersWidth = 476.dp
 private val RowHeight = 44.dp
 private val ChipHeight = 28.dp
-private val PickLogo = 28.dp
 private val HeadingLogo = 20.dp
 private const val ROW_FOCUS_SCALE = 1.02f
 
 /**
- * An episode's streams: the best pick on the left, with chips to show one source, and each source's servers on the
+ * An episode's streams: chips on the left to show one source, and each source's servers on the
  * right. Sources still looking say so while the others can be picked. When nothing can play, it says why and offers
  * the next step through [actions]. [title] names the show where a source couldn't find it. Focus stays on the page.
  */
@@ -109,7 +101,7 @@ internal fun StreamsPage(
     }
 }
 
-/** The servers to pick from. Focus starts on the best pick once there is one, unless the viewer has moved by then. */
+/** The servers to pick from. Focus starts on the All chip, unless the viewer has moved by then. */
 @Composable
 private fun ServersList(
     state: ServersState,
@@ -119,13 +111,10 @@ private fun ServersList(
     modifier: Modifier,
 ) {
     val dimensions = NeoTheme.dimensions
-    val bestFocus = remember { FocusRequester() }
     val allFocus = remember { FocusRequester() }
     var moved by remember { mutableStateOf(false) }
-    val best = state.best
-    LaunchedEffect(best != null) {
-        if (moved) return@LaunchedEffect
-        if (best != null) bestFocus.requestFocus() else allFocus.requestFocus()
+    LaunchedEffect(Unit) {
+        if (!moved) allFocus.requestFocus()
     }
     Row(
         modifier
@@ -137,9 +126,6 @@ private fun ServersList(
         horizontalArrangement = Arrangement.spacedBy(ColumnGap),
     ) {
         Column(Modifier.width(PickWidth), verticalArrangement = Arrangement.spacedBy(dimensions.space3)) {
-            if (best != null) {
-                BestPickCard(best, onClick = { onPick(best.source, best.server) }, Modifier.focusRequester(bestFocus))
-            }
             Chips(state, onFilter, allFocus)
             Text(text = state.status(), style = NeoTheme.typography.caption, color = NeoTheme.colors.textMuted)
         }
@@ -179,99 +165,22 @@ private fun androidx.compose.foundation.lazy.LazyListScope.sourceServers(
         }
 
         is SourceAnswer.Found -> {
-            if (answer.servers.isEmpty()) {
+            val servers = state.groups(entry).all
+            if (servers.isEmpty()) {
                 item(key = "none-${source.id}") { Quiet(source, whyNothing(answer, title, state.subOrDub)) }
             } else {
                 item(key = "heading-${source.id}") {
                     Heading(
-                        pluralStringResource(R.plurals.streams_source_servers, answer.servers.size, source.name, answer.servers.size),
+                        pluralStringResource(R.plurals.streams_source_servers, servers.size, source.name, servers.size),
                         logo = source,
                     )
                 }
-                items(answer.servers, key = { "server-${source.id}-${it.id}" }) { server ->
-                    val used = state.lastUsed?.isServer(source, server) == true
-                    ServerRow(server, used, onClick = { onPick(source, server) }, Modifier.testTag(serverTag(source.id, server.id)))
+                items(servers, key = { "server-${source.id}-${it.id}" }) { server ->
+                    ServerRow(server, onClick = { onPick(source, server) }, Modifier.testTag(serverTag(source.id, server.id)))
                 }
             }
         }
     }
-}
-
-@Composable
-private fun BestPickCard(
-    best: BestPick,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val colors = NeoTheme.colors
-    val dimensions = NeoTheme.dimensions
-    val shape = RoundedCornerShape(14.dp)
-    Surface(
-        onClick = onClick,
-        modifier = modifier.fillMaxWidth().testTag(STREAMS_BEST_TAG),
-        shape = ClickableSurfaceDefaults.shape(shape),
-        colors =
-            ClickableSurfaceDefaults.colors(
-                containerColor = colors.surfaceScrim,
-                contentColor = colors.paper,
-                focusedContainerColor = colors.focus,
-                focusedContentColor = colors.onFocus,
-                pressedContainerColor = colors.focus,
-                pressedContentColor = colors.onFocus,
-            ),
-        border = ClickableSurfaceDefaults.border(border = Border(BorderStroke(1.5.dp, colors.pink), shape = shape)),
-        scale = ClickableSurfaceDefaults.scale(focusedScale = ROW_FOCUS_SCALE),
-        glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(Color.White.copy(alpha = 0.28f), dimensions.glowFocus)),
-    ) {
-        Column(Modifier.padding(dimensions.space4), verticalArrangement = Arrangement.spacedBy(dimensions.space2)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(dimensions.space2), verticalAlignment = Alignment.CenterVertically) {
-                Icon(NeoIcons.Star, contentDescription = null, tint = colors.pink, modifier = Modifier.size(14.dp))
-                Text(
-                    text = stringResource(R.string.streams_best_pick).uppercase(),
-                    style = NeoTheme.typography.overline.copy(fontWeight = FontWeight.Bold),
-                    color = colors.pink,
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(dimensions.space3), verticalAlignment = Alignment.CenterVertically) {
-                val source = best.source
-                SourceLogo(
-                    source.name,
-                    source.icon?.let(::File),
-                    PickLogo,
-                    radius = 7.dp,
-                    background = colors.surfaceRaised,
-                    letterSize = 14.sp,
-                )
-                Text(
-                    text = stringResource(R.string.streams_best_server, source.name, best.server.name),
-                    style = NeoTheme.typography.rowTitle,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-            Text(
-                text = best.why(),
-                style = NeoTheme.typography.caption,
-                color = LocalContentColor.current.copy(alpha = MUTED),
-            )
-        }
-    }
-}
-
-/** Such as "Sub · last used, answered first". */
-@Composable
-private fun BestPick.why(): String {
-    val edition = editionName(server.edition)
-    val used = stringResource(R.string.streams_last_used)
-    val first = stringResource(R.string.streams_answered_first)
-    val reasons =
-        when {
-            lastUsed && answeredFirst -> stringResource(R.string.streams_reasons, used, first)
-            lastUsed -> used
-            answeredFirst -> first
-            else -> return edition
-        }
-    return stringResource(R.string.streams_why, edition, reasons)
 }
 
 @Composable
@@ -379,7 +288,6 @@ private fun Quiet(
 @Composable
 private fun ServerRow(
     server: FoundServer,
-    used: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -414,10 +322,6 @@ private fun ServerRow(
                 modifier = Modifier.weight(1f),
             )
             val muted = LocalContentColor.current.copy(alpha = MUTED)
-            if (used) {
-                // In the row's own colour, so it reads on paper when focused as well as on the dark row.
-                Text(text = stringResource(R.string.streams_used), style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Bold))
-            }
             Text(
                 text = editionName(server.edition).uppercase(),
                 style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Bold),

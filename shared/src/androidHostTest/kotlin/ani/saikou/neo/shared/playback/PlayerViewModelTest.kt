@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -472,6 +473,30 @@ class PlayerViewModelTest {
         val request = state.playRequest(example, three, show, 7, "The Hitman Is Back")
 
         assertEquals(PlayRequest(show, 7, "The Hitman Is Back", servers, picked = 2), request)
+    }
+
+    @Test
+    fun playRequestListsSubBeforeDub() {
+        val state = ServersState(sources = listOf(SourceServers(demo, SourceAnswer.Found(listOf(three, one)))), ready = true)
+
+        val request = state.playRequest(demo, three, show, 7, null)
+
+        assertEquals(listOf(PlayServer(demo, one, 2), PlayServer(demo, three, 2)), request.servers)
+        assertEquals(1, request.picked)
+    }
+
+    @Test
+    fun playRequestListsOnlyTheEditionThePageShows() {
+        val state =
+            ServersState(
+                sources = listOf(SourceServers(demo, SourceAnswer.Found(listOf(one, three)))),
+                subOrDub = SubOrDub.SUB,
+                ready = true,
+            )
+
+        val request = state.playRequest(demo, one, show, 7, null)
+
+        assertEquals(listOf(PlayServer(demo, one, 1)), request.servers)
     }
 
     @Test

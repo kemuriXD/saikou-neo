@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.test.espresso.Espresso
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipEpisode
@@ -23,10 +24,8 @@ import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.episodeList
-import ani.saikou.neo.shared.playback.BestPick
 import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.FoundServer
-import ani.saikou.neo.shared.playback.LastServer
 import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.shared.playback.ServersState
 import ani.saikou.neo.shared.playback.SourceAnswer
@@ -71,8 +70,6 @@ private val episodes =
 private val servers =
     ServersState(
         sources = listOf(SourceServers(demo, SourceAnswer.Found(listOf(sub, dub))), SourceServers(example, SourceAnswer.Looking)),
-        best = BestPick(demo, sub, lastUsed = true, answeredFirst = true),
-        lastUsed = LastServer(demo.id, sub.name, sub.edition),
         subOrDub = SubOrDub.BOTH,
     )
 
@@ -139,7 +136,7 @@ class StreamsPageTest {
         assertEquals(2, askedFor)
         compose.onNodeWithTag(DETAILS_STREAMS_CRUMB_TAG).assert(hasText("E2 · Confrontation"))
         compose.onNodeWithTag(episodeTag(2)).assertDoesNotExist()
-        compose.onNodeWithTag(STREAMS_BEST_TAG).assertIsFocused()
+        compose.onNodeWithTag(sourceChipTag(null)).assertIsFocused()
     }
 
     @Test
@@ -154,20 +151,12 @@ class StreamsPageTest {
     }
 
     @Test
-    fun theBestPickSaysWhy() {
-        openEpisodeTwo()
-
-        compose.onNodeWithTag(STREAMS_BEST_TAG).assert(hasText("Demo source · Demo, Sub"))
-        compose.onNodeWithTag(STREAMS_BEST_TAG).assert(hasText("Sub · last used, answered first"))
-    }
-
-    @Test
-    fun serversAreGroupedBySourceWithTheLastUsedMarked() {
+    fun serversAreGroupedBySource() {
         openEpisodeTwo()
 
         compose.onNodeWithText("Demo source · 2 servers").assertExists()
-        compose.onNodeWithTag(serverTag(demo.id, sub.id)).assert(hasText("Last used") and hasText("SUB") and hasText("24 min"))
-        compose.onNodeWithTag(serverTag(demo.id, dub.id)).assert(!hasText("Last used") and hasText("DUB"))
+        compose.onNodeWithTag(serverTag(demo.id, sub.id)).assert(hasText("SUB") and hasText("24 min"))
+        compose.onNodeWithTag(serverTag(demo.id, dub.id)).assert(hasText("DUB"))
     }
 
     @Test
@@ -182,8 +171,8 @@ class StreamsPageTest {
     fun pickingAServerPassesItOn() {
         openEpisodeTwo()
 
+        compose.onNodeWithTag(serverTag(demo.id, sub.id)).requestFocus()
         press(Key.DirectionCenter)
-        press(Key.DirectionRight)
         press(Key.DirectionDown)
         compose.onNodeWithTag(serverTag(demo.id, dub.id)).assertIsFocused()
         press(Key.DirectionCenter)
@@ -299,7 +288,7 @@ class StreamsPageTest {
     @Test
     fun noDubIsPlainTextWithOneBack() {
         state.value =
-            ServersState(listOf(SourceServers(demo, SourceAnswer.Found(emptyList(), hidden = 2))), subOrDub = SubOrDub.DUB, ready = true)
+            ServersState(listOf(SourceServers(demo, SourceAnswer.Found(listOf(sub)))), subOrDub = SubOrDub.DUB, ready = true)
         openEpisodeTwo()
 
         compose.onNodeWithText("No Dub yet for episode 2").assertExists()
@@ -316,7 +305,7 @@ class StreamsPageTest {
                     listOf(
                         SourceServers(demo, SourceAnswer.Found(listOf(sub, dub))),
                         SourceServers(example, SourceAnswer.Failed(FailReason.Blocked)),
-                        SourceServers(starter, SourceAnswer.Found(emptyList(), hidden = 1)),
+                        SourceServers(starter, SourceAnswer.Found(listOf(dub))),
                     ),
                 subOrDub = SubOrDub.SUB,
             )
