@@ -51,6 +51,15 @@ query AnimeCard($id: Int!, $statusNot: MediaStatus) {
   }
 }
 
+# The cards of a few anime, such as the shows in Continue watching. They come in AniList's order, not the one asked.
+query AnimeCards($ids: [Int]!) {
+  Page(perPage: 50) {
+    media(id_in: $ids, type: ANIME, isAdult: false) {
+      ...AnimeCardFields
+    }
+  }
+}
+
 query AnimeDetails($id: Int!) {
   Media(id: $id, type: ANIME) {
     ...AnimeCardFields

@@ -1,6 +1,7 @@
 package ani.saikou.neo.shared.catalogue
 
 import ani.saikou.neo.shared.catalogue.anilist.AnimeCardQuery
+import ani.saikou.neo.shared.catalogue.anilist.AnimeCardsQuery
 import ani.saikou.neo.shared.catalogue.anilist.AnimeDetailsQuery
 import ani.saikou.neo.shared.catalogue.anilist.AnimeRecommendationsQuery
 import ani.saikou.neo.shared.catalogue.anilist.AnimeRelationsQuery
@@ -96,6 +97,14 @@ public class AniListClient internal constructor(
         fetch(AnimeCardQuery(id = id, statusNot = statusNot())) { data ->
             data.Page?.media?.firstNotNullOfOrNull { it?.animeCardFields?.toCard() }
         }.let { (it as? AniListResult.Success)?.value }
+
+    /** The cards of up to 50 anime, in no set order. Adult shows are left out. */
+    public suspend fun cards(ids: List<Int>): AniListResult<List<AnimeCard>> =
+        fetch(AnimeCardsQuery(ids = ids)) { data ->
+            data.Page
+                ?.media
+                ?.mapNotNull { it?.animeCardFields?.toCard() }
+        }
 
     /** What Home's spotlight shows of each anime, by id. */
     public suspend fun spotlightFacts(ids: List<Int>): AniListResult<Map<Int, SpotlightFacts>> =
