@@ -2,6 +2,7 @@ package ani.saikou.neo.extension.api
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
 class ExtensionApiTest {
@@ -30,8 +31,8 @@ class ExtensionApiTest {
     }
 
     @Test
-    fun theApiIsAtVersionThreeAndNothingHasBrokenYet() {
-        assertEquals(3, ExtensionApi.VERSION)
+    fun theApiIsAtVersionFourAndNothingHasBrokenYet() {
+        assertEquals(4, ExtensionApi.VERSION)
         assertEquals(1, ExtensionApi.MIN_VERSION)
         assertTrue(ExtensionApi.MIN_VERSION <= ExtensionApi.VERSION)
     }
@@ -46,5 +47,16 @@ class ExtensionApiTest {
     @Test
     fun aVersionTwoSourceStillLoadsUnderVersionThree() {
         assertEquals(Compatibility.Compatible, ExtensionApi.compatibility(2))
+    }
+
+    // The site address was added with a default, not a breaking change, so a source built for version 3 still loads.
+    @Test
+    fun aVersionThreeSourceStillLoadsUnderVersionFour() {
+        assertEquals(Compatibility.Compatible, ExtensionApi.compatibility(3))
+    }
+
+    @Test
+    fun aSourceNamesNoSiteUnlessItSaysSo() {
+        assertNull(FakeExtension().siteUrl)
     }
 }

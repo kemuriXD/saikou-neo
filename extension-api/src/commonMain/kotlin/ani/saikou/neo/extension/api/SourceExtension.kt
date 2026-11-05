@@ -6,6 +6,12 @@ package ani.saikou.neo.extension.api
  */
 public interface SourceExtension {
     /**
+     * The address of the source's site, such as `https://example.com/`. Settings > Sources requests it through
+     * [HostServices.http] when it checks whether the source works. Null when the source has no one site to check.
+     */
+    public val siteUrl: String? get() = null
+
+    /**
      * Hands the source the app's [HostServices]. The app calls it once, after it
      * builds the source and before [servers] or [stream]. A source that doesn't
      * need host services can ignore it.
