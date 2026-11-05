@@ -391,25 +391,6 @@ class ServersViewModelTest {
         }
 
     @Test
-    fun theFilterShowsOneSource() =
-        test {
-            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(dub))), listOf(example, demo))
-
-            servers.filter(demo.id)
-
-            assertEquals(demo.id, servers.state.value.filter)
-            assertEquals(
-                listOf(demo),
-                servers.state.value.shown
-                    .map { it.source },
-            )
-
-            servers.filter(null)
-
-            assertEquals(2, servers.state.value.shown.size)
-        }
-
-    @Test
     fun noUsableSourceMeansNoSources() =
         test {
             val broken = starter.copy(problem = SourceProblem.BROKEN)
@@ -454,6 +435,26 @@ class ServersViewModelTest {
             val servers = viewModel(FakeFinder(mapOf(example.id to listOf(dub))), subOrDub = SubOrDub.SUB)
 
             assertEquals(StreamsOutcome.MissingEdition(missing = ServerEdition.SUB, have = ServerEdition.DUB), servers.state.value.outcome)
+        }
+
+    @Test
+    fun changingTheEditionOnThePageDoesntMakeItAnError() =
+        test {
+            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(sub1))), subOrDub = SubOrDub.SUB)
+
+            servers.showEdition(SubOrDub.DUB)
+
+            assertNull(servers.state.value.outcome)
+        }
+
+    @Test
+    fun changingTheEditionOnThePageCanShowWhatTheSettingHid() =
+        test {
+            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(dub))), subOrDub = SubOrDub.SUB)
+
+            servers.showEdition(SubOrDub.BOTH)
+
+            assertNull(servers.state.value.outcome)
         }
 
     @Test

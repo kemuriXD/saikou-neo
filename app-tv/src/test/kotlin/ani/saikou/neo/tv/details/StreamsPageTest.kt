@@ -46,6 +46,7 @@ private val example = InstalledSource("com.example.example", "Example source", "
 private val starter = InstalledSource("com.example.starter", "Starter source", "1.0.0")
 private val sub = FoundServer("a", "Demo, Sub", ServerEdition.SUB, 24)
 private val dub = FoundServer("b", "Demo, Dub", ServerEdition.DUB, null)
+private val hard = FoundServer("c", "Demo, Hard", ServerEdition.HARD_SUB, null)
 
 private val details =
     AnimeDetails(
@@ -83,7 +84,8 @@ class StreamsPageTest {
 
     private val state = mutableStateOf(servers)
     private val picked = mutableListOf<Pair<String, String>>()
-    private val filters = mutableListOf<String?>()
+    private val editions = mutableListOf<SubOrDub>()
+    private val retried = mutableListOf<String>()
     private var askedFor: Int? = null
     private var retries = 0
     private var opens = 0
@@ -101,7 +103,8 @@ class StreamsPageTest {
                             episode = episode,
                             title = "Show 7",
                             onPick = { source, server -> picked += source.id to server.name },
-                            onFilter = { filters += it },
+                            onEdition = { editions += it },
+                            onRetry = { retried += it.id },
                             actions =
                                 StreamsActions(
                                     onRetry = { retries++ },
@@ -136,7 +139,7 @@ class StreamsPageTest {
         assertEquals(2, askedFor)
         compose.onNodeWithTag(DETAILS_STREAMS_CRUMB_TAG).assert(hasText("E2 · Confrontation"))
         compose.onNodeWithTag(episodeTag(2)).assertDoesNotExist()
-        compose.onNodeWithTag(sourceChipTag(null)).assertIsFocused()
+        compose.onNodeWithTag(sourceTag(demo.id)).assertIsFocused()
     }
 
     @Test
@@ -151,27 +154,45 @@ class StreamsPageTest {
     }
 
     @Test
-    fun serversAreGroupedBySource() {
+    fun allShowsSubAndDubUnderHeadingsWithNoBadge() {
         openEpisodeTwo()
 
-        compose.onNodeWithText("Demo source · 2 servers").assertExists()
-        compose.onNodeWithTag(serverTag(demo.id, sub.id)).assert(hasText("SUB") and hasText("24 min"))
-        compose.onNodeWithTag(serverTag(demo.id, dub.id)).assert(hasText("DUB"))
+        compose.onNodeWithTag(editionTag(SubOrDub.BOTH)).assertIsSelected()
+        compose.onNodeWithText("SUB · 1").assertExists()
+        compose.onNodeWithText("DUB · 1").assertExists()
+        compose.onNodeWithTag(serverTag(demo.id, sub.id)).assert(hasText("24 min") and !hasText("SUB"))
+        compose.onNodeWithTag(serverTag(demo.id, dub.id)).assert(!hasText("DUB"))
     }
 
     @Test
-    fun aSourceStillLookingSaysSo() {
+    fun subShowsOneListWithHardSubTaggedAtTheEnd() {
+        state.value =
+            servers.copy(sources = listOf(SourceServers(demo, SourceAnswer.Found(listOf(hard, dub, sub)))), subOrDub = SubOrDub.SUB)
         openEpisodeTwo()
 
-        compose.onNodeWithText("Example source · still looking").assertExists()
-        compose.onNodeWithText("Sub first, from Settings. 1 of 2 sources has answered.").assertExists()
+        compose.onNodeWithText("SUB · 2").assertDoesNotExist()
+        compose.onNodeWithTag(serverTag(demo.id, dub.id)).assertDoesNotExist()
+        compose.onNodeWithTag(serverTag(demo.id, hard.id)).assert(hasText("Hard Sub"))
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(serverTag(demo.id, sub.id)).assertIsFocused()
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(serverTag(demo.id, hard.id)).assertIsFocused()
+    }
+
+    @Test
+    fun eachSourceSaysHowItsDoing() {
+        openEpisodeTwo()
+
+        compose.onNodeWithTag(sourceTag(demo.id)).assert(hasText("Demo source") and hasText("2 servers"))
+        compose.onNodeWithTag(sourceTag(example.id)).assert(hasText("Looking…"))
     }
 
     @Test
     fun pickingAServerPassesItOn() {
         openEpisodeTwo()
 
-        compose.onNodeWithTag(serverTag(demo.id, sub.id)).requestFocus()
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(serverTag(demo.id, sub.id)).assertIsFocused()
         press(Key.DirectionCenter)
         press(Key.DirectionDown)
         compose.onNodeWithTag(serverTag(demo.id, dub.id)).assertIsFocused()
@@ -181,16 +202,105 @@ class StreamsPageTest {
     }
 
     @Test
-    fun theChipsShowOneSource() {
+    fun leftFromTheServersReturnsToTheirSource() {
         openEpisodeTwo()
-        compose.onNodeWithTag(sourceChipTag(null)).assertIsSelected()
 
-        press(Key.DirectionDown)
         press(Key.DirectionRight)
-        compose.onNodeWithTag(sourceChipTag(demo.id)).assertIsFocused()
+        press(Key.DirectionLeft)
+
+        compose.onNodeWithTag(sourceTag(demo.id)).assertIsFocused()
+    }
+
+    @Test
+    fun thePillsChangeSubOrDubForThePage() {
+        openEpisodeTwo()
+
+        compose.onNodeWithTag(editionTag(SubOrDub.DUB)).requestFocus()
         press(Key.DirectionCenter)
 
-        assertEquals(listOf(demo.id), filters)
+        assertEquals(listOf(SubOrDub.DUB), editions)
+    }
+
+    @Test
+    fun theListScrollsToAnyNumberOfSources() {
+        val many = (1..12).map { InstalledSource("com.example.s$it", "Source $it", "1.0.0") }
+        state.value = servers.copy(sources = many.map { SourceServers(it, SourceAnswer.Found(listOf(sub))) })
+        openEpisodeTwo()
+
+        compose.onNodeWithTag(sourceTag(many.first().id)).assertIsFocused()
+        repeat(11) { press(Key.DirectionDown) }
+
+        compose.onNodeWithTag(sourceTag(many.last().id)).assertIsFocused()
+    }
+
+    private val failing =
+        servers.copy(
+            sources =
+                listOf(
+                    SourceServers(demo, SourceAnswer.Found(listOf(sub))),
+                    SourceServers(example, SourceAnswer.Failed(FailReason.NoAnswer)),
+                ),
+        )
+
+    /** Down to the failed source, then Right to its Retry. */
+    private fun openTheFailedSource() {
+        state.value = failing
+        openEpisodeTwo()
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+    }
+
+    @Test
+    fun rightFromAFailedSourceShowsWhyAndRetry() {
+        openTheFailedSource()
+
+        compose.onNodeWithTag(STREAMS_RETRY_TAG).assertIsFocused()
+        compose.onNodeWithText("Ask it again, or pick another source on the left.").assertExists()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(example.id), retried)
+        compose.onNodeWithTag(sourceTag(example.id)).assertIsFocused()
+    }
+
+    @Test
+    fun aSourceThatAnswersAfterRetryTakesFocusToItsFirstServer() {
+        openTheFailedSource()
+        press(Key.DirectionCenter)
+
+        state.value = failing.copy(sources = failing.sources.take(1) + SourceServers(example, SourceAnswer.Looking))
+        compose.waitForIdle()
+        state.value = failing.copy(sources = failing.sources.take(1) + SourceServers(example, SourceAnswer.Found(listOf(dub))))
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(serverTag(example.id, dub.id)).assertIsFocused()
+    }
+
+    @Test
+    fun afterMovingOnFocusStaysPutWhenTheRetryAnswers() {
+        openTheFailedSource()
+        press(Key.DirectionCenter)
+        press(Key.DirectionUp)
+
+        state.value = failing.copy(sources = failing.sources.take(1) + SourceServers(example, SourceAnswer.Found(listOf(dub))))
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(sourceTag(demo.id)).assertIsFocused()
+        compose.onNodeWithTag(serverTag(example.id, dub.id)).assertDoesNotExist()
+    }
+
+    @Test
+    fun aRateLimitedSourceCountsDownWithoutRetry() {
+        state.value =
+            failing.copy(
+                sources =
+                    failing.sources.take(1) + SourceServers(example, SourceAnswer.Failed(FailReason.RateLimited(30), waitSeconds = 12)),
+            )
+        openEpisodeTwo()
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(sourceTag(example.id)).assert(hasText("Too many requests. Try again in 12 s"))
+        compose.onNodeWithTag(STREAMS_RETRY_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(sourceTag(example.id)).assertIsFocused()
     }
 
     @Test
@@ -247,7 +357,7 @@ class StreamsPageTest {
     fun aNewAnswerIsNotOpeningThePageAgain() {
         openEpisodeTwo()
 
-        state.value = servers.copy(filter = demo.id)
+        state.value = servers.copy(subOrDub = SubOrDub.DUB)
         compose.waitForIdle()
 
         assertEquals(1, opens)
@@ -311,7 +421,7 @@ class StreamsPageTest {
             )
         openEpisodeTwo()
 
-        compose.onNodeWithText("The site blocked the request").assertExists()
-        compose.onNodeWithText("Only Dub here").assertExists()
+        compose.onNodeWithTag(sourceTag(example.id)).assert(hasText("The site blocked the request"))
+        compose.onNodeWithTag(sourceTag(starter.id)).assert(hasText("Only Dub here"))
     }
 }

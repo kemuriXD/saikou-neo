@@ -66,16 +66,13 @@ public sealed interface StreamsOutcome {
 public data class ServersState(
     /** Each source, in the order they're installed. */
     val sources: List<SourceServers>,
-    /** The id of the one source shown, or null for all of them. */
-    val filter: String? = null,
     /** The editions the page shows. It starts from the setting and can be changed for the page alone. */
     val subOrDub: SubOrDub = SubOrDub.BOTH,
+    /** The Sub or Dub setting the page started from. */
+    val setting: SubOrDub = subOrDub,
     /** Whether the installed sources have been read, so [sources] being empty means there are none. */
     val ready: Boolean = false,
 ) {
-    /** The sources the filter shows. */
-    val shown: List<SourceServers> get() = if (filter == null) sources else sources.filter { it.source.id == filter }
-
     /** How many sources have answered, with servers or not. */
     val answered: Int get() = sources.count { it.answer != SourceAnswer.Looking }
 
@@ -86,10 +83,15 @@ public data class ServersState(
     val outcome: StreamsOutcome? get() {
         if (!ready) return null
         if (sources.isEmpty()) return StreamsOutcome.NoSources
-        if (sources.any { it.answer == SourceAnswer.Looking || groups(it).all.isNotEmpty() }) return null
+        // The setting decides, so changing Sub or Dub on the page never turns it into this.
+        val shows = { entry: SourceServers ->
+            val servers = (entry.answer as? SourceAnswer.Found)?.servers.orEmpty()
+            groupServers(servers, setting).all.isNotEmpty() || groupServers(servers, subOrDub).all.isNotEmpty()
+        }
+        if (sources.any { it.answer == SourceAnswer.Looking || shows(it) }) return null
         val hidden = sources.any { (it.answer as? SourceAnswer.Found)?.servers?.isNotEmpty() == true }
         if (hidden && sources.none { it.answer is SourceAnswer.Failed }) {
-            return when (subOrDub) {
+            return when (setting) {
                 SubOrDub.DUB -> StreamsOutcome.MissingEdition(missing = ServerEdition.DUB, have = ServerEdition.SUB)
                 else -> StreamsOutcome.MissingEdition(missing = ServerEdition.SUB, have = ServerEdition.DUB)
             }
@@ -196,11 +198,6 @@ public class ServersViewModel(
     /** Shows the editions [subOrDub] allows, on this page alone. */
     public fun showEdition(subOrDub: SubOrDub) {
         mutableState.update { it.copy(subOrDub = subOrDub) }
-    }
-
-    /** Shows only the source with [sourceId], or all of them for null. */
-    public fun filter(sourceId: String?) {
-        mutableState.update { it.copy(filter = sourceId) }
     }
 }
 

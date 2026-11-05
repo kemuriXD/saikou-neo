@@ -207,7 +207,8 @@ class MainActivity : ComponentActivity() {
                                                     ),
                                             )
                                         },
-                                        onFilter = servers::filter,
+                                        onEdition = servers::showEdition,
+                                        onRetry = servers::retry,
                                         actions =
                                             StreamsActions(
                                                 onRetry = servers::retry,

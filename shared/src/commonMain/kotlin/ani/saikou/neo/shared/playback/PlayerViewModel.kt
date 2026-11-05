@@ -84,7 +84,7 @@ public fun ServersState.playRequest(
     backdrop: String? = null,
 ): PlayRequest {
     val listed =
-        shown.flatMap { entry ->
+        sources.flatMap { entry ->
             val servers = groups(entry).all
             servers.map { PlayServer(entry.source, it, servers.size) }
         }

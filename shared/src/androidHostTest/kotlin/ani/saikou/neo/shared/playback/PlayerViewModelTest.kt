@@ -514,23 +514,4 @@ class PlayerViewModelTest {
 
         assertEquals("https://example.com/banner.jpg", PlayRequest(banner, 7, null, servers, 0).art)
     }
-
-    @Test
-    fun playRequestKeepsToTheFilteredSource() {
-        val state =
-            ServersState(
-                sources =
-                    listOf(
-                        SourceServers(demo, SourceAnswer.Found(listOf(one, two))),
-                        SourceServers(example, SourceAnswer.Found(listOf(three))),
-                    ),
-                filter = demo.id,
-                ready = true,
-            )
-
-        val request = state.playRequest(demo, two, show, 7, null)
-
-        assertEquals(listOf(PlayServer(demo, one, 2), PlayServer(demo, two, 2)), request.servers)
-        assertEquals(1, request.picked)
-    }
 }
