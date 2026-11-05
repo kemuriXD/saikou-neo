@@ -29,9 +29,12 @@ public data class WatchProgress(
     /** How much was watched, from 0 to 1. */
     val fraction: Float get() = (watched / length).toFloat().coerceIn(0f, 1f)
 
+    /** True once [episode] was watched to the credits. */
+    val watchedToEnd: Boolean get() = fraction >= WATCHED_TO
+
     /** Where [episode] picks up, if this is that episode and it's worth asking: not just begun, not watched to the end. */
     public fun resumeAtMs(episode: Int): Long? =
-        watched.inWholeMilliseconds.takeIf { episode == this.episode && watched >= RESUME_FROM && fraction < WATCHED_TO }
+        watched.inWholeMilliseconds.takeIf { episode == this.episode && watched >= RESUME_FROM && !watchedToEnd }
 }
 
 /** How many days back [savedAt] was from [now], both in seconds, by the calendar where the viewer is. */

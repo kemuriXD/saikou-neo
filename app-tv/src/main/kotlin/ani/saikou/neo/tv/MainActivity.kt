@@ -124,7 +124,7 @@ class MainActivity : ComponentActivity() {
                             // Showing unaired anime or not changes the rows, so Home loads them again.
                             val home =
                                 viewModel(key = "home-${settings.showUnairedAnime}") {
-                                    HomeViewModel(client, library, season(), year())
+                                    HomeViewModel(client, library, season(), year(), app.history)
                                 }
                             val state by home.state.collectAsStateWithLifecycle()
                             HomeScreen(

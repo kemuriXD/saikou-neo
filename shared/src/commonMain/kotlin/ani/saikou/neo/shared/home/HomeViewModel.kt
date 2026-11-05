@@ -22,11 +22,14 @@ import kotlin.time.Clock
 import kotlin.time.Duration.Companion.seconds
 
 private const val FEATURED_SHOWS = 6
+
+// AniList sends at most this many cards at once, so Continue watching holds the shows watched most recently.
+private const val CONTINUE_WATCHING_SHOWS = 50
 private val paragraphBreak = Regex("""\s*\n\s*""")
 private val ROTATE_EVERY = 10.seconds
 internal val RETRY_EVERY = 30.seconds
 
-/** Home's rows, top to bottom. Continue watching comes from this TV, the rest from AniList. */
+/** Home's rows, top to bottom. Continue watching comes from this TV's history, the rest from AniList. */
 public enum class HomeRow { CONTINUE_WATCHING, TRENDING, THIS_SEASON, POPULAR }
 
 private val aniListRows = HomeRow.entries - HomeRow.CONTINUE_WATCHING
@@ -101,20 +104,22 @@ public sealed interface Logo {
  * first row that loads, with logos and backdrops from [library]. While it's in view it moves on every 10 seconds,
  * until the viewer picks a show. [now] is the time in seconds, for how soon a show's next episode is out.
  * When the rows fail for the network, Home is offline and tries again every 30 seconds while that's on screen.
+ * Continue watching lists the shows in [history] that aren't finished, most recently watched first, with AniList's cards.
+ * Without a history it stays empty.
  */
 public class HomeViewModel(
     private val client: AniListClient,
     private val library: ArtLibrary,
     private val season: AnimeSeason,
     private val year: Int,
+    private val history: WatchHistory? = null,
     private val now: () -> Long = { Clock.System.now().epochSeconds },
 ) : ViewModel() {
-    // Nothing saves progress yet (#115), so Continue watching is empty from the start.
     private val mutableState =
         MutableStateFlow(
             HomeState(
                 HomeRow.entries.associateWith { row ->
-                    if (row == HomeRow.CONTINUE_WATCHING) RowState.Loaded(emptyList()) else RowState.Loading
+                    if (row == HomeRow.CONTINUE_WATCHING && history == null) RowState.Loaded(emptyList()) else RowState.Loading
                 },
             ),
         )
@@ -124,9 +129,23 @@ public class HomeViewModel(
     private var offlineInView = false
     private var retrying: Job? = null
 
+    // What the history last held, and the cards AniList sent for it, so watching again doesn't ask for them anew. A
+    // show AniList didn't send, such as an adult one, is kept as null so it isn't asked for again either.
+    private var saved: Map<Int, WatchProgress> = emptyMap()
+    private val watchedCards = mutableMapOf<Int, AnimeCard?>()
+    private var continuing: Job? = null
+
     private val resting = Resting(viewModelScope, library) { logo -> mutableState.update { it.copy(restingLogo = logo) } }
 
     init {
+        history?.let { history ->
+            viewModelScope.launch {
+                history.shows.collect { shows ->
+                    saved = shows
+                    loadContinueWatching()
+                }
+            }
+        }
         aniListRows.forEach(::load)
     }
 
@@ -135,6 +154,10 @@ public class HomeViewModel(
      * push the others off the top of the list. Home stays offline until one loads.
      */
     public fun retry() {
+        if (state.value.rows[HomeRow.CONTINUE_WATCHING] == RowState.Failed) {
+            mutableState.update { state -> state.copy(rows = state.rows + (HomeRow.CONTINUE_WATCHING to RowState.Loading)) }
+            loadContinueWatching()
+        }
         val failed = aniListRows.filter { state.value.rows[it] == RowState.Failed }
         if (failed.isEmpty()) return
         mutableState.update { state -> state.copy(rows = state.rows + failed.associateWith { RowState.Loading }) }
@@ -168,6 +191,42 @@ public class HomeViewModel(
             if (!hadSpotlight) state.value.spotlight?.let(::startSpotlight)
             retryLater()
         }
+    }
+
+    /**
+     * Lists the shows [saved] that aren't finished, most recently watched first, asking AniList for the cards it hasn't
+     * sent yet. If it can't send them, the row shows the cards it has, or fails without any.
+     */
+    private fun loadContinueWatching() {
+        val shows = saved
+        continuing?.cancel()
+        continuing =
+            viewModelScope.launch {
+                val recent =
+                    shows.entries
+                        .sortedByDescending { it.value.savedAt ?: Long.MIN_VALUE }
+                        .take(
+                            CONTINUE_WATCHING_SHOWS,
+                        ).map { it.key }
+                val missing = recent.filterNot { it in watchedCards }
+                if (missing.isNotEmpty()) {
+                    val sent = client.cards(missing)
+                    if (sent is AniListResult.Success) {
+                        val cards = sent.value.associateBy { it.id }
+                        missing.forEach { watchedCards[it] = cards[it] }
+                    } else if (recent.none { it in watchedCards }) {
+                        mutableState.update { state -> state.copy(rows = state.rows + (HomeRow.CONTINUE_WATCHING to RowState.Failed)) }
+                        return@launch
+                    }
+                }
+                val items = recent.mapNotNull { id -> watchedCards[id]?.takeUnless { shows.getValue(id).finishes(it) } }
+                mutableState.update { state ->
+                    state.copy(
+                        rows = state.rows + (HomeRow.CONTINUE_WATCHING to RowState.Loaded(items)),
+                        progress = items.associate { it.id to shows.getValue(it.id) },
+                    )
+                }
+            }
     }
 
     /** Starts the 30 second timer over, if Home is offline and that's on screen. */
@@ -264,6 +323,9 @@ internal suspend fun AniListClient.row(
         HomeRow.THIS_SEASON -> season(season, year, page)
         HomeRow.POPULAR -> popular(page)
     }
+
+/** True when this is the last episode of [card], watched to the end. A show whose length isn't known never finishes. */
+private fun WatchProgress.finishes(card: AnimeCard): Boolean = watchedToEnd && card.episodes.let { it != null && episode >= it }
 
 /** The first shows of the first row that loaded, and that row, waiting for the rows above it. Null while waiting or if none did. */
 private fun HomeState.featured(): Pair<HomeRow, List<AnimeCard>>? {

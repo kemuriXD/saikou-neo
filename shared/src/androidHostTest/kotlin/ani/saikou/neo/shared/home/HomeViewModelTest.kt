@@ -20,7 +20,9 @@ import com.apollographql.apollo.network.http.HttpEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -37,7 +39,10 @@ import kotlin.test.assertFalse
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModelTest {
@@ -59,10 +64,11 @@ class HomeViewModelTest {
         fanartTv: FanartTvClient = FanartTvClient(null, OfflineEngine, main),
         tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
         now: Long = 1_793_300_000,
+        history: WatchHistory? = null,
     ): HomeViewModel {
         val client = clientFor(engine, main)
         val library = ArtLibrary(ArtSources(client, aniZip, fanartTv, tmdb), CoroutineScope(main))
-        return HomeViewModel(client, library, AnimeSeason.FALL, 2026) { now }
+        return HomeViewModel(client, library, AnimeSeason.FALL, 2026, history) { now }
     }
 
     private val aniListRows = listOf(HomeRow.TRENDING, HomeRow.THIS_SEASON, HomeRow.POPULAR)
@@ -74,7 +80,7 @@ class HomeViewModelTest {
         assertEquals(aniListRows.map { RowState.Loading }, aniListRows.map { viewModel.state.value.rows[it] })
     }
 
-    // Nothing records watch history yet (#115), so Continue watching stays empty and the screen hides it.
+    // Without a history to read, Continue watching stays empty and the screen hides it.
     @Test
     fun continueWatchingIsEmptyFromTheStart() =
         runTest(main) {
@@ -93,6 +99,82 @@ class HomeViewModelTest {
 
             viewModel.settledSpotlight()
             assertEquals(emptyMap(), viewModel.state.value.progress)
+        }
+
+    private fun progress(
+        episode: Int,
+        savedAt: Long,
+        watched: Duration = 12.minutes,
+    ) = WatchProgress(episode, watched, 24.minutes, null, savedAt)
+
+    @Test
+    fun partWatchedShowsAreListedMostRecentFirst() =
+        runTest(main) {
+            val history = FakeHistory(mapOf(1000 to progress(3, savedAt = 100), 1001 to progress(2, savedAt = 200)))
+            val viewModel = homeViewModel(history = history)
+
+            val rows = viewModel.settledRows()
+            assertEquals(listOf(1001, 1000), assertIs<RowState.Loaded>(rows[HomeRow.CONTINUE_WATCHING]).items.map { it.id })
+            assertEquals(mapOf(1000 to progress(3, savedAt = 100), 1001 to progress(2, savedAt = 200)), viewModel.state.value.progress)
+        }
+
+    // Show 1001 has 10 episodes and 1000 has 12. Watching an episode that isn't the last to the end leaves more to watch.
+    @Test
+    fun finishedShowsAreLeftOut() =
+        runTest(main) {
+            val history =
+                FakeHistory(
+                    mapOf(
+                        1001 to progress(10, savedAt = 300, watched = 23.minutes + 30.seconds),
+                        1000 to progress(12, savedAt = 200),
+                        1002 to progress(5, savedAt = 100, watched = 24.minutes),
+                    ),
+                )
+            val viewModel = homeViewModel(history = history)
+
+            val rows = viewModel.settledRows()
+            assertEquals(listOf(1000, 1002), assertIs<RowState.Loaded>(rows[HomeRow.CONTINUE_WATCHING]).items.map { it.id })
+            assertEquals(setOf(1000, 1002), viewModel.state.value.progress.keys)
+        }
+
+    @Test
+    fun withNothingSavedContinueWatchingIsEmptyAndAniListIsntAsked() =
+        runTest(main) {
+            val engine = HomeEngine()
+            val viewModel = homeViewModel(engine, history = FakeHistory())
+
+            viewModel.settledSpotlight()
+            assertEquals(RowState.Loaded(emptyList()), viewModel.settledRows()[HomeRow.CONTINUE_WATCHING])
+            assertEquals(emptyMap(), viewModel.state.value.progress)
+            assertEquals(0, engine.cardRequests)
+        }
+
+    @Test
+    fun watchingAgainMovesAShowToTheFront() =
+        runTest(main) {
+            val history = FakeHistory(mapOf(1000 to progress(3, savedAt = 100), 1001 to progress(2, savedAt = 200)))
+            val viewModel = homeViewModel(history = history)
+            viewModel.settledRows()
+
+            history.save(1000, progress(4, savedAt = 300))
+
+            val row = viewModel.state.first { (it.rows[HomeRow.CONTINUE_WATCHING] as? RowState.Loaded)?.items?.first()?.id == 1000 }
+            assertEquals(listOf(1000, 1001), (row.rows[HomeRow.CONTINUE_WATCHING] as RowState.Loaded).items.map { it.id })
+            assertEquals(4, row.progress.getValue(1000).episode)
+        }
+
+    @Test
+    fun continueWatchingLoadsWhenTriedAgainOnceOnline() =
+        runTest(main) {
+            val engine = SwitchableEngine()
+            val viewModel = homeViewModel(engine, history = FakeHistory(mapOf(1000 to progress(3, savedAt = 100))))
+            assertEquals(RowState.Failed, viewModel.settledRows()[HomeRow.CONTINUE_WATCHING])
+
+            engine.online = true
+            viewModel.retry()
+
+            val rows = viewModel.settledRows()
+            assertEquals(listOf(1000), assertIs<RowState.Loaded>(rows[HomeRow.CONTINUE_WATCHING]).items.map { it.id })
         }
 
     @Test
@@ -531,9 +613,12 @@ private class HomeEngine(
     private val rows = RecordedEngine("browse-trending")
     private val synopses = RecordedEngine("synopses")
     private val parents = RecordedEngine("relations")
+    private val cards = RecordedEngine("cards")
+    val cardRequests get() = cards.requestBodies.size
 
     override suspend fun execute(request: HttpRequest): HttpResponse {
         val body = Buffer().also { request.body!!.writeTo(it) }.readUtf8()
+        if ("AnimeCards" in body) return cards.execute(request)
         if ("AnimeRelations" in body) return parents.execute(request)
         if ("AnimeSynopses" !in body) return rows.execute(request)
         if (synopsesOffline) throw ApolloNetworkException("Unable to resolve host")
@@ -541,6 +626,20 @@ private class HomeEngine(
     }
 
     override fun close() {}
+}
+
+/** A history kept in memory, starting with [saved]. */
+private class FakeHistory(
+    saved: Map<Int, WatchProgress> = emptyMap(),
+) : WatchHistory {
+    override val shows = MutableStateFlow(saved)
+
+    override fun save(
+        animeId: Int,
+        progress: WatchProgress,
+    ) {
+        shows.update { it + (animeId to progress) }
+    }
 }
 
 /** Waits for the rows to load and the spotlight to be chosen from them. */
