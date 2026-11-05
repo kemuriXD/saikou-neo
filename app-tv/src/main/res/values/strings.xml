@@ -240,6 +240,10 @@
     <string name="streams_sub">Sub</string>
     <string name="streams_dub">Dub</string>
     <string name="streams_hard_sub">Hard Sub</string>
+    <!-- A video height on a server row, such as "1080p". -->
+    <string name="streams_quality">%1$dp</string>
+    <!-- Between a server's qualities and its runtime, as in "1080p · 720p · 24 min". -->
+    <string name="streams_meta_separator">" · "</string>
     <string name="streams_all">All</string>
     <string name="streams_sources">Sources</string>
     <string name="streams_show">Show servers</string>

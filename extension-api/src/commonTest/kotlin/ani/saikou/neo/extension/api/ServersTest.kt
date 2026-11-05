@@ -41,6 +41,23 @@ class ServersTest {
         }
 
     @Test
+    fun aServerCanListTheQualitiesItOffers() {
+        val server = Server(id = "a", name = "Main", edition = Edition.Sub, runtime = null, qualities = listOf(1080, 720))
+
+        assertEquals(listOf(1080, 720), server.qualities)
+    }
+
+    // Sources built for version 2 call this four-argument constructor. It has to keep working without a rebuild.
+    @Test
+    fun aServerMadeTheVersionTwoWayListsNoQualities() {
+        val server = Server("a", "Main", Edition.Dub, 24.minutes)
+
+        assertEquals(emptyList(), server.qualities)
+        assertEquals(24.minutes, server.runtime)
+        assertEquals(Server("a", "Main", Edition.Dub, 24.minutes, qualities = emptyList()), server)
+    }
+
+    @Test
     fun anEpisodeNumberCantBeNegative() {
         assertFailsWith<IllegalArgumentException> { Episode(anime, number = -1) }
     }

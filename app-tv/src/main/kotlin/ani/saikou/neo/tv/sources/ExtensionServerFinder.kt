@@ -27,6 +27,10 @@ import kotlin.time.Duration.Companion.days
 private const val MAX_SERVERS = 100
 private const val MAX_NAME = 60
 
+// A server row has room for a few qualities. Anything taller than 8K isn't a real video height.
+private const val MAX_QUALITIES = 5
+private const val MAX_HEIGHT = 4320
+
 // Sources share a few of the IO threads, so ones that block and won't stop can't take them all from the app.
 private const val SOURCE_THREADS = 8
 internal val sourceThreads = Dispatchers.IO.limitedParallelism(SOURCE_THREADS)
@@ -132,6 +136,12 @@ private fun Server.toFound() =
                 Edition.HardSub -> ServerEdition.HARD_SUB
             },
         runtimeMinutes = runtime?.toMinutes(),
+        qualities =
+            qualities
+                .filter { it in 1..MAX_HEIGHT }
+                .distinct()
+                .sortedDescending()
+                .take(MAX_QUALITIES),
     )
 
 // To the nearest minute, as the server list shows it.

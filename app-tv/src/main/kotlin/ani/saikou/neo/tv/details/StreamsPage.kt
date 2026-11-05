@@ -538,15 +538,25 @@ private fun ServerRow(
                             .padding(horizontal = dimensions.space2, vertical = 2.dp),
                 )
             }
-            server.runtimeMinutes?.let {
+            serverMeta(server)?.let {
                 Text(
-                    text = stringResource(R.string.details_minutes, it),
+                    text = it,
                     style = NeoTheme.typography.caption,
                     color = LocalContentColor.current.copy(alpha = MUTED),
+                    maxLines = 1,
                 )
             }
         }
     }
+}
+
+/** A server's qualities, highest first, then its runtime, such as "1080p · 720p · 24 min". Null when it has neither. */
+@Composable
+private fun serverMeta(server: FoundServer): String? {
+    val parts =
+        server.qualities.map { stringResource(R.string.streams_quality, it) } +
+            listOfNotNull(server.runtimeMinutes?.let { stringResource(R.string.details_minutes, it) })
+    return if (parts.isEmpty()) null else parts.joinToString(stringResource(R.string.streams_meta_separator))
 }
 
 @Composable
