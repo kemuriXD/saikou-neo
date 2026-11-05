@@ -113,6 +113,58 @@ class ExtensionServerFinderTest {
     }
 
     @Test
+    fun qualitiesComeThroughHighestFirst() {
+        val source = FakeSource(listOf(Server("a", "Demo", Edition.Sub, null, qualities = listOf(720, 1080, 360))))
+
+        val servers = runBlocking { finder(source).servers(demo, show, 8) }
+
+        assertEquals(listOf(1080, 720, 360), servers.single().qualities)
+    }
+
+    @Test
+    fun repeatedOrImpossibleQualitiesAreLeftOut() {
+        val source = FakeSource(listOf(Server("a", "Demo", Edition.Sub, null, qualities = listOf(720, 0, -1, 720, 99_999))))
+
+        val servers = runBlocking { finder(source).servers(demo, show, 8) }
+
+        assertEquals(listOf(720), servers.single().qualities)
+    }
+
+    @Test
+    fun aLongQualityListIsCut() {
+        val source = FakeSource(listOf(Server("a", "Demo", Edition.Sub, null, qualities = (1..20).map { it * 100 })))
+
+        val servers = runBlocking { finder(source).servers(demo, show, 8) }
+
+        assertEquals(listOf(2000, 1900, 1800, 1700, 1600), servers.single().qualities)
+    }
+
+    // A list this long would take minutes to walk in full.
+    @Test(timeout = 5_000)
+    fun aHugeQualityListIsOnlyReadInPart() {
+        val huge =
+            object : AbstractList<Int>() {
+                override val size = Int.MAX_VALUE
+
+                override fun get(index: Int) = 720
+            }
+        val source = FakeSource(listOf(Server("a", "Demo", Edition.Sub, null, qualities = huge)))
+
+        val servers = runBlocking { finder(source).servers(demo, show, 8) }
+
+        assertEquals(listOf(720), servers.single().qualities)
+    }
+
+    @Test
+    fun aServerWithoutQualitiesHasNone() {
+        val source = FakeSource(listOf(Server("a", "Demo", Edition.Sub, null)))
+
+        val servers = runBlocking { finder(source).servers(demo, show, 8) }
+
+        assertEquals(emptyList<Int>(), servers.single().qualities)
+    }
+
+    @Test
     fun aRepeatedServerIdIsDropped() {
         val source = FakeSource(listOf(Server("a", "First", Edition.Sub, null), Server("a", "Again", Edition.Dub, null)))
 

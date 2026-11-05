@@ -23,6 +23,8 @@ public data class FoundServer(
     val edition: ServerEdition,
     /** How long this server's video runs, if the source knows. */
     val runtimeMinutes: Int?,
+    /** The video heights this server offers, highest first, such as 1080 and 720. Empty when the source doesn't say. */
+    val qualities: List<Int> = emptyList(),
 )
 
 /** Why a source couldn't give its servers. */

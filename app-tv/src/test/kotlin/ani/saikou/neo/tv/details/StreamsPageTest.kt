@@ -44,9 +44,9 @@ import org.robolectric.annotation.GraphicsMode
 private val demo = InstalledSource("com.example.demo", "Demo source", "1.0.0")
 private val example = InstalledSource("com.example.example", "Example source", "1.0.0")
 private val starter = InstalledSource("com.example.starter", "Starter source", "1.0.0")
-private val sub = FoundServer("a", "Demo, Sub", ServerEdition.SUB, 24)
+private val sub = FoundServer("a", "Demo, Sub", ServerEdition.SUB, 24, qualities = listOf(1080, 720))
 private val dub = FoundServer("b", "Demo, Dub", ServerEdition.DUB, null)
-private val hard = FoundServer("c", "Demo, Hard", ServerEdition.HARD_SUB, null)
+private val hard = FoundServer("c", "Demo, Hard", ServerEdition.HARD_SUB, null, qualities = listOf(720))
 
 private val details =
     AnimeDetails(
@@ -160,8 +160,19 @@ class StreamsPageTest {
         compose.onNodeWithTag(editionTag(SubOrDub.BOTH)).assertIsSelected()
         compose.onNodeWithText("SUB · 1").assertExists()
         compose.onNodeWithText("DUB · 1").assertExists()
-        compose.onNodeWithTag(serverTag(demo.id, sub.id)).assert(hasText("24 min") and !hasText("SUB"))
+        compose.onNodeWithTag(serverTag(demo.id, sub.id)).assert(hasText("1080p · 720p · 24 min") and !hasText("SUB"))
         compose.onNodeWithTag(serverTag(demo.id, dub.id)).assert(!hasText("DUB"))
+    }
+
+    @Test
+    fun aServerShowsItsQualitiesAndNothingWhenItHasNone() {
+        state.value =
+            servers.copy(sources = listOf(SourceServers(demo, SourceAnswer.Found(listOf(sub, hard, dub)))))
+        openEpisodeTwo()
+
+        compose.onNodeWithTag(serverTag(demo.id, sub.id)).assert(hasText("1080p · 720p · 24 min"))
+        compose.onNodeWithTag(serverTag(demo.id, hard.id)).assert(hasText("720p"))
+        compose.onNodeWithTag(serverTag(demo.id, dub.id)).assert(!hasText("p", substring = true) and !hasText("min", substring = true))
     }
 
     @Test

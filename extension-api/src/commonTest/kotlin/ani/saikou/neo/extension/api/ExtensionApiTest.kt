@@ -30,8 +30,8 @@ class ExtensionApiTest {
     }
 
     @Test
-    fun theApiIsAtVersionTwoAndNothingHasBrokenYet() {
-        assertEquals(2, ExtensionApi.VERSION)
+    fun theApiIsAtVersionThreeAndNothingHasBrokenYet() {
+        assertEquals(3, ExtensionApi.VERSION)
         assertEquals(1, ExtensionApi.MIN_VERSION)
         assertTrue(ExtensionApi.MIN_VERSION <= ExtensionApi.VERSION)
     }
@@ -40,5 +40,11 @@ class ExtensionApiTest {
     @Test
     fun aVersionOneSourceStillLoadsUnderVersionTwo() {
         assertEquals(Compatibility.Compatible, ExtensionApi.compatibility(1))
+    }
+
+    // Server qualities were added, not a breaking change, so a source built for version 2 still loads.
+    @Test
+    fun aVersionTwoSourceStillLoadsUnderVersionThree() {
+        assertEquals(Compatibility.Compatible, ExtensionApi.compatibility(2))
     }
 }
