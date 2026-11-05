@@ -67,60 +67,28 @@ public fun interface ServerFinder {
     ): List<FoundServer>
 }
 
-/**
- * The server last picked for a show. Server ids change between episodes, so it's kept by name, with its edition since a
- * source can give its Sub and Dub servers the same name.
- */
-public data class LastServer(
-    val sourceId: String,
-    val serverName: String,
-    val edition: ServerEdition,
+/** A source's servers split by edition: Sub, then hard sub, in [sub], and [dub]. One is empty when the page hides it. */
+public data class ServerGroups(
+    val sub: List<FoundServer>,
+    val dub: List<FoundServer>,
 ) {
-    /** Whether [server] from [source] is this one. */
-    public fun isServer(
-        source: InstalledSource,
-        server: FoundServer,
-    ): Boolean = source.id == sourceId && server.name == serverName && server.edition == edition
+    /** Sub, then Dub: the order the page lists them in. */
+    val all: List<FoundServer> get() = sub + dub
 }
 
-/** The server last picked for each show. */
-public interface LastServers {
-    public suspend fun get(animeId: Int): LastServer?
-
-    public suspend fun set(
-        animeId: Int,
-        server: LastServer,
-    )
+/** [servers] grouped by edition, keeping only those [subOrDub] shows. Hard sub counts as Sub and comes after it. */
+internal fun groupServers(
+    servers: List<FoundServer>,
+    subOrDub: SubOrDub,
+): ServerGroups {
+    fun of(edition: ServerEdition) = if (subOrDub.shows(edition)) servers.filter { it.edition == edition } else emptyList()
+    return ServerGroups(sub = of(ServerEdition.SUB) + of(ServerEdition.HARD_SUB), dub = of(ServerEdition.DUB))
 }
 
 /** Whether [edition] is one [this] setting shows. HardSub counts as Sub. */
-internal fun SubOrDub.shows(edition: ServerEdition): Boolean =
+private fun SubOrDub.shows(edition: ServerEdition): Boolean =
     when (this) {
         SubOrDub.BOTH -> true
         SubOrDub.SUB -> edition != ServerEdition.DUB
         SubOrDub.DUB -> edition == ServerEdition.DUB
     }
-
-// Separate subtitles come before burned-in ones, and both before a dub.
-private val editionOrder = listOf(ServerEdition.SUB, ServerEdition.HARD_SUB, ServerEdition.DUB)
-
-/**
- * The server to suggest from [sources], listed in the order they answered: the [last] one used if it's there, or else
- * the first source with a server to show, its servers in [editionOrder]. Only one of several sources can answer first.
- */
-internal fun bestPick(
-    sources: List<SourceServers>,
-    last: LastServer?,
-): BestPick? {
-    val found = sources.mapNotNull { entry -> (entry.answer as? SourceAnswer.Found)?.let { entry.source to it.servers } }
-    if (last != null) {
-        for ((source, servers) in found) {
-            val server = servers.firstOrNull { last.isServer(source, it) } ?: continue
-            return BestPick(source, server, lastUsed = true, answeredFirst = false)
-        }
-    }
-    val (source, servers) = found.firstOrNull { it.second.isNotEmpty() } ?: return null
-    val server = servers.minBy { editionOrder.indexOf(it.edition) }
-    val first = sources.size > 1 && sources.first().source == source
-    return BestPick(source, server, lastUsed = false, answeredFirst = first)
-}

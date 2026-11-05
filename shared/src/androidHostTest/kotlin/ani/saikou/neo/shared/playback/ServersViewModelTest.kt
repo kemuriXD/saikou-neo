@@ -67,19 +67,6 @@ private class FakeFinder(
     }
 }
 
-private class FakeLastServers(
-    val saved: MutableMap<Int, LastServer> = mutableMapOf(),
-) : LastServers {
-    override suspend fun get(animeId: Int) = saved[animeId]
-
-    override suspend fun set(
-        animeId: Int,
-        server: LastServer,
-    ) {
-        saved[animeId] = server
-    }
-}
-
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServersViewModelTest {
     private val main = UnconfinedTestDispatcher()
@@ -97,8 +84,7 @@ class ServersViewModelTest {
         finder: ServerFinder,
         sources: List<InstalledSource> = listOf(example),
         subOrDub: SubOrDub = SubOrDub.BOTH,
-        last: LastServers = FakeLastServers(),
-    ) = ServersViewModel(finder, MutableStateFlow(sources), show, 8, subOrDub, last)
+    ) = ServersViewModel(finder, MutableStateFlow(sources), show, 8, subOrDub)
 
     private fun ServersViewModel.answer(source: InstalledSource = example) =
         state.value.sources
@@ -119,7 +105,7 @@ class ServersViewModelTest {
             val failure = SourceFailure(FailReason.RateLimited(retryAfterSeconds = 30))
             val servers = viewModel(FakeFinder(emptyMap(), failing = mapOf(example.id to failure)))
 
-            assertEquals(SourceAnswer.Failed(FailReason.RateLimited(30)), servers.answer())
+            assertEquals(SourceAnswer.Failed(FailReason.RateLimited(30), waitSeconds = 30), servers.answer())
         }
 
     @Test
@@ -173,44 +159,11 @@ class ServersViewModelTest {
         }
 
     @Test
-    fun serversTheSettingHidesAreCounted() =
-        test {
-            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(sub1, hard, dub))), subOrDub = SubOrDub.DUB)
-
-            assertEquals(SourceAnswer.Found(listOf(dub), hidden = 2), servers.answer())
-        }
-
-    @Test
-    fun aLastServerIsKnownByItsEditionAsWellAsItsName() =
-        test {
-            val demoSub = FoundServer("s", "Demo", ServerEdition.SUB, 12)
-            val demoDub = FoundServer("d", "Demo", ServerEdition.DUB, 10)
-            val last = FakeLastServers(mutableMapOf(1535 to LastServer(example.id, "Demo", ServerEdition.DUB)))
-            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(demoSub, demoDub))), last = last)
-
-            assertEquals(
-                demoDub,
-                servers.state.value.best
-                    ?.server,
-            )
-            assertEquals(
-                false,
-                servers.state.value.lastUsed
-                    ?.isServer(example, demoSub),
-            )
-            assertEquals(
-                true,
-                servers.state.value.lastUsed
-                    ?.isServer(example, demoDub),
-            )
-        }
-
-    @Test
     fun waitsForTheInstalledSourcesToBeRead() =
         test {
             val installed = MutableStateFlow<List<InstalledSource>?>(null)
             val finder = FakeFinder(mapOf(example.id to listOf(sub1)))
-            val servers = ServersViewModel(finder, installed, show, 8, SubOrDub.BOTH, FakeLastServers())
+            val servers = ServersViewModel(finder, installed, show, 8, SubOrDub.BOTH)
 
             assertEquals(emptyList(), servers.state.value.sources)
 
@@ -226,20 +179,27 @@ class ServersViewModelTest {
                 .answer as SourceAnswer.Found
         ).servers
 
-    @Test
-    fun bothShowsEveryServer() =
-        test {
-            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(sub1, hard, dub))))
+    private fun ServersViewModel.groups(source: InstalledSource) =
+        state.value.groups(
+            state.value.sources
+                .single { it.source == source },
+        )
 
-            assertEquals(listOf(sub1, hard, dub), servers.servers(example))
+    @Test
+    fun allGivesASubGroupWithHardSubLastAndADubGroup() =
+        test {
+            val sub2 = FoundServer("4", "Server 4", ServerEdition.SUB, 24)
+            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(hard, dub, sub1, sub2))))
+
+            assertEquals(ServerGroups(sub = listOf(sub1, sub2, hard), dub = listOf(dub)), servers.groups(example))
         }
 
     @Test
-    fun subShowsSubAndHardSubOnly() =
+    fun subShowsSubThenHardSubOnly() =
         test {
-            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(sub1, hard, dub))), subOrDub = SubOrDub.SUB)
+            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(hard, dub, sub1))), subOrDub = SubOrDub.SUB)
 
-            assertEquals(listOf(sub1, hard), servers.servers(example))
+            assertEquals(ServerGroups(sub = listOf(sub1, hard), dub = emptyList()), servers.groups(example))
         }
 
     @Test
@@ -247,7 +207,150 @@ class ServersViewModelTest {
         test {
             val servers = viewModel(FakeFinder(mapOf(example.id to listOf(sub1, hard, dub))), subOrDub = SubOrDub.DUB)
 
-            assertEquals(listOf(dub), servers.servers(example))
+            assertEquals(ServerGroups(sub = emptyList(), dub = listOf(dub)), servers.groups(example))
+        }
+
+    @Test
+    fun theEditionCanBeChangedForThePageAlone() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1, dub)))
+            val servers = viewModel(finder, subOrDub = SubOrDub.SUB)
+            finder.asked.clear()
+
+            servers.showEdition(SubOrDub.DUB)
+
+            assertEquals(SubOrDub.DUB, servers.state.value.subOrDub)
+            assertEquals(ServerGroups(sub = emptyList(), dub = listOf(dub)), servers.groups(example))
+            assertEquals(emptyList(), finder.asked)
+
+            servers.showEdition(SubOrDub.BOTH)
+
+            assertEquals(ServerGroups(sub = listOf(sub1), dub = listOf(dub)), servers.groups(example))
+        }
+
+    @Test
+    fun aSourceStillLookingSaysSoWhileOthersCanBePicked() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(dub)))
+            val gate = finder.gate(example)
+            val servers = viewModel(finder, listOf(example, demo))
+
+            assertEquals(SourceAnswer.Looking, servers.answer(example))
+            assertEquals(listOf(dub), servers.servers(demo))
+            assertEquals(1, servers.state.value.answered)
+
+            gate.complete(Unit)
+
+            assertEquals(listOf(sub1), servers.servers(example))
+            assertEquals(2, servers.state.value.answered)
+        }
+
+    @Test
+    fun sourcesStayInTheOrderTheyreInstalled() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(dub), starter.id to listOf(hard)))
+            val gates = listOf(example, demo, starter).associateWith { finder.gate(it) }
+            val servers = viewModel(finder, listOf(example, demo, starter))
+
+            gates.getValue(starter).complete(Unit)
+            gates.getValue(demo).complete(Unit)
+
+            assertEquals(
+                listOf(example, demo, starter),
+                servers.state.value.sources
+                    .map { it.source },
+            )
+        }
+
+    @Test
+    fun aSourceAskedAgainKeepsItsPlace() =
+        test {
+            val finder = FakeFinder(mapOf(demo.id to listOf(dub)), failing = mapOf(example.id to SourceFailure(FailReason.Blocked)))
+            val servers = viewModel(finder, listOf(example, demo))
+            finder.gate(example)
+
+            servers.retry(example)
+
+            assertEquals(
+                listOf(example, demo),
+                servers.state.value.sources
+                    .map { it.source },
+            )
+            assertEquals(SourceAnswer.Looking, servers.answer(example))
+        }
+
+    @Test
+    fun retryingOneSourceAsksOnlyIt() =
+        test {
+            val finder =
+                FakeFinder(
+                    mapOf(demo.id to emptyList()),
+                    failing = mapOf(example.id to SourceFailure(FailReason.Blocked), starter.id to SourceFailure(FailReason.NotFound)),
+                )
+            val servers = viewModel(finder, listOf(example, demo, starter))
+            finder.asked.clear()
+
+            servers.retry(starter)
+
+            assertEquals(listOf(starter.id), finder.asked)
+        }
+
+    @Test
+    fun retryingOneSourceThatHasServersOrIsLookingDoesNothing() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(dub)))
+            finder.gate(demo)
+            val servers = viewModel(finder, listOf(example, demo))
+            finder.asked.clear()
+
+            servers.retry(example)
+            servers.retry(demo)
+
+            assertEquals(emptyList(), finder.asked)
+        }
+
+    @Test
+    fun aRateLimitedSourceCountsDownTheWait() =
+        test {
+            val failing = mapOf(example.id to SourceFailure(FailReason.RateLimited(retryAfterSeconds = 3)))
+            val servers = viewModel(FakeFinder(emptyMap(), failing = failing))
+
+            assertEquals(SourceAnswer.Failed(FailReason.RateLimited(3), waitSeconds = 3), servers.answer())
+
+            advanceTimeBy(1.1.seconds)
+            assertEquals(SourceAnswer.Failed(FailReason.RateLimited(3), waitSeconds = 2), servers.answer())
+
+            advanceTimeBy(2.seconds)
+            assertEquals(SourceAnswer.Failed(FailReason.RateLimited(3), waitSeconds = null), servers.answer())
+        }
+
+    @Test
+    fun aRateLimitedSourceIsntAskedAgainUntilTheWaitIsOver() =
+        test {
+            val failing = mapOf(example.id to SourceFailure(FailReason.RateLimited(retryAfterSeconds = 3)))
+            val finder = FakeFinder(emptyMap(), failing = failing)
+            val servers = viewModel(finder)
+            finder.asked.clear()
+
+            servers.retry(example)
+            assertEquals(emptyList(), finder.asked)
+
+            advanceTimeBy(3.1.seconds)
+            servers.retry(example)
+            assertEquals(listOf(example.id), finder.asked)
+        }
+
+    @Test
+    fun aRateLimitWithoutAWaitCanBeRetriedAtOnce() =
+        test {
+            val failing = mapOf(example.id to SourceFailure(FailReason.RateLimited(retryAfterSeconds = null)))
+            val finder = FakeFinder(emptyMap(), failing = failing)
+            val servers = viewModel(finder)
+            finder.asked.clear()
+
+            servers.retry(example)
+
+            assertEquals(listOf(example.id), finder.asked)
         }
 
     @Test
@@ -278,50 +381,6 @@ class ServersViewModelTest {
         }
 
     @Test
-    fun aSourceStillLookingSaysSoWhileOthersCanBePicked() =
-        test {
-            val finder = FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(dub)))
-            val gate = finder.gate(example)
-            val servers = viewModel(finder, listOf(example, demo))
-
-            assertEquals(
-                listOf(demo, example),
-                servers.state.value.sources
-                    .map { it.source },
-            )
-            assertEquals(
-                SourceAnswer.Looking,
-                servers.state.value.sources
-                    .last()
-                    .answer,
-            )
-            assertEquals(listOf(dub), servers.servers(demo))
-            assertEquals(1, servers.state.value.answered)
-
-            gate.complete(Unit)
-
-            assertEquals(listOf(sub1), servers.servers(example))
-            assertEquals(2, servers.state.value.answered)
-        }
-
-    @Test
-    fun sourcesAreListedInTheOrderTheyAnswered() =
-        test {
-            val finder = FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(dub), starter.id to listOf(hard)))
-            val gates = listOf(example, demo, starter).associateWith { finder.gate(it) }
-            val servers = viewModel(finder, listOf(example, demo, starter))
-
-            gates.getValue(starter).complete(Unit)
-            gates.getValue(example).complete(Unit)
-
-            assertEquals(
-                listOf(starter, example, demo),
-                servers.state.value.sources
-                    .map { it.source },
-            )
-        }
-
-    @Test
     fun aSourceThatThrowsHasFailed() =
         test {
             val failing = mapOf(example.id to SourceFailure(FailReason.NotFound))
@@ -329,108 +388,6 @@ class ServersViewModelTest {
 
             assertEquals(SourceAnswer.Failed(FailReason.NotFound), servers.answer(example))
             assertEquals(listOf(dub), servers.servers(demo))
-        }
-
-    @Test
-    fun theBestPickIsTheLastUsedServer() =
-        test {
-            val last = FakeLastServers(mutableMapOf(1535 to LastServer(demo.id, "Server 3", ServerEdition.DUB)))
-            val servers =
-                viewModel(FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(dub))), listOf(example, demo), last = last)
-
-            assertEquals(BestPick(demo, dub, lastUsed = true, answeredFirst = false), servers.state.value.best)
-            assertEquals(LastServer(demo.id, "Server 3", ServerEdition.DUB), servers.state.value.lastUsed)
-        }
-
-    @Test
-    fun aLastUsedServerFilteredOutIsntTheBestPick() =
-        test {
-            val last = FakeLastServers(mutableMapOf(1535 to LastServer(example.id, "Server 3", ServerEdition.DUB)))
-            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(dub, sub1))), subOrDub = SubOrDub.SUB, last = last)
-
-            assertEquals(BestPick(example, sub1, lastUsed = false, answeredFirst = false), servers.state.value.best)
-        }
-
-    @Test
-    fun withoutALastUsedServerTheFirstSourceToAnswerGivesTheBestPick() =
-        test {
-            val finder = FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(hard)))
-            val gate = finder.gate(example)
-            val servers = viewModel(finder, listOf(example, demo))
-
-            assertEquals(BestPick(demo, hard, lastUsed = false, answeredFirst = true), servers.state.value.best)
-
-            gate.complete(Unit)
-
-            assertEquals(BestPick(demo, hard, lastUsed = false, answeredFirst = true), servers.state.value.best)
-        }
-
-    @Test
-    fun bothPrefersSubThenHardSubThenDub() =
-        test {
-            assertEquals(
-                sub1,
-                viewModel(FakeFinder(mapOf(example.id to listOf(dub, hard, sub1))))
-                    .state.value.best
-                    ?.server,
-            )
-            assertEquals(
-                hard,
-                viewModel(FakeFinder(mapOf(example.id to listOf(dub, hard))))
-                    .state.value.best
-                    ?.server,
-            )
-            assertEquals(
-                dub,
-                viewModel(FakeFinder(mapOf(example.id to listOf(dub))))
-                    .state.value.best
-                    ?.server,
-            )
-        }
-
-    @Test
-    fun aSourceWithNothingMatchingIsPassedOverForTheBestPick() =
-        test {
-            val finder = FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(dub)))
-            val gate = finder.gate(example)
-            val servers = viewModel(finder, listOf(example, demo), subOrDub = SubOrDub.SUB)
-
-            assertNull(servers.state.value.best)
-
-            gate.complete(Unit)
-
-            assertEquals(BestPick(example, sub1, lastUsed = false, answeredFirst = false), servers.state.value.best)
-        }
-
-    @Test
-    fun pickingAServerMakesItTheLastUsedForThisShow() =
-        test {
-            val last = FakeLastServers()
-            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(sub1, dub))), last = last)
-
-            servers.pick(example, dub)
-
-            assertEquals(mapOf(1535 to LastServer(example.id, "Server 3", ServerEdition.DUB)), last.saved)
-            assertEquals(LastServer(example.id, "Server 3", ServerEdition.DUB), servers.state.value.lastUsed)
-        }
-
-    @Test
-    fun theFilterShowsOneSource() =
-        test {
-            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(sub1), demo.id to listOf(dub))), listOf(example, demo))
-
-            servers.filter(demo.id)
-
-            assertEquals(demo.id, servers.state.value.filter)
-            assertEquals(
-                listOf(demo),
-                servers.state.value.shown
-                    .map { it.source },
-            )
-
-            servers.filter(null)
-
-            assertEquals(2, servers.state.value.shown.size)
         }
 
     @Test
@@ -445,7 +402,7 @@ class ServersViewModelTest {
     @Test
     fun beforeTheSourcesAreReadThereIsNoOutcome() =
         test {
-            val servers = ServersViewModel(FakeFinder(emptyMap()), MutableStateFlow(null), show, 8, SubOrDub.BOTH, FakeLastServers())
+            val servers = ServersViewModel(FakeFinder(emptyMap()), MutableStateFlow(null), show, 8, SubOrDub.BOTH)
 
             assertNull(servers.state.value.outcome)
         }
@@ -455,7 +412,7 @@ class ServersViewModelTest {
         test {
             val installed = MutableStateFlow<List<InstalledSource>?>(emptyList())
             val servers =
-                ServersViewModel(FakeFinder(mapOf(example.id to listOf(sub1))), installed, show, 8, SubOrDub.BOTH, FakeLastServers())
+                ServersViewModel(FakeFinder(mapOf(example.id to listOf(sub1))), installed, show, 8, SubOrDub.BOTH)
 
             installed.value = listOf(example)
 
@@ -478,6 +435,26 @@ class ServersViewModelTest {
             val servers = viewModel(FakeFinder(mapOf(example.id to listOf(dub))), subOrDub = SubOrDub.SUB)
 
             assertEquals(StreamsOutcome.MissingEdition(missing = ServerEdition.SUB, have = ServerEdition.DUB), servers.state.value.outcome)
+        }
+
+    @Test
+    fun changingTheEditionOnThePageDoesntMakeItAnError() =
+        test {
+            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(sub1))), subOrDub = SubOrDub.SUB)
+
+            servers.showEdition(SubOrDub.DUB)
+
+            assertNull(servers.state.value.outcome)
+        }
+
+    @Test
+    fun changingTheEditionOnThePageCanShowWhatTheSettingHid() =
+        test {
+            val servers = viewModel(FakeFinder(mapOf(example.id to listOf(dub))), subOrDub = SubOrDub.SUB)
+
+            servers.showEdition(SubOrDub.BOTH)
+
+            assertNull(servers.state.value.outcome)
         }
 
     @Test

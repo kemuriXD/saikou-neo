@@ -84,8 +84,8 @@ public fun ServersState.playRequest(
     backdrop: String? = null,
 ): PlayRequest {
     val listed =
-        shown.flatMap { entry ->
-            val servers = (entry.answer as? SourceAnswer.Found)?.servers.orEmpty()
+        sources.flatMap { entry ->
+            val servers = groups(entry).all
             servers.map { PlayServer(entry.source, it, servers.size) }
         }
     val picked = listed.indexOfFirst { it.source == source && it.server == server }

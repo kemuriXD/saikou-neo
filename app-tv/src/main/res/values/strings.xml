@@ -237,28 +237,20 @@
     <!-- The streams for an episode, from the installed sources. -->
     <string name="streams_episode">E%1$d</string>
     <string name="streams_episode_titled">E%1$d · %2$s</string>
-    <string name="streams_best_pick">Best pick</string>
-    <string name="streams_best_server">%1$s · %2$s</string>
-    <string name="streams_why">%1$s · %2$s</string>
-    <string name="streams_last_used">last used</string>
-    <string name="streams_answered_first">answered first</string>
-    <string name="streams_reasons">%1$s, %2$s</string>
     <string name="streams_sub">Sub</string>
     <string name="streams_dub">Dub</string>
-    <string name="streams_hard_sub">Hard sub</string>
+    <string name="streams_hard_sub">Hard Sub</string>
     <string name="streams_all">All</string>
-    <string name="streams_from">Show streams from</string>
-    <string name="streams_setting_both">Sub first, from Settings.</string>
-    <string name="streams_setting_sub">Sub only, from Settings.</string>
-    <string name="streams_setting_dub">Dub only, from Settings.</string>
-    <plurals name="streams_answered">
-        <item quantity="one">%1$d of %2$d sources has answered.</item>
-        <item quantity="other">%1$d of %2$d sources have answered.</item>
+    <string name="streams_sources">Sources</string>
+    <string name="streams_show">Show servers</string>
+    <string name="streams_looking">Looking…</string>
+    <plurals name="streams_servers">
+        <item quantity="one">%1$d server</item>
+        <item quantity="other">%1$d servers</item>
     </plurals>
-    <plurals name="streams_source_servers">
-        <item quantity="one">%1$s · %2$d server</item>
-        <item quantity="other">%1$s · %2$d servers</item>
-    </plurals>
+    <string name="streams_group">%1$s · %2$d</string>
+    <string name="streams_retry">Retry</string>
+    <string name="streams_retry_hint">Ask it again, or pick another source on the left.</string>
     <string name="streams_still_looking">%1$s · still looking</string>
     <string name="streams_no_servers">No servers for this episode</string>
     <string name="streams_only_edition">Only %1$s here</string>
@@ -279,7 +271,6 @@
     <string name="streams_back">Back to episodes</string>
     <string name="streams_missing_title">No %1$s yet for episode %2$d</string>
     <string name="streams_missing_body">Your sources only have %1$s for this one. You can change Sub or Dub in Settings\u00A0>\u00A0Playback.</string>
-    <string name="streams_used">Last used</string>
     <!-- The player, starting and when a server stops (#241). -->
     <plurals name="player_found">
         <item quantity="one">Found on %1$s · %2$d server</item>

@@ -7,6 +7,7 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -475,6 +476,30 @@ class PlayerViewModelTest {
     }
 
     @Test
+    fun playRequestListsSubBeforeDub() {
+        val state = ServersState(sources = listOf(SourceServers(demo, SourceAnswer.Found(listOf(three, one)))), ready = true)
+
+        val request = state.playRequest(demo, three, show, 7, null)
+
+        assertEquals(listOf(PlayServer(demo, one, 2), PlayServer(demo, three, 2)), request.servers)
+        assertEquals(1, request.picked)
+    }
+
+    @Test
+    fun playRequestListsOnlyTheEditionThePageShows() {
+        val state =
+            ServersState(
+                sources = listOf(SourceServers(demo, SourceAnswer.Found(listOf(one, three)))),
+                subOrDub = SubOrDub.SUB,
+                ready = true,
+            )
+
+        val request = state.playRequest(demo, one, show, 7, null)
+
+        assertEquals(listOf(PlayServer(demo, one, 1)), request.servers)
+    }
+
+    @Test
     fun playRequestCarriesTheDetailsArtwork() {
         val state = ServersState(sources = listOf(SourceServers(demo, SourceAnswer.Found(listOf(one)))), ready = true)
 
@@ -488,24 +513,5 @@ class PlayerViewModelTest {
         val banner = show.copy(card = show.card.copy(bannerImageUrl = "https://example.com/banner.jpg"))
 
         assertEquals("https://example.com/banner.jpg", PlayRequest(banner, 7, null, servers, 0).art)
-    }
-
-    @Test
-    fun playRequestKeepsToTheFilteredSource() {
-        val state =
-            ServersState(
-                sources =
-                    listOf(
-                        SourceServers(demo, SourceAnswer.Found(listOf(one, two))),
-                        SourceServers(example, SourceAnswer.Found(listOf(three))),
-                    ),
-                filter = demo.id,
-                ready = true,
-            )
-
-        val request = state.playRequest(demo, two, show, 7, null)
-
-        assertEquals(listOf(PlayServer(demo, one, 2), PlayServer(demo, two, 2)), request.servers)
-        assertEquals(1, request.picked)
     }
 }
