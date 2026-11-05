@@ -68,6 +68,7 @@ import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.settings.get
+import ani.saikou.neo.shared.sources.SourceCheck
 import ani.saikou.neo.shared.sources.SourcesState
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -146,7 +147,8 @@ private const val PANEL_SLIDE_PART = 4
  * Settings: categories on the left and the shown one's settings on the right, each with its value.
  * Resting on a category shows its settings; Right goes into them and Left comes back. Selecting a setting opens its
  * choices in a panel, and selecting one there calls [onChoose] with it. Sources lists the installed [sources], and adds and
- * removes them through [sourceActions]. It opens on [start].
+ * removes them through [sourceActions], which also check them, with each source's check in [checks]. It opens on
+ * [start].
  */
 @Composable
 fun SettingsScreen(
@@ -155,7 +157,8 @@ fun SettingsScreen(
     sources: SourcesState = SourcesState(emptyList()),
     sourceActions: SourceActions = SourceActions(),
     start: SettingsCategory = SettingsCategory.BROWSING,
-) = RememberFocus { focus -> SettingsPage(settings, focus, onChoose, sources, sourceActions, start) }
+    checks: Map<String, SourceCheck> = emptyMap(),
+) = RememberFocus { focus -> SettingsPage(settings, focus, onChoose, sources, sourceActions, start, checks) }
 
 @Composable
 private fun SettingsPage(
@@ -165,6 +168,7 @@ private fun SettingsPage(
     sources: SourcesState,
     sourceActions: SourceActions,
     start: SettingsCategory,
+    checks: Map<String, SourceCheck>,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
@@ -232,7 +236,7 @@ private fun SettingsPage(
             label = "category",
         ) { category ->
             if (category == SettingsCategory.SOURCES) {
-                SourcesPane(sources, sourcesUi, categories.getValue(category))
+                SourcesPane(sources, sourcesUi, categories.getValue(category), checks, sourceActions)
                 return@AnimatedContent
             }
             Column(verticalArrangement = Arrangement.spacedBy(RowGap)) {
@@ -268,7 +272,7 @@ private fun SettingsPage(
                 modifier = motion,
             )
         }
-        SourcesPanels(sources, sourcesUi, sourceActions)
+        SourcesPanels(sources, sourcesUi, sourceActions, checks)
     }
 }
 

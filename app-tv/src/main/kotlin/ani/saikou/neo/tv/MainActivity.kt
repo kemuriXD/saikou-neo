@@ -48,6 +48,8 @@ import ani.saikou.neo.shared.playback.playRequest
 import ani.saikou.neo.shared.search.SearchViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
 import ani.saikou.neo.shared.sources.ShortCodes
+import ani.saikou.neo.shared.sources.SourceChecker
+import ani.saikou.neo.shared.sources.SourceChecksViewModel
 import ani.saikou.neo.shared.sources.SourceDownloads
 import ani.saikou.neo.shared.sources.SourcesViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
@@ -66,6 +68,7 @@ import ani.saikou.neo.tv.search.genreLabels
 import ani.saikou.neo.tv.settings.SettingsCategory
 import ani.saikou.neo.tv.settings.SettingsScreen
 import ani.saikou.neo.tv.settings.SourceActions
+import ani.saikou.neo.tv.sources.sourceThreads
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.Section
 import ani.saikou.neo.tv.ui.SectionPlaceholder
@@ -334,6 +337,9 @@ class MainActivity : ComponentActivity() {
         val state by settingsScreen.state.collectAsStateWithLifecycle()
         val sourcesScreen = viewModel { SourcesViewModel(app.sources, ShortCodes(), SourceDownloads()) }
         val sources by sourcesScreen.state.collectAsStateWithLifecycle()
+        val checksScreen =
+            viewModel { SourceChecksViewModel(SourceChecker(app.sources::extension, app.sourceHost.services, sourceThreads)) }
+        val checks by checksScreen.checks.collectAsStateWithLifecycle()
         state?.let {
             SettingsScreen(
                 it,
@@ -346,8 +352,12 @@ class MainActivity : ComponentActivity() {
                         sourcesScreen::remove,
                         sourcesScreen::toggle,
                         sourcesScreen::addTicked,
+                        checksScreen::check,
+                        { checksScreen.checkAll(sources.installed.orEmpty()) },
+                        checksScreen::stop,
                     ),
                 start = start,
+                checks = checks,
             )
         }
     }

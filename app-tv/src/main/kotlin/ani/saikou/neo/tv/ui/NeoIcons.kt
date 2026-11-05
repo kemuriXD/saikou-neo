@@ -241,6 +241,44 @@ object NeoIcons {
         }
     }
 
+    /** A pulse line, for checking a source. */
+    val Pulse: ImageVector by lazy {
+        icon("Pulse") {
+            svgStroke(2f, "M3 12h4l3-8 4 16 3-8h4")
+        }
+    }
+
+    /** A rounded square, for stopping. */
+    val Stop: ImageVector by lazy {
+        icon("Stop") {
+            addPath(
+                pathData = addPathNodes("M8 6h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2z"),
+                fill = SolidColor(Color.Black),
+            )
+        }
+    }
+
+    /** A tick in a circle, for a step or check that passed. */
+    val Passed: ImageVector by lazy {
+        icon("Passed") {
+            svgStroke(2f, "M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0M8 12.5l3 3 5-6")
+        }
+    }
+
+    /** Most of a circle, for something under way. */
+    val Busy: ImageVector by lazy {
+        icon("Busy") {
+            svgStroke(2.5f, "M12 2a10 10 0 1 1-10 10")
+        }
+    }
+
+    /** A clock, for something that hasn't started. */
+    val Waiting: ImageVector by lazy {
+        icon("Waiting") {
+            svgStroke(2f, "M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0M12 7v5l3 2")
+        }
+    }
+
     /** Two bars, for Pause. */
     val Pause: ImageVector by lazy {
         icon("Pause") {
