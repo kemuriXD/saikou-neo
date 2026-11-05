@@ -15,6 +15,8 @@ import ani.saikou.neo.shared.playback.SourceFailure
 import ani.saikou.neo.shared.playback.failReason
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import kotlin.coroutines.CoroutineContext
@@ -93,7 +95,9 @@ public class SourceChecker(
                 } catch (e: TimeoutCancellationException) {
                     StepOutcome.Failed(FailReason.NoAnswer)
                 } catch (e: CancellationException) {
-                    throw e
+                    // A source can throw one while nothing is cancelled. Only a real stop ends the check quietly.
+                    currentCoroutineContext().ensureActive()
+                    StepOutcome.Failed(FailReason.SourceDown)
                 } catch (e: SourceFailure) {
                     StepOutcome.Failed(e.reason)
                 } catch (e: Throwable) {

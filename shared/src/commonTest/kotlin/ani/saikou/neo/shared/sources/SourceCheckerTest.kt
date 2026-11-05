@@ -18,6 +18,7 @@ import ani.saikou.neo.shared.sources.CheckStep.SERVERS
 import ani.saikou.neo.shared.sources.CheckStep.SITE
 import ani.saikou.neo.shared.sources.CheckStep.START
 import ani.saikou.neo.shared.sources.CheckStep.STREAM
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
@@ -173,6 +174,16 @@ class SourceCheckerTest {
 
             assertEquals(2.seconds, steps.single { it.step == SERVERS }.took)
             assertEquals(0.seconds, steps.single { it.step == STREAM }.took)
+        }
+
+    @Test
+    fun aSourceThatThrowsCancellationWhileNotCancelledFails() =
+        runTest {
+            val source = FakeSource(stream = { throw CancellationException("fake") })
+
+            val steps = checker(source).check(installed)
+
+            assertEquals(STREAM to failed(FailReason.SourceDown), steps.outcomes().last())
         }
 
     @Test
