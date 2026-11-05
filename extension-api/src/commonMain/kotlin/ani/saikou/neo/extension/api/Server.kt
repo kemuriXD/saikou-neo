@@ -20,6 +20,15 @@ public data class Server(
     /** A server with no qualities listed. Sources built for API version 2 call this, so it has to stay. */
     public constructor(id: String, name: String, edition: Edition, runtime: Duration?) :
         this(id, name, edition, runtime, emptyList())
+
+    /** The `copy` sources built for API version 2 call. Hidden, so new code gets the one with [qualities]. */
+    @Deprecated("Kept for sources built for API version 2", level = DeprecationLevel.HIDDEN)
+    public fun copy(
+        id: String = this.id,
+        name: String = this.name,
+        edition: Edition = this.edition,
+        runtime: Duration? = this.runtime,
+    ): Server = Server(id, name, edition, runtime, qualities)
 }
 
 public enum class Edition {

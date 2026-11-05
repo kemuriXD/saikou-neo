@@ -31,6 +31,9 @@ private const val MAX_NAME = 60
 private const val MAX_QUALITIES = 5
 private const val MAX_HEIGHT = 4320
 
+// Only this many are looked at, so a huge list can't hold up a source thread.
+private const val MAX_QUALITIES_READ = 64
+
 // Sources share a few of the IO threads, so ones that block and won't stop can't take them all from the app.
 private const val SOURCE_THREADS = 8
 internal val sourceThreads = Dispatchers.IO.limitedParallelism(SOURCE_THREADS)
@@ -138,10 +141,13 @@ private fun Server.toFound() =
         runtimeMinutes = runtime?.toMinutes(),
         qualities =
             qualities
+                .asSequence()
+                .take(MAX_QUALITIES_READ)
                 .filter { it in 1..MAX_HEIGHT }
                 .distinct()
                 .sortedDescending()
-                .take(MAX_QUALITIES),
+                .take(MAX_QUALITIES)
+                .toList(),
     )
 
 // To the nearest minute, as the server list shows it.

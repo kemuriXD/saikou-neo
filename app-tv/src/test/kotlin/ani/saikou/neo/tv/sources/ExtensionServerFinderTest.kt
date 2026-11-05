@@ -139,6 +139,22 @@ class ExtensionServerFinderTest {
         assertEquals(listOf(2000, 1900, 1800, 1700, 1600), servers.single().qualities)
     }
 
+    // A list this long would take minutes to walk in full.
+    @Test(timeout = 5_000)
+    fun aHugeQualityListIsOnlyReadInPart() {
+        val huge =
+            object : AbstractList<Int>() {
+                override val size = Int.MAX_VALUE
+
+                override fun get(index: Int) = 720
+            }
+        val source = FakeSource(listOf(Server("a", "Demo", Edition.Sub, null, qualities = huge)))
+
+        val servers = runBlocking { finder(source).servers(demo, show, 8) }
+
+        assertEquals(listOf(720), servers.single().qualities)
+    }
+
     @Test
     fun aServerWithoutQualitiesHasNone() {
         val source = FakeSource(listOf(Server("a", "Demo", Edition.Sub, null)))
