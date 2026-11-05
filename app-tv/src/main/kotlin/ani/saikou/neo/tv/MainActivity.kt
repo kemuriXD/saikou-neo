@@ -69,6 +69,7 @@ import ani.saikou.neo.tv.settings.SourceActions
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.Section
 import ani.saikou.neo.tv.ui.SectionPlaceholder
+import kotlinx.coroutines.flow.map
 import java.util.Calendar
 import java.util.TimeZone
 
@@ -158,7 +159,7 @@ class MainActivity : ComponentActivity() {
                                         animeId,
                                         today(),
                                         settings.showUpcomingEpisodes,
-                                        progress = app.history.shows.value[animeId],
+                                        progress = app.history.shows.map { it[animeId] },
                                         zoneOffsetSeconds = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000,
                                     )
                                 }
@@ -283,13 +284,15 @@ class MainActivity : ComponentActivity() {
                         },
                         sources = { SettingsSection(SettingsCategory.SOURCES) },
                         player = { request, back ->
-                            val player = viewModel { PlayerViewModel(app.streamFinder, request) }
+                            val player = viewModel { PlayerViewModel(app.streamFinder, request, history = app.history) }
                             val state by player.state.collectAsStateWithLifecycle()
                             val playback = rememberExoPlayback()
                             PlayerScreen(
                                 state,
                                 request,
                                 PlayerActions(
+                                    onResume = player::resume,
+                                    onStartOver = player::startOver,
                                     onStarted = player::started,
                                     onFailed = player::failed,
                                     onTryNext = player::tryNext,
@@ -313,6 +316,7 @@ class MainActivity : ComponentActivity() {
                                         player::started,
                                         player::failed,
                                         app.sourceHost.client,
+                                        onPlayed = player::played,
                                     )
                                 },
                             )

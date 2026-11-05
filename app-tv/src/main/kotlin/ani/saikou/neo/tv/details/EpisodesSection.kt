@@ -74,6 +74,7 @@ import ani.saikou.neo.shared.details.episodeRanges
 import ani.saikou.neo.shared.details.markFor
 import ani.saikou.neo.shared.details.nextToWatch
 import ani.saikou.neo.shared.home.WatchProgress
+import ani.saikou.neo.shared.playback.formatPlaybackTime
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.theme.WindowScrolling
@@ -246,7 +247,7 @@ internal fun EpisodesSection(
                 } else {
                     TextRow(
                         title = episode.title ?: stringResource(R.string.details_episode_number, episode.number),
-                        meta = episode.meta(list.film),
+                        meta = withSaved(mark, episode.meta(list.film)),
                         modifier = rowModifier,
                         mark = mark,
                         kind = kind,
@@ -381,7 +382,7 @@ private fun EpisodeRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                episode.meta(film = false)?.let { Meta(it) }
+                withSaved(mark, episode.meta(film = false))?.let { Meta(it) }
                 episode.synopsis?.let {
                     Text(
                         text = it,
@@ -522,6 +523,17 @@ private fun RowSurface(
 // The rows span the grid's content width.
 private val RowWidth: Dp = 844.dp
 private const val MUTED = 0.72f
+
+/** [meta] after where this TV stopped, for the episode in progress: "Position saved on this TV · 12:04 · 23 min". */
+@Composable
+private fun withSaved(
+    mark: EpisodeMark?,
+    meta: String?,
+): String? {
+    val progress = (mark as? EpisodeMark.InProgress)?.progress ?: return meta
+    val saved = stringResource(R.string.details_position_saved, formatPlaybackTime(progress.watched.inWholeMilliseconds))
+    return listOfNotNull(saved, meta).joinToString(" · ")
+}
 
 /** Such as "23 min · Aired 4 Oct 2006", or "Released" for a film. */
 @Composable

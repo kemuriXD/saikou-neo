@@ -27,7 +27,10 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
@@ -69,7 +72,7 @@ class DetailsViewModelTest {
         mal: MalClient = MalClient(OfflineEngine, main),
         omdb: OmdbClient = OmdbClient(null, OfflineEngine, main),
         showUpcomingEpisodes: Boolean = true,
-        progress: WatchProgress? = null,
+        progress: Flow<WatchProgress?> = flowOf(null),
         animeId: Int = 195516,
         zoneOffsetSeconds: Int = 0,
     ) = DetailsViewModel(
@@ -115,9 +118,22 @@ class DetailsViewModelTest {
     fun carriesTheProgressItWasGiven() =
         runTest(main) {
             val progress = WatchProgress(7, 14.minutes, 24.minutes, null)
-            val viewModel = detailsViewModel(progress = progress)
+            val viewModel = detailsViewModel(progress = flowOf(progress))
 
             assertEquals(progress, assertIs<DetailsState.Loaded>(viewModel.settled()).progress)
+        }
+
+    @Test
+    fun progressSavedWhileDetailsIsOpenShowsAtOnce() =
+        runTest(main) {
+            val saved = MutableStateFlow<WatchProgress?>(null)
+            val viewModel = detailsViewModel(progress = saved)
+            viewModel.settled()
+
+            saved.value = WatchProgress(7, 14.minutes, 24.minutes, null)
+            advanceUntilIdle()
+
+            assertEquals(saved.value, assertIs<DetailsState.Loaded>(viewModel.state.value).progress)
         }
 
     @Test

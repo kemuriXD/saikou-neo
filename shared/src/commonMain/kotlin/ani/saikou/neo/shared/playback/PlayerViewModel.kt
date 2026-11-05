@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.details.EpisodeList
+import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CancellationException
@@ -17,7 +18,9 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Clock
 import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /**
  * A stream a source gave, and the height of its best quality, as the player shows it, with every height it offers and
@@ -106,6 +109,11 @@ public sealed interface PlayerError {
 }
 
 public sealed interface PlayerPhase<out S> {
+    /** The episode was part watched on this TV, so the viewer picks whether to carry on from [atMs] or start over. */
+    public data class Resume(
+        val atMs: Long,
+    ) : PlayerPhase<Nothing>
+
     /**
      * Waiting for the server's stream, then for the video to start once it [answered]. A [quiet] start follows a fresh
      * link, so nothing shows over the video.
@@ -151,23 +159,63 @@ public data class PlayerState<out S>(
 /**
  * Plays the server [request] picked. A server gets [answerWithin] to give its stream. If one fails before the video
  * starts, the next server listed is tried, once per request. An expired link is refreshed once, carrying on from the
- * same spot, before it counts as stopped.
+ * same spot, before it counts as stopped. A part-watched episode first asks whether to resume. Where the video got to is
+ * saved to [history] while it plays and when it stops, with the time [now] gives in seconds.
  */
 public class PlayerViewModel<S>(
     private val finder: StreamFinder<S>,
     private val request: PlayRequest,
     private val answerWithin: Duration = ANSWER_WITHIN,
+    private val history: WatchHistory? = null,
+    private val now: () -> Long = { Clock.System.now().epochSeconds },
 ) : ViewModel() {
     private var index = request.picked
     private var triedNext = false
     private var refreshed = false
     private var asking: Job? = null
 
-    private val mutableState = MutableStateFlow(PlayerState<S>(request.servers[index], PlayerPhase.Starting(null)))
+    // The episode's length, once the player knows it.
+    private var lengthMs = 0L
+
+    private val resumeAt = request.progress?.resumeAtMs(request.episode)
+
+    private val mutableState =
+        MutableStateFlow(PlayerState<S>(request.servers[index], resumeAt?.let { PlayerPhase.Resume(it) } ?: PlayerPhase.Starting(null)))
     public val state: StateFlow<PlayerState<S>> = mutableState.asStateFlow()
 
     init {
-        open(index, startAtMs = 0)
+        if (resumeAt == null) open(index, startAtMs = 0)
+    }
+
+    /** Carries on from where this TV stopped. */
+    public fun resume() {
+        val resume = state.value.phase as? PlayerPhase.Resume ?: return
+        open(index, resume.atMs)
+    }
+
+    /** Plays the episode from the beginning. */
+    public fun startOver() {
+        if (state.value.phase is PlayerPhase.Resume) open(index, startAtMs = 0)
+    }
+
+    /** The video is at [positionMs] of [durationMs], which is saved while it plays. A duration of 0 isn't known yet. */
+    public fun played(
+        positionMs: Long,
+        durationMs: Long,
+    ) {
+        if (durationMs > 0) lengthMs = durationMs
+        if (state.value.phase is PlayerPhase.Playing) save(positionMs)
+    }
+
+    // Only a spot the video reached is saved, so leaving before it starts keeps the one saved before.
+    private fun save(positionMs: Long) {
+        if (history == null || lengthMs <= 0 || positionMs <= 0) return
+        val still =
+            request.episodes
+                ?.episodes
+                ?.firstOrNull { it.number == request.episode }
+                ?.thumbnail
+        history.save(request.show.card.id, WatchProgress(request.episode, positionMs.milliseconds, lengthMs.milliseconds, still, now()))
     }
 
     /** The video started playing. */
@@ -186,7 +234,7 @@ public class PlayerViewModel<S>(
             when (val phase = current.phase) {
                 is PlayerPhase.Playing -> phase.answered
                 is PlayerPhase.Starting -> phase.answered
-                is PlayerPhase.Stopped -> null
+                is PlayerPhase.Stopped, is PlayerPhase.Resume -> null
             } ?: return
         val at = if (current.phase is PlayerPhase.Playing) positionMs else current.startAtMs
         when {
@@ -323,6 +371,7 @@ public class PlayerViewModel<S>(
             open(index + 1, current.startAtMs)
             return
         }
+        if (current.phase is PlayerPhase.Playing && atMs != null) save(atMs)
         mutableState.update { it.copy(phase = PlayerPhase.Stopped(reason, httpCode, atMs, next)) }
     }
 }

@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -19,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
@@ -34,7 +37,9 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import ani.saikou.neo.extension.api.Stream
+import ani.saikou.neo.shared.home.daysSince
 import ani.saikou.neo.shared.playback.ControlsViewModel
+import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.playback.PlayServer
 import ani.saikou.neo.shared.playback.PlayerError
@@ -56,15 +61,22 @@ import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.transformations
+import java.util.TimeZone
 
 internal const val PLAYER_STARTING_TAG = "player-starting"
 internal const val PLAYER_STOPPED_TAG = "player-stopped"
 internal const val PLAYER_CHOOSE_TAG = "player-choose"
 internal const val PLAYER_TRY_NEXT_TAG = "player-try-next"
 internal const val PLAYER_TRY_AGAIN_TAG = "player-try-again"
+internal const val PLAYER_RESUME_TAG = "player-resume"
+internal const val PLAYER_RESUME_FROM_TAG = "player-resume-from"
+internal const val PLAYER_START_OVER_TAG = "player-start-over"
+internal const val PLAYER_STARTS_AT_TAG = "player-starts-at"
 
 /** What the player tells its ViewModel, and Choose another server, which goes back to the streams page. */
 internal data class PlayerActions(
+    val onResume: () -> Unit = {},
+    val onStartOver: () -> Unit = {},
     val onStarted: () -> Unit = {},
     val onFailed: (PlayerError, positionMs: Long) -> Unit = { _, _ -> },
     val onTryNext: () -> Unit = {},
@@ -93,6 +105,13 @@ private const val STARTING_SCRIM_LEFT = 0.85f
 private const val STARTING_SCRIM_RIGHT = 0.5f
 private const val STOPPED_FILL = 0.96f
 private const val BODY_ALPHA = 0.8f
+private val ResumeWidth = 440.dp
+private val ResumePadding = 24.dp
+private val ResumeRadius = 22.dp
+private val ResumeStillHeight = 160.dp
+private val ResumeStillRadius = 14.dp
+private const val RESUME_SCRIM = 0.85f
+private const val SUBTITLE_ALPHA = 0.72f
 
 // The art is blurred at this size and stretched to fill the screen, which stays soft and costs little.
 private const val BACKDROP_WIDTH = 320
@@ -118,6 +137,11 @@ internal fun PlayerScreen(
     Box(modifier.fillMaxSize().background(scrim)) {
         video()
         when (val phase = state.phase) {
+            is PlayerPhase.Resume -> {
+                Backdrop(request, SolidColor(scrim.copy(alpha = RESUME_SCRIM)))
+                Resume(phase, request, actions)
+            }
+
             is PlayerPhase.Starting -> {
                 if (!phase.quiet) {
                     Backdrop(
@@ -217,14 +241,98 @@ private fun BoxScope.Starting(
             onChooseAnother,
             Modifier.padding(top = 14.dp).focusRequester(choose).testTag(PLAYER_CHOOSE_TAG),
         )
+        if (state.startAtMs > 0) {
+            Text(
+                stringResource(R.string.player_starts_at, formatPlaybackTime(state.startAtMs)),
+                style = typography.caption,
+                color = colors.textFaint,
+                modifier = Modifier.padding(top = 6.dp).testTag(PLAYER_STARTS_AT_TAG),
+            )
+        }
         if (state.willTryNext) {
             Text(
                 stringResource(R.string.player_auto_next, server.server.name),
                 style = typography.caption,
                 color = colors.textFaint,
-                modifier = Modifier.padding(top = 6.dp),
+                modifier = Modifier.padding(top = if (state.startAtMs > 0) 0.dp else 6.dp),
             )
         }
+    }
+}
+
+/** Asks whether to carry on from where this TV stopped, start over, or go back for another server. Resume has focus. */
+@Composable
+private fun BoxScope.Resume(
+    phase: PlayerPhase.Resume,
+    request: PlayRequest,
+    actions: PlayerActions,
+) {
+    val colors = NeoTheme.colors
+    val typography = NeoTheme.typography
+    val resume = remember { FocusRequester() }
+    LaunchedEffect(Unit) { resume.requestFocus() }
+    val at = formatPlaybackTime(phase.atMs)
+    Column(
+        Modifier
+            .align(Alignment.Center)
+            .width(ResumeWidth)
+            .background(colors.surface, RoundedCornerShape(ResumeRadius))
+            .padding(ResumePadding)
+            .testTag(PLAYER_RESUME_TAG),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+    ) {
+        val still = request.progress?.still ?: request.art
+        if (still != null) {
+            AsyncImage(
+                model = still,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .height(ResumeStillHeight)
+                        .clip(RoundedCornerShape(ResumeStillRadius))
+                        .background(colors.surfaceRaised),
+            )
+        }
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text(episodeTitle(request), style = typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp), color = colors.paper)
+            Text(
+                stoppedWhen(at, request.progress?.savedAt),
+                style = typography.body,
+                color = colors.paper.copy(alpha = SUBTITLE_ALPHA),
+            )
+        }
+        NeoDialogButtons(Modifier.padding(top = 4.dp)) {
+            NeoDialogButton(
+                stringResource(R.string.player_resume_from, at),
+                actions.onResume,
+                Modifier.focusRequester(resume).testTag(PLAYER_RESUME_FROM_TAG),
+                icon = NeoIcons.Play,
+            )
+            NeoDialogButton(
+                stringResource(R.string.player_start_over),
+                actions.onStartOver,
+                Modifier.testTag(PLAYER_START_OVER_TAG),
+            )
+            NeoDialogButton(stringResource(R.string.player_choose_another), actions.onChooseAnother, Modifier.testTag(PLAYER_CHOOSE_TAG))
+        }
+    }
+}
+
+/** "You stopped at 12:04, 2 days ago", or without the day when the time it was saved isn't known. */
+@Composable
+private fun stoppedWhen(
+    at: String,
+    savedAt: Long?,
+): String {
+    savedAt ?: return stringResource(R.string.player_resume_stopped, at)
+    val nowMs = System.currentTimeMillis()
+    val days = daysSince(savedAt, nowMs / 1000, TimeZone.getDefault().getOffset(nowMs) / 1000).coerceAtLeast(0)
+    return when (days) {
+        0 -> stringResource(R.string.player_resume_today, at)
+        1 -> stringResource(R.string.player_resume_yesterday, at)
+        else -> pluralStringResource(R.plurals.player_resume_days_ago, days, at, days)
     }
 }
 
@@ -292,24 +400,30 @@ private fun BoxScope.Stopped(
             style = typography.body.copy(lineHeight = 22.sp),
             color = colors.paper.copy(alpha = BODY_ALPHA),
         )
+        // A fresh link from the same server usually works, so an expired one offers that first.
+        val again = phase.reason == FailReason.LinkExpired
+        val tryAgain: @Composable () -> Unit = {
+            NeoDialogButton(
+                stringResource(R.string.player_try_again, server.server.name),
+                actions.onTryAgain,
+                (if (again) Modifier.focusRequester(first) else Modifier).testTag(PLAYER_TRY_AGAIN_TAG),
+            )
+        }
         NeoDialogButtons(Modifier.padding(top = 8.dp)) {
+            if (again) tryAgain()
             if (next != null) {
                 NeoDialogButton(
                     stringResource(R.string.player_try_server, serverName(next, server)),
                     actions.onTryNext,
-                    Modifier.focusRequester(first).testTag(PLAYER_TRY_NEXT_TAG),
+                    (if (!again) Modifier.focusRequester(first) else Modifier).testTag(PLAYER_TRY_NEXT_TAG),
                 )
             }
             NeoDialogButton(
                 stringResource(R.string.player_choose_another),
                 actions.onChooseAnother,
-                (if (next == null) Modifier.focusRequester(first) else Modifier).testTag(PLAYER_CHOOSE_TAG),
+                (if (next == null && !again) Modifier.focusRequester(first) else Modifier).testTag(PLAYER_CHOOSE_TAG),
             )
-            NeoDialogButton(
-                stringResource(R.string.player_try_again, server.server.name),
-                actions.onTryAgain,
-                Modifier.testTag(PLAYER_TRY_AGAIN_TAG),
-            )
+            if (!again) tryAgain()
         }
         Text(
             phase.httpCode?.let { stringResource(R.string.player_footer_code, server.source.name, server.server.name, it) }

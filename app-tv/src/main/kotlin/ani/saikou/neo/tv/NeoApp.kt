@@ -1,7 +1,7 @@
 package ani.saikou.neo.tv
 
 import android.app.Application
-import ani.saikou.neo.shared.home.WatchHistory
+import ani.saikou.neo.shared.home.WatchHistoryStore
 import ani.saikou.neo.shared.search.RecentSearchesStore
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SettingsStore
@@ -19,7 +19,7 @@ import java.io.File
 
 /**
  * Holds what lives as long as the app: the settings, recent searches, sources and last servers, each of which only one
- * store may have open, and the watch history.
+ * store may have open, as can the watch history.
  */
 class NeoApp : Application() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -44,5 +44,5 @@ class NeoApp : Application() {
     val streamFinder by lazy { ExtensionStreamFinder(sources::extension) }
 
     /** How far this TV got in each show. */
-    val history = WatchHistory()
+    val history by lazy { WatchHistoryStore.at(File(filesDir, "watch_history.preferences_pb").absolutePath, scope) }
 }

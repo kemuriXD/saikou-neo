@@ -519,6 +519,15 @@ class DetailsScreenTest {
     }
 
     @Test
+    fun theEpisodeInProgressSaysWhereThisTvSavedItsPosition() {
+        val progress = WatchProgress(3, 12.minutes, 24.minutes, null)
+        showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today), progress = progress))
+
+        compose.onNodeWithTag(episodeTag(3)).assert(hasText("Position saved on this TV · 12:00", substring = true))
+        compose.onNodeWithTag(episodeTag(4)).assert(!hasText("Position saved on this TV", substring = true))
+    }
+
+    @Test
     fun episodesNotStartedSayWhichAreFillerOrRecaps() {
         val progress = WatchProgress(3, 12.minutes, 24.minutes, null)
         val kinds = mapOf(2 to EpisodeKind.Filler, 3 to EpisodeKind.Filler, 4 to EpisodeKind.Recap, 5 to EpisodeKind.Filler)

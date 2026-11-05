@@ -112,6 +112,7 @@
     <string name="details_released_on">Released %1$s</string>
     <string name="details_episode_watched">✓ Watched</string>
     <string name="details_episode_left">%1$d min left</string>
+    <string name="details_position_saved">Position saved on this TV · %1$s</string>
     <!-- MAL marks the episode as one outside the main story. -->
     <string name="details_episode_filler">Filler</string>
     <!-- MAL marks the episode as a look back at earlier ones. -->
@@ -293,6 +294,17 @@
     <string name="player_server_edition">%1$s, %2$s</string>
     <string name="player_footer">%1$s · %2$s</string>
     <string name="player_footer_code">%1$s · %2$s · error %3$d</string>
+    <!-- Resuming where this TV stopped (#115). -->
+    <string name="player_resume_from">Resume from %1$s</string>
+    <string name="player_start_over">Start from the beginning</string>
+    <string name="player_resume_stopped">You stopped at %1$s</string>
+    <string name="player_resume_today">You stopped at %1$s, today</string>
+    <string name="player_resume_yesterday">You stopped at %1$s, yesterday</string>
+    <plurals name="player_resume_days_ago">
+        <item quantity="one">You stopped at %1$s, %2$d day ago</item>
+        <item quantity="other">You stopped at %1$s, %2$d days ago</item>
+    </plurals>
+    <string name="player_starts_at">Starts at %1$s, where you stopped.</string>
     <!-- The controls over the video: source · server · quality · edition. -->
     <string name="player_stream_line">%1$s · %2$s · %3$dp · %4$s</string>
     <string name="player_time">%1$s / %2$s</string>

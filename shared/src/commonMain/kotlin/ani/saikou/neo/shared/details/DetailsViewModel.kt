@@ -14,9 +14,12 @@ import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.WatchProgress
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
@@ -54,7 +57,7 @@ public sealed interface DetailsState {
  * a clock [zoneOffsetSeconds] ahead of UTC. Those after [today] haven't aired, and they're left out of the list unless
  * [showUpcomingEpisodes]. The [raters] are asked once AniList's details are in, and for IMDb once AniZip gives its id.
  * MAL's filler and recap episodes join the list when MAL answers.
- * [progress] is how far this TV got in the show, if anywhere.
+ * [progress] is how far this TV got in the show, if anywhere, and again each time the player saves more.
  */
 public class DetailsViewModel(
     private val client: AniListClient,
@@ -64,7 +67,7 @@ public class DetailsViewModel(
     private val animeId: Int,
     private val today: AirDate,
     private val showUpcomingEpisodes: Boolean = true,
-    private val progress: WatchProgress? = null,
+    private val progress: Flow<WatchProgress?> = flowOf(null),
     private val zoneOffsetSeconds: Int = 0,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
@@ -112,7 +115,9 @@ public class DetailsViewModel(
                 rate { it.copy(imdb = omdb.imdb, rottenTomatoes = omdb.rottenTomatoes) }
             }
             val found = withTimeoutOrNull(ART_WAIT) { art.await() }
-            val loaded = DetailsState.Loaded(result.value, episodes = episodes, ratings = ratings, progress = progress)
+            val saved = progress.stateIn(this)
+            launch { saved.collect { now -> mutableState.update { (it as? DetailsState.Loaded)?.copy(progress = now) ?: it } } }
+            val loaded = DetailsState.Loaded(result.value, episodes = episodes, ratings = ratings, progress = saved.value)
             if (found != null) {
                 mutableState.value = loaded.withArt(found)
                 return@launch
