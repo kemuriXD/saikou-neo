@@ -24,11 +24,16 @@ import ani.saikou.neo.shared.playback.PlayerError
 import ani.saikou.neo.shared.playback.PlayerPhase
 import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.ServerEdition
+import kotlinx.coroutines.delay
 import okhttp3.Call
+import kotlin.time.Duration.Companion.seconds
+
+// How often where the video got to is saved while it plays.
+private val SAVE_EVERY = 10.seconds
 
 /**
  * Plays each stream [state] hands over, from its start position, and says when the video [onStarted] or the player
- * [onFailed], on [playback]'s player. The view draws the video and subtitles and never takes focus; the controls sit
+ * [onFailed], on [playback]'s player, and where it [onPlayed] to every few seconds and on leaving. The view draws the video and subtitles and never takes focus; the controls sit
  * over it.
  */
 @OptIn(UnstableApi::class)
@@ -41,6 +46,7 @@ internal fun StreamVideo(
     onFailed: (PlayerError, positionMs: Long) -> Unit,
     callFactory: Call.Factory,
     modifier: Modifier = Modifier,
+    onPlayed: (positionMs: Long, durationMs: Long) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
     val player = playback.player
@@ -65,6 +71,16 @@ internal fun StreamVideo(
             }
         player.addListener(listener)
         onDispose { player.removeListener(listener) }
+    }
+    val played by rememberUpdatedState(onPlayed)
+    val report = { played(player.currentPosition, player.duration.coerceAtLeast(0)) }
+    DisposableEffect(player) { onDispose { report() } }
+    val playing = state.phase is PlayerPhase.Playing
+    LaunchedEffect(playing) {
+        while (playing) {
+            delay(SAVE_EVERY)
+            report()
+        }
     }
     // A new stream: a new server, the same one again, or a fresh link.
     LaunchedEffect(state.load) {

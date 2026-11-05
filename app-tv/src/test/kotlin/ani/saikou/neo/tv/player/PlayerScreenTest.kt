@@ -16,6 +16,7 @@ import ani.saikou.neo.extension.api.StreamFormat
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.FoundServer
@@ -34,6 +35,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 
 private val demo = InstalledSource("com.example.demo", "Demo source", "1.0.0")
 private val one = PlayServer(demo, FoundServer("1", "Server 1", ServerEdition.SUB, 24), 2)
@@ -65,13 +68,15 @@ class PlayerScreenTest {
     private val playback = FakePlayback()
     private val controls = ControlsViewModel()
 
-    private fun show() {
+    private fun show(request: PlayRequest = ani.saikou.neo.tv.player.request) {
         compose.setContent {
             NeoTheme {
                 PlayerScreen(
                     state.value,
                     request,
                     PlayerActions(
+                        onResume = { pressed += "resume" },
+                        onStartOver = { pressed += "start over" },
                         onTryNext = { pressed += "next" },
                         onTryAgain = { pressed += "again" },
                         onChooseAnother = { pressed += "choose" },
@@ -191,5 +196,56 @@ class PlayerScreenTest {
         show()
 
         compose.onNodeWithText("Try Demo, Dub").assertExists()
+    }
+
+    @Test
+    fun aPartWatchedEpisodeAsksToResumeWithResumeFocused() {
+        state.value = state.value.copy(phase = PlayerPhase.Resume(724_000))
+        show(request.copy(progress = WatchProgress(7, 12.minutes + 4.seconds, 24.minutes, null)))
+
+        compose.onNodeWithTag(PLAYER_RESUME_TAG).assertExists()
+        compose.onNodeWithText("E7 · Rebirth").assertExists()
+        compose.onNodeWithText("You stopped at 12:04").assertExists()
+        compose.onNodeWithText("Start from the beginning").assertExists()
+        compose.onNodeWithTag(PLAYER_RESUME_FROM_TAG).assertIsFocused()
+        compose.onNodeWithText("Resume from 12:04").assertExists()
+    }
+
+    @Test
+    fun eachResumeButtonDoesItsJob() {
+        state.value = state.value.copy(phase = PlayerPhase.Resume(724_000))
+        show()
+
+        press(Key.DirectionCenter)
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(PLAYER_START_OVER_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(PLAYER_CHOOSE_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf("resume", "start over", "choose"), pressed)
+    }
+
+    @Test
+    fun aResumedStartSaysWhereItStartsAndCanStillChooseAnotherServer() {
+        state.value = state.value.copy(startAtMs = 724_000)
+        show()
+
+        compose.onNodeWithText("Starts at 12:04, where you stopped.").assertExists()
+        compose.onNodeWithTag(PLAYER_CHOOSE_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun anExpiredLinkOffersTheSameServerAgainFirstAndKeepsThePlace() {
+        state.value = state.value.copy(phase = PlayerPhase.Stopped(FailReason.LinkExpired, null, 724_000, two))
+        show()
+
+        compose.onNodeWithTag(PLAYER_TRY_AGAIN_TAG).assertIsFocused()
+        compose.onNodeWithText("stopped at 12:04", substring = true).assertExists()
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(PLAYER_TRY_NEXT_TAG).assertIsFocused()
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(PLAYER_CHOOSE_TAG).assertIsFocused()
     }
 }

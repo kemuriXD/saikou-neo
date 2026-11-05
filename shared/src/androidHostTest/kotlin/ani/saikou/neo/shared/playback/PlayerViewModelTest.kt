@@ -7,6 +7,8 @@ import androidx.lifecycle.viewmodel.viewModelFactory
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.home.WatchHistory
+import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CompletableDeferred
@@ -26,6 +28,8 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 private val demo = InstalledSource("com.example.demo", "Demo source", "1.0.0")
@@ -91,6 +95,22 @@ private class FakeStreams(
         return FoundStream("fresh ${server.id}", 1080)
     }
 }
+
+/** Keeps what the player saves, in order. */
+private class FakeHistory : WatchHistory {
+    val saved = mutableListOf<Pair<Int, WatchProgress>>()
+    override val shows = kotlinx.coroutines.flow.flowOf(emptyMap<Int, WatchProgress>())
+
+    override fun save(
+        animeId: Int,
+        progress: WatchProgress,
+    ) {
+        saved += animeId to progress
+    }
+}
+
+private const val NOW = 1_793_921_400L
+private val LENGTH = 24.minutes.inWholeMilliseconds
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class PlayerViewModelTest {
@@ -514,4 +534,114 @@ class PlayerViewModelTest {
 
         assertEquals("https://example.com/banner.jpg", PlayRequest(banner, 7, null, servers, 0).art)
     }
+
+    private fun resuming(
+        finder: FakeStreams = FakeStreams(),
+        history: FakeHistory = FakeHistory(),
+        progress: WatchProgress? = WatchProgress(7, 12.minutes + 4.seconds, 24.minutes, null),
+    ) = PlayerViewModel(finder, request().copy(progress = progress), history = history, now = { NOW })
+
+    @Test
+    fun aPartWatchedEpisodeAsksBeforeAskingAServer() =
+        test {
+            val finder = FakeStreams()
+            val player = resuming(finder)
+
+            assertEquals(PlayerPhase.Resume(724_000), player.phase)
+            assertEquals(emptyList(), finder.asked)
+        }
+
+    @Test
+    fun resumeStartsFromWhereItStopped() =
+        test {
+            val finder = FakeStreams()
+            val player = resuming(finder)
+
+            player.resume()
+
+            assertEquals(PlayerPhase.Starting(FoundStream("stream 1", 1080)), player.phase)
+            assertEquals(724_000, player.state.value.startAtMs)
+            assertEquals(listOf("1"), finder.asked)
+        }
+
+    @Test
+    fun startOverStartsFromTheBeginning() =
+        test {
+            val player = resuming()
+
+            player.startOver()
+
+            assertEquals(PlayerPhase.Starting(FoundStream("stream 1", 1080)), player.phase)
+            assertEquals(0, player.state.value.startAtMs)
+        }
+
+    @Test
+    fun progressInAnotherEpisodeStartsAtOnce() =
+        test {
+            val player = resuming(progress = WatchProgress(6, 12.minutes, 24.minutes, null))
+
+            assertEquals(PlayerPhase.Starting(FoundStream("stream 1", 1080)), player.phase)
+            assertEquals(0, player.state.value.startAtMs)
+        }
+
+    @Test
+    fun theSpotIsSavedWhilePlaying() =
+        test {
+            val history = FakeHistory()
+            val player = resuming(history = history, progress = null).also { it.started() }
+
+            player.played(positionMs = 60_000, durationMs = LENGTH)
+
+            assertEquals(listOf(1535 to WatchProgress(7, 60.seconds, 24.minutes, null, savedAt = NOW)), history.saved)
+        }
+
+    @Test
+    fun nothingIsSavedBeforeTheVideoPlays() =
+        test {
+            val history = FakeHistory()
+            val player = resuming(history = history)
+            player.played(positionMs = 0, durationMs = 0)
+            player.resume()
+            player.played(positionMs = 0, durationMs = LENGTH)
+
+            assertEquals(emptyList(), history.saved)
+        }
+
+    @Test
+    fun aServerThatStopsSavesWhereItStopped() =
+        test {
+            val history = FakeHistory()
+            val player = resuming(history = history, progress = null).also { it.started() }
+            player.played(positionMs = 60_000, durationMs = LENGTH)
+
+            player.failed(PlayerError.Failed(FailReason.SourceDown, 503), positionMs = 90_000)
+
+            assertEquals(WatchProgress(7, 90_000.milliseconds, 24.minutes, null, savedAt = NOW), history.saved.last().second)
+        }
+
+    @Test
+    fun anExpiredLinkKeepsThePlaceForTheSameServerOrAnother() =
+        test {
+            val finder = FakeStreams()
+            val history = FakeHistory()
+            val player = resuming(finder, history).also { it.resume() }
+            player.started()
+            player.played(positionMs = 800_000, durationMs = LENGTH)
+            player.failed(PlayerError.Expired, positionMs = 800_000)
+            player.started()
+            player.failed(PlayerError.Expired, positionMs = 810_000)
+
+            assertEquals(PlayerPhase.Stopped(FailReason.LinkExpired, null, 810_000, PlayServer(demo, two, 2)), player.phase)
+            assertEquals(
+                810_000.milliseconds,
+                history.saved
+                    .last()
+                    .second.watched,
+            )
+
+            player.tryAgain()
+
+            assertEquals(810_000, player.state.value.startAtMs)
+            assertEquals(listOf("1", "1"), finder.asked)
+        }
 }
