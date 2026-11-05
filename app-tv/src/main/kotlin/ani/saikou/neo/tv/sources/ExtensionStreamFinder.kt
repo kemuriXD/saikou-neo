@@ -10,6 +10,7 @@ import ani.saikou.neo.shared.playback.FoundStream
 import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.shared.playback.SourceFailure
 import ani.saikou.neo.shared.playback.StreamFinder
+import ani.saikou.neo.shared.playback.failReason
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withContext
@@ -51,7 +52,7 @@ class ExtensionStreamFinder(
             } catch (e: SourceFailure) {
                 throw e
             } catch (e: Throwable) {
-                throw SourceFailure(e.reason(), e)
+                throw SourceFailure(e.failReason(), e)
             }
         }
 }

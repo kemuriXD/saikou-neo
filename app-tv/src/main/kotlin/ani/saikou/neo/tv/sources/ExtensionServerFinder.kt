@@ -7,7 +7,6 @@ import ani.saikou.neo.extension.api.Edition
 import ani.saikou.neo.extension.api.Episode
 import ani.saikou.neo.extension.api.Season
 import ani.saikou.neo.extension.api.Server
-import ani.saikou.neo.extension.api.SourceException
 import ani.saikou.neo.extension.api.SourceExtension
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
@@ -16,12 +15,12 @@ import ani.saikou.neo.shared.playback.FoundServer
 import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.shared.playback.ServerFinder
 import ani.saikou.neo.shared.playback.SourceFailure
+import ani.saikou.neo.shared.playback.failReason
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.time.Duration
-import kotlin.time.Duration.Companion.days
 
 // The most servers a source can list, and the longest name shown, so a source can't flood the page.
 private const val MAX_SERVERS = 100
@@ -37,9 +36,6 @@ private const val MAX_QUALITIES_READ = 64
 // Sources share a few of the IO threads, so ones that block and won't stop can't take them all from the app.
 private const val SOURCE_THREADS = 8
 internal val sourceThreads = Dispatchers.IO.limitedParallelism(SOURCE_THREADS)
-
-// The longest wait a rate limit can ask for. An endless one counts as not saying.
-private val LONGEST_WAIT = 1.days
 
 /**
  * Asks the source [load] gives for an installed source, off the main thread, for the episode the catalogue picked. A
@@ -69,40 +65,10 @@ class ExtensionServerFinder(
                 throw e
             } catch (e: Throwable) {
                 // An expired link only comes up while playing, so here it's a site that isn't working.
-                throw SourceFailure(e.reason().takeUnless { it == FailReason.LinkExpired } ?: FailReason.SourceDown, e)
+                throw SourceFailure(e.failReason().takeUnless { it == FailReason.LinkExpired } ?: FailReason.SourceDown, e)
             }
         }
 }
-
-/** The reason to show for what a source threw. */
-internal fun Throwable.reason(): FailReason =
-    when (this) {
-        is SourceException.NotFound -> {
-            FailReason.NotFound
-        }
-
-        is SourceException.Blocked -> {
-            FailReason.Blocked
-        }
-
-        is SourceException.RateLimited -> {
-            FailReason.RateLimited(
-                retryAfter?.takeIf { it.isFinite() }?.let { (it.coerceAtMost(LONGEST_WAIT).inWholeMilliseconds + 999) / 1000 },
-            )
-        }
-
-        is SourceException.LinkExpired -> {
-            FailReason.LinkExpired
-        }
-
-        is Exception -> {
-            FailReason.SourceDown
-        }
-
-        else -> {
-            FailReason.WontStart
-        }
-    }
 
 private fun AnimeDetails.toAnime(): Anime {
     val title = card.title

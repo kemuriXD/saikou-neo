@@ -19,7 +19,7 @@ import ani.saikou.neo.extension.api.SubtitleFormat
 import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.PlayerError
 import ani.saikou.neo.shared.playback.ServerEdition
-import ani.saikou.neo.tv.sources.reason
+import ani.saikou.neo.shared.playback.failReason
 import okhttp3.Call
 
 /** What plays: the [video], with its subtitles, and the [audio] served apart from it, if any. */
@@ -92,7 +92,7 @@ fun Stream.mediaSource(
 fun PlaybackException.toPlayerError(): PlayerError {
     val causes = generateSequence<Throwable>(cause) { it.cause }.take(MAX_CAUSES).toList()
     causes.firstNotNullOfOrNull { it as? SourceException }?.let { error ->
-        return if (error is SourceException.LinkExpired) PlayerError.Expired else PlayerError.Failed(error.reason())
+        return if (error is SourceException.LinkExpired) PlayerError.Expired else PlayerError.Failed(error.failReason())
     }
     val code = causes.firstNotNullOfOrNull { it as? HttpDataSource.InvalidResponseCodeException }?.responseCode
     return when {
