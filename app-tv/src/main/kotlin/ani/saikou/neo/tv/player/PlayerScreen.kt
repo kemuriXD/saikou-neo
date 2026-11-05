@@ -73,6 +73,7 @@ internal data class PlayerActions(
     val onQuality: (height: Int, positionMs: Long) -> Unit = { _, _ -> },
     val onAudio: (audio: Int, positionMs: Long) -> Unit = { _, _ -> },
     val onServer: (PlayServer, positionMs: Long) -> Unit = { _, _ -> },
+    val onEpisode: (Int) -> Unit = {},
 )
 
 // From the design.

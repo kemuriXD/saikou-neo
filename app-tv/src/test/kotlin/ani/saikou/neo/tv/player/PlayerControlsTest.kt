@@ -8,8 +8,11 @@ import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -20,9 +23,13 @@ import androidx.compose.ui.test.pressKey
 import ani.saikou.neo.extension.api.Quality
 import ani.saikou.neo.extension.api.Stream
 import ani.saikou.neo.extension.api.StreamFormat
+import ani.saikou.neo.shared.catalogue.AniZipEpisode
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.catalogue.EpisodeKind
+import ani.saikou.neo.shared.details.EpisodeList
+import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.FoundServer
@@ -46,6 +53,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import kotlin.time.Duration.Companion.minutes
 
 private val demo = InstalledSource("com.example.demo", "Demo source", "1.0.0")
 private val sub = PlayServer(demo, FoundServer("1", "Demo, Sub", ServerEdition.SUB, 24), 2)
@@ -167,6 +175,123 @@ class PlayerControlsTest {
         assertFalse(controlsShown())
         assertEquals(emptyList<String>(), playback.calls)
         compose.onNodeWithText("English").assertIsFocused()
+    }
+
+    private fun episodes(
+        count: Int = 30,
+        kinds: Map<Int, EpisodeKind> = emptyMap(),
+    ) = EpisodeList(
+        count = count,
+        countSoFar = false,
+        film = false,
+        episodes = (1..count).map { AniZipEpisode(it, "Title $it", null, null, null, 24) },
+        extras = emptyList(),
+        kinds = kinds,
+    )
+
+    private fun showDrawer(
+        list: EpisodeList? = episodes(),
+        progress: WatchProgress? = null,
+        picks: MutableList<Int> = mutableListOf(),
+    ) {
+        compose.setContent {
+            NeoTheme {
+                PlayerScreen(
+                    PlayerState(sub, PlayerPhase.Playing(answered)),
+                    request.copy(episodes = list, progress = progress),
+                    PlayerActions(onEpisode = { picks += it }),
+                    playback,
+                    controls,
+                    video = {},
+                )
+            }
+        }
+        compose.waitForIdle()
+    }
+
+    private fun drawerOpen() = compose.onAllNodes(hasTestTag(PLAYER_EPISODES_TAG)).fetchSemanticsNodes().isNotEmpty()
+
+    @Test
+    fun upOpensTheDrawerOnThePlayingEpisodeAndBackClosesIt() {
+        showDrawer()
+        press(Key.DirectionUp)
+
+        assertTrue(drawerOpen())
+        compose.onNodeWithTag(drawerEpisodeTag(7)).assertIsFocused()
+        assertEquals(emptyList<String>(), playback.calls)
+
+        back()
+        assertFalse(drawerOpen())
+        assertFalse(controlsShown())
+    }
+
+    @Test
+    fun upFromTheBarOpensTheDrawerAndBackReturnsToTheBar() {
+        showDrawer()
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(PLAYER_BAR_TAG).assertIsFocused()
+        press(Key.DirectionUp)
+        assertTrue(drawerOpen())
+
+        back()
+        assertTrue(controlsShown())
+        compose.onNodeWithTag(PLAYER_BAR_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun theEpisodesButtonOpensTheDrawerAndGetsFocusBack() {
+        showDrawer()
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        compose.onNodeWithText("Episodes").assertIsFocused()
+        press(Key.DirectionCenter)
+        assertTrue(drawerOpen())
+
+        back()
+        compose.onNodeWithText("Episodes").assertIsFocused()
+    }
+
+    @Test
+    fun theDrawerOpensOnTheRangeOfThePlayingEpisode() {
+        showDrawer()
+        press(Key.DirectionUp)
+
+        compose.onNodeWithText("1–12").assertIsSelected()
+        compose.onNodeWithTag(drawerEpisodeTag(7)).assertIsFocused()
+    }
+
+    @Test
+    fun theDrawerMarksWatchedPlayingAndFiller() {
+        val progress = WatchProgress(5, 12.minutes, 24.minutes, null)
+        showDrawer(episodes(kinds = mapOf(8 to EpisodeKind.Filler)), progress)
+        press(Key.DirectionUp)
+
+        compose.onNodeWithTag(drawerEpisodeTag(7)).assert(hasText("Playing now", substring = true))
+        compose.onNodeWithTag(drawerEpisodeTag(8)).assert(hasText("Filler · 24 min"))
+        compose.onNodeWithTag(drawerEpisodeTag(6)).assert(!hasText("Filler", substring = true))
+    }
+
+    @Test
+    fun pickingAnotherEpisodeAsksForItAndPickingThePlayingOneJustCloses() {
+        val picks = mutableListOf<Int>()
+        showDrawer(picks = picks)
+        press(Key.DirectionUp)
+        press(Key.DirectionCenter)
+        assertFalse(drawerOpen())
+        assertEquals(emptyList<Int>(), picks)
+
+        press(Key.DirectionUp)
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+        assertEquals(listOf(8), picks)
+    }
+
+    @Test
+    fun withNoOtherEpisodeUpDoesNothing() {
+        showDrawer(episodes(count = 1))
+        press(Key.DirectionUp)
+        assertFalse(drawerOpen())
     }
 
     private fun showForPicking(

@@ -7,6 +7,7 @@ import ani.saikou.neo.shared.catalogue.AniZipExtra
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.catalogue.NextEpisode
 import ani.saikou.neo.shared.home.WatchProgress
 import kotlin.test.Test
@@ -200,6 +201,37 @@ class EpisodeListTest {
         assertEquals(1, list.nextToWatch(null))
         // One that isn't listed, such as an upcoming one left out, starts at the first.
         assertEquals(1, list.nextToWatch(WatchProgress(20, 12.minutes, 24.minutes, null)))
+    }
+
+    @Test
+    fun theDrawerSaysWhatsPlayingAheadOfAllElse() {
+        val progress = WatchProgress(7, 12.minutes, 24.minutes, null)
+        val list = episodeList(details(episodes = 12), null, today).copy(kinds = mapOf(5 to EpisodeKind.Filler))
+
+        assertEquals(EpisodeLine.Playing, list.lineFor(5, playing = 5, progress))
+        assertEquals(EpisodeLine.Playing, list.lineFor(7, playing = 7, progress))
+    }
+
+    @Test
+    fun theDrawerMarksEpisodesAsTheListDoes() {
+        val progress = WatchProgress(7, 12.minutes, 24.minutes, null)
+        val kinds = mapOf(5 to EpisodeKind.Filler, 8 to EpisodeKind.Filler, 9 to EpisodeKind.Recap)
+        val list = episodeList(details(episodes = 12), null, today).copy(kinds = kinds)
+
+        // Filler that's been watched says so, as it does in the list.
+        assertEquals(EpisodeLine.Marked(EpisodeMark.Watched), list.lineFor(5, playing = 10, progress))
+        assertEquals(EpisodeLine.Marked(EpisodeMark.InProgress(progress)), list.lineFor(7, playing = 10, progress))
+        assertEquals(EpisodeLine.Kind(EpisodeKind.Filler), list.lineFor(8, playing = 10, progress))
+        assertEquals(EpisodeLine.Kind(EpisodeKind.Recap), list.lineFor(9, playing = 10, progress))
+        assertEquals(EpisodeLine.Plain, list.lineFor(11, playing = 10, progress))
+        assertEquals(EpisodeLine.Plain, list.lineFor(11, playing = 10, progress = null))
+    }
+
+    @Test
+    fun aShowWithOneEpisodeHasNothingToSwitchTo() {
+        assertTrue(episodeList(details(episodes = 2), null, today).canSwitch)
+        assertFalse(episodeList(details(episodes = 1), null, today).canSwitch)
+        assertFalse(episodeList(details(episodes = 1, format = "MOVIE"), null, today).canSwitch)
     }
 
     @Test

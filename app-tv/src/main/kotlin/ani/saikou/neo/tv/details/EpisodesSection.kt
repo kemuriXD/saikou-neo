@@ -156,6 +156,14 @@ internal fun EpisodesSection(
     val nextIndex = shown.indexOfFirst { it.number == next }
     val listState = rememberLazyListState(initialFirstVisibleItemIndex = nextIndex.coerceAtLeast(0))
     val rich = !list.film
+    // One picked in the player's episodes drawer may be out of sight here, and Back returns focus to it.
+    LaunchedEffect(picked) {
+        val episode = picked ?: return@LaunchedEffect
+        val into = ranges.indexOfFirst { episode in it }
+        if (into >= 0) range = into
+        val first = ranges.getOrNull(into)?.first ?: 1
+        if (!listState.isVisible(episode - first)) listState.scrollToItem(episode - first)
+    }
     Column(modifier.heightIn(max = SectionHeight), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             text = list.header(),
@@ -391,27 +399,32 @@ private fun EpisodeRow(
 
 /** A veil over the still once the episode is watched, and a line for how much was. */
 @Composable
-private fun BoxScope.ThumbOverlay(mark: EpisodeMark?) {
-    val colors = NeoTheme.colors
-    if (mark == EpisodeMark.Watched) Box(Modifier.matchParentSize().background(colors.ink.copy(alpha = PLACEHOLDER_DIM)))
-    val watched =
+internal fun BoxScope.ThumbOverlay(mark: EpisodeMark?) {
+    if (mark == EpisodeMark.Watched) Box(Modifier.matchParentSize().background(NeoTheme.colors.ink.copy(alpha = PLACEHOLDER_DIM)))
+    WatchedLine(
         when (mark) {
             EpisodeMark.Watched -> 1f
             is EpisodeMark.InProgress -> mark.progress.fraction
             null -> 0f
-        }
-    if (watched > 0f) {
-        val bar = RoundedCornerShape(50)
-        Box(
-            Modifier
-                .align(Alignment.BottomCenter)
-                .padding(start = 8.dp, end = 8.dp, bottom = 6.dp)
-                .fillMaxWidth()
-                .height(4.dp)
-                .background(colors.paper.copy(alpha = TRACK), bar),
-        ) {
-            Box(Modifier.fillMaxWidth(watched).fillMaxHeight().background(colors.pink, bar))
-        }
+        },
+    )
+}
+
+/** A line along the still's foot for how much of the episode was [watched], from 0 to 1. Nothing shows at 0. */
+@Composable
+internal fun BoxScope.WatchedLine(watched: Float) {
+    if (watched <= 0f) return
+    val colors = NeoTheme.colors
+    val bar = RoundedCornerShape(50)
+    Box(
+        Modifier
+            .align(Alignment.BottomCenter)
+            .padding(start = 8.dp, end = 8.dp, bottom = 6.dp)
+            .fillMaxWidth()
+            .height(4.dp)
+            .background(colors.paper.copy(alpha = TRACK), bar),
+    ) {
+        Box(Modifier.fillMaxWidth(watched).fillMaxHeight().background(colors.pink, bar))
     }
 }
 
@@ -512,7 +525,7 @@ private const val MUTED = 0.72f
 
 /** Such as "23 min · Aired 4 Oct 2006", or "Released" for a film. */
 @Composable
-private fun AniZipEpisode.meta(film: Boolean): String? {
+internal fun AniZipEpisode.meta(film: Boolean): String? {
     val date =
         airDate?.let {
             val res =
@@ -528,7 +541,7 @@ private fun AniZipEpisode.meta(film: Boolean): String? {
 
 /** Such as "23 min", or "2 h 5 min". */
 @Composable
-private fun duration(minutes: Int): String =
+internal fun duration(minutes: Int): String =
     if (minutes < 60) {
         stringResource(R.string.details_minutes, minutes)
     } else {

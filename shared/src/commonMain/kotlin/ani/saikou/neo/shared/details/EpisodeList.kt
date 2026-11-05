@@ -31,7 +31,10 @@ public data class EpisodeList(
     val aired: Int = count,
     /** MAL's filler and recap episodes by number. Empty until MAL answers, and for a show it doesn't know. */
     val kinds: Map<Int, EpisodeKind> = emptyMap(),
-)
+) {
+    /** Whether there's another episode to go to from the one playing. */
+    val canSwitch: Boolean get() = episodes.size > 1
+}
 
 /**
  * How many episodes [details] has, from AniList: its total, or the episodes out before the next one airs. When AniList
@@ -118,6 +121,32 @@ public fun WatchProgress.markFor(episode: Int): EpisodeMark? =
         episode == this.episode -> EpisodeMark.InProgress(this)
         else -> null
     }
+
+/** What the player's episodes drawer says of one episode, besides its length and date. */
+public sealed interface EpisodeLine {
+    public data object Playing : EpisodeLine
+
+    public data class Marked(
+        val mark: EpisodeMark,
+    ) : EpisodeLine
+
+    public data class Kind(
+        val kind: EpisodeKind,
+    ) : EpisodeLine
+
+    public data object Plain : EpisodeLine
+}
+
+/** The one [playing] says so. Otherwise, as in the Episodes tab, how far this TV got comes before filler or recap. */
+public fun EpisodeList.lineFor(
+    episode: Int,
+    playing: Int,
+    progress: WatchProgress?,
+): EpisodeLine {
+    if (episode == playing) return EpisodeLine.Playing
+    progress?.markFor(episode)?.let { return EpisodeLine.Marked(it) }
+    return kinds[episode]?.let { EpisodeLine.Kind(it) } ?: EpisodeLine.Plain
+}
 
 /** The episode to watch next: the one in [progress] if it's listed, or else the first. */
 public fun EpisodeList.nextToWatch(progress: WatchProgress?): Int? =

@@ -447,6 +447,35 @@ class DetailsScreenTest {
     }
 
     @Test
+    fun anEpisodePickedInThePlayerOpensItsStreamsAndBackFindsItInItsRange() {
+        var fromPlayer by mutableStateOf<Int?>(null)
+        val twoCours = details.copy(card = details.card.copy(episodes = 22))
+        compose.setContent {
+            NeoTheme {
+                DetailsScreen(
+                    DetailsState.Loaded(twoCours, episodes = episodeList(twoCours, null, today)),
+                    streams = { episode, _, _ -> Text("Streams for $episode") },
+                    openStreams = fromPlayer,
+                    onStreamsOpened = { fromPlayer = null },
+                )
+            }
+        }
+        compose.waitForIdle()
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
+
+        fromPlayer = 20
+        compose.waitForIdle()
+        compose.onNodeWithText("Streams for 20").assertExists()
+        assertEquals(null, fromPlayer)
+
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+        compose.onNodeWithText("Streams for 20").assertDoesNotExist()
+        compose.onNodeWithTag(episodeTag(20)).assertIsFocused()
+    }
+
+    @Test
     fun downFromTheMainButtonReachesTheTabs() {
         show(DetailsState.Loaded(details))
 
