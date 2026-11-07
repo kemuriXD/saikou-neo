@@ -31,9 +31,16 @@ public data class SubtitleDrawing(
         TEXT_FRACTION * sizePercent / PERCENT * (if (startFromTvTextSize) tvFontScale else 1f)
 }
 
-/** How subtitles draw for the show with AniList id [showId]. A look that's gone draws as Classic. */
-public fun SubtitleSettings.drawingFor(showId: Int): SubtitleDrawing {
-    val pick = pickFor(showId)
+/**
+ * How subtitles draw for the show with AniList id [showId], in [preview] while one is focused in the player. A look
+ * that's gone draws as Classic, and a preview of one draws as the saved look.
+ */
+public fun SubtitleSettings.drawingFor(
+    showId: Int,
+    preview: LookId? = null,
+): SubtitleDrawing {
+    val saved = pickFor(showId)
+    val pick = if (preview != null && style(preview) != null) saved.copy(look = preview) else saved
     val builtIn = (pick.look as? LookId.BuiltIn)?.look
     val base =
         when (pick.position) {

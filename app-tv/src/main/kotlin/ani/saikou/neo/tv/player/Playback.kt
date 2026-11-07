@@ -45,6 +45,9 @@ internal interface Playback {
 
     val subtitles: List<TrackOption>
 
+    /** The subtitle track that's on carries its own styling, signs included. */
+    val subtitleStyled: Boolean get() = false
+
     val speed: Float
 
     fun selectTrack(option: TrackOption)
@@ -132,6 +135,8 @@ internal class ExoPlayback(
         private set
     override var speed by mutableFloatStateOf(player.playbackParameters.speed)
         private set
+    override var subtitleStyled by mutableStateOf(false)
+        private set
 
     override fun play() = player.play()
 
@@ -173,6 +178,7 @@ internal class ExoPlayback(
     override fun onTracksChanged(tracks: Tracks) {
         audio = tracks.options(C.TRACK_TYPE_AUDIO)
         subtitles = tracks.options(C.TRACK_TYPE_TEXT)
+        subtitleStyled = tracks.selected(C.TRACK_TYPE_TEXT).isStyledText()
         audio.toRestore(wanted[C.TRACK_TYPE_AUDIO])?.let(::selectTrack)
         subtitles.toRestore(wanted[C.TRACK_TYPE_TEXT])?.let(::selectTrack)
     }

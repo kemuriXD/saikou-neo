@@ -195,6 +195,40 @@ class ControlsViewModelTest {
     }
 
     @Test
+    fun theLookPageOpensOverTheTracksTab() {
+        controls.openPanel(PanelTab.Tracks)
+
+        controls.openLooks()
+
+        assertTrue(state.looks)
+        assertEquals(PanelTab.Tracks, state.panel)
+    }
+
+    @Test
+    fun backFromTheLookPageGoesToTheTracksTab() {
+        controls.openPanel(PanelTab.Tracks)
+        controls.openLooks()
+
+        controls.closeLooks()
+
+        assertFalse(state.looks)
+        assertEquals(PanelTab.Tracks, state.panel)
+    }
+
+    @Test
+    fun anotherTabOrClosingThePanelLeavesTheLookPage() {
+        controls.openPanel(PanelTab.Tracks)
+        controls.openLooks()
+        controls.openPanel(PanelTab.Speed)
+        assertFalse(state.looks)
+
+        controls.openPanel(PanelTab.Tracks)
+        controls.openLooks()
+        controls.closePanel(playing = true)
+        assertFalse(state.looks)
+    }
+
+    @Test
     fun thePanelStaysOpenPastTheHideTime() =
         test {
             controls.show(playing = true)

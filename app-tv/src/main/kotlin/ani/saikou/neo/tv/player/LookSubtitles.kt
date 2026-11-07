@@ -30,6 +30,14 @@ private const val RELIEF_SOFT_ALPHA = 0xB3
 private const val RGB = 0xFFFFFF
 private const val ALPHA_SHIFT = 24
 
+// The Sample label, from the design: 12 px text in a 22 px pill on 26 px lines, 24 px above them.
+private const val LABEL_TEXT = 0.46f
+private const val LABEL_HEIGHT = 0.85f
+private const val LABEL_PAD_X = 0.4f
+private const val LABEL_GAP = 0.9f
+private const val LABEL_FILL = 0xC711121C.toInt()
+private const val LABEL_INK = 0xD9F6F5F2.toInt()
+
 /**
  * Plain subtitle lines drawn in a look, in place of Media3's painter, so every edge, thickness, box and band shows
  * as its preview does. The lines are laid out once each time they or the look change, and only drawn on each frame.
@@ -45,6 +53,9 @@ internal class LookSubtitles(
     private var placement = Placement(fromTop = false, fraction = 0f)
     private var typeface: Typeface = Typeface.DEFAULT
     private var lines: List<CharSequence> = emptyList()
+    private var label: String? = null
+    private val labelPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
+    private var labelBox: RectF? = null
     private var layout: StaticLayout? = null
     private var layoutLeft = 0f
     private var layoutTop = 0f
@@ -52,6 +63,14 @@ internal class LookSubtitles(
     /** How tall text is now, in pixels. */
     var textPx = 0f
         private set
+
+    /** Lines centre in the left half, which the side panel leaves in view. */
+    var aside = false
+        set(value) {
+            if (field == value) return
+            field = value
+            lay()
+        }
 
     init {
         isFocusable = false
@@ -73,11 +92,19 @@ internal class LookSubtitles(
         lay()
     }
 
-    fun show(lines: List<CharSequence>) {
-        if (lines.map { it.toString() } == this.lines.map { it.toString() }) return
+    /** Draws [lines], with a small [label] above them, such as the one that marks a sample. */
+    fun show(
+        lines: List<CharSequence>,
+        label: String? = null,
+    ) {
+        if (lines.map { it.toString() } == this.lines.map { it.toString() } && label == this.label) return
         this.lines = lines
+        this.label = label
         lay()
     }
+
+    /** Where the label's pill sits, or null with no label. */
+    fun labelBounds(): RectF? = labelBox?.let(::RectF)
 
     /** Where the text sits, without its edge, box or band, or null with nothing to draw. */
     fun textBounds(): RectF? {
@@ -96,6 +123,7 @@ internal class LookSubtitles(
 
     private fun lay() {
         layout = null
+        labelBox = null
         invalidate()
         val paint = paint ?: return
         if (lines.isEmpty() || width == 0 || height == 0) return
@@ -103,7 +131,8 @@ internal class LookSubtitles(
         textPaint.textSize = textPx
         textPaint.typeface = typeface
         val padX = textPx * BOX_PAD_X
-        val available = (width - 2 * padX).toInt()
+        val area = if (aside) width / 2 else width
+        val available = (area - 2 * padX).toInt()
         if (available <= 0) return
         val text = SpannableStringBuilder()
         lines.forEachIndexed { index, line -> text.apply { if (index > 0) append('\n') }.append(line) }
@@ -119,11 +148,29 @@ internal class LookSubtitles(
         layoutLeft = padX
         layoutTop = top.coerceIn(pad, (height - laid.height - pad).coerceAtLeast(pad))
         layout = laid
+        label?.let { layLabel(it, laid, area) }
+    }
+
+    private fun layLabel(
+        label: String,
+        laid: StaticLayout,
+        area: Int,
+    ) {
+        labelPaint.textSize = textPx * LABEL_TEXT
+        labelPaint.typeface = atkinson(bold = true)
+        val pillHeight = textPx * LABEL_HEIGHT
+        val pillWidth = labelPaint.measureText(label) + 2 * textPx * LABEL_PAD_X
+        val centre = area / 2f
+        // Above the lines, or below them when there's no room above.
+        val above = layoutTop - textPx * LABEL_GAP
+        val top = if (above - pillHeight >= 0) above - pillHeight else layoutTop + laid.height + textPx * LABEL_GAP
+        labelBox = RectF(centre - pillWidth / 2, top, centre + pillWidth / 2, top + pillHeight)
     }
 
     override fun onDraw(canvas: Canvas) {
         val layout = layout ?: return
         val paint = paint ?: return
+        drawLabel(canvas)
         paint.bandArgb?.let {
             fill.color = it
             val band = textPx * BAND_PAD
@@ -137,6 +184,16 @@ internal class LookSubtitles(
             layout.draw(this)
             textPaint.clearShadowLayer()
         }
+    }
+
+    private fun drawLabel(canvas: Canvas) {
+        val box = labelBox ?: return
+        val label = label ?: return
+        fill.color = LABEL_FILL
+        canvas.drawRoundRect(box, box.height() / 2, box.height() / 2, fill)
+        labelPaint.color = LABEL_INK
+        val baseline = box.centerY() - (labelPaint.descent() + labelPaint.ascent()) / 2
+        canvas.drawText(label, box.left + textPx * LABEL_PAD_X, baseline, labelPaint)
     }
 
     // One box a line. Only the first and last reach past the text above and below, so boxes never overlap.

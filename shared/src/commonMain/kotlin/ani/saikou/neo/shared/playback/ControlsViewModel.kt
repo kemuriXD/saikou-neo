@@ -38,7 +38,7 @@ public enum class PanelTab {
 /**
  * What sits over the playing video: the controls when [shown], how far quick presses of Left or Right have seeked in
  * all ([nudgeMs]), a [scrub] while one is being picked, and the side [panel] or the [episodes] drawer while it's open,
- * in place of the controls.
+ * in place of the controls. The panel shows the subtitle [looks] over its Audio and subtitles tab while they're open.
  */
 public data class ControlsState(
     val shown: Boolean = false,
@@ -46,6 +46,7 @@ public data class ControlsState(
     val scrub: Scrub? = null,
     val panel: PanelTab? = null,
     val episodes: Boolean = false,
+    val looks: Boolean = false,
 )
 
 /**
@@ -86,12 +87,22 @@ public class ControlsViewModel(
     public fun openPanel(tab: PanelTab) {
         hiding?.cancel()
         endHold()
-        mutableState.update { it.copy(panel = tab, episodes = false, scrub = null) }
+        mutableState.update { it.copy(panel = tab, episodes = false, scrub = null, looks = false) }
+    }
+
+    /** Opens the subtitle looks over the Audio and subtitles tab. */
+    public fun openLooks() {
+        mutableState.update { it.copy(panel = PanelTab.Tracks, looks = true) }
+    }
+
+    /** Goes back from the subtitle looks to the Audio and subtitles tab. */
+    public fun closeLooks() {
+        mutableState.update { it.copy(looks = false) }
     }
 
     /** Closes the side panel, back to the controls if they were up, which then stay another [hideAfter] while [playing]. */
     public fun closePanel(playing: Boolean) {
-        mutableState.update { it.copy(panel = null) }
+        mutableState.update { it.copy(panel = null, looks = false) }
         touched(playing)
     }
 
@@ -99,7 +110,7 @@ public class ControlsViewModel(
     public fun openEpisodes() {
         hiding?.cancel()
         endHold()
-        mutableState.update { it.copy(episodes = true, panel = null, scrub = null) }
+        mutableState.update { it.copy(episodes = true, panel = null, scrub = null, looks = false) }
     }
 
     /** Closes the episodes drawer, back to the controls if they were up, which then stay another [hideAfter] while [playing]. */

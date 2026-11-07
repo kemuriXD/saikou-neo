@@ -79,7 +79,9 @@ internal class FakePlayback : Playback {
     override val durationMs = 1_420_000L
     override var playing by mutableStateOf(true)
     override val audio = listOf(TrackOption(0, 0, "Japanese", selected = true), TrackOption(1, 0, null, selected = false))
-    override val subtitles = listOf(TrackOption(2, 0, "English", selected = true), TrackOption(3, 0, "French", selected = false))
+    override var subtitles by mutableStateOf(
+        listOf(TrackOption(2, 0, "English", selected = true), TrackOption(3, 0, "French", selected = false)),
+    )
     override var speed by mutableFloatStateOf(1f)
 
     override var subtitleDelayMs by mutableIntStateOf(0)
@@ -368,6 +370,7 @@ class PlayerControlsTest {
     fun subtitleTimingMovesEarlierAndLaterAndOkPutsItBack() {
         show()
         press(Key.Menu)
+        press(Key.DirectionDown)
         press(Key.DirectionDown)
         press(Key.DirectionDown)
         compose.onNodeWithTag(PLAYER_PANEL_TIMING_TAG).assertIsFocused()
