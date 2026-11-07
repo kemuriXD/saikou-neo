@@ -49,6 +49,7 @@ import ani.saikou.neo.shared.playback.ServersViewModel
 import ani.saikou.neo.shared.playback.playRequest
 import ani.saikou.neo.shared.search.SearchViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
+import ani.saikou.neo.shared.settings.SubtitleDrawingViewModel
 import ani.saikou.neo.shared.sources.ShortCodes
 import ani.saikou.neo.shared.sources.SourceChecker
 import ani.saikou.neo.shared.sources.SourceChecksViewModel
@@ -306,6 +307,8 @@ class MainActivity : ComponentActivity() {
                             val player = viewModel { PlayerViewModel(app.streamFinder, request, history = app.history) }
                             val state by player.state.collectAsStateWithLifecycle()
                             val playback = rememberExoPlayback()
+                            val subtitles = viewModel { SubtitleDrawingViewModel(app.settingsStore.subtitles, request.show.card.id) }
+                            val drawing by subtitles.drawing.collectAsStateWithLifecycle()
                             PlayerScreen(
                                 state,
                                 request,
@@ -335,6 +338,7 @@ class MainActivity : ComponentActivity() {
                                         player::started,
                                         player::failed,
                                         app.sourceHost.client,
+                                        drawing,
                                         onPlayed = player::played,
                                     )
                                 },

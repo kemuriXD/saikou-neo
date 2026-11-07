@@ -24,6 +24,7 @@ import ani.saikou.neo.shared.playback.PlayerError
 import ani.saikou.neo.shared.playback.PlayerPhase
 import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.ServerEdition
+import ani.saikou.neo.shared.settings.SubtitleDrawing
 import kotlinx.coroutines.delay
 import okhttp3.Call
 import kotlin.time.Duration.Companion.seconds
@@ -33,8 +34,8 @@ private val SAVE_EVERY = 10.seconds
 
 /**
  * Plays each stream [state] hands over, from its start position, and says when the video [onStarted] or the player
- * [onFailed], on [playback]'s player, and where it [onPlayed] to every few seconds and on leaving. The view draws the video and subtitles and never takes focus; the controls sit
- * over it.
+ * [onFailed], on [playback]'s player, and where it [onPlayed] to every few seconds and on leaving. The view draws the video,
+ * and subtitles as [subtitles] says, and never takes focus; the controls sit over it.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -45,6 +46,7 @@ internal fun StreamVideo(
     onStarted: () -> Unit,
     onFailed: (PlayerError, positionMs: Long) -> Unit,
     callFactory: Call.Factory,
+    subtitles: SubtitleDrawing,
     modifier: Modifier = Modifier,
     onPlayed: (positionMs: Long, durationMs: Long) -> Unit = { _, _ -> },
 ) {
@@ -102,9 +104,14 @@ internal fun StreamVideo(
                 isFocusable = false
                 descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
                 this.player = player
+                tag = SubtitleLayer(this).also { layer -> layer.attach(player) }
             }
         },
-        update = { it.keepScreenOn = state.phase.keepsScreenOn() },
+        update = {
+            it.keepScreenOn = state.phase.keepsScreenOn()
+            (it.tag as SubtitleLayer).draw(subtitles)
+        },
+        onRelease = { (it.tag as SubtitleLayer).detach(player) },
         modifier = modifier.fillMaxSize(),
     )
 }
