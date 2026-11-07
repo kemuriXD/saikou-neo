@@ -629,7 +629,7 @@ private class HomeEngine(
 }
 
 /** A history kept in memory, starting with [saved]. */
-private class FakeHistory(
+internal class FakeHistory(
     saved: Map<Int, WatchProgress> = emptyMap(),
 ) : WatchHistory {
     override val shows = MutableStateFlow(saved)

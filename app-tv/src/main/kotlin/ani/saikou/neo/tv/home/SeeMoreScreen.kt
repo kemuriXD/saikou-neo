@@ -73,6 +73,10 @@ private val ColumnGap = 24.dp
 private val RowGap = 12.dp
 private val GridWidth = 768.dp
 
+// Continue watching keeps the row's wide cards, four to a row: 4 * 196 + 3 * 24 dp, inside the safe area.
+private const val WIDE_COLUMNS = 4
+private val WideGridWidth = 856.dp
+
 // Rows scrolled up pass under the heading, which keeps the backdrop behind it.
 private val TitleBand = 80.dp
 private val TitleFade = 12.dp
@@ -90,7 +94,7 @@ private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHei
 // The font asks for more than the eyebrow's 16 dp line, so it holds to it.
 private val TightLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.Both, LineHeightStyle.Mode.Tight)
 
-/** All of a Home [row] as a grid of posters, headed by the row's name. */
+/** All of a Home [row] as a grid headed by the row's name: posters, or Continue watching's own cards. */
 @Composable
 fun SeeMoreScreen(
     row: HomeRow,
@@ -100,11 +104,21 @@ fun SeeMoreScreen(
     onRetry: () -> Unit,
     modifier: Modifier = Modifier,
     onRest: (card: AnimeCard?) -> Unit = {},
-) = SeeMoreScreen(stringResource(rowTitles.getValue(row)), state, onOpen, onLoadMore, onRetry, modifier, onRest)
+) = SeeMoreScreen(
+    stringResource(rowTitles.getValue(row)),
+    state,
+    onOpen,
+    onLoadMore,
+    onRetry,
+    modifier,
+    onRest,
+    wide = row == HomeRow.CONTINUE_WATCHING,
+)
 
 /**
- * A whole list as a grid of posters under its [title], with the show it's for as an [eyebrow] above, if any. Selecting
- * a poster calls [onOpen]. Focus nearing the end calls [onLoadMore]; Try again after a failed page calls [onRetry].
+ * A whole list as a grid of posters under its [title], with the show it's for as an [eyebrow] above, if any. When
+ * [wide], shows are on Continue watching's cards, with how far each got. Selecting a show calls [onOpen]. Focus nearing
+ * the end calls [onLoadMore]; Try again after a failed page calls [onRetry].
  */
 @Composable
 fun SeeMoreScreen(
@@ -116,8 +130,10 @@ fun SeeMoreScreen(
     modifier: Modifier = Modifier,
     onRest: (card: AnimeCard?) -> Unit = {},
     eyebrow: String? = null,
+    wide: Boolean = false,
 ) {
     val dimensions = NeoTheme.dimensions
+    val gridWidth = if (wide) WideGridWidth else GridWidth
     val ink = NeoTheme.colors.ink
     // The show with focus, so Back from Details and recreation return to it.
     var focusedId by rememberSaveable { mutableStateOf<Int?>(null) }
@@ -130,13 +146,13 @@ fun SeeMoreScreen(
     Box(modifier.fillMaxSize().drawBehind { drawBackdrop(ink) }) {
         PreloadLogo(state.restingLogo)
         if (items.isEmpty() && state.more == More.Failed) {
-            LoadFailed(state.problem, onRetry, Modifier.align(Alignment.TopCenter).padding(top = GridTop).width(GridWidth))
+            LoadFailed(state.problem, onRetry, Modifier.align(Alignment.TopCenter).padding(top = GridTop).width(gridWidth))
         } else {
             KeylineScrolling(keyline = GridTop) {
                 LazyVerticalGrid(
-                    columns = GridCells.Fixed(COLUMNS),
+                    columns = GridCells.Fixed(if (wide) WIDE_COLUMNS else COLUMNS),
                     state = gridState,
-                    modifier = Modifier.align(Alignment.TopCenter).fillMaxHeight().width(dimensions.safeX + GridWidth + dimensions.safeX),
+                    modifier = Modifier.align(Alignment.TopCenter).fillMaxHeight().width(dimensions.safeX + gridWidth + dimensions.safeX),
                     contentPadding =
                         PaddingValues(
                             start = dimensions.safeX,
@@ -149,33 +165,34 @@ fun SeeMoreScreen(
                 ) {
                     if (items.isEmpty()) {
                         items(LOAD_AHEAD) {
-                            Skeleton(
-                                PosterSize.Small.width,
-                                PosterSize.Small.height,
-                                Modifier.testTag(POSTER_SKELETON_TAG),
-                                PosterSize.Small.radius,
-                            )
+                            val skeleton = Modifier.testTag(POSTER_SKELETON_TAG)
+                            if (wide) {
+                                Skeleton(dimensions.cardWideWidth, dimensions.cardWideHeight, skeleton, dimensions.radiusMd)
+                            } else {
+                                Skeleton(PosterSize.Small.width, PosterSize.Small.height, skeleton, PosterSize.Small.radius)
+                            }
                         }
                     }
                     itemsIndexed(items, key = { _, card -> card.id }) { index, card ->
                         val requester = remember { FocusRequester() }
                         if (card.id == target) LaunchedEffect(Unit) { requester.requestFocus() }
-                        PosterCard(
-                            card = card,
-                            onClick = { onOpen(card.id) },
-                            size = PosterSize.Small,
-                            modifier =
-                                Modifier
-                                    .testTag(posterTag(index))
-                                    .focusRequester(requester)
-                                    .onFocusChanged {
-                                        if (!it.isFocused) return@onFocusChanged
-                                        focusedId = card.id
-                                        onRest(card)
-                                        hasFocus = true
-                                        if (index >= items.size - LOAD_AHEAD) onLoadMore()
-                                    },
-                        )
+                        val cardModifier =
+                            Modifier
+                                .testTag(posterTag(index))
+                                .focusRequester(requester)
+                                .onFocusChanged {
+                                    if (!it.isFocused) return@onFocusChanged
+                                    focusedId = card.id
+                                    onRest(card)
+                                    hasFocus = true
+                                    if (index >= items.size - LOAD_AHEAD) onLoadMore()
+                                }
+                        val watched = state.progress[card.id]?.takeIf { wide }
+                        if (watched != null) {
+                            ContinueCard(card, watched, onClick = { onOpen(card.id) }, modifier = cardModifier)
+                        } else {
+                            PosterCard(card = card, onClick = { onOpen(card.id) }, size = PosterSize.Small, modifier = cardModifier)
+                        }
                     }
                     if (items.isNotEmpty() && state.more == More.Failed) {
                         item(span = { GridItemSpan(2) }) {
@@ -213,7 +230,7 @@ fun SeeMoreScreen(
             Modifier
                 .align(Alignment.TopCenter)
                 .padding(top = dimensions.safeY)
-                .width(GridWidth)
+                .width(gridWidth)
                 .height(HeadingHeight),
             verticalArrangement = Arrangement.spacedBy(EyebrowGap, Alignment.Bottom),
         ) {

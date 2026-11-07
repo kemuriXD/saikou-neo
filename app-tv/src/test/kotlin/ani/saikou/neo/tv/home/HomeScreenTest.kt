@@ -680,12 +680,26 @@ class HomeScreenTest {
         compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 0)).assertIsFocused()
     }
 
+    // Four wide cards fit beside the rail, so four shows need no See more.
     @Test
-    fun continueWatchingHasNoSeeMore() {
-        show(continuing)
+    fun continueWatchingHasNoSeeMoreWhileItsShowsFit() {
+        show(continuing(4))
 
-        compose.onNodeWithTag(homeCardTag(HomeRow.CONTINUE_WATCHING, 2)).assertExists()
+        compose.onNodeWithTag(homeCardTag(HomeRow.CONTINUE_WATCHING, 3)).assertExists()
         compose.onNodeWithTag(seeMoreTag(HomeRow.CONTINUE_WATCHING)).assertDoesNotExist()
+    }
+
+    @Test
+    fun continueWatchingEndsWithSeeMoreOnceItsShowsDontFit() {
+        val seeMore = mutableListOf<HomeRow>()
+        compose.setContent { NeoTheme { HomeScreen(continuing(5), onSeeMore = { seeMore += it }) } }
+
+        enterRows()
+        press(Key.DirectionRight, times = 5)
+        compose.onNodeWithTag(seeMoreTag(HomeRow.CONTINUE_WATCHING)).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(HomeRow.CONTINUE_WATCHING), seeMore)
     }
 
     @Test
