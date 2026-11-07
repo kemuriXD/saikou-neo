@@ -121,7 +121,7 @@ private const val BACKDROP_BLUR = 3
 /**
  * The player for [request]: the video full screen, with the show's blurred art and what's happening while it starts,
  * and a dialog when the server stops answering. Once it plays, the remote's [controls] work [playback]. [video] draws
- * the player.
+ * the player, and [looks] are the subtitle looks the side panel offers.
  */
 @Composable
 internal fun PlayerScreen(
@@ -132,6 +132,7 @@ internal fun PlayerScreen(
     controls: ControlsViewModel,
     video: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    looks: Looks = Looks(),
 ) {
     val scrim = NeoTheme.colors.scrimPlayer
     Box(modifier.fillMaxSize().background(scrim)) {
@@ -158,7 +159,7 @@ internal fun PlayerScreen(
             }
 
             is PlayerPhase.Playing -> {
-                PlayerControls(state, phase.answered, request, actions, playback, controls)
+                PlayerControls(state, phase.answered, request, actions, playback, controls, looks)
             }
         }
     }

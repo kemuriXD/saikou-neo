@@ -35,7 +35,8 @@ private val SAVE_EVERY = 10.seconds
 /**
  * Plays each stream [state] hands over, from its start position, and says when the video [onStarted] or the player
  * [onFailed], on [playback]'s player, and where it [onPlayed] to every few seconds and on leaving. The view draws the video,
- * and subtitles as [subtitles] says, and never takes focus; the controls sit over it.
+ * and subtitles as [subtitles] says, with a [sample] line while the looks are open, and never takes focus; the controls
+ * sit over it.
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -48,6 +49,7 @@ internal fun StreamVideo(
     callFactory: Call.Factory,
     subtitles: SubtitleDrawing,
     modifier: Modifier = Modifier,
+    sample: Sample? = null,
     onPlayed: (positionMs: Long, durationMs: Long) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
@@ -109,7 +111,10 @@ internal fun StreamVideo(
         },
         update = {
             it.keepScreenOn = state.phase.keepsScreenOn()
-            (it.tag as SubtitleLayer).draw(subtitles)
+            (it.tag as SubtitleLayer).apply {
+                draw(subtitles)
+                sample(sample)
+            }
         },
         onRelease = { (it.tag as SubtitleLayer).detach(player) },
         modifier = modifier.fillMaxSize(),

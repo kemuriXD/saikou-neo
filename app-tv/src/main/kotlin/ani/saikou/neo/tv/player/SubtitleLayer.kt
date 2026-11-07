@@ -32,6 +32,7 @@ internal class SubtitleLayer(
     private var cues: List<Cue> = emptyList()
     private var styledTrack = false
     private var hdr = false
+    private var sample: Sample? = null
 
     init {
         // Beside Media3's view, inside the frame that fits the video, so sizes and places follow the picture.
@@ -53,6 +54,14 @@ internal class SubtitleLayer(
         restyle()
     }
 
+    /** Shows [sample] when no line is on, beside the side panel, while the looks are open. Null takes it away. */
+    fun sample(sample: Sample?) {
+        if (sample == this.sample) return
+        this.sample = sample
+        ours.aside = sample != null
+        route()
+    }
+
     override fun onCues(cueGroup: CueGroup) {
         cues = cueGroup.cues
         route()
@@ -67,7 +76,8 @@ internal class SubtitleLayer(
     private fun route() {
         val drawing = drawing ?: return
         val route = routeCues(cues, styledTrack, drawing.styled)
-        ours.show(route.ours)
+        val sample = sample?.takeIf { cues.isEmpty() && !route.media3 }
+        if (sample != null) ours.show(listOf(sample.line), sample.label) else ours.show(route.ours)
         media3?.isVisible = route.media3
     }
 
@@ -85,7 +95,13 @@ internal class SubtitleLayer(
     }
 }
 
-private fun Tracks.selected(type: Int): Format? {
+/** A [line] drawn in the look to show it, under a [label] that says it's a sample. */
+internal data class Sample(
+    val line: String,
+    val label: String,
+)
+
+internal fun Tracks.selected(type: Int): Format? {
     val group = groups.firstOrNull { it.type == type && it.isSelected } ?: return null
     return (0 until group.length).firstOrNull(group::isTrackSelected)?.let(group::getTrackFormat)
 }

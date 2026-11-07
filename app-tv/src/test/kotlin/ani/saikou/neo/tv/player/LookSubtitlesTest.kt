@@ -64,4 +64,35 @@ class LookSubtitlesTest {
 
         assertEquals(null, view.textBounds())
     }
+
+    @Test
+    fun besideThePanelLinesCentreInTheHalfItLeaves() {
+        view.look(LookStyle().toPaint(), textFraction = 0.0533f, Placement(fromTop = false, fraction = 0.08f))
+        view.aside = true
+        view.show(listOf("One line"))
+        layOut()
+
+        assertTrue(view.textBounds()!!.centerX() in 470f..490f)
+    }
+
+    @Test
+    fun aSampleIsLabelledAboveItsLine() {
+        view.look(LookStyle().toPaint(), textFraction = 0.0533f, Placement(fromTop = false, fraction = 0.08f))
+        view.show(listOf("Subtitles will look like this"), label = "Sample")
+        layOut()
+
+        val text = view.textBounds()!!
+        val label = view.labelBounds()!!
+        assertTrue(label.bottom < text.top)
+        assertEquals(text.centerX(), label.centerX(), 1f)
+    }
+
+    @Test
+    fun linesWithoutALabelHaveNone() {
+        view.look(LookStyle().toPaint(), textFraction = 0.0533f, Placement(fromTop = false, fraction = 0.08f))
+        view.show(listOf("One line"))
+        layOut()
+
+        assertEquals(null, view.labelBounds())
+    }
 }

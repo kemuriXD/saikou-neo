@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv.player
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -67,6 +68,8 @@ import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.formatSpeed
 import ani.saikou.neo.shared.playback.formatSubtitleDelay
 import ani.saikou.neo.shared.playback.nextSubtitleDelay
+import ani.saikou.neo.shared.settings.LookRow
+import ani.saikou.neo.shared.settings.lookRow
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.details.editionName
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -100,8 +103,8 @@ private const val CHOICE_SCALE = 1.03f
 private const val PANEL_SCRIM = 0.35f
 private const val PANEL_FILL = 0.94f
 
-// Five rows show at once, and the rest scroll with focus.
-private const val ROWS_SHOWN = 5
+// Four rows show at once, and the rest scroll with focus.
+private const val ROWS_SHOWN = 4
 private const val ROWS_SHOWN_ALONE = 7
 
 /** One row of a list: picking it takes effect at once, and the panel stays open. */
@@ -113,7 +116,8 @@ private class Choice(
 
 /**
  * The side panel, over the video as it keeps playing. Focus starts on what's picked in [tab]. Left and Right move between
- * a tab's lists and then between tabs, and Up from the top of a list goes to the tabs.
+ * a tab's lists and then between tabs, and Up from the top of a list goes to the tabs. The subtitle [looks] open over
+ * the Audio and subtitles tab while [looksOpen], and Back goes from them to their row.
  */
 @Composable
 internal fun BoxScope.PlayerPanel(
@@ -124,16 +128,30 @@ internal fun BoxScope.PlayerPanel(
     actions: PlayerActions,
     playback: Playback,
     controls: ControlsViewModel,
+    looks: Looks,
+    looksOpen: Boolean,
 ) {
     val colors = NeoTheme.colors
     var onTiming by remember { mutableStateOf(false) }
     val picked = remember { FocusRequester() }
     val currentTab = remember { FocusRequester() }
+    val lookRow = remember { FocusRequester() }
     // Set when focus should land on the next tab's list, not stay on the tabs.
     var enter by remember { mutableStateOf(true) }
-    LaunchedEffect(tab) {
-        if (enter) picked.requestFocus()
+    // Set when Back leaves the looks, so focus goes back to their row.
+    var fromLooks by remember { mutableStateOf(false) }
+    var lookFocus by remember { mutableStateOf<LookFocus?>(null) }
+    LaunchedEffect(tab, looksOpen) {
+        when {
+            looksOpen || enter -> picked.requestFocus()
+            fromLooks -> lookRow.requestFocus()
+        }
         enter = false
+        fromLooks = false
+    }
+    BackHandler(enabled = looksOpen) {
+        fromLooks = true
+        controls.closeLooks()
     }
 
     fun move(by: Int) {
@@ -169,18 +187,35 @@ internal fun BoxScope.PlayerPanel(
                 )
             }
         }
-        when (tab) {
-            PanelTab.Tracks -> {
+        when {
+            looksOpen -> {
+                LookPage(looks, picked, currentTab, { lookFocus = it }, Modifier.weight(1f))
+            }
+
+            tab == PanelTab.Tracks -> {
                 val apart =
                     answered.audio.mapIndexed { index, name ->
                         Choice(name, index == state.pickedAudio) { actions.onAudio(index, playback.positionMs) }
                     }
                 Tracks(apart, playback, picked, currentTab, ::move)
                 Box(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
-                SubtitleTiming(playback) { onTiming = it }
+                val row = lookRow(playback.subtitles.any { it.selected }, state.server.server.edition)
+                Column(verticalArrangement = Arrangement.spacedBy(ChoiceGap)) {
+                    SubtitleLookRow(row, looks.subtitles.pick.look, controls::openLooks, Modifier.focusRequester(lookRow))
+                    if (row == LookRow.BURNED) {
+                        TwoLineRow(
+                            stringResource(R.string.player_panel_timing),
+                            stringResource(R.string.player_timing_burned),
+                            enabled = false,
+                            onClick = {},
+                        )
+                    } else {
+                        SubtitleTiming(playback) { onTiming = it }
+                    }
+                }
             }
 
-            PanelTab.Quality -> {
+            tab == PanelTab.Quality -> {
                 val height = state.height(answered)
                 OneList(
                     answered.heights.map { each ->
@@ -195,7 +230,7 @@ internal fun BoxScope.PlayerPanel(
                 )
             }
 
-            PanelTab.Server -> {
+            tab == PanelTab.Server -> {
                 OneList(
                     request.servers.map { each ->
                         val name =
@@ -213,7 +248,7 @@ internal fun BoxScope.PlayerPanel(
                 )
             }
 
-            PanelTab.Speed -> {
+            else -> {
                 OneList(
                     PLAYBACK_SPEEDS.map { speed ->
                         Choice(
@@ -227,12 +262,15 @@ internal fun BoxScope.PlayerPanel(
                 )
             }
         }
-        Text(
-            stringResource(if (onTiming && tab == PanelTab.Tracks) R.string.player_panel_timing_hint else R.string.player_panel_hint),
-            style = NeoTheme.typography.caption.copy(fontSize = 12.sp, lineHeight = 17.sp),
-            color = colors.textFaint,
-        )
+        if (!looksOpen) {
+            Text(
+                stringResource(if (onTiming && tab == PanelTab.Tracks) R.string.player_panel_timing_hint else R.string.player_panel_hint),
+                style = NeoTheme.typography.caption.copy(fontSize = 12.sp, lineHeight = 17.sp),
+                color = colors.textFaint,
+            )
+        }
     }
+    if (looksOpen) LookKeys(lookFocus, looks.subtitles.pick.look)
 }
 
 @Composable

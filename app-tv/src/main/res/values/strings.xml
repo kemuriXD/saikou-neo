@@ -376,6 +376,38 @@
     <string name="player_panel_timing">Subtitle timing</string>
     <string name="player_panel_timing_hint">Left moves subtitles earlier and Right later. OK goes back to 0.</string>
     <string name="player_panel_hint">The video keeps playing. Left and Right move between tabs. Back closes.</string>
+    <!-- The subtitle look row under the tracks, and the looks it opens. -->
+    <string name="player_look">Subtitle look</string>
+    <string name="player_look_off">Turn on subtitles to style them</string>
+    <string name="player_look_burned">These subtitles are part of the video</string>
+    <string name="player_timing_burned">Subtitles in the video can’t be moved</string>
+    <string name="player_look_size">Size</string>
+    <!-- A subtitle size, such as 115%. -->
+    <string name="player_look_percent">%1$d%%</string>
+    <string name="player_look_position">Position</string>
+    <string name="player_look_bottom">Bottom</string>
+    <string name="player_look_raised">Raised</string>
+    <string name="player_look_top">Top</string>
+    <string name="player_look_in_use">In use</string>
+    <string name="player_look_styled">This track has its own styling, including signs. It keeps its look. Your size still applies.</string>
+    <string name="player_look_mine">Use my look on this track</string>
+    <string name="player_look_mine_help">Turning it on puts every line in your look and position, signs too. Only this track changes.</string>
+    <string name="player_look_sample">Subtitles will look like this</string>
+    <string name="player_look_sample_label">Sample</string>
+    <!-- Keys on the video while the looks are open: the key in bold, then what it does. -->
+    <string name="player_key_left_right">Left and Right</string>
+    <string name="player_look_use">use %1$s</string>
+    <string name="player_look_keep">keep %1$s</string>
+    <string name="player_look_close">close</string>
+    <string name="player_look_change_size">change the size</string>
+    <string name="player_look_move">move the subtitles</string>
+    <string name="subtitle_look_classic">Classic</string>
+    <string name="subtitle_look_soft_shadow">Soft shadow</string>
+    <string name="subtitle_look_boxed">Boxed</string>
+    <string name="subtitle_look_yellow">Yellow</string>
+    <string name="subtitle_look_high_contrast">High contrast</string>
+    <string name="subtitle_look_match_tv">Match TV</string>
+    <string name="subtitle_look_mine">My look %1$d</string>
     <!-- Quick presses of Left or Right, added up, such as −20 s or +10 s. -->
     <string name="player_nudge">%1$s%2$d s</string>
     <string name="player_scrub_jump">· %1$s</string>

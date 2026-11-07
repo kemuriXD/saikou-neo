@@ -12,6 +12,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,8 +49,8 @@ import ani.saikou.neo.shared.playback.PlayerViewModel
 import ani.saikou.neo.shared.playback.ServersViewModel
 import ani.saikou.neo.shared.playback.playRequest
 import ani.saikou.neo.shared.search.SearchViewModel
+import ani.saikou.neo.shared.settings.PlayerSubtitlesViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
-import ani.saikou.neo.shared.settings.SubtitleDrawingViewModel
 import ani.saikou.neo.shared.sources.ShortCodes
 import ani.saikou.neo.shared.sources.SourceChecker
 import ani.saikou.neo.shared.sources.SourceChecksViewModel
@@ -62,8 +63,11 @@ import ani.saikou.neo.tv.discover.DiscoverScreen
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.SeeMoreScreen
 import ani.saikou.neo.tv.home.displayTitle
+import ani.saikou.neo.tv.player.LookActions
+import ani.saikou.neo.tv.player.Looks
 import ani.saikou.neo.tv.player.PlayerActions
 import ani.saikou.neo.tv.player.PlayerScreen
+import ani.saikou.neo.tv.player.Sample
 import ani.saikou.neo.tv.player.StreamVideo
 import ani.saikou.neo.tv.player.rememberExoPlayback
 import ani.saikou.neo.tv.search.SearchScreen
@@ -307,8 +311,22 @@ class MainActivity : ComponentActivity() {
                             val player = viewModel { PlayerViewModel(app.streamFinder, request, history = app.history) }
                             val state by player.state.collectAsStateWithLifecycle()
                             val playback = rememberExoPlayback()
-                            val subtitles = viewModel { SubtitleDrawingViewModel(app.settingsStore.subtitles, request.show.card.id) }
-                            val drawing by subtitles.drawing.collectAsStateWithLifecycle()
+                            val subtitles =
+                                viewModel {
+                                    PlayerSubtitlesViewModel(
+                                        app.settingsStore.subtitles,
+                                        app.settingsStore::updateSubtitles,
+                                        request.show.card.id,
+                                        request.show.card.displayTitle(),
+                                    )
+                                }
+                            val looks by subtitles.state.collectAsStateWithLifecycle()
+                            val controls = viewModel { ControlsViewModel() }
+                            val shown by controls.state.collectAsStateWithLifecycle()
+                            val track = playback.subtitles.firstOrNull { it.selected }?.let { it.label ?: "${it.group}:${it.track}" }
+                            LaunchedEffect(track, playback.subtitleStyled) { subtitles.onTrack(track, playback.subtitleStyled) }
+                            val sample =
+                                Sample(stringResource(R.string.player_look_sample), stringResource(R.string.player_look_sample_label))
                             PlayerScreen(
                                 state,
                                 request,
@@ -329,7 +347,7 @@ class MainActivity : ComponentActivity() {
                                     },
                                 ),
                                 playback,
-                                viewModel { ControlsViewModel() },
+                                controls,
                                 video = {
                                     StreamVideo(
                                         state,
@@ -338,10 +356,22 @@ class MainActivity : ComponentActivity() {
                                         player::started,
                                         player::failed,
                                         app.sourceHost.client,
-                                        drawing,
+                                        looks.drawing,
                                         onPlayed = player::played,
+                                        sample = sample.takeIf { shown.looks },
                                     )
                                 },
+                                looks =
+                                    Looks(
+                                        looks,
+                                        LookActions(
+                                            subtitles::preview,
+                                            subtitles::keep,
+                                            subtitles::changeSize,
+                                            subtitles::changePosition,
+                                            subtitles::useMyLook,
+                                        ),
+                                    ),
                             )
                         },
                     )
