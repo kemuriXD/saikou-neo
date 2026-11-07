@@ -122,7 +122,8 @@ class SettingsScreenTest {
             .assertWidthIsEqualTo(220.dp)
             .assertHeightIsEqualTo(44.dp)
         category(SettingsCategory.PLAYBACK).assertTopPositionInRootIsEqualTo(128.dp)
-        category(SettingsCategory.DISPLAY).assertTopPositionInRootIsEqualTo(176.dp)
+        category(SettingsCategory.SUBTITLES).assertTopPositionInRootIsEqualTo(176.dp)
+        category(SettingsCategory.DISPLAY).assertTopPositionInRootIsEqualTo(224.dp)
         setting(Setting.UNAIRED_ANIME)
             .assertLeftPositionInRootIsEqualTo(306.dp)
             .assertTopPositionInRootIsEqualTo(114.dp)
@@ -156,7 +157,7 @@ class SettingsScreenTest {
     fun focusingACategoryShowsItsSettings() {
         show(Settings(slowTv = true))
 
-        press(Key.DirectionDown, times = 2)
+        press(Key.DirectionDown, times = 3)
 
         category(SettingsCategory.DISPLAY).assertIsFocused().assertIsSelected()
         category(SettingsCategory.BROWSING).assertIsNotSelected()
@@ -217,7 +218,7 @@ class SettingsScreenTest {
     fun leftFromASettingGoesBackToItsCategory() {
         show()
 
-        press(Key.DirectionDown, times = 2)
+        press(Key.DirectionDown, times = 3)
         press(Key.DirectionRight)
         setting(Setting.SLOW_TV).assertIsFocused()
         press(Key.DirectionLeft)
@@ -291,7 +292,7 @@ class SettingsScreenTest {
     @Test
     fun focusStaysOnASettingAfterRecreation() {
         recreate {
-            press(Key.DirectionDown, times = 2)
+            press(Key.DirectionDown, times = 3)
             press(Key.DirectionRight)
         }
 
@@ -300,7 +301,7 @@ class SettingsScreenTest {
 
     @Test
     fun focusStaysOnACategoryAfterRecreation() {
-        recreate { press(Key.DirectionDown, times = 2) }
+        recreate { press(Key.DirectionDown, times = 3) }
 
         category(SettingsCategory.DISPLAY).assertIsFocused()
     }

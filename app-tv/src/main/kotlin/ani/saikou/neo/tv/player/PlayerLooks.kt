@@ -58,6 +58,7 @@ import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -276,7 +277,9 @@ internal fun LookPage(
                     row.forEach { id ->
                         LookTile(
                             id,
-                            subtitles,
+                            subtitles.settings,
+                            inUse = id == subtitles.pick.look,
+                            greyed = greyed,
                             (if (!greyed && id == subtitles.pick.look) Modifier.focusRequester(first) else Modifier)
                                 .focusProperties { if (index == 0) up = tabs }
                                 .weight(1f),
@@ -357,7 +360,7 @@ internal fun LookPage(
 private const val LOOKS_A_ROW = 3
 
 @Composable
-private fun positionName(position: SubtitlePosition) =
+internal fun positionName(position: SubtitlePosition) =
     stringResource(
         when (position) {
             SubtitlePosition.BOTTOM -> R.string.player_look_bottom
@@ -385,19 +388,24 @@ private fun StyledNote() {
     }
 }
 
-/** A look's name over "Aa" drawn in it, by the same view that draws the subtitles. */
+/**
+ * A look's name over "Aa" drawn in it, by the same view that draws the subtitles, ticked when it's [inUse]. Greyed, it
+ * can't be focused. The swatch is [swatch] tall, or [SwatchStyled] when greyed, and the name [nameHeight].
+ */
 @Composable
-private fun LookTile(
+internal fun LookTile(
     id: LookId,
-    subtitles: PlayerSubtitles,
+    settings: SubtitleSettings,
+    inUse: Boolean,
+    greyed: Boolean,
     modifier: Modifier,
     onFocused: () -> Unit,
     onClick: () -> Unit,
+    swatch: Dp = Swatch,
+    nameHeight: Dp = NameHeight,
 ) {
     val colors = NeoTheme.colors
-    val greyed = subtitles.keepsItsLook
-    val inUse = id == subtitles.pick.look
-    val paint = subtitles.settings.style(id)?.toPaint() ?: return
+    val paint = settings.style(id)?.toPaint() ?: return
     val interactions = remember { MutableInteractionSource() }
     val focused by interactions.collectIsFocusedAsState()
     val shape = RoundedCornerShape(TileRadius)
@@ -432,7 +440,7 @@ private fun LookTile(
         interactionSource = interactions,
     ) {
         Column {
-            Box(Modifier.fillMaxWidth().height(if (greyed) SwatchStyled else Swatch).background(Brush.linearGradient(SwatchColors))) {
+            Box(Modifier.fillMaxWidth().height(if (greyed) SwatchStyled else swatch).background(Brush.linearGradient(SwatchColors))) {
                 AndroidView(
                     factory = { LookSubtitles(it) },
                     update = {
@@ -443,7 +451,7 @@ private fun LookTile(
                 )
             }
             Row(
-                Modifier.fillMaxWidth().height(NameHeight).padding(horizontal = 10.dp),
+                Modifier.fillMaxWidth().height(nameHeight).padding(horizontal = 10.dp),
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {

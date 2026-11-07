@@ -103,7 +103,10 @@ class SubtitleOptionsTest {
     fun aPreviewUsesTheEveryShowSettingsEvenWhenAShowHasItsOwn() {
         val settings =
             defaults.copy(
-                shows = mapOf(0 to ShowSubtitles("A", SubtitlePick(LookId.BuiltIn(BuiltInLook.YELLOW), SubtitleSize.P60, SubtitlePosition.TOP))),
+                shows =
+                    mapOf(
+                        0 to ShowSubtitles("A", SubtitlePick(LookId.BuiltIn(BuiltInLook.YELLOW), SubtitleSize.P60, SubtitlePosition.TOP)),
+                    ),
             )
 
         assertEquals(BuiltInLook.CLASSIC.style, settings.drawing().style)

@@ -28,19 +28,25 @@ public fun SubtitleSettings.stepped(
 ): SubtitleSettings =
     when (option) {
         SubtitleOption.SIZE -> copy(size = size.stepped(by))
+
         SubtitleOption.START_FROM_TV -> copy(startFromTvTextSize = !startFromTvTextSize)
+
         SubtitleOption.POSITION -> copy(position = position.stepped(by))
+
         SubtitleOption.FINE_TUNE -> withFineTune(fineTunePercent + by)
+
         SubtitleOption.STYLED -> copy(styledSubtitles = StyledSubtitles.entries.step(styledSubtitles, by))
+
         SubtitleOption.MY_SIZE_ON_STYLED -> copy(mySizeOnStyled = !mySizeOnStyled)
+
         SubtitleOption.WHILE_WATCHING -> copy(changesWhileWatching = WhileWatching.entries.step(changesWhileWatching, by))
+
         // Brightest last, so Right makes it brighter.
         SubtitleOption.HDR -> copy(hdrBrightness = HdrBrightness.entries.reversed().step(hdrBrightness, by))
     }
 
 /** An edge's thickness and colour only mean something when there's an edge. */
-public fun LookStyle.canChange(part: LookPart): Boolean =
-    edge != Edge.NONE || (part != LookPart.THICKNESS && part != LookPart.EDGE_COLOUR)
+public fun LookStyle.canChange(part: LookPart): Boolean = edge != Edge.NONE || (part != LookPart.THICKNESS && part != LookPart.EDGE_COLOUR)
 
 /** [part] stepped [by] places, or this look as it is when the part [can't change][canChange]. Bold flips. */
 public fun LookStyle.stepped(

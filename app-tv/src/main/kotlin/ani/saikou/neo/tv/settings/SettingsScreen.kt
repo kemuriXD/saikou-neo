@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -67,10 +68,12 @@ import androidx.tv.material3.Text
 import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SubOrDub
+import ani.saikou.neo.shared.settings.SubtitleSettings
 import ani.saikou.neo.shared.settings.get
 import ani.saikou.neo.shared.sources.SourceCheck
 import ani.saikou.neo.shared.sources.SourcesState
 import ani.saikou.neo.tv.R
+import ani.saikou.neo.tv.player.lookName
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.FocusMemory
 import ani.saikou.neo.tv.ui.NeoIcons
@@ -102,6 +105,9 @@ enum class SettingsCategory(
 ) {
     BROWSING(R.string.settings_browsing, R.string.settings_browsing_intro, listOf(Setting.UNAIRED_ANIME, Setting.UPCOMING_EPISODES)),
     PLAYBACK(R.string.settings_playback, R.string.settings_playback_intro, listOf(Setting.SUB_OR_DUB)),
+
+    // Opens its own page rather than listing settings.
+    SUBTITLES(R.string.settings_subtitles, R.string.settings_subtitles_intro, emptyList()),
     DISPLAY(R.string.settings_display, R.string.settings_display_intro, listOf(Setting.SLOW_TV)),
 
     // Lists the installed sources rather than settings.
@@ -147,8 +153,8 @@ private const val PANEL_SLIDE_PART = 4
  * Settings: categories on the left and the shown one's settings on the right, each with its value.
  * Resting on a category shows its settings; Right goes into them and Left comes back. Selecting a setting opens its
  * choices in a panel, and selecting one there calls [onChoose] with it. Sources lists the installed [sources], and adds and
- * removes them through [sourceActions], which also check them, with each source's check in [checks]. It opens on
- * [start].
+ * removes them through [sourceActions], which also check them, with each source's check in [checks]. Subtitles opens
+ * a page of its own for [subtitles], changed through [subtitleActions]. It opens on [start].
  */
 @Composable
 fun SettingsScreen(
@@ -158,7 +164,21 @@ fun SettingsScreen(
     sourceActions: SourceActions = SourceActions(),
     start: SettingsCategory = SettingsCategory.BROWSING,
     checks: Map<String, SourceCheck> = emptyMap(),
-) = RememberFocus { focus -> SettingsPage(settings, focus, onChoose, sources, sourceActions, start, checks) }
+    subtitles: SubtitleSettings = SubtitleSettings(),
+    subtitleActions: SubtitleActions = SubtitleActions(),
+) = RememberFocus { focus ->
+    val shown = rememberSaveable { mutableStateOf(start) }
+    var subtitlesOpen by rememberSaveable { mutableStateOf(false) }
+    if (subtitlesOpen) {
+        SubtitlesPage(subtitles, subtitleActions) {
+            // Back on Settings, focus goes back to the row that opened the page.
+            focus.restoring = SUBTITLES_ENTRY_TAG
+            subtitlesOpen = false
+        }
+    } else {
+        SettingsPage(settings, focus, onChoose, sources, sourceActions, shown, checks, subtitles) { subtitlesOpen = true }
+    }
+}
 
 @Composable
 private fun SettingsPage(
@@ -167,18 +187,21 @@ private fun SettingsPage(
     onChoose: (Setting, value: Any) -> Unit,
     sources: SourcesState,
     sourceActions: SourceActions,
-    start: SettingsCategory,
+    shownState: MutableState<SettingsCategory>,
     checks: Map<String, SourceCheck>,
+    subtitles: SubtitleSettings,
+    openSubtitles: () -> Unit,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
-    var shown by rememberSaveable { mutableStateOf(start) }
+    var shown by shownState
     var open by rememberSaveable { mutableStateOf<Setting?>(null) }
     // The setting whose panel just closed, to take focus back.
     var closed by remember { mutableStateOf<Setting?>(null) }
     val categories = remember { SettingsCategory.entries.associateWith { FocusRequester() } }
     val rows = remember { Setting.entries.associateWith { FocusRequester() } }
     val sourcesUi = remember { SourcesUi() }
+    val subtitlesEntry = remember { FocusRequester() }
     LaunchedEffect(Unit) { focus.restoreOr { categories.getValue(shown).requestFocus() } }
     LaunchedEffect(closed) {
         closed?.let { rows.getValue(it).requestFocus() }
@@ -211,7 +234,11 @@ private fun SettingsPage(
                             .focusRequester(categories.getValue(category))
                             .remembersFocus("category-${category.name}")
                             .focusProperties {
-                                right = category.settings.firstOrNull()?.let(rows::getValue) ?: sourcesUi.addSource
+                                right =
+                                    when (category) {
+                                        SettingsCategory.SUBTITLES -> subtitlesEntry
+                                        else -> category.settings.firstOrNull()?.let(rows::getValue) ?: sourcesUi.addSource
+                                    }
                             },
                 )
             }
@@ -241,6 +268,20 @@ private fun SettingsPage(
             }
             Column(verticalArrangement = Arrangement.spacedBy(RowGap)) {
                 Text(stringResource(category.intro), style = Intro, color = colors.textMuted, modifier = Modifier.padding(bottom = 6.dp))
+                if (category == SettingsCategory.SUBTITLES) {
+                    NavRow(
+                        stringResource(R.string.settings_subtitles_open),
+                        stringResource(R.string.settings_subtitles_open_help),
+                        stringResource(R.string.subs_summary, lookName(subtitles.look), subtitles.size.percent),
+                        SUBTITLES_ENTRY_TAG,
+                        onClick = openSubtitles,
+                        modifier =
+                            Modifier
+                                .focusRequester(subtitlesEntry)
+                                .remembersFocus(SUBTITLES_ENTRY_TAG)
+                                .focusProperties { left = categories.getValue(category) },
+                    )
+                }
                 category.settings.forEach { setting ->
                     SettingRow(
                         setting,
@@ -409,14 +450,27 @@ private fun SettingRow(
     onClick: () -> Unit,
     modifier: Modifier,
 ) {
+    val text = setting.text()
+    NavRow(stringResource(text.title), stringResource(text.help), stringResource(text.label(value)), settingTag(setting), onClick, modifier)
+}
+
+/** A row with a [title] and [help] under it, and its [value] with an arrow on the right. */
+@Composable
+private fun NavRow(
+    title: String,
+    help: String,
+    value: String,
+    tag: String,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
     val colors = NeoTheme.colors
     var focused by remember { mutableStateOf(false) }
-    val text = setting.text()
     Surface(
         onClick = onClick,
         modifier =
             modifier
-                .testTag(settingTag(setting))
+                .testTag(tag)
                 .fillMaxWidth()
                 .height(RowHeight)
                 .onFocusChanged { focused = it.isFocused },
@@ -439,12 +493,12 @@ private fun SettingRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(stringResource(text.title), style = Name)
-                Text(stringResource(text.help), style = Help, color = LocalContentColor.current.copy(alpha = 0.72f))
+                Text(title, style = Name)
+                Text(help, style = Help, color = LocalContentColor.current.copy(alpha = 0.72f))
             }
             val valueColor = if (focused) colors.pinkDeep else colors.pink
             Text(
-                stringResource(text.label(value)),
+                value,
                 style = NeoTheme.typography.label.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                 color = valueColor,
             )
