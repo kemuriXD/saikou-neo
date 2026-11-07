@@ -42,7 +42,7 @@ internal class DelayedSubtitles(
     override fun isEnded() = delay.ms > 0 || super.isEnded()
 }
 
-/** The usual renderers, with subtitles following [delay]. */
+/** The usual renderers, with subtitles following [delay], and lines the style's position can move. */
 @OptIn(UnstableApi::class)
 internal class DelayedSubtitlesFactory(
     context: Context,
@@ -56,7 +56,7 @@ internal class DelayedSubtitlesFactory(
         out: ArrayList<Renderer>,
     ) {
         val text = ArrayList<Renderer>()
-        super.buildTextRenderers(context, output, outputLooper, extensionRendererMode, text)
+        super.buildTextRenderers(context, MovableLines { output.onCues(it) }, outputLooper, extensionRendererMode, text)
         text.mapTo(out) { DelayedSubtitles(it, delay) }
     }
 }
