@@ -38,6 +38,15 @@ public class SettingsStore private constructor(
         }
     }
 
+    /** The subtitle settings now, and again each time one changes. They're kept apart from [settings]. */
+    public val subtitles: Flow<SubtitleSettings> =
+        dataStore.data.map { it.toSubtitleSettings() }
+
+    /** Saves the subtitle settings [change] makes to the ones now. Changing them to [SubtitleSettings] resets them. */
+    public suspend fun updateSubtitles(change: (SubtitleSettings) -> SubtitleSettings) {
+        dataStore.edit { saved -> saved.putSubtitleSettings(change(saved.toSubtitleSettings())) }
+    }
+
     public companion object {
         /** A store kept in the file at [path], which reads and writes in [scope] until that ends. */
         public fun at(
