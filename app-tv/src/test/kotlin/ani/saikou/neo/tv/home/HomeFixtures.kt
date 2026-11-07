@@ -39,12 +39,15 @@ internal val loaded =
             },
     )
 
-/** [loaded], with three shows to continue: ids 900 to 902, on episodes 7 to 9, each 10 of 24 minutes in. */
-internal val continuing =
+/** [loaded], with [shows] to continue: ids from 900, on episodes from 7, each 10 of 24 minutes in. */
+internal fun continuing(shows: Int) =
     loaded.copy(
-        rows = loaded.rows + (HomeRow.CONTINUE_WATCHING to RowState.Loaded(List(3) { card(900 + it) })),
-        progress = List(3) { 900 + it to WatchProgress(7 + it, 10.minutes, 24.minutes, still = null) }.toMap(),
+        rows = loaded.rows + (HomeRow.CONTINUE_WATCHING to RowState.Loaded(List(shows) { card(900 + it) })),
+        progress = List(shows) { 900 + it to WatchProgress(7 + it, 10.minutes, 24.minutes, still = null) }.toMap(),
     )
+
+/** [loaded], with three shows to continue: ids 900 to 902, on episodes 7 to 9. */
+internal val continuing = continuing(3)
 
 internal fun card(id: Int) =
     AnimeCard(

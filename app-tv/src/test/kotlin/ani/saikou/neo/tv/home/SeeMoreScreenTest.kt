@@ -27,6 +27,7 @@ import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.More
 import ani.saikou.neo.shared.home.SeeMoreState
+import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.Pulsing
 import ani.saikou.neo.tv.ui.fakeImages
@@ -39,6 +40,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import kotlin.time.Duration.Companion.minutes
 
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -222,6 +224,55 @@ class SeeMoreScreenTest {
         compose.waitForIdle()
 
         compose.onNodeWithTag(posterTag(8)).assertIsFocused()
+    }
+
+    // Ten shows in progress, on episodes 1 to 10, each 10 of 24 minutes in.
+    private val watching =
+        SeeMoreState(
+            List(10) { card(it) },
+            More.Done,
+            progress = List(10) { it to WatchProgress(it + 1, 10.minutes, 24.minutes, still = null) }.toMap(),
+        )
+
+    private fun showWatching() {
+        compose.setContent {
+            NeoTheme { SeeMoreScreen(HomeRow.CONTINUE_WATCHING, watching, onOpen = { opened += it }, onLoadMore = {}, onRetry = {}) }
+        }
+    }
+
+    // The row's wide cards, four to a row, centred under the heading.
+    @Test
+    fun continueWatchingShowsEveryShowOnTheRowsCards() {
+        showWatching()
+
+        compose.onNodeWithText("Continue watching").assertLeftPositionInRootIsEqualTo(52.dp)
+        compose.onNodeWithText("E1 · 14 min left").assertExists()
+        compose
+            .onNodeWithTag(posterTag(0))
+            .assertIsFocused()
+            .assertLeftPositionInRootIsEqualTo(52.dp)
+            .assertTopPositionInRootIsEqualTo(96.dp)
+            .assertWidthIsEqualTo(196.dp)
+            .assertHeightIsEqualTo(110.dp)
+        compose.onNodeWithTag(posterTag(3)).assertLeftPositionInRootIsEqualTo(712.dp)
+        compose.onNodeWithTag(posterTag(4)).assertLeftPositionInRootIsEqualTo(52.dp).assertTopPositionInRootIsEqualTo(218.dp)
+    }
+
+    @Test
+    fun aShowInProgressOpensAndFocusComesBackToItsCard() {
+        val restoration = StateRestorationTester(compose)
+        restoration.setContent {
+            NeoTheme { SeeMoreScreen(HomeRow.CONTINUE_WATCHING, watching, onOpen = { opened += it }, onLoadMore = {}, onRetry = {}) }
+        }
+
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+        restoration.emulateSavedInstanceStateRestore()
+        compose.waitForIdle()
+
+        assertEquals(listOf(5), opened)
+        compose.onNodeWithTag(posterTag(5)).assertIsFocused()
     }
 
     private val pulsing = SemanticsMatcher.expectValue(Pulsing, true)

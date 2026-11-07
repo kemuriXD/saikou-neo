@@ -39,6 +39,8 @@ import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.DetailsViewModel
 import ani.saikou.neo.shared.details.Raters
 import ani.saikou.neo.shared.discover.DiscoverViewModel
+import ani.saikou.neo.shared.home.ContinueWatchingViewModel
+import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
 import ani.saikou.neo.shared.playback.ControlsViewModel
@@ -140,16 +142,30 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         seeMore = { row, openDetails ->
-                            val seeMore = viewModel { SeeMoreViewModel(client, library, row, season(), year()) }
-                            val state by seeMore.state.collectAsStateWithLifecycle()
-                            SeeMoreScreen(
-                                row,
-                                state,
-                                onOpen = openDetails,
-                                onLoadMore = seeMore::loadMore,
-                                onRetry = seeMore::retry,
-                                onRest = seeMore::rest,
-                            )
+                            // Continue watching comes from this TV's history, the other rows from AniList.
+                            if (row == HomeRow.CONTINUE_WATCHING) {
+                                val watching = viewModel { ContinueWatchingViewModel(client, library, app.history) }
+                                val state by watching.state.collectAsStateWithLifecycle()
+                                SeeMoreScreen(
+                                    row,
+                                    state,
+                                    onOpen = openDetails,
+                                    onLoadMore = {},
+                                    onRetry = watching::retry,
+                                    onRest = watching::rest,
+                                )
+                            } else {
+                                val seeMore = viewModel { SeeMoreViewModel(client, library, row, season(), year()) }
+                                val state by seeMore.state.collectAsStateWithLifecycle()
+                                SeeMoreScreen(
+                                    row,
+                                    state,
+                                    onOpen = openDetails,
+                                    onLoadMore = seeMore::loadMore,
+                                    onRetry = seeMore::retry,
+                                    onRest = seeMore::rest,
+                                )
+                            }
                         },
                         details = { animeId, openDetails, openRecommendations, openSources, openPlayer ->
                             val details =

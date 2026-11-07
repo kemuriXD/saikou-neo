@@ -123,7 +123,11 @@ class ContinueWatchingViewModelTest {
             viewModel.retry()
             advanceUntilIdle()
 
-            assertEquals(listOf(1000), viewModel.state.value.items.map { it.id })
+            assertEquals(
+                listOf(1000),
+                viewModel.state.value.items
+                    .map { it.id },
+            )
             assertEquals(More.Done, viewModel.state.value.more)
         }
 }

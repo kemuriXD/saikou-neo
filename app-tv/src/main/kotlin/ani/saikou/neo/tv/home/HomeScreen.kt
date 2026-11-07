@@ -91,6 +91,9 @@ internal fun seeMoreTag(row: HomeRow) = "${row.name.lowercase()}-see-more"
 // Where focus is saved as an anime id, the See more button at a row's end.
 private const val SEE_MORE = -1
 
+// Continue watching's wide cards that fit whole beside the rail: 96 + 4 * 196 + 3 * 20 = 940 of 960 dp.
+private const val CONTINUE_WATCHING_ON_SCREEN = 4
+
 internal fun homeCardTag(
     row: HomeRow,
     index: Int,
@@ -371,8 +374,8 @@ private fun HomeRowSection(
                         HomeCard(card = card, onClick = { onOpen(card.id) }, modifier = cardModifier)
                     }
                 }
-                // Continue watching is all there is, so it has no See more.
-                if (row != HomeRow.CONTINUE_WATCHING) {
+                // Continue watching has See more only once its shows don't all fit.
+                if (row != HomeRow.CONTINUE_WATCHING || rowState.items.size > CONTINUE_WATCHING_ON_SCREEN) {
                     item(key = SEE_MORE) {
                         Box(Modifier.height(dimensions.cardWideHeight), contentAlignment = Alignment.Center) {
                             NeoButton(
