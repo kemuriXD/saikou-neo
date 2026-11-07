@@ -800,7 +800,13 @@ private fun RowScope.RowValue(
                             .height(24.dp)
                             .clip(CircleShape)
                             .background(fill)
-                            .padding(horizontal = 8.dp),
+                            .drawBehind {
+                                // The chosen one is underlined in pink while its row doesn't have focus.
+                                if (on && !focused && enabled) {
+                                    val line = 2.dp.toPx()
+                                    drawRect(colors.pink, Offset(0f, size.height - line), Size(size.width, line))
+                                }
+                            }.padding(horizontal = 8.dp),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(label, style = style.copy(fontSize = 12.sp), color = ink)
