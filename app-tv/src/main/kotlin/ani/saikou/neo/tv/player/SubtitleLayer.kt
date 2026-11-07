@@ -83,16 +83,31 @@ internal class SubtitleLayer(
 
     private fun restyle() {
         val drawing = drawing ?: return
-        // As Media3 does, the TV's caption settings count only while its captions are on.
-        val tv = captioning?.takeIf { it.isEnabled }
-        val tvStyle = tv?.takeIf { drawing.followsTv }?.let { CaptionStyleCompat.createFromCaptionStyle(it.userStyle) }
-        val textFraction = drawing.textFraction(tv?.fontScale ?: 1f)
-        val paint = tvStyle?.toTvCaptions()?.toPaint() ?: drawing.style.toPaint()
-        ours.look(if (hdr) paint.dimmed(drawing.hdrPercent) else paint, textFraction, drawing.placement, tvStyle?.typeface)
+        val textFraction = ours.lookLike(drawing, captioning, hdr)
         media3?.setApplyEmbeddedFontSizes(!drawing.mySizeOnStyled)
         media3?.setFractionalTextSize(textFraction)
         route()
     }
+}
+
+/**
+ * Draws in [drawing] as the player does, with the TV's caption style and text size while its captions are on, dimmed
+ * for [hdr] video, and with text [scale] times as tall. Returns how tall text is on the video, as a share of its height.
+ */
+@OptIn(UnstableApi::class)
+internal fun LookSubtitles.lookLike(
+    drawing: SubtitleDrawing,
+    captioning: CaptioningManager?,
+    hdr: Boolean = false,
+    scale: Float = 1f,
+): Float {
+    // As Media3 does, the TV's caption settings count only while its captions are on.
+    val tv = captioning?.takeIf { it.isEnabled }
+    val tvStyle = tv?.takeIf { drawing.followsTv }?.let { CaptionStyleCompat.createFromCaptionStyle(it.userStyle) }
+    val textFraction = drawing.textFraction(tv?.fontScale ?: 1f)
+    val paint = tvStyle?.toTvCaptions()?.toPaint() ?: drawing.style.toPaint()
+    look(if (hdr) paint.dimmed(drawing.hdrPercent) else paint, textFraction * scale, drawing.placement, tvStyle?.typeface)
+    return textFraction
 }
 
 /** A [line] drawn in the look to show it, under a [label] that says it's a sample. */

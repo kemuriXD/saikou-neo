@@ -241,6 +241,13 @@ object NeoIcons {
         }
     }
 
+    /** A turning arrow, for Reset. */
+    val Reset: ImageVector by lazy {
+        icon("Reset") {
+            svgStroke(2.4f, "M4 12A8 8 0 1 0 7 5.8M4 4v5h5")
+        }
+    }
+
     /** A pulse line, for checking a source. */
     val Pulse: ImageVector by lazy {
         icon("Pulse") {

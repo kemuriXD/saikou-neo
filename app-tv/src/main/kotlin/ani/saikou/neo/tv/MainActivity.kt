@@ -51,6 +51,8 @@ import ani.saikou.neo.shared.playback.playRequest
 import ani.saikou.neo.shared.search.SearchViewModel
 import ani.saikou.neo.shared.settings.PlayerSubtitlesViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
+import ani.saikou.neo.shared.settings.SubtitleSettings
+import ani.saikou.neo.shared.settings.SubtitleSettingsViewModel
 import ani.saikou.neo.shared.sources.ShortCodes
 import ani.saikou.neo.shared.sources.SourceChecker
 import ani.saikou.neo.shared.sources.SourceChecksViewModel
@@ -75,6 +77,7 @@ import ani.saikou.neo.tv.search.genreLabels
 import ani.saikou.neo.tv.settings.SettingsCategory
 import ani.saikou.neo.tv.settings.SettingsScreen
 import ani.saikou.neo.tv.settings.SourceActions
+import ani.saikou.neo.tv.settings.SubtitleActions
 import ani.saikou.neo.tv.sources.sourceThreads
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.Section
@@ -390,6 +393,8 @@ class MainActivity : ComponentActivity() {
         val checksScreen =
             viewModel { SourceChecksViewModel(SourceChecker(app.sources::extension, app.sourceHost.services, sourceThreads)) }
         val checks by checksScreen.checks.collectAsStateWithLifecycle()
+        val subtitlesScreen = viewModel { SubtitleSettingsViewModel(app.settingsStore.subtitles, app.settingsStore::updateSubtitles) }
+        val subtitles by subtitlesScreen.state.collectAsStateWithLifecycle()
         state?.let {
             SettingsScreen(
                 it,
@@ -408,6 +413,18 @@ class MainActivity : ComponentActivity() {
                     ),
                 start = start,
                 checks = checks,
+                subtitles = subtitles ?: SubtitleSettings(),
+                subtitleActions =
+                    SubtitleActions(
+                        subtitlesScreen::step,
+                        subtitlesScreen::use,
+                        subtitlesScreen::addLook,
+                        subtitlesScreen::edit,
+                        subtitlesScreen::reset,
+                        subtitlesScreen::delete,
+                        subtitlesScreen::clearShow,
+                        subtitlesScreen::resetAll,
+                    ),
             )
         }
     }

@@ -72,7 +72,7 @@ class SourceChecksTest {
             }
         }
         // Down to Sources, then into it.
-        press(Key.DirectionDown, times = 3)
+        press(Key.DirectionDown, times = 4)
         press(Key.DirectionRight)
     }
 
