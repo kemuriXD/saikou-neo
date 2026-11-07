@@ -63,6 +63,7 @@ class SubtitleStylePanelTest {
     val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val playback = FakePlayback()
+    private val controls = ControlsViewModel()
     private val steps = mutableListOf<Pair<SubtitleStylePart, Boolean>>()
 
     private fun show(
@@ -77,7 +78,7 @@ class SubtitleStylePanelTest {
                     PlayRequest(show, 7, "Rebirth", listOf(server), picked = 0),
                     PlayerActions(),
                     playback,
-                    ControlsViewModel(),
+                    controls,
                     video = {},
                     styling = SubtitleStyling(style) { part, forward -> steps += part to forward },
                 )
