@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv.player
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -67,6 +68,14 @@ import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.formatSpeed
 import ani.saikou.neo.shared.playback.formatSubtitleDelay
 import ani.saikou.neo.shared.playback.nextSubtitleDelay
+import ani.saikou.neo.shared.settings.StyleBlock
+import ani.saikou.neo.shared.settings.SubtitleColour
+import ani.saikou.neo.shared.settings.SubtitleEdge
+import ani.saikou.neo.shared.settings.SubtitlePosition
+import ani.saikou.neo.shared.settings.SubtitleSize
+import ani.saikou.neo.shared.settings.SubtitleStyle
+import ani.saikou.neo.shared.settings.SubtitleStylePart
+import ani.saikou.neo.shared.settings.styleBlock
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.details.editionName
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -75,6 +84,15 @@ import kotlin.math.ceil
 
 internal const val PLAYER_PANEL_TAG = "player-panel"
 internal const val PLAYER_PANEL_TIMING_TAG = "player-panel-timing"
+internal const val PLAYER_PANEL_STYLE_TAG = "player-panel-style"
+
+internal fun playerPanelStyleTag(part: SubtitleStylePart) = "player-panel-style-$part"
+
+/** The subtitle style, and what moves its [part] to the next choice or, when not forward, the one before. */
+internal data class SubtitleStyling(
+    val style: SubtitleStyle = SubtitleStyle(),
+    val step: (part: SubtitleStylePart, forward: Boolean) -> Unit = { _, _ -> },
+)
 
 internal fun playerPanelTabTag(tab: PanelTab) = "player-panel-$tab"
 
@@ -100,8 +118,8 @@ private const val CHOICE_SCALE = 1.03f
 private const val PANEL_SCRIM = 0.35f
 private const val PANEL_FILL = 0.94f
 
-// Five rows show at once, and the rest scroll with focus.
-private const val ROWS_SHOWN = 5
+// Four rows show at once, leaving room below for the timing and style rows, and the rest scroll with focus.
+private const val ROWS_SHOWN = 4
 private const val ROWS_SHOWN_ALONE = 7
 
 /** One row of a list: picking it takes effect at once, and the panel stays open. */
@@ -113,7 +131,8 @@ private class Choice(
 
 /**
  * The side panel, over the video as it keeps playing. Focus starts on what's picked in [tab]. Left and Right move between
- * a tab's lists and then between tabs, and Up from the top of a list goes to the tabs.
+ * a tab's lists and then between tabs, and Up from the top of a list goes to the tabs. Subtitle size and style opens in
+ * place of the tracks, and Back goes back to them.
  */
 @Composable
 internal fun BoxScope.PlayerPanel(
@@ -124,16 +143,33 @@ internal fun BoxScope.PlayerPanel(
     actions: PlayerActions,
     playback: Playback,
     controls: ControlsViewModel,
+    styling: SubtitleStyling,
 ) {
     val colors = NeoTheme.colors
     var onTiming by remember { mutableStateOf(false) }
+    var styleOpen by remember { mutableStateOf(false) }
+    var backToStyle by remember { mutableStateOf(false) }
+    val styleRow = remember { FocusRequester() }
     val picked = remember { FocusRequester() }
     val currentTab = remember { FocusRequester() }
     // Set when focus should land on the next tab's list, not stay on the tabs.
     var enter by remember { mutableStateOf(true) }
     LaunchedEffect(tab) {
+        if (tab != PanelTab.Tracks) styleOpen = false
         if (enter) picked.requestFocus()
         enter = false
+    }
+    LaunchedEffect(styleOpen) {
+        if (styleOpen) {
+            picked.requestFocus()
+        } else if (backToStyle) {
+            styleRow.requestFocus()
+        }
+        backToStyle = false
+    }
+    BackHandler(enabled = styleOpen) {
+        backToStyle = true
+        styleOpen = false
     }
 
     fun move(by: Int) {
@@ -170,6 +206,10 @@ internal fun BoxScope.PlayerPanel(
             }
         }
         when (tab) {
+            PanelTab.Tracks if styleOpen -> {
+                StyleRows(styling, picked)
+            }
+
             PanelTab.Tracks -> {
                 val apart =
                     answered.audio.mapIndexed { index, name ->
@@ -178,6 +218,19 @@ internal fun BoxScope.PlayerPanel(
                 Tracks(apart, playback, picked, currentTab, ::move)
                 Box(Modifier.fillMaxWidth().height(1.dp).background(colors.line))
                 SubtitleTiming(playback) { onTiming = it }
+                val block = styleBlock(state.server.server.edition, playback.subtitles.any { it.selected })
+                PanelRow(
+                    stringResource(R.string.player_panel_style),
+                    value = null,
+                    onClick = { styleOpen = block == null },
+                    modifier = Modifier.focusRequester(styleRow).testTag(PLAYER_PANEL_STYLE_TAG),
+                    note =
+                        when (block) {
+                            StyleBlock.SUBTITLES_OFF -> stringResource(R.string.player_panel_style_off)
+                            StyleBlock.BURNED_IN -> stringResource(R.string.player_panel_style_burned_in)
+                            null -> null
+                        },
+                )
             }
 
             PanelTab.Quality -> {
@@ -227,8 +280,15 @@ internal fun BoxScope.PlayerPanel(
                 )
             }
         }
+        val hint =
+            when {
+                tab != PanelTab.Tracks -> R.string.player_panel_hint
+                styleOpen -> R.string.player_panel_style_hint
+                onTiming -> R.string.player_panel_timing_hint
+                else -> R.string.player_panel_hint
+            }
         Text(
-            stringResource(if (onTiming && tab == PanelTab.Tracks) R.string.player_panel_timing_hint else R.string.player_panel_hint),
+            stringResource(hint),
             style = NeoTheme.typography.caption.copy(fontSize = 12.sp, lineHeight = 17.sp),
             color = colors.textFaint,
         )
@@ -285,31 +345,120 @@ private fun SubtitleTiming(
     playback: Playback,
     onFocused: (Boolean) -> Unit,
 ) {
+    PanelRow(
+        stringResource(R.string.player_panel_timing),
+        formatSubtitleDelay(playback.subtitleDelayMs),
+        onClick = { playback.changeSubtitleDelay(0) },
+        modifier = Modifier.testTag(PLAYER_PANEL_TIMING_TAG),
+        onFocused = onFocused,
+        onSide = { later -> playback.changeSubtitleDelay(nextSubtitleDelay(playback.subtitleDelayMs, later)) },
+    )
+}
+
+/** Size, colour, edge and position, where Left and Right change each one at once. The first row takes [first]. */
+@Composable
+private fun StyleRows(
+    styling: SubtitleStyling,
+    first: FocusRequester,
+) {
+    val title = NeoTheme.typography.caption.copy(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold)
+    Text(stringResource(R.string.player_panel_style), style = title, color = NeoTheme.colors.textFaint)
+    Column(verticalArrangement = Arrangement.spacedBy(ChoiceGap)) {
+        for (part in SubtitleStylePart.entries) {
+            PanelRow(
+                stringResource(part.label()),
+                stringResource(styling.style.choice(part)),
+                onClick = {},
+                modifier = (if (part.ordinal == 0) Modifier.focusRequester(first) else Modifier).testTag(playerPanelStyleTag(part)),
+                onSide = { later -> styling.step(part, later) },
+            )
+        }
+    }
+}
+
+private fun SubtitleStylePart.label() =
+    when (this) {
+        SubtitleStylePart.SIZE -> R.string.player_style_size
+        SubtitleStylePart.COLOUR -> R.string.player_style_colour
+        SubtitleStylePart.EDGE -> R.string.player_style_edge
+        SubtitleStylePart.POSITION -> R.string.player_style_position
+    }
+
+/** The name of the choice this style has for [part]. */
+private fun SubtitleStyle.choice(part: SubtitleStylePart) =
+    when (part) {
+        SubtitleStylePart.SIZE -> {
+            when (size) {
+                SubtitleSize.TV -> R.string.player_style_tv
+                SubtitleSize.SMALL -> R.string.player_style_small
+                SubtitleSize.MEDIUM -> R.string.player_style_medium
+                SubtitleSize.LARGE -> R.string.player_style_large
+                SubtitleSize.EXTRA_LARGE -> R.string.player_style_extra_large
+            }
+        }
+
+        SubtitleStylePart.COLOUR -> {
+            when (colour) {
+                SubtitleColour.TV -> R.string.player_style_tv
+                SubtitleColour.WHITE -> R.string.player_style_white
+                SubtitleColour.YELLOW -> R.string.player_style_yellow
+                SubtitleColour.CYAN -> R.string.player_style_cyan
+            }
+        }
+
+        SubtitleStylePart.EDGE -> {
+            when (edge) {
+                SubtitleEdge.TV -> R.string.player_style_tv
+                SubtitleEdge.OUTLINE -> R.string.player_style_outline
+                SubtitleEdge.SHADOW -> R.string.player_style_shadow
+                SubtitleEdge.BACKGROUND -> R.string.player_style_background
+            }
+        }
+
+        SubtitleStylePart.POSITION -> {
+            when (position) {
+                SubtitlePosition.BOTTOM -> R.string.player_style_bottom
+                SubtitlePosition.RAISED -> R.string.player_style_raised
+                SubtitlePosition.HIGH -> R.string.player_style_high
+            }
+        }
+    }
+
+/**
+ * A row with a [value] on the right, where [onSide] takes Left and Right, held or not, when given. A [note] under the
+ * greyed [label] says why the row can't do anything now, and the row still takes focus so it can be read.
+ */
+@Composable
+private fun PanelRow(
+    label: String,
+    value: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    note: String? = null,
+    onFocused: (Boolean) -> Unit = {},
+    onSide: ((later: Boolean) -> Unit)? = null,
+) {
     val colors = NeoTheme.colors
     val interactions = remember { MutableInteractionSource() }
     val focused by interactions.collectIsFocusedAsState()
     LaunchedEffect(focused) { onFocused(focused) }
-    val label = stringResource(R.string.player_panel_timing)
-    val value = formatSubtitleDelay(playback.subtitleDelayMs)
+    val said = value ?: note
     Surface(
-        onClick = { playback.changeSubtitleDelay(0) },
+        onClick = onClick,
         modifier =
-            Modifier
+            modifier
                 .fillMaxWidth()
                 .height(ChoiceHeight)
                 .onKeyEvent { event ->
-                    if (event.key != Key.DirectionLeft && event.key != Key.DirectionRight) return@onKeyEvent false
-                    if (event.type == KeyEventType.KeyDown) {
-                        playback.changeSubtitleDelay(nextSubtitleDelay(playback.subtitleDelayMs, later = event.key == Key.DirectionRight))
-                    }
+                    if (onSide == null || (event.key != Key.DirectionLeft && event.key != Key.DirectionRight)) return@onKeyEvent false
+                    if (event.type == KeyEventType.KeyDown) onSide(event.key == Key.DirectionRight)
                     true
-                }.semantics { stateDescription = value }
-                .testTag(PLAYER_PANEL_TIMING_TAG),
+                }.semantics { if (said != null) stateDescription = said },
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(ChoiceRadius)),
         colors =
             ClickableSurfaceDefaults.colors(
                 containerColor = colors.surface,
-                contentColor = colors.paper,
+                contentColor = if (note != null) colors.textFaint else colors.paper,
                 focusedContainerColor = colors.focus,
                 focusedContentColor = colors.onFocus,
                 pressedContainerColor = colors.focus,
@@ -320,9 +469,13 @@ private fun SubtitleTiming(
         interactionSource = interactions,
     ) {
         Row(Modifier.fillMaxHeight().padding(horizontal = ChoicePadding), verticalAlignment = Alignment.CenterVertically) {
-            val style = NeoTheme.typography.label.copy(fontSize = 14.sp, fontWeight = FontWeight.Medium)
-            Text(label, style = style, modifier = Modifier.weight(1f))
-            Text(value, style = style.copy(fontFeatureSettings = "tnum"), color = if (focused) colors.onFocusMuted else colors.textMuted)
+            val style = NeoTheme.typography.label.copy(fontSize = 14.sp, lineHeight = 17.sp, fontWeight = FontWeight.Medium)
+            val muted = if (focused) colors.onFocusMuted else colors.textMuted
+            Column(Modifier.weight(1f)) {
+                Text(label, style = style, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                note?.let { Text(it, style = NeoTheme.typography.caption.copy(fontSize = 12.sp, lineHeight = 15.sp), color = muted) }
+            }
+            value?.let { Text(it, style = style.copy(fontFeatureSettings = "tnum"), color = muted) }
         }
     }
 }

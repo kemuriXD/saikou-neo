@@ -140,6 +140,7 @@ internal fun BoxScope.PlayerControls(
     actions: PlayerActions,
     playback: Playback,
     controls: ControlsViewModel,
+    styling: SubtitleStyling = SubtitleStyling(),
 ) {
     val shown by controls.state.collectAsStateWithLifecycle()
     val visible = shown.shown || shown.nudgeMs != null
@@ -319,7 +320,7 @@ internal fun BoxScope.PlayerControls(
         val panel = shown.panel
         when {
             panel != null -> {
-                PlayerPanel(panel, state, answered, request, actions, playback, controls)
+                PlayerPanel(panel, state, answered, request, actions, playback, controls, styling)
             }
 
             shown.episodes && episodes != null -> {

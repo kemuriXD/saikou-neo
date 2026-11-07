@@ -92,6 +92,18 @@ class SettingsViewModelTest {
             assertEquals(SubOrDub.SUB, store.settings.first().subOrDub)
         }
 
+    @Test
+    fun steppingTheSubtitleStyleSavesIt() =
+        withinSeconds {
+            val viewModel = viewModel()
+            viewModel.state.filterNotNull().first()
+
+            viewModel.stepSubtitleStyle(SubtitleStylePart.SIZE, forward = true)
+
+            viewModel.state.filterNotNull().first { it.subtitleStyle.size == SubtitleSize.SMALL }
+            assertEquals(SubtitleStyle(size = SubtitleSize.SMALL), store.settings.first().subtitleStyle)
+        }
+
     // Picking the value a setting already has leaves it as it is, rather than switching it.
     @Test
     fun choosingTheCurrentValueKeepsIt() =

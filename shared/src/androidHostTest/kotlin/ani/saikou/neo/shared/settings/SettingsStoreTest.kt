@@ -68,4 +68,17 @@ class SettingsStoreTest {
 
             assertEquals(Settings(showUpcomingEpisodes = false), store.settings.first())
         }
+
+    @Test
+    fun aSubtitleStyleIsKeptAfterARestart() =
+        runBlocking {
+            val style = SubtitleStyle(SubtitleSize.LARGE, SubtitleColour.YELLOW, SubtitleEdge.BACKGROUND, SubtitlePosition.HIGH)
+            val (first, scope) = store()
+            first.update { it.copy(subtitleStyle = style) }
+            scope.coroutineContext.job.cancelAndJoin()
+
+            val (second, _) = store()
+
+            assertEquals(style, second.settings.first().subtitleStyle)
+        }
 }

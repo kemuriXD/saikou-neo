@@ -49,6 +49,7 @@ import ani.saikou.neo.shared.playback.ServersViewModel
 import ani.saikou.neo.shared.playback.playRequest
 import ani.saikou.neo.shared.search.SearchViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
+import ani.saikou.neo.shared.settings.SubtitleStyle
 import ani.saikou.neo.shared.sources.ShortCodes
 import ani.saikou.neo.shared.sources.SourceChecker
 import ani.saikou.neo.shared.sources.SourceChecksViewModel
@@ -64,6 +65,7 @@ import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.player.PlayerActions
 import ani.saikou.neo.tv.player.PlayerScreen
 import ani.saikou.neo.tv.player.StreamVideo
+import ani.saikou.neo.tv.player.SubtitleStyling
 import ani.saikou.neo.tv.player.rememberExoPlayback
 import ani.saikou.neo.tv.search.SearchScreen
 import ani.saikou.neo.tv.search.genreLabels
@@ -306,6 +308,12 @@ class MainActivity : ComponentActivity() {
                             val player = viewModel { PlayerViewModel(app.streamFinder, request, history = app.history) }
                             val state by player.state.collectAsStateWithLifecycle()
                             val playback = rememberExoPlayback()
+                            val settings = viewModel { SettingsViewModel(app.settingsStore) }
+                            val subtitleStyle =
+                                settings.state
+                                    .collectAsStateWithLifecycle()
+                                    .value
+                                    ?.subtitleStyle ?: SubtitleStyle()
                             PlayerScreen(
                                 state,
                                 request,
@@ -336,8 +344,10 @@ class MainActivity : ComponentActivity() {
                                         player::failed,
                                         app.sourceHost.client,
                                         onPlayed = player::played,
+                                        style = subtitleStyle,
                                     )
                                 },
+                                styling = SubtitleStyling(subtitleStyle, settings::stepSubtitleStyle),
                             )
                         },
                     )

@@ -24,6 +24,7 @@ import ani.saikou.neo.shared.playback.PlayerError
 import ani.saikou.neo.shared.playback.PlayerPhase
 import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.ServerEdition
+import ani.saikou.neo.shared.settings.SubtitleStyle
 import kotlinx.coroutines.delay
 import okhttp3.Call
 import kotlin.time.Duration.Companion.seconds
@@ -33,7 +34,7 @@ private val SAVE_EVERY = 10.seconds
 
 /**
  * Plays each stream [state] hands over, from its start position, and says when the video [onStarted] or the player
- * [onFailed], on [playback]'s player, and where it [onPlayed] to every few seconds and on leaving. The view draws the video and subtitles and never takes focus; the controls sit
+ * [onFailed], on [playback]'s player, with subtitles in [style], and where it [onPlayed] to every few seconds and on leaving. The view draws the video and subtitles and never takes focus; the controls sit
  * over it.
  */
 @OptIn(UnstableApi::class)
@@ -47,6 +48,7 @@ internal fun StreamVideo(
     callFactory: Call.Factory,
     modifier: Modifier = Modifier,
     onPlayed: (positionMs: Long, durationMs: Long) -> Unit = { _, _ -> },
+    style: SubtitleStyle = SubtitleStyle(),
 ) {
     val context = LocalContext.current
     val player = playback.player
@@ -104,7 +106,10 @@ internal fun StreamVideo(
                 this.player = player
             }
         },
-        update = { it.keepScreenOn = state.phase.keepsScreenOn() },
+        update = {
+            it.keepScreenOn = state.phase.keepsScreenOn()
+            it.subtitleView?.applyStyle(style)
+        },
         modifier = modifier.fillMaxSize(),
     )
 }

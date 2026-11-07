@@ -53,4 +53,12 @@ public class SettingsViewModel(
         require(value in setting.choices) { "$value isn't a choice for $setting" }
         viewModelScope.launch { store.update { it.with(setting, value) } }
     }
+
+    /** Moves [part] of the subtitle style to its next choice, or its previous one when not [forward], and saves it. */
+    public fun stepSubtitleStyle(
+        part: SubtitleStylePart,
+        forward: Boolean,
+    ) {
+        viewModelScope.launch { store.update { it.copy(subtitleStyle = it.subtitleStyle.step(part, forward)) } }
+    }
 }

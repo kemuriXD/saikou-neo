@@ -10,6 +10,8 @@ public data class Settings(
     val slowTv: Boolean = false,
     /** Which servers the server list shows: Sub ones, Dub ones or both. */
     val subOrDub: SubOrDub = SubOrDub.BOTH,
+    /** How text subtitles look in the player. */
+    val subtitleStyle: SubtitleStyle = SubtitleStyle(),
 )
 
 /** Which servers to show for an episode, by whether they're subtitled or dubbed. HardSub servers count as Sub. */

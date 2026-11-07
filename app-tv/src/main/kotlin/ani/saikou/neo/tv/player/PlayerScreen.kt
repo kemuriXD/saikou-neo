@@ -132,6 +132,7 @@ internal fun PlayerScreen(
     controls: ControlsViewModel,
     video: @Composable () -> Unit,
     modifier: Modifier = Modifier,
+    styling: SubtitleStyling = SubtitleStyling(),
 ) {
     val scrim = NeoTheme.colors.scrimPlayer
     Box(modifier.fillMaxSize().background(scrim)) {
@@ -158,7 +159,7 @@ internal fun PlayerScreen(
             }
 
             is PlayerPhase.Playing -> {
-                PlayerControls(state, phase.answered, request, actions, playback, controls)
+                PlayerControls(state, phase.answered, request, actions, playback, controls, styling)
             }
         }
     }
