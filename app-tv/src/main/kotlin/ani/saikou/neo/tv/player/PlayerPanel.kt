@@ -160,7 +160,8 @@ internal fun BoxScope.PlayerPanel(
         controls.openPanel(next)
     }
 
-    Box(Modifier.matchParentSize().background(NeoTheme.colors.scrimPlayer.copy(alpha = PANEL_SCRIM)))
+    // Without the scrim while the looks are open, so subtitles show in their true colours.
+    if (!looksOpen) Box(Modifier.matchParentSize().background(NeoTheme.colors.scrimPlayer.copy(alpha = PANEL_SCRIM)))
     Column(
         Modifier
             .align(Alignment.TopEnd)

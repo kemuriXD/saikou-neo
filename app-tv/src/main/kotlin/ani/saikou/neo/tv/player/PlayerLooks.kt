@@ -264,7 +264,10 @@ internal fun LookPage(
     Column(modifier.verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(Modifier.height(26.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Icon(NeoIcons.Chevron, contentDescription = null, tint = colors.textMuted, modifier = Modifier.size(18.dp).rotate(180f))
-            Text(stringResource(R.string.player_look), style = NeoTheme.typography.title.copy(fontSize = 20.sp, lineHeight = 26.sp))
+            Text(
+                stringResource(R.string.player_look),
+                style = NeoTheme.typography.title.copy(fontSize = 20.sp, lineHeight = 26.sp, fontWeight = FontWeight.Bold),
+            )
         }
         if (greyed) StyledNote()
         Column(verticalArrangement = Arrangement.spacedBy(TileGap)) {
