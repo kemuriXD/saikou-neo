@@ -144,8 +144,13 @@ jobs:
         if: success() && github.ref == 'refs/heads/main'
         run: |
           ./gradlew --stop
+          # The daemon can still be deleting old cache folders after --stop returns.
+          for _ in $(seq 60); do
+            pgrep -f GradleDaemon > /dev/null || break
+            sleep 1
+          done
           rm -f ~/.gradle/caches/modules-2/modules-2.lock ~/.gradle/caches/modules-2/gc.properties
-          find ~/.gradle/caches -name '*.lock' -delete
+          find ~/.gradle/caches -ignore_readdir_race -name '*.lock' -delete
 
       - name: Save Gradle cache
         if: success() && github.ref == 'refs/heads/main'
