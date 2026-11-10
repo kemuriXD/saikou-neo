@@ -47,7 +47,14 @@ internal class SubtitleLayer(
         onCues(player.currentCues)
     }
 
-    fun detach(player: Player) = player.removeListener(this)
+    /**
+     * Takes the layer off [player] and lets the view drop it, so a view Android keeps after the screen goes (API 28 holds
+     * the last one it sorted for accessibility) doesn't keep the released player and its buffers too.
+     */
+    fun detach(player: Player) {
+        player.removeListener(this)
+        view.player = null
+    }
 
     fun draw(drawing: SubtitleDrawing) {
         this.drawing = drawing

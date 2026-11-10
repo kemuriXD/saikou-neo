@@ -77,4 +77,6 @@ dependencies {
     testImplementation(libs.espresso.core)
     debugImplementation(platform(libs.compose.bom))
     debugImplementation(libs.compose.ui.test.manifest)
+    // Watches debug builds for memory leaks; Fire TV sticks have little memory (#244).
+    debugImplementation(libs.leakcanary)
 }
