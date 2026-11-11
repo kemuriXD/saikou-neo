@@ -2,6 +2,7 @@ package ani.saikou.neo.shared.sources
 
 import ani.saikou.neo.extension.api.HostRequest
 import ani.saikou.neo.extension.api.SourceException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
@@ -15,6 +16,7 @@ import okhttp3.HttpUrl
 import okhttp3.Request
 import okhttp3.Response
 import java.io.IOException
+import java.io.InterruptedIOException
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.CopyOnWriteArrayList
 import java.util.concurrent.Executors
@@ -26,7 +28,11 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 class CloudflareInterceptorTest {
     private val server = MockWebServer()
@@ -121,6 +127,52 @@ class CloudflareInterceptorTest {
     }
 
     @Test
+    fun theClearerIsToldWhenTheChallengedRequestWentOut() {
+        // So it doesn't hand back the clearance the site just refused, such as one kept from before a restart.
+        val clearer = FakeClearer(jar, FakeClearer.Outcome.Clear)
+        server.enqueue(challenge())
+        server.enqueue(MockResponse(code = 200, body = "the page"))
+        val before = System.currentTimeMillis()
+
+        get(clearer).close()
+
+        val sentAt = assertNotNull(clearer.sentAt)
+        assertTrue(sentAt in before..System.currentTimeMillis())
+    }
+
+    @Test
+    fun aCallWaitingOnASiteCheckGetsTheLongLimit() {
+        val clearer = FakeClearer(jar, FakeClearer.Outcome.Clear, delayMillis = 1_500)
+        server.enqueue(challenge())
+        server.enqueue(MockResponse(code = 200, body = "the page"))
+        val client = sharedHttpClient(cookieJar = jar, clearer = clearer, callLimit = 500.milliseconds, siteCheckCallLimit = 10.seconds)
+
+        val response = client.newCall(Request.Builder().url(server.url("/")).build()).execute()
+
+        assertEquals("the page", response.body.string())
+    }
+
+    @Test
+    fun anOrdinaryCallThatStallsFailsAtTheNormalLimit() {
+        server.enqueue(
+            MockResponse
+                .Builder()
+                .body("the page")
+                .headersDelay(3, TimeUnit.SECONDS)
+                .build(),
+        )
+        val client =
+            sharedHttpClient(
+                cookieJar = jar,
+                clearer = FakeClearer(jar, FakeClearer.Outcome.Clear),
+                callLimit = 500.milliseconds,
+                siteCheckCallLimit = 10.seconds,
+            )
+
+        assertFailsWith<InterruptedIOException> { client.newCall(Request.Builder().url(server.url("/")).build()).execute() }
+    }
+
+    @Test
     fun aNormalResponseIsNotTouched() {
         val clearer = FakeClearer(jar, FakeClearer.Outcome.Clear)
         server.enqueue(MockResponse(code = 200, body = "the page"))
@@ -212,13 +264,20 @@ private class EnqueuedFailure(
 private class FakeClearer(
     private val jar: CookieJar,
     private val outcome: Outcome,
+    private val delayMillis: Long = 0,
 ) : CloudflareClearer {
     enum class Outcome { Clear, NeedsPerson, Error, Crash }
 
     var calls = 0
+    var sentAt: Long? = null
 
-    override suspend fun clear(url: HttpUrl): Clearance? {
+    override suspend fun clear(
+        url: HttpUrl,
+        sentAtMillis: Long,
+    ): Clearance? {
         calls++
+        sentAt = sentAtMillis
+        delay(delayMillis)
         return when (outcome) {
             Outcome.Clear -> {
                 jar.saveFromResponse(
@@ -232,7 +291,7 @@ private class FakeClearer(
                             .build(),
                     ),
                 )
-                Clearance("cf_clearance=cleared", SOURCE_USER_AGENT, Long.MAX_VALUE)
+                Clearance("cf_clearance=cleared", SOURCE_USER_AGENT, sentAtMillis, Long.MAX_VALUE)
             }
 
             Outcome.NeedsPerson -> {

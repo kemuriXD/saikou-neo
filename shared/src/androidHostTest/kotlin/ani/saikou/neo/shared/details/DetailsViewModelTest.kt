@@ -75,6 +75,7 @@ class DetailsViewModelTest {
         progress: Flow<WatchProgress?> = flowOf(null),
         animeId: Int = 195516,
         zoneOffsetSeconds: Int = 0,
+        warmSources: () -> Unit = {},
     ) = DetailsViewModel(
         clientFor(engine, main),
         library,
@@ -85,6 +86,7 @@ class DetailsViewModelTest {
         showUpcomingEpisodes = showUpcomingEpisodes,
         progress = progress,
         zoneOffsetSeconds = zoneOffsetSeconds,
+        warmSources = warmSources,
     )
 
     private fun library(
@@ -99,6 +101,16 @@ class DetailsViewModelTest {
         val viewModel = detailsViewModel()
 
         assertEquals(DetailsState.Loading, viewModel.state.value)
+    }
+
+    @Test
+    fun opensWithTheSourcesSitesBeingGotReady() {
+        // So a site's browser check runs while the episodes are browsed, not once one is played (#369).
+        var warmed = 0
+
+        detailsViewModel(warmSources = { warmed++ })
+
+        assertEquals(1, warmed)
     }
 
     @Test

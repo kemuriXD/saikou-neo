@@ -6,7 +6,11 @@ import kotlinx.coroutines.runBlocking
 import okhttp3.HttpUrl
 import okhttp3.Interceptor
 import okhttp3.Response
+import okio.AsyncTimeout
 import java.io.IOException
+import java.io.InterruptedIOException
+import java.util.concurrent.TimeUnit
+import kotlin.time.Duration
 
 /**
  * Clears Cloudflare for the shared client. When a response is a challenge it
@@ -19,15 +23,19 @@ import java.io.IOException
  */
 internal class CloudflareInterceptor(
     private val clearer: CloudflareClearer,
+    private val siteCheckCallLimit: Duration = SITE_CHECK_CALL_LIMIT,
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         // clear() needs the main thread, so this must run off it, or runBlocking would deadlock.
         requireOffMainThread()
+        val sentAt = System.currentTimeMillis()
         val response = chain.proceed(chain.request())
         if (!response.isCloudflareChallenge()) return response
         response.close()
 
-        clear(chain.request().url)
+        // Only now does this call wait on a browser check, so only now does it get the long limit.
+        allowSiteCheck(chain)
+        clear(chain.request().url, sentAt)
             ?: throw SourceFailure(SourceException.Blocked("Cloudflare needs a browser check a TV can't do"))
 
         val retry = chain.proceed(chain.request())
@@ -36,9 +44,24 @@ internal class CloudflareInterceptor(
         throw SourceFailure(SourceException.Blocked("The Cloudflare challenge did not clear"))
     }
 
-    private fun clear(url: HttpUrl): Clearance? =
+    /**
+     * Restarts the call's whole-call timer at [siteCheckCallLimit]. OkHttp runs that timer as an okio [AsyncTimeout]
+     * entered when the call starts; leaving it and entering again keeps it balanced for the exit OkHttp makes when
+     * the call ends. A call already timed out stays failed.
+     */
+    private fun allowSiteCheck(chain: Interceptor.Chain) {
+        val timer = chain.call().timeout() as? AsyncTimeout ?: return
+        if (timer.exit()) throw InterruptedIOException("timeout")
+        timer.timeout(siteCheckCallLimit.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+        timer.enter()
+    }
+
+    private fun clear(
+        url: HttpUrl,
+        sentAtMillis: Long,
+    ): Clearance? =
         try {
-            runBlocking { clearer.clear(url) }
+            runBlocking { clearer.clear(url, sentAtMillis) }
         } catch (e: SourceException) {
             throw SourceFailure(e)
         } catch (e: Exception) {

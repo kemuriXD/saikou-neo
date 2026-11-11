@@ -6,6 +6,7 @@ import ani.saikou.neo.shared.search.RecentSearchesStore
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SettingsStore
 import ani.saikou.neo.shared.sources.SourceHost
+import ani.saikou.neo.shared.sources.SourceWarmUp
 import ani.saikou.neo.tv.sources.ApkSourceStore
 import ani.saikou.neo.tv.sources.ExtensionServerFinder
 import ani.saikou.neo.tv.sources.ExtensionStreamFinder
@@ -36,6 +37,9 @@ class NeoApp : Application() {
 
     /** The sources added on this TV, read from its files at start. */
     val sources by lazy { ApkSourceStore(this, scope, sourceHost.services) }
+
+    /** Gets the sources' sites, and any browser check they have, ready before an episode is played. */
+    val sourceWarmUp by lazy { SourceWarmUp(sources.installed, sources::extension, sourceHost.services, scope) }
 
     /** Asks the installed sources for an episode's servers. */
     val serverFinder by lazy { ExtensionServerFinder(sources::extension) }

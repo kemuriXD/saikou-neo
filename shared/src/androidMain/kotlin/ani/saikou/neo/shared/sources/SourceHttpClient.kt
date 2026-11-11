@@ -15,6 +15,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /** The most of a response body to read into memory, so a hostile server can't run the app out of it. */
@@ -42,21 +43,38 @@ internal class SourceHttpClient(
         }
 }
 
+/** How long a whole call gets, so a slow drip can't hold a connection and a thread forever. */
+internal val NORMAL_CALL_LIMIT: Duration = 30.seconds
+
+/** How long a call gets once it is waiting on a site's browser check, which a slow TV can take over a minute to pass (#356). */
+internal val SITE_CHECK_CALL_LIMIT: Duration = SITE_CHECK_LIMIT + 30.seconds
+
+/**
+ * How long one of the player's media downloads gets as a whole. The limit covers reading the body, so a large segment or
+ * file on a slow TV needs more than an ordinary call's. A download that stalls still fails at the read timeout.
+ */
+internal val MEDIA_CALL_LIMIT: Duration = 150.seconds
+
+/** This client for the player: the same connections, cookies, User-Agent and Cloudflare retry, with room for a media download. */
+internal fun OkHttpClient.forMedia(limit: Duration = MEDIA_CALL_LIMIT): OkHttpClient =
+    newBuilder().callTimeout(limit.inWholeMilliseconds, TimeUnit.MILLISECONDS).build()
+
 /**
  * The shared client. The pinned User-Agent is forced on every request, so a source can't change it. With a [clearer] it
- * also clears Cloudflare and keeps the clearance in [cookieJar] for later requests and the player.
+ * also clears Cloudflare and keeps the clearance in [cookieJar] for later requests and the player. A call gets
+ * [callLimit], and only one waiting on a browser check is given [siteCheckCallLimit] from when the check starts.
  */
 internal fun sharedHttpClient(
     cookieJar: CookieJar = InMemoryCookieJar(),
     clearer: CloudflareClearer? = null,
     userAgent: String = SOURCE_USER_AGENT,
+    callLimit: Duration = NORMAL_CALL_LIMIT,
+    siteCheckCallLimit: Duration = SITE_CHECK_CALL_LIMIT,
 ): OkHttpClient =
     OkHttpClient
         .Builder()
         .cookieJar(cookieJar)
-        // A whole call, including a slow drip, can't hold a connection and a thread forever. It includes waiting for a
-        // site's browser check, which a slow TV can take over a minute to pass (#356).
-        .callTimeout((SITE_CHECK_LIMIT + 30.seconds).inWholeSeconds, TimeUnit.SECONDS)
+        .callTimeout(callLimit.inWholeMilliseconds, TimeUnit.MILLISECONDS)
         .addInterceptor { chain ->
             chain.proceed(
                 chain
@@ -65,7 +83,7 @@ internal fun sharedHttpClient(
                     .header("User-Agent", userAgent)
                     .build(),
             )
-        }.apply { if (clearer != null) addInterceptor(CloudflareInterceptor(clearer)) }
+        }.apply { if (clearer != null) addInterceptor(CloudflareInterceptor(clearer, siteCheckCallLimit)) }
         .build()
 
 private fun HostRequest.toOkHttpRequest(): Request {
