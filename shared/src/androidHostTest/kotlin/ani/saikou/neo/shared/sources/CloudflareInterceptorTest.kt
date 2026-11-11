@@ -154,7 +154,13 @@ class CloudflareInterceptorTest {
 
     @Test
     fun anOrdinaryCallThatStallsFailsAtTheNormalLimit() {
-        server.enqueue(MockResponse.Builder().body("the page").headersDelay(3, TimeUnit.SECONDS).build())
+        server.enqueue(
+            MockResponse
+                .Builder()
+                .body("the page")
+                .headersDelay(3, TimeUnit.SECONDS)
+                .build(),
+        )
         val client =
             sharedHttpClient(
                 cookieJar = jar,

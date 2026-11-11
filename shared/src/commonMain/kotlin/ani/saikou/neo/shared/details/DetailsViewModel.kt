@@ -58,6 +58,7 @@ public sealed interface DetailsState {
  * [showUpcomingEpisodes]. The [raters] are asked once AniList's details are in, and for IMDb once AniZip gives its id.
  * MAL's filler and recap episodes join the list when MAL answers.
  * [progress] is how far this TV got in the show, if anywhere, and again each time the player saves more.
+ * Opening it calls [warmSources], so the sources' sites are ready by the time an episode is played.
  */
 public class DetailsViewModel(
     private val client: AniListClient,
@@ -69,11 +70,13 @@ public class DetailsViewModel(
     private val showUpcomingEpisodes: Boolean = true,
     private val progress: Flow<WatchProgress?> = flowOf(null),
     private val zoneOffsetSeconds: Int = 0,
+    warmSources: () -> Unit = {},
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
     public val state: StateFlow<DetailsState> = mutableState.asStateFlow()
 
     init {
+        warmSources()
         val details = viewModelScope.async { client.details(animeId) }
         // A film's title is only needed when TMDB can't find it by its IMDb id.
         val art =

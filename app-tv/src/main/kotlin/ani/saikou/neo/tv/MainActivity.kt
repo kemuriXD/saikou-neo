@@ -188,6 +188,7 @@ class MainActivity : ComponentActivity() {
                                         settings.showUpcomingEpisodes,
                                         progress = app.history.shows.map { it[animeId] },
                                         zoneOffsetSeconds = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000,
+                                        warmSources = app.sourceWarmUp::warm,
                                     )
                                 }
                             val state by details.state.collectAsStateWithLifecycle()

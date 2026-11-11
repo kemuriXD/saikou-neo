@@ -50,7 +50,12 @@ internal fun seedClearances(
     val usable = saved.filterValues { it.userAgent == userAgent && it.isFresh(nowMillis) }
     if (usable != saved) store.save(usable)
     usable.forEach { (host, clearance) ->
-        val url = HttpUrl.Builder().scheme("https").host(host).build()
+        val url =
+            HttpUrl
+                .Builder()
+                .scheme("https")
+                .host(host)
+                .build()
         cookieJar.saveFromResponse(url, listOf(clearanceCookie(host, clearance.cookie.substringAfter("="))))
     }
     return usable
