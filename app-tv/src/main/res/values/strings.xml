@@ -54,7 +54,6 @@
     <string name="home_offline_settings">Network settings</string>
     <string name="home_offline_retrying">Tries again by itself every 30 s.</string>
     <!-- A large faint word behind the message, for decoration. -->
-    <string name="home_offline_watermark">offline</string>
 
     <!-- AniList's formats, as shown in card details such as "TV · 2026 · 12 episodes". -->
     <string name="home_format_tv">TV</string>
