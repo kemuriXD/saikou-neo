@@ -56,21 +56,26 @@ internal fun seedClearances(
                 .scheme("https")
                 .host(host)
                 .build()
-        cookieJar.saveFromResponse(url, listOf(clearanceCookie(host, clearance.cookie.substringAfter("="))))
+        cookieJar.saveFromResponse(url, listOf(clearanceCookie(host, clearance.cookie.substringAfter("="), httpsOnly = true)))
     }
     return usable
 }
 
-/** The `cf_clearance` cookie for [host]. It is sent until the site turns it down, as the WebView would. */
+/**
+ * The `cf_clearance` cookie for [host]. It is sent until the site turns it down, as the WebView would, and only over
+ * https when [httpsOnly], so a clearance earned over https never crosses the network in the clear.
+ */
 internal fun clearanceCookie(
     host: String,
     token: String,
+    httpsOnly: Boolean,
 ): Cookie =
     Cookie
         .Builder()
         .name("cf_clearance")
         .value(token)
         .domain(host)
+        .apply { if (httpsOnly) secure() }
         .build()
 
 internal fun encodeClearance(clearance: Clearance): String =

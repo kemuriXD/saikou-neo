@@ -36,6 +36,13 @@ class ClearanceStoreTest {
     }
 
     @Test
+    fun aSavedClearanceIsNeverSentOverPlainHttp() {
+        seedClearances(FakeStore(mapOf("a.example" to clearance())), jar, userAgent = "this-webview", nowMillis = 1_000)
+
+        assertTrue(jar.loadForRequest("http://a.example/".toHttpUrl()).isEmpty())
+    }
+
+    @Test
     fun aClearanceMintedForAnotherUserAgentIsDropped() {
         // Cloudflare binds a clearance to the browser it was minted for, and a WebView update changes that (ADR 0030).
         val store = FakeStore(mapOf("a.example" to clearance(userAgent = "older-webview")))

@@ -89,7 +89,7 @@ internal class WebViewCloudflareClearer(
                         found
                     } ?: return@withContext null
 
-                cookieJar.saveFromResponse(url, listOf(clearanceCookie(url.host, token)))
+                cookieJar.saveFromResponse(url, listOf(clearanceCookie(url.host, token, httpsOnly = url.isHttps)))
                 val now = System.currentTimeMillis()
                 Clearance(
                     cookie = "cf_clearance=$token",
