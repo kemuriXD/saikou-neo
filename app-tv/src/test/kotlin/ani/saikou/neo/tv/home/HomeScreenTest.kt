@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -18,6 +19,7 @@ import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
@@ -56,6 +58,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -517,6 +520,21 @@ class HomeScreenTest {
         compose.onNodeWithText("No internet connection").assertExists()
         compose.onNodeWithText("Try again").assertIsFocused()
         compose.onNodeWithTag(SPOTLIGHT_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun theOfflineScreenHasNoWordBehindIt() {
+        show(offline)
+
+        // The lower right, where a large faint word used to sit, is plain background (#360).
+        val screen = compose.onRoot().captureToImage().toPixelMap()
+        val background = screen[screen.width - 2, 2]
+        val marked =
+            (screen.width * 3 / 5 until screen.width).sumOf { x ->
+                (screen.height * 3 / 5 until screen.height).count { y -> screen[x, y] != background }
+            }
+        assertEquals(0, marked)
     }
 
     @Test

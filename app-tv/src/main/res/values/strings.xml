@@ -54,7 +54,6 @@
     <string name="home_offline_settings">Network settings</string>
     <string name="home_offline_retrying">Tries again by itself every 30 s.</string>
     <!-- A large faint word behind the message, for decoration. -->
-    <string name="home_offline_watermark">offline</string>
 
     <!-- AniList's formats, as shown in card details such as "TV · 2026 · 12 episodes". -->
     <string name="home_format_tv">TV</string>
@@ -300,6 +299,7 @@
     <string name="streams_rate_limited_seconds">Too many requests. Try again in %1$d s</string>
     <string name="streams_rate_limited_minutes">Too many requests. Try again in %1$d min</string>
     <string name="streams_source_down">The site isn’t working right now</string>
+    <string name="streams_offline">This TV isn’t online. Check its Wi-Fi or cable</string>
     <string name="streams_wont_start">This source wouldn’t start</string>
     <string name="streams_link_expired">The link stopped working</string>
     <string name="streams_no_sources_title">No sources installed yet</string>

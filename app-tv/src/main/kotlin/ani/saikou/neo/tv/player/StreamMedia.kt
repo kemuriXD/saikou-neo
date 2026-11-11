@@ -89,7 +89,9 @@ fun Stream.mediaSource(
  * HTTP status the server sent comes along to show.
  */
 @OptIn(UnstableApi::class)
-fun PlaybackException.toPlayerError(): PlayerError {
+fun PlaybackException.toPlayerError(online: Boolean = true): PlayerError {
+    // Without a connection every server fails, so the reason is the TV's, not the site's (#361).
+    if (!online) return PlayerError.Failed(FailReason.Offline)
     val causes = generateSequence<Throwable>(cause) { it.cause }.take(MAX_CAUSES).toList()
     causes.firstNotNullOfOrNull { it as? SourceException }?.let { error ->
         return if (error is SourceException.LinkExpired) PlayerError.Expired else PlayerError.Failed(error.failReason())

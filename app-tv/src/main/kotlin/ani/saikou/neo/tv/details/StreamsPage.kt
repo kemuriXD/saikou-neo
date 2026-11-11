@@ -69,6 +69,7 @@ import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.NeoTab
 import ani.saikou.neo.tv.ui.SourceLogo
+import ani.saikou.neo.tv.ui.keepsArrowsIn
 import java.io.File
 
 internal const val STREAMS_RETRY_TAG = "streams-retry"
@@ -114,7 +115,7 @@ internal fun StreamsPage(
     modifier: Modifier = Modifier,
 ) {
     LaunchedEffect(Unit) { actions.onOpen() }
-    val page = modifier.focusProperties { onExit = { cancelFocusChange() } }.focusGroup()
+    val page = modifier.keepsArrowsIn()
     when (val outcome = state.outcome) {
         StreamsOutcome.NoSources -> NoSources(episode, actions.onAddSource, page)
         StreamsOutcome.NothingPlays -> NothingPlays(state, title, actions, page)

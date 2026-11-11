@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -30,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -118,6 +120,10 @@ private val SpotlightBottom = 320.dp
 
 // Content starts 24 dp clear of the closed rail.
 private val ContentStart = RailWidth + 24.dp
+
+// Rows scroll from the rail's edge, so a card scrolled past the keyline is cut there rather than showing under the
+// rail's icons (#366). The 24 dp left still fits a focused card's glow and growth.
+private val RowInset = ContentStart - RailWidth
 private val SpotlightWidth = 440.dp
 private val DotsTop = 344.dp
 private val RowsTop = 382.dp
@@ -157,7 +163,7 @@ private data class CardKey(
  * Home: a spotlight on featured shows, over rows of anime that browse left and right. Selecting a show calls [onOpen];
  * the spotlight's dots call [onPick], and the button at the end of each row calls [onSeeMore]. [onSpotlightInView] says whether the spotlight is showing, so it only moves on
  * while seen. [onRest] gets the card focus is on, or null off the cards, so resting on one can find its art.
- * When the TV is offline, Home says so instead: Try again calls [onRetry], Network settings calls [onNetworkSettings],
+ * Back in the rows first returns to the top; Back there leaves. When the TV is offline, Home says so instead: Try again calls [onRetry], Network settings calls [onNetworkSettings],
  * and [onOfflineInView] says whether that's showing.
  */
 @Composable
@@ -213,6 +219,12 @@ fun HomeScreen(
         onDispose {}
     }
     DisposableEffect(Unit) { onDispose { onSpotlightInView(false) } }
+    // Down in the rows, Back first goes back to the top, so it doesn't leave the app by accident. Back there leaves (#365).
+    val scope = rememberCoroutineScope()
+    BackHandler(enabled = inRows) {
+        play.requestFocus()
+        scope.launch { columnState.scrollToItem(0) }
+    }
     // Behind the rows, the spotlight fades out and TalkBack skips it.
     val hide =
         Modifier.graphicsLayer { alpha = shown }.then(if (inRows) Modifier.semantics { hideFromAccessibility() } else Modifier)
@@ -337,11 +349,12 @@ private fun HomeRowSection(
         }
         // Up and down enter a row on the card you left, or its first card, not the one nearest on screen.
         val entryCard = lastCard?.takeIf { id -> id == SEE_MORE || rowState.items.any { it.id == id } } ?: rowState.items.firstOrNull()?.id
-        KeylineScrolling(keyline = ContentStart) {
+        KeylineScrolling(keyline = RowInset) {
             LazyRow(
                 state = listState,
                 modifier =
                     Modifier
+                        .padding(start = RailWidth)
                         .focusProperties {
                             onEnter = {
                                 if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
@@ -349,7 +362,7 @@ private fun HomeRowSection(
                                 }
                             }
                         }.focusGroup(),
-                contentPadding = PaddingValues(start = ContentStart, end = dimensions.gridMargin),
+                contentPadding = PaddingValues(start = RowInset, end = dimensions.gridMargin),
                 horizontalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
             ) {
                 // A card, or the See more button as SEE_MORE: focus is placed, entered and saved the same way.

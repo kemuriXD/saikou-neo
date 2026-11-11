@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
+import ani.saikou.neo.shared.sources.awaitAllowingSiteChecks
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -20,7 +21,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
@@ -104,7 +104,8 @@ public data class ServersState(
  * The servers for [episode] of [show], asking every installed source that can be used at the same time. Each one is
  * shown as it answers, in the order they're installed, so those still looking don't hold up the rest. The page shows
  * the editions [subOrDub] allows until it's changed. The sources asked are those [installed] holds once they've been
- * read, or the first it holds after there were none. A source that hasn't answered within [answerWithin] has no answer.
+ * read, or the first it holds after there were none. A source that hasn't answered within [answerWithin] has no answer,
+ * unless a site's browser check is running ([siteChecking]), which a slow TV can take over a minute to pass.
  */
 public class ServersViewModel(
     private val finder: ServerFinder,
@@ -113,6 +114,7 @@ public class ServersViewModel(
     private val episode: Int,
     subOrDub: SubOrDub,
     private val answerWithin: Duration = ANSWER_WITHIN,
+    private val siteChecking: StateFlow<Boolean> = MutableStateFlow(false),
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(ServersState(emptyList(), subOrDub = subOrDub))
     public val state: StateFlow<ServersState> = mutableState.asStateFlow()
@@ -141,12 +143,12 @@ public class ServersViewModel(
                 try {
                     // Asked apart from the wait, so a source that won't stop can't hold up the time limit.
                     val call = viewModelScope.async { finder.servers(source, show, episode) }
-                    val all = withTimeoutOrNull(answerWithin) { call.await() }
+                    val all = call.awaitAllowingSiteChecks(answerWithin, siteChecking)
                     if (all == null) {
                         call.cancel()
                         SourceAnswer.Failed(FailReason.NoAnswer)
                     } else {
-                        SourceAnswer.Found(all)
+                        SourceAnswer.Found(all.value)
                     }
                 } catch (_: CancellationException) {
                     // Leaving the page cancels the search. A source's own timeout fails only that source.

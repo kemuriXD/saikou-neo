@@ -224,6 +224,10 @@ internal fun failReasonText(
             stringResource(R.string.streams_wont_start)
         }
 
+        FailReason.Offline -> {
+            stringResource(R.string.streams_offline)
+        }
+
         FailReason.LinkExpired -> {
             stringResource(R.string.streams_link_expired)
         }

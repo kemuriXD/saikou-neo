@@ -60,8 +60,10 @@ public data class StepResult(
     val took: Duration,
 )
 
-// How long one step can take before it counts as no answer.
+// How long one step can take before it counts as no answer. Reaching the site can include its browser check, which a
+// slow TV can take over a minute to pass (#356).
 internal val STEP_LIMIT = 30.seconds
+private val SITE_STEP_LIMIT = SITE_CHECK_LIMIT + STEP_LIMIT
 
 /**
  * Checks an installed source from loading to stream, without playing anything. It walks the path playback takes and
@@ -90,7 +92,7 @@ public class SourceChecker(
             var value: T? = null
             val outcome =
                 try {
-                    value = withTimeout(STEP_LIMIT) { withContext(work) { block() } }
+                    value = withTimeout(if (step == CheckStep.SITE) SITE_STEP_LIMIT else STEP_LIMIT) { withContext(work) { block() } }
                     if (value == null) StepOutcome.Skipped else StepOutcome.Passed
                 } catch (e: TimeoutCancellationException) {
                     StepOutcome.Failed(FailReason.NoAnswer)

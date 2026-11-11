@@ -145,6 +145,25 @@ class ServersViewModelTest {
         }
 
     @Test
+    fun aSourceGetsPastItsSiteBrowserCheckOnASlowTv() =
+        test {
+            val finder = FakeFinder(mapOf(example.id to listOf(sub1)))
+            val gate = finder.gate(example)
+            val checking = MutableStateFlow(true)
+            val servers = ServersViewModel(finder, MutableStateFlow(listOf(example)), show, 8, SubOrDub.BOTH, siteChecking = checking)
+
+            // A Fire TV takes over a minute to pass the check, then the source asks the site for its servers (#356).
+            advanceTimeBy(68.seconds)
+            assertEquals(SourceAnswer.Looking, servers.answer())
+            checking.value = false
+            advanceTimeBy(3.seconds)
+            gate.complete(Unit)
+            advanceTimeBy(1.seconds)
+
+            assertEquals(listOf(sub1), servers.servers(example))
+        }
+
+    @Test
     fun aSourceAnsweringJustInTimeIsShown() =
         test {
             val finder = FakeFinder(mapOf(example.id to listOf(sub1)))

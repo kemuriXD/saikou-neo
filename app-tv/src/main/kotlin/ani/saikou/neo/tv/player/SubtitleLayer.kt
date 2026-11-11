@@ -14,8 +14,12 @@ import androidx.media3.common.text.CueGroup
 import androidx.media3.common.util.UnstableApi
 import androidx.media3.ui.CaptionStyleCompat
 import androidx.media3.ui.PlayerView
+import androidx.media3.ui.SubtitleView
 import ani.saikou.neo.shared.settings.SubtitleDrawing
 import ani.saikou.neo.shared.settings.toPaint
+
+// The space between subtitles and the controls under them, from the design.
+private const val CONTROLS_GAP_DP = 16
 
 /**
  * Puts subtitles on [view]'s video: plain lines through [LookSubtitles] in the look, and styled lines or pictures
@@ -33,12 +37,16 @@ internal class SubtitleLayer(
     private var styledTrack = false
     private var hdr = false
     private var sample: Sample? = null
+    private var above: Float? = null
+    private val gap = CONTROLS_GAP_DP * view.resources.displayMetrics.density
 
     init {
         // Beside Media3's view, inside the frame that fits the video, so sizes and places follow the picture.
         val frame = media3?.parent as? ViewGroup ?: view
         val at = media3?.let { frame.indexOfChild(it) + 1 } ?: frame.childCount
         frame.addView(ours, at, ViewGroup.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT))
+        // The picture can move or change size under the controls.
+        ours.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> clear() }
     }
 
     fun attach(player: Player) {
@@ -59,6 +67,31 @@ internal class SubtitleLayer(
     fun draw(drawing: SubtitleDrawing) {
         this.drawing = drawing
         restyle()
+    }
+
+    /**
+     * Keeps every line, ours and Media3's, above [windowY], a line in the window such as the top of the open controls,
+     * with a small gap. Null lets them sit where the look puts them.
+     */
+    fun keepAbove(windowY: Float?) {
+        if (windowY == above) return
+        above = windowY
+        clear()
+    }
+
+    private fun clear() {
+        val above = above
+        val clearBottom =
+            if (above == null || ours.height == 0) {
+                0f
+            } else {
+                val at = IntArray(2).also(ours::getLocationInWindow)
+                (at[1] + ours.height - above + gap).coerceAtLeast(0f)
+            }
+        ours.clearBottom = clearBottom
+        val height = media3?.height ?: 0
+        val fraction = if (height > 0) clearBottom / height else 0f
+        media3?.setBottomPaddingFraction(maxOf(SubtitleView.DEFAULT_BOTTOM_PADDING_FRACTION, fraction))
     }
 
     /** Shows [sample] when no line is on, beside the side panel, while the looks are open. Null takes it away. */

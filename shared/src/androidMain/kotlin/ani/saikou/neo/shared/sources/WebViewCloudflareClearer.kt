@@ -11,6 +11,7 @@ import android.webkit.WebViewClient
 import ani.saikou.neo.extension.api.SourceException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.Cookie
@@ -19,7 +20,6 @@ import okhttp3.HttpUrl
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 
 /**
  * Mints a Cloudflare clearance by loading the site in an offscreen WebView with
@@ -34,12 +34,22 @@ internal class WebViewCloudflareClearer(
     private val context: Context,
     private val cookieJar: CookieJar,
     private val userAgent: String = SOURCE_USER_AGENT,
-    private val timeout: Duration = 25.seconds,
+    private val timeout: Duration = SITE_CHECK_LIMIT,
     private val clearanceLifetime: Duration = 30.minutes,
 ) : CloudflareClearer {
     private val lastByHost = mutableMapOf<String, Clearance>()
+    private val checks = SiteChecks()
 
+    /** Whether a check is running now, for those waiting on a source to allow for it. */
+    val checking: StateFlow<Boolean> = checks.checking
+
+    // One WebView at a time: asking again while a check runs waits for it and takes its clearance, or its failure.
     override suspend fun clear(url: HttpUrl): Clearance? =
+        withContext(Dispatchers.Main) {
+            checks.run(url.host) { clearNow(url) }
+        }
+
+    private suspend fun clearNow(url: HttpUrl): Clearance? =
         withContext(Dispatchers.Main) {
             lastByHost[url.host]?.let { if (it.isFresh(System.currentTimeMillis())) return@withContext it }
 

@@ -194,4 +194,14 @@ class StreamMediaTest {
 
         assertEquals(PlayerError.Failed(FailReason.SourceDown), broken.toPlayerError())
     }
+
+    @Test
+    fun withNoConnectionTheTvIsOffline() {
+        val lost =
+            PlaybackException("No route", IOException("Unable to resolve host"), PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED)
+
+        assertEquals(PlayerError.Failed(FailReason.Offline), lost.toPlayerError(online = false))
+        assertEquals(PlayerError.Failed(FailReason.Offline), httpError(503).toPlayerError(online = false))
+        assertEquals(PlayerError.Failed(FailReason.SourceDown), lost.toPlayerError(online = true))
+    }
 }

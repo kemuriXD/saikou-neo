@@ -10,7 +10,10 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
@@ -56,6 +59,7 @@ import ani.saikou.neo.tv.settings.settingsCategoryTag
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.RAIL_SCRIM_TAG
 import ani.saikou.neo.tv.ui.RAIL_TAG
+import ani.saikou.neo.tv.ui.RailWidth
 import ani.saikou.neo.tv.ui.Section
 import ani.saikou.neo.tv.ui.railTag
 import org.junit.Assert.assertFalse
@@ -164,6 +168,52 @@ class NeoNavigationTest {
         back()
 
         compose.activityRule.scenario.onActivity { assertTrue(it.isFinishing) }
+    }
+
+    @Test
+    fun backInTheRowsGoesToTheTopFirst() {
+        show()
+        enterRows()
+        press(Key.DirectionDown)
+        press(Key.DirectionRight, times = 3)
+
+        // It left the app from any row (#365).
+        back()
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+        compose.activityRule.scenario.onActivity { assertFalse(it.isFinishing) }
+        back()
+        compose.activityRule.scenario.onActivity { assertTrue(it.isFinishing) }
+    }
+
+    @Test
+    fun backFromTheRailOverTheRowsClosesItFirst() {
+        show()
+        enterRows()
+        press(Key.DirectionLeft)
+
+        back()
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 0)).assertIsFocused()
+        compose.activityRule.scenario.onActivity { assertFalse(it.isFinishing) }
+    }
+
+    @Test
+    fun aScrolledRowShowsNoCardUnderTheRail() {
+        show()
+        enterRows()
+        press(Key.DirectionRight, times = 4)
+
+        // A cut-off card from the row left behind sat under the rail's icons (#366).
+        press(Key.DirectionDown)
+
+        val railEdge = with(compose.density) { RailWidth.toPx() }
+        val trending =
+            compose
+                .onAllNodes(hasTestTagStartingWith(homeCardTag(HomeRow.TRENDING, 0).dropLast(1)))
+                .fetchSemanticsNodes()
+        assertTrue(trending.isNotEmpty())
+        trending.forEach { card -> assertTrue("A card reaches ${card.boundsInRoot.left}", card.boundsInRoot.left >= railEdge - 0.5f) }
     }
 
     @Test
@@ -524,3 +574,6 @@ class NeoNavigationTest {
         compose.onNodeWithTag(RAIL_TAG).assertDoesNotExist()
     }
 }
+
+private fun hasTestTagStartingWith(prefix: String) =
+    SemanticsMatcher("Test tag starts with $prefix") { it.config.getOrNull(SemanticsProperties.TestTag)?.startsWith(prefix) == true }

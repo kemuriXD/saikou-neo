@@ -1,16 +1,26 @@
 package ani.saikou.neo.tv.player
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -20,6 +30,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
+import androidx.tv.material3.Button
+import androidx.tv.material3.Text
 import ani.saikou.neo.extension.api.Quality
 import ani.saikou.neo.extension.api.Stream
 import ani.saikou.neo.extension.api.StreamFormat
@@ -43,6 +55,7 @@ import ani.saikou.neo.shared.playback.Segment
 import ani.saikou.neo.shared.playback.SegmentKind
 import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.shared.sources.InstalledSource
+import ani.saikou.neo.tv.theme.NeoColors
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -287,6 +300,40 @@ class PlayerControlsTest {
         press(Key.DirectionDown)
         press(Key.DirectionCenter)
         assertEquals(listOf(8), picks)
+    }
+
+    @Test
+    fun theArrowsStayInTheDrawerButAScreenComingBackCanTakeFocus() {
+        val details = FocusRequester()
+        compose.setContent {
+            NeoTheme {
+                Box {
+                    PlayerScreen(
+                        PlayerState(
+                            sub,
+                            PlayerPhase.Playing(answered),
+                        ),
+                        request.copy(episodes = episodes()),
+                        PlayerActions(),
+                        playback,
+                        controls,
+                        video = {
+                        },
+                    )
+                    // Details, as it comes back under the player when an episode is picked.
+                    Button({}, Modifier.focusRequester(details).testTag("details")) { Text("Details") }
+                }
+            }
+        }
+        compose.waitForIdle()
+        press(Key.DirectionUp)
+        press(Key.DirectionLeft)
+        compose.onNodeWithTag(drawerEpisodeTag(7)).assertIsFocused()
+
+        compose.runOnUiThread { details.requestFocus() }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("details").assertIsFocused()
     }
 
     @Test
@@ -651,5 +698,58 @@ class PlayerControlsTest {
         assertEquals(before, playback.calls)
         compose.onNodeWithTag(PLAYER_SCRUB_TAG).assertDoesNotExist()
         assertTrue(controlsShown())
+    }
+
+    @Test
+    fun subtitlesKeepAboveTheBarAndTheScrubTime() {
+        var above: Float? = null
+        compose.setContent {
+            NeoTheme {
+                PlayerScreen(PlayerState(sub, PlayerPhase.Playing(answered)), request, PlayerActions(), playback, controls, video = {
+                    above =
+                        it
+                })
+            }
+        }
+        compose.waitForIdle()
+        assertEquals(null, above)
+
+        press(Key.DirectionDown)
+        assertEquals(top(PLAYER_BAR_TAG), above)
+
+        hold(Key.DirectionRight)
+        assertEquals(top(PLAYER_SCRUB_TAG), above)
+
+        back()
+        back()
+        assertEquals(null, above)
+    }
+
+    private fun top(tag: String) =
+        compose
+            .onNodeWithTag(tag)
+            .fetchSemanticsNode()
+            .boundsInWindow.top
+
+    @Test
+    fun aBrightSceneDoesNotShowThroughThePanel() {
+        compose.setContent {
+            NeoTheme {
+                PlayerScreen(
+                    PlayerState(sub, PlayerPhase.Playing(answered)),
+                    request,
+                    PlayerActions(),
+                    playback,
+                    controls,
+                    video = { Box(Modifier.fillMaxSize().background(Color.White)) },
+                )
+            }
+        }
+        compose.waitForIdle()
+        press(Key.Menu)
+
+        // Below the last row, where only the panel is (#359).
+        val panel = compose.onNodeWithTag(PLAYER_PANEL_TAG).captureToImage().toPixelMap()
+        assertEquals(NeoColors().ink, panel[panel.width / 2, panel.height - 4])
     }
 }

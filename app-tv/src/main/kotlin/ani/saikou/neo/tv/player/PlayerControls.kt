@@ -47,6 +47,8 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.positionInWindow
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -141,6 +143,7 @@ internal fun BoxScope.PlayerControls(
     playback: Playback,
     controls: ControlsViewModel,
     looks: Looks = Looks(),
+    onSubtitlesAbove: (windowY: Float?) -> Unit = {},
 ) {
     val shown by controls.state.collectAsStateWithLifecycle()
     val visible = shown.shown || shown.nudgeMs != null
@@ -316,6 +319,12 @@ internal fun BoxScope.PlayerControls(
     ) {
         val bars = remember(state.segments, durationMs) { stretches(state.segments, durationMs) }
         val scrub = shown.scrub
+        // The highest of the bar, the time and the scrub time, for subtitles to stay above (#358).
+        var barTop by remember { mutableStateOf<Float?>(null) }
+        var scrubTop by remember { mutableStateOf<Float?>(null) }
+        val bottomShown = shown.panel == null && !(shown.episodes && episodes != null) && (shown.shown || shown.nudgeMs != null)
+        val above = if (bottomShown) listOfNotNull(barTop, scrubTop.takeIf { scrub != null }).minOrNull() else null
+        LaunchedEffect(above) { onSubtitlesAbove(above) }
         val headMs = scrub?.targetMs ?: positionMs
         val panel = shown.panel
         when {
@@ -339,7 +348,8 @@ internal fun BoxScope.PlayerControls(
                 Column(
                     Modifier
                         .align(Alignment.BottomStart)
-                        .padding(start = SideMargin, end = SideMargin, bottom = if (scrub == null) BarAboveButtons else BarAlone),
+                        .padding(start = SideMargin, end = SideMargin, bottom = if (scrub == null) BarAboveButtons else BarAlone)
+                        .onGloballyPositioned { barTop = it.positionInWindow().y },
                 ) {
                     SegmentBar(
                         bars,
@@ -373,13 +383,19 @@ internal fun BoxScope.PlayerControls(
                         Modifier.align(Alignment.BottomStart),
                     )
                 } else {
-                    ScrubReadout(scrub.targetMs, scrub.jumpMs, durationMs)
+                    ScrubReadout(scrub.targetMs, scrub.jumpMs, durationMs) { scrubTop = it }
                     ScrubHints(scrub.fromMs, Modifier.align(Alignment.BottomCenter))
                 }
             }
 
             shown.nudgeMs != null -> {
-                Nudge(shown.nudgeMs ?: 0, bars, positionMs, durationMs, Modifier.align(Alignment.BottomStart))
+                Nudge(
+                    shown.nudgeMs ?: 0,
+                    bars,
+                    positionMs,
+                    durationMs,
+                    Modifier.align(Alignment.BottomStart).onGloballyPositioned { barTop = it.positionInWindow().y },
+                )
             }
         }
     }
@@ -753,6 +769,7 @@ private fun BoxScope.ScrubReadout(
     targetMs: Long,
     jumpMs: Long,
     durationMs: Long,
+    onTop: (windowY: Float) -> Unit,
 ) {
     val colors = NeoTheme.colors
     BoxWithConstraints(Modifier.matchParentSize()) {
@@ -765,6 +782,7 @@ private fun BoxScope.ScrubReadout(
                 .offset(x = left)
                 .padding(bottom = ScrubAbove)
                 .width(ScrubWidth)
+                .onGloballyPositioned { onTop(it.positionInWindow().y) }
                 .testTag(PLAYER_SCRUB_TAG),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.Bottom,

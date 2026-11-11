@@ -1,5 +1,8 @@
 package ani.saikou.neo.tv.settings
 
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputConnectionWrapper
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -37,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
@@ -49,6 +53,8 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.InterceptPlatformTextInput
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -180,6 +186,9 @@ internal val Small
 
 internal val Body
     @Composable get() = NeoTheme.typography.caption.copy(fontSize = 14.sp, lineHeight = 20.sp)
+
+private val FieldText
+    @Composable get() = NeoTheme.typography.body.copy(fontSize = 16.sp)
 
 internal val RowTitle
     @Composable get() = NeoTheme.typography.label.copy(fontSize = 15.sp, lineHeight = 20.sp, fontWeight = FontWeight.SemiBold)
@@ -316,7 +325,7 @@ internal fun BoxScope.SourcesPanels(
     SlidingPanel(open) { panel, active, motion ->
         when (panel) {
             SourcePanel.Add -> {
-                AddPanel(adding, active, onAdd = actions.onAdd, onClose = closeAdd, modifier = motion)
+                AddPanel(adding, active, onAdd = actions.onAdd, onClose = closeAdd, onReset = actions.onDismiss, modifier = motion)
             }
 
             is SourcePanel.Remove -> {
@@ -543,7 +552,8 @@ internal fun SourceBadge(
 
 /**
  * Add a source: a field for the link or code, which opens the TV's keyboard on OK, and Add. While the app checks,
- * Add says so; if it fails, the reason shows under the field and the text stays.
+ * Add says so; if it fails, the reason shows under the field and the text stays. It opens with [onReset] for an error
+ * left from before.
  */
 @Composable
 private fun BoxScope.AddPanel(
@@ -551,19 +561,28 @@ private fun BoxScope.AddPanel(
     active: Boolean,
     onAdd: (String) -> Unit,
     onClose: () -> Unit,
+    onReset: () -> Unit,
     modifier: Modifier,
 ) {
     val colors = NeoTheme.colors
     val text = rememberTextFieldState()
     val field = remember { FocusRequester() }
-    // LocalSoftwareKeyboardController can't open the keyboard for a BasicTextField whose session we don't
-    // show on focus, so ask the IME for this view directly (same thing a tap would do).
+    // The field only starts its text session, which tells the keyboard it's a link field with Go, once OK asks to
+    // type. Without one, a keyboard like Fire TV's types into a plain view and sends Enter for Go (#355). After that,
+    // OK reopens a keyboard that Back closed.
     val view = LocalView.current
     val keyboard = remember(view) { SoftwareKeyboardControllerCompat(view) }
     var focused by remember { mutableStateOf(false) }
+    var typing by remember { mutableStateOf(false) }
+    val focusManager = LocalFocusManager.current
     val checking = adding == Adding.Checking
     val add = { if (!checking) onAdd(text.text.toString()) }
-    LaunchedEffect(Unit) { field.requestFocus() }
+    LaunchedEffect(Unit) {
+        field.requestFocus()
+        // An error from before belongs to an earlier panel. One can go without closing itself, such as when Settings
+        // is left while it slides in, so the panel drops it as it opens (#363).
+        if (adding is Adding.Failed) onReset()
+    }
     val title = stringResource(R.string.sources_add)
     SidePanel(title, SourcePanelWidth, active, onClose, modifier) {
         Text(title, style = PaneTitle, color = colors.paper)
@@ -575,50 +594,64 @@ private fun BoxScope.AddPanel(
             modifier = Modifier.padding(top = 4.dp),
         )
         val label = stringResource(R.string.sources_field_label)
-        BasicTextField(
-            state = text,
-            modifier =
-                Modifier
-                    .testTag(SOURCE_FIELD_TAG)
-                    .focusRequester(field)
-                    .onFocusChanged { focused = it.isFocused }
-                    // OK opens the keyboard, so moving through the panel doesn't.
-                    .onPreviewKeyEvent { event ->
-                        val ok = event.key == Key.DirectionCenter || event.key == Key.Enter
-                        if (ok && event.type == KeyEventType.KeyUp) keyboard.show()
-                        ok
-                    }.semantics { contentDescription = label },
-            textStyle = NeoTheme.typography.body.copy(fontSize = 16.sp, color = colors.paper),
-            keyboardOptions =
-                KeyboardOptions(
-                    keyboardType = KeyboardType.Uri,
-                    imeAction = ImeAction.Go,
-                    autoCorrectEnabled = false,
-                    showKeyboardOnFocus = false,
-                ),
-            onKeyboardAction = {
-                keyboard.hide()
-                add()
-            },
-            lineLimits = TextFieldLineLimits.SingleLine,
-            cursorBrush = SolidColor(colors.paper),
-            decorator = { inner ->
-                Box(
+        val ring = if (focused) BorderStroke(NeoTheme.dimensions.focusRing, colors.focus) else BorderStroke(1.dp, colors.line)
+        // Fire TV's keyboard always has a Previous key, which Back presses. With one field, it closes the keyboard.
+        InterceptPlatformTextInput({ request, next ->
+            next.startInputMethod { info -> PreviousCloses(request.createInputConnection(info), keyboard::hide) }
+        }) {
+            BasicTextField(
+                state = text,
+                modifier =
                     Modifier
-                        .fillMaxWidth()
-                        .height(FieldHeight)
-                        .background(colors.ink, RoundedCornerShape(12.dp))
-                        .border(
-                            if (focused) BorderStroke(NeoTheme.dimensions.focusRing, colors.focus) else BorderStroke(1.dp, colors.line),
-                            RoundedCornerShape(12.dp),
-                        ).padding(horizontal = 16.dp),
-                    contentAlignment = Alignment.CenterStart,
-                ) {
-                    if (text.text.isEmpty()) Text(label, style = NeoTheme.typography.body.copy(fontSize = 16.sp), color = colors.textFaint)
-                    inner()
-                }
-            },
-        )
+                        .testTag(SOURCE_FIELD_TAG)
+                        .focusRequester(field)
+                        .onFocusChanged {
+                            focused = it.isFocused
+                            if (!it.isFocused) typing = false
+                        }
+                        // OK opens the keyboard, so moving through the panel doesn't. The field is one line, so Down
+                        // goes to Add even when the cursor isn't at the end.
+                        .onPreviewKeyEvent { event ->
+                            val ok = event.key == Key.DirectionCenter || event.key == Key.Enter
+                            if (ok && event.type == KeyEventType.KeyUp) {
+                                if (typing) keyboard.show() else typing = true
+                            }
+                            val down = event.key == Key.DirectionDown
+                            if (down && event.type == KeyEventType.KeyDown) focusManager.moveFocus(FocusDirection.Down)
+                            ok || down
+                        }.semantics { contentDescription = label },
+                textStyle = FieldText.copy(color = colors.paper),
+                keyboardOptions =
+                    KeyboardOptions(
+                        keyboardType = KeyboardType.Uri,
+                        imeAction = ImeAction.Go,
+                        autoCorrectEnabled = false,
+                        showKeyboardOnFocus = typing,
+                    ),
+                onKeyboardAction = {
+                    keyboard.hide()
+                    add()
+                },
+                lineLimits = TextFieldLineLimits.SingleLine,
+                cursorBrush = SolidColor(colors.paper),
+                decorator = { inner ->
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(FieldHeight)
+                            .background(colors.ink, RoundedCornerShape(12.dp))
+                            .border(
+                                ring,
+                                RoundedCornerShape(12.dp),
+                            ).padding(horizontal = 16.dp),
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        if (text.text.isEmpty()) Text(label, style = FieldText, color = colors.textFaint)
+                        inner()
+                    }
+                },
+            )
+        }
         (adding as? Adding.Failed)?.let {
             Text(stringResource(it.error.message), style = Body, color = colors.warning)
         }
@@ -627,6 +660,18 @@ private fun BoxScope.AddPanel(
             onClick = add,
             modifier = Modifier.padding(top = 4.dp),
         )
+    }
+}
+
+/** Sends every editor action on, except Previous, which only runs [close]. */
+private class PreviousCloses(
+    target: InputConnection,
+    private val close: () -> Unit,
+) : InputConnectionWrapper(target, false) {
+    override fun performEditorAction(editorAction: Int): Boolean {
+        if (editorAction != EditorInfo.IME_ACTION_PREVIOUS) return super.performEditorAction(editorAction)
+        close()
+        return true
     }
 }
 

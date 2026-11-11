@@ -72,6 +72,14 @@ internal class LookSubtitles(
             lay()
         }
 
+    /** Pixels at the bottom the lines stay above, such as where the controls sit while they're open. */
+    var clearBottom = 0f
+        set(value) {
+            if (field == value) return
+            field = value
+            lay()
+        }
+
     init {
         isFocusable = false
     }
@@ -143,7 +151,7 @@ internal class LookSubtitles(
                 .setIncludePad(false)
                 .build()
         val gap = height * placement.fraction
-        val top = if (placement.fromTop) gap else height - gap - laid.height
+        val top = (if (placement.fromTop) gap else height - gap - laid.height).coerceAtMost(height - clearBottom - laid.height)
         val pad = textPx * if (paint.bandArgb != null) BAND_PAD else BOX_PAD_Y
         layoutLeft = padX
         layoutTop = top.coerceIn(pad, (height - laid.height - pad).coerceAtLeast(pad))

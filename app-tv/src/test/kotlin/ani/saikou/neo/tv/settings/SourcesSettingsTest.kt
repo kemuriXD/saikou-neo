@@ -1,6 +1,11 @@
 package ani.saikou.neo.tv.settings
 
 import android.content.Context
+import android.text.InputType
+import android.view.ViewGroup
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
+import android.view.inputmethod.InputConnectionWrapper
 import android.view.inputmethod.InputMethodManager
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableStateOf
@@ -24,7 +29,9 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextInputSelection
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.sources.AddError
@@ -47,6 +54,7 @@ import org.robolectric.annotation.Config
 
 private val example = InstalledSource("ani.saikou.neo.example", "Example source", "1.4.0")
 private val demo = InstalledSource("ani.saikou.neo.demo", "Demo source", "0.9.0")
+private const val URI_TYPE_MASK = InputType.TYPE_MASK_CLASS or InputType.TYPE_MASK_VARIATION
 
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -190,6 +198,65 @@ class SourcesSettingsTest {
 
     @Test
     @Config(sdk = [29])
+    fun okOnTheFieldGivesTheKeyboardALinkFieldWithGo() {
+        show(SourcesState(emptyList()))
+        press(Key.DirectionCenter)
+
+        press(Key.DirectionCenter)
+
+        // Without a text session, a keyboard like Fire TV's types into a plain view: its action key sends Enter, which
+        // the field takes as OK, so the keyboard never closes (#355).
+        val info = EditorInfo()
+        connect(info)
+        assertEquals(EditorInfo.IME_ACTION_GO, info.imeOptions and EditorInfo.IME_MASK_ACTION)
+        assertEquals(InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI, info.inputType and URI_TYPE_MASK)
+    }
+
+    @Test
+    @Config(sdk = [29])
+    fun previousOnTheKeyboardClosesItAndKeepsTheText() {
+        show(SourcesState(emptyList()))
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(SOURCE_FIELD_TAG).performTextInput("abc")
+        press(Key.DirectionCenter)
+        val imm = compose.activity.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        assertEquals(true, shadowOf(imm).isSoftInputVisible)
+
+        // Fire TV's keyboard sends Previous for Back.
+        val connection = connect(EditorInfo())
+        compose.runOnUiThread { connection.performEditorAction(EditorInfo.IME_ACTION_PREVIOUS) }
+        compose.waitForIdle()
+
+        assertEquals(false, shadowOf(imm).isSoftInputVisible)
+        assertEquals(emptyList<String>(), added)
+        compose.onNodeWithTag(SOURCE_FIELD_TAG).assertTextEquals("abc", includeEditableText = true)
+    }
+
+    @Test
+    fun downFromTheFieldGoesStraightToAdd() {
+        show(SourcesState(emptyList()))
+        press(Key.DirectionCenter)
+        // Fire TV's keyboard leaves the cursor at the start.
+        compose.onNodeWithTag(SOURCE_FIELD_TAG).performTextInput("abc")
+        compose.onNodeWithTag(SOURCE_FIELD_TAG).performTextInputSelection(TextRange(0))
+
+        press(Key.DirectionDown)
+
+        compose.onNodeWithText("Add").assertIsFocused()
+    }
+
+    /** The keyboard's connection to the focused field, as the TV's keyboard would get it. */
+    private fun connect(info: EditorInfo): InputConnection {
+        var connection: InputConnection? = null
+        compose.runOnUiThread {
+            val content = compose.activity.findViewById<ViewGroup>(android.R.id.content)
+            connection = (content.getChildAt(0) as ViewGroup).getChildAt(0).onCreateInputConnection(info)
+        }
+        return connection ?: InputConnectionWrapper(null, false)
+    }
+
+    @Test
+    @Config(sdk = [29])
     fun doneOnTheKeyboardClosesItAndSendsTheLink() {
         show(SourcesState(emptyList()))
         press(Key.DirectionCenter)
@@ -218,6 +285,34 @@ class SourcesSettingsTest {
         update { copy(adding = Adding.Failed(AddError.NO_SUCH_CODE)) }
         compose.onNodeWithText("No source has that code. Check it and try again.").assertIsDisplayed()
         compose.onNodeWithTag(SOURCE_FIELD_TAG).assertTextEquals("nothing", includeEditableText = true)
+    }
+
+    @Test
+    fun addASourceOpensWithoutAnErrorLeftFromBefore() {
+        // The panel can go without closing itself, such as when Settings is left while it slides in (#363).
+        state.value = SourcesState(emptyList(), Adding.Failed(AddError.NOT_SECURE))
+        compose.setContent {
+            NeoTheme {
+                SettingsScreen(
+                    Settings(),
+                    onChoose = { _, _ -> },
+                    sources = state.value,
+                    sourceActions =
+                        SourceActions(onDismiss = {
+                            dismissed++
+                            state.value = state.value.copy(adding = Adding.Idle)
+                        }),
+                )
+            }
+        }
+        press(Key.DirectionDown, times = 4)
+        press(Key.DirectionRight)
+
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithTag(SOURCE_FIELD_TAG).assertIsFocused()
+        compose.onNodeWithText("That link isn't secure. Use one that starts with https://.").assertDoesNotExist()
+        assertEquals(1, dismissed)
     }
 
     @Test

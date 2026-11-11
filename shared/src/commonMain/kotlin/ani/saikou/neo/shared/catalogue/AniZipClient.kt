@@ -37,9 +37,10 @@ public class AniZipClient internal constructor(
         // The engine blocks while it waits for the network, so keep it off the main thread, as ApolloClient does.
         withContext(io) {
             try {
-                val response = engine.execute(HttpRequest.Builder(HttpMethod.Get, "$ANIZIP_URL?anilist_id=$anilistId").build())
-                val body = response.body
-                if (response.statusCode != 200 || body == null) null else body.use { it.jsonReader().read() }
+                engine
+                    .execute(
+                        HttpRequest.Builder(HttpMethod.Get, "$ANIZIP_URL?anilist_id=$anilistId").build(),
+                    ).readIfOk { it.jsonReader().read() }
             } catch (_: ApolloException) {
                 null
             } catch (_: IOException) {

@@ -206,6 +206,7 @@ class MainActivity : ComponentActivity() {
                                                 show,
                                                 episode,
                                                 settings.subOrDub,
+                                                siteChecking = app.sourceHost.siteChecking,
                                             )
                                         }
                                     val serversState by servers.state.collectAsStateWithLifecycle()
@@ -351,7 +352,7 @@ class MainActivity : ComponentActivity() {
                                 ),
                                 playback,
                                 controls,
-                                video = {
+                                video = { subtitlesAbove ->
                                     StreamVideo(
                                         state,
                                         state.server.server.edition,
@@ -362,6 +363,8 @@ class MainActivity : ComponentActivity() {
                                         looks.drawing,
                                         onPlayed = player::played,
                                         sample = sample.takeIf { shown.looks },
+                                        subtitlesAbove = subtitlesAbove,
+                                        online = ::isOnline,
                                     )
                                 },
                                 looks =

@@ -162,6 +162,17 @@ class PlayerScreenTest {
     }
 
     @Test
+    fun stoppedWithNoConnectionSaysTheTvIsOffline() {
+        state.value = state.value.copy(phase = PlayerPhase.Stopped(FailReason.Offline, null, 724_000, two))
+        show()
+
+        compose.onNodeWithText("No internet connection").assertExists()
+        compose.onNodeWithText("This TV isn’t online. Check its Wi-Fi or cable. E7 stopped at 12:04.").assertExists()
+        compose.onNodeWithText("Server 1 stopped answering").assertDoesNotExist()
+        compose.onNodeWithText("Try Server 1 again").assertExists()
+    }
+
+    @Test
     fun eachStoppedButtonDoesItsJob() {
         state.value = state.value.copy(phase = PlayerPhase.Stopped(FailReason.SourceDown, null, null, two))
         show()

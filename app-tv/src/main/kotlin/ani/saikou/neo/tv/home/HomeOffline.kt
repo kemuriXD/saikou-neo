@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -12,12 +11,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -34,7 +31,6 @@ private val MessageStart = 160.dp
 private val MessageTop = 140.dp
 private val MessageWidth = 520.dp
 private const val BODY_ALPHA = 0.8f
-private const val WATERMARK_ALPHA = 0.04f
 
 /**
  * What Home shows when the TV isn't online: Try again, which has focus, calls [onRetry], and Network settings calls
@@ -56,15 +52,6 @@ internal fun HomeOffline(
         onDispose { onInView(false) }
     }
     Box(modifier.fillMaxSize()) {
-        // A large faint word in the corner, as in the design.
-        Text(
-            text = stringResource(R.string.home_offline_watermark),
-            style = typography.display.copy(fontSize = 300.sp, lineHeight = 300.sp, letterSpacing = (-12).sp),
-            color = colors.paper.copy(alpha = WATERMARK_ALPHA),
-            maxLines = 1,
-            softWrap = false,
-            modifier = Modifier.align(Alignment.BottomEnd).offset(30.dp, 80.dp).clearAndSetSemantics {},
-        )
         Column(
             Modifier.padding(start = MessageStart, top = MessageTop).width(MessageWidth),
             verticalArrangement = Arrangement.spacedBy(14.dp),

@@ -162,6 +162,23 @@ class SourceCheckerTest {
         }
 
     @Test
+    fun aSiteBehindASlowBrowserCheckStillPasses() =
+        runTest {
+            // A Fire TV can take over a minute to pass a site's browser check (#356).
+            val host =
+                object : HostServices by FakeHost() {
+                    override suspend fun http(request: HostRequest): HostResponse {
+                        delay(70.seconds)
+                        return HostResponse(200)
+                    }
+                }
+
+            val steps = checker(FakeSource(), host).check(installed)
+
+            assertEquals(SITE to StepOutcome.Passed, steps.outcomes()[1])
+        }
+
+    @Test
     fun eachStepRecordsHowLongItTook() =
         runTest {
             val source =

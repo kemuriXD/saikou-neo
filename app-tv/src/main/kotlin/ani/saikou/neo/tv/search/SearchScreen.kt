@@ -455,11 +455,14 @@ private fun Keyboard(
             Text(query, style = NeoTheme.typography.label.copy(fontSize = 16.sp), color = colors.paper, maxLines = 1)
         }
         Column(verticalArrangement = Arrangement.spacedBy(KeyGap)) {
-            KEYS.chunked(KEY_COLUMNS).forEach { row ->
+            KEYS.chunked(KEY_COLUMNS).forEachIndexed { index, row ->
+                // The field above only shows the query, so Up from the top row stays here rather than jumping across to
+                // the filters (#364).
+                val top = if (index == 0) Modifier.focusProperties { up = FocusRequester.Cancel } else Modifier
                 Row(horizontalArrangement = Arrangement.spacedBy(KeyGap)) {
                     row.forEach { key ->
                         val focus = if (key == KEYS.first()) Modifier.focusRequester(first) else Modifier
-                        Key(key.toString(), { onType(key) }, colors.surface, focus.testTag(keyTag(key)).weight(1f))
+                        Key(key.toString(), { onType(key) }, colors.surface, top.then(focus).testTag(keyTag(key)).weight(1f))
                     }
                 }
             }

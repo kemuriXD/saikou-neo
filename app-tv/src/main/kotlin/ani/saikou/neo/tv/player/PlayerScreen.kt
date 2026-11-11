@@ -17,7 +17,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -121,7 +124,8 @@ private const val BACKDROP_BLUR = 3
 /**
  * The player for [request]: the video full screen, with the show's blurred art and what's happening while it starts,
  * and a dialog when the server stops answering. Once it plays, the remote's [controls] work [playback]. [video] draws
- * the player, and [looks] are the subtitle looks the side panel offers.
+ * the player, with subtitles kept above the given window line while the controls are open, and [looks] are the
+ * subtitle looks the side panel offers.
  */
 @Composable
 internal fun PlayerScreen(
@@ -130,13 +134,15 @@ internal fun PlayerScreen(
     actions: PlayerActions,
     playback: Playback,
     controls: ControlsViewModel,
-    video: @Composable () -> Unit,
+    video: @Composable (subtitlesAbove: Float?) -> Unit,
     modifier: Modifier = Modifier,
     looks: Looks = Looks(),
 ) {
     val scrim = NeoTheme.colors.scrimPlayer
+    // Where the open controls start, in the window, for subtitles to stay above.
+    var subtitlesAbove by remember { mutableStateOf<Float?>(null) }
     Box(modifier.fillMaxSize().background(scrim)) {
-        video()
+        video(subtitlesAbove.takeIf { state.phase is PlayerPhase.Playing })
         when (val phase = state.phase) {
             is PlayerPhase.Resume -> {
                 Backdrop(request, SolidColor(scrim.copy(alpha = RESUME_SCRIM)))
@@ -159,7 +165,7 @@ internal fun PlayerScreen(
             }
 
             is PlayerPhase.Playing -> {
-                PlayerControls(state, phase.answered, request, actions, playback, controls, looks)
+                PlayerControls(state, phase.answered, request, actions, playback, controls, looks) { subtitlesAbove = it }
             }
         }
     }
@@ -384,7 +390,11 @@ private fun BoxScope.Stopped(
     ) {
         Icon(NeoIcons.Warning, contentDescription = null, tint = colors.warning, modifier = Modifier.size(28.dp))
         Text(
-            stringResource(R.string.player_stopped_title, server.server.name),
+            if (phase.reason == FailReason.Offline) {
+                stringResource(R.string.home_offline_title)
+            } else {
+                stringResource(R.string.player_stopped_title, server.server.name)
+            },
             style = typography.titleLarge.copy(fontSize = 24.sp, lineHeight = 30.sp),
             color = colors.paper,
         )

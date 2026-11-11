@@ -5,6 +5,8 @@ import com.apollographql.apollo.api.http.HttpResponse
 import com.apollographql.apollo.network.http.HttpEngine
 import kotlinx.coroutines.test.runTest
 import okio.Buffer
+import okio.ForwardingSource
+import okio.buffer
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
@@ -106,6 +108,31 @@ class FanartTvClientTest {
                     ?.first()
                     ?.url,
             )
+        }
+
+    @Test
+    fun anAnswerWithoutArtIsStillClosed() =
+        runTest {
+            // A body left open leaks its connection, which piles up on TVs with little memory (#362).
+            var closed = false
+            val notFound =
+                object : HttpEngine {
+                    override suspend fun execute(request: HttpRequest): HttpResponse {
+                        val body =
+                            object : ForwardingSource(Buffer().writeUtf8("{\"status\":\"error\"}")) {
+                                override fun close() {
+                                    closed = true
+                                    super.close()
+                                }
+                            }
+                        return HttpResponse.Builder(404).body(body.buffer()).build()
+                    }
+
+                    override fun close() {}
+                }
+
+            assertNull(FanartTvClient(KEY, notFound).art(spiritedAway))
+            assertTrue(closed)
         }
 
     @Test

@@ -12,6 +12,7 @@ import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertTrue
 
 class SourceHttpClientTest {
     private val server = MockWebServer()
@@ -31,6 +32,12 @@ class SourceHttpClientTest {
         val builder = Headers.Builder()
         pairs.forEach { (name, value) -> builder.add(name, value) }
         return builder.build()
+    }
+
+    @Test
+    fun aCallLastsLongEnoughForASiteCheck() {
+        // The Cloudflare retry waits for the check inside the call, and a Fire TV can take over a minute to pass one (#356).
+        assertTrue(sharedHttpClient().callTimeoutMillis > SITE_CHECK_LIMIT.inWholeMilliseconds)
     }
 
     @Test
