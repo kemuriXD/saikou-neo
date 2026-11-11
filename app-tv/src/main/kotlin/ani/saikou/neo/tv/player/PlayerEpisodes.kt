@@ -67,6 +67,7 @@ import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.parseColour
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NeoTab
+import ani.saikou.neo.tv.ui.keepsArrowsIn
 import coil3.compose.AsyncImage
 
 internal const val PLAYER_EPISODES_TAG = "player-episodes"
@@ -131,8 +132,7 @@ internal fun BoxScope.PlayerEpisodes(
             .background(colors.ink.copy(alpha = DRAWER_FILL))
             .padding(top = DrawerEdge)
             .testTag(PLAYER_EPISODES_TAG)
-            .focusProperties { onExit = { cancelFocusChange() } }
-            .focusGroup(),
+            .keepsArrowsIn(),
         verticalArrangement = Arrangement.spacedBy(DrawerGap),
     ) {
         Column(Modifier.padding(horizontal = DrawerSide), verticalArrangement = Arrangement.spacedBy(2.dp)) {

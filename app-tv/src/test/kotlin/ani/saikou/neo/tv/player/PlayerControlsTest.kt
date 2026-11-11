@@ -1,13 +1,18 @@
 package ani.saikou.neo.tv.player
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
@@ -20,6 +25,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
+import androidx.tv.material3.Button
+import androidx.tv.material3.Text
 import ani.saikou.neo.extension.api.Quality
 import ani.saikou.neo.extension.api.Stream
 import ani.saikou.neo.extension.api.StreamFormat
@@ -287,6 +294,40 @@ class PlayerControlsTest {
         press(Key.DirectionDown)
         press(Key.DirectionCenter)
         assertEquals(listOf(8), picks)
+    }
+
+    @Test
+    fun theArrowsStayInTheDrawerButAScreenComingBackCanTakeFocus() {
+        val details = FocusRequester()
+        compose.setContent {
+            NeoTheme {
+                Box {
+                    PlayerScreen(
+                        PlayerState(
+                            sub,
+                            PlayerPhase.Playing(answered),
+                        ),
+                        request.copy(episodes = episodes()),
+                        PlayerActions(),
+                        playback,
+                        controls,
+                        video = {
+                        },
+                    )
+                    // Details, as it comes back under the player when an episode is picked.
+                    Button({}, Modifier.focusRequester(details).testTag("details")) { Text("Details") }
+                }
+            }
+        }
+        compose.waitForIdle()
+        press(Key.DirectionUp)
+        press(Key.DirectionLeft)
+        compose.onNodeWithTag(drawerEpisodeTag(7)).assertIsFocused()
+
+        compose.runOnUiThread { details.requestFocus() }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag("details").assertIsFocused()
     }
 
     @Test

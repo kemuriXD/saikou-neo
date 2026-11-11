@@ -7,8 +7,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.test.ExperimentalTestApi
@@ -43,6 +47,7 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.test.espresso.Espresso
+import androidx.tv.material3.Button
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipEpisode
@@ -61,6 +66,14 @@ import ani.saikou.neo.shared.details.Ratings
 import ani.saikou.neo.shared.details.episodeList
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.WatchProgress
+import ani.saikou.neo.shared.playback.FoundServer
+import ani.saikou.neo.shared.playback.PlayRequest
+import ani.saikou.neo.shared.playback.ServerEdition
+import ani.saikou.neo.shared.playback.ServersState
+import ani.saikou.neo.shared.playback.SourceAnswer
+import ani.saikou.neo.shared.playback.SourceServers
+import ani.saikou.neo.shared.settings.SubOrDub
+import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.tv.NeoNavigation
 import ani.saikou.neo.tv.home.HomeScreen
 import ani.saikou.neo.tv.home.card
@@ -473,6 +486,69 @@ class DetailsScreenTest {
         compose.waitForIdle()
         compose.onNodeWithText("Streams for 20").assertDoesNotExist()
         compose.onNodeWithTag(episodeTag(20)).assertIsFocused()
+    }
+
+    @Test
+    fun anEpisodePickedInThePlayerFocusesItsStreamsAndBackReturnsToIt() {
+        var fromPlayer by mutableStateOf<Int?>(null)
+        val state = DetailsState.Loaded(details, episodes = episodeList(details, null, today))
+        val source = InstalledSource("com.example.demo", "Demo source", "1.0.0")
+        val server = FoundServer("a", "Demo, Sub", ServerEdition.SUB, 24)
+        compose.setContent {
+            NeoTheme {
+                NeoNavigation(
+                    home = { openDetails, _ -> HomeScreen(loaded, onOpen = openDetails) },
+                    seeMore = { _, _ -> },
+                    details = { _, _, _, _, openPlayer ->
+                        DetailsScreen(
+                            state,
+                            // The sources are known as the page opens, as they are coming back from the player.
+                            streams = { episode, back, _ ->
+                                StreamsPage(
+                                    ServersState(listOf(SourceServers(source, SourceAnswer.Found(listOf(server)))), SubOrDub.BOTH),
+                                    episode,
+                                    "Show 7",
+                                    onPick = { _, _ -> openPlayer(PlayRequest(details, episode, null, emptyList(), picked = 0)) },
+                                    onEdition = {},
+                                    onRetry = {},
+                                    actions = StreamsActions(onRetry = {}, onBack = back, onAddSource = {}),
+                                )
+                            },
+                            openStreams = fromPlayer,
+                            onStreamsOpened = { fromPlayer = null },
+                        )
+                    },
+                    player = { _, back ->
+                        val drawer = remember { FocusRequester() }
+                        LaunchedEffect(Unit) { drawer.requestFocus() }
+                        Button(
+                            onClick = {
+                                fromPlayer = 3
+                                back()
+                            },
+                            modifier = Modifier.focusRequester(drawer),
+                        ) { Text("Episode 3") }
+                    },
+                )
+            }
+        }
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(sourceTag(source.id)).assertIsFocused()
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+        compose.onNodeWithText("Episode 3").assertIsFocused()
+
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(DETAILS_STREAMS_CRUMB_TAG).assert(hasText("E3", substring = true))
+        compose.onNodeWithTag(sourceTag(source.id)).assertIsFocused()
+        back()
+        compose.onNodeWithTag(episodeTag(3)).assertIsFocused()
     }
 
     @Test
