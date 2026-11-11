@@ -7,6 +7,7 @@ import ani.saikou.neo.extension.api.ExtractionResult
 import ani.saikou.neo.extension.api.HostRequest
 import ani.saikou.neo.extension.api.HostResponse
 import ani.saikou.neo.extension.api.HostServices
+import kotlinx.coroutines.flow.StateFlow
 import okhttp3.OkHttpClient
 
 /**
@@ -23,6 +24,9 @@ public class SourceHost(
     private val userAgent = runCatching { WebSettings.getDefaultUserAgent(context) }.getOrDefault(SOURCE_USER_AGENT)
     private val cookieJar = InMemoryCookieJar()
     private val clearer = WebViewCloudflareClearer(context, cookieJar, userAgent)
+
+    /** Whether a site's browser check is running, which a slow TV can take over a minute to pass. */
+    public val siteChecking: StateFlow<Boolean> = clearer.checking
 
     /** The shared client: the cookie jar, the pinned User-Agent and the Cloudflare retry. Media3 streams through it. */
     public val client: OkHttpClient = sharedHttpClient(cookieJar, clearer, userAgent)

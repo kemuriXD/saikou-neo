@@ -206,6 +206,7 @@ class MainActivity : ComponentActivity() {
                                                 show,
                                                 episode,
                                                 settings.subOrDub,
+                                                siteChecking = app.sourceHost.siteChecking,
                                             )
                                         }
                                     val serversState by servers.state.collectAsStateWithLifecycle()

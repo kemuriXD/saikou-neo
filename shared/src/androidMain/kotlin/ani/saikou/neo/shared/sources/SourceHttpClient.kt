@@ -15,6 +15,7 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.Response
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import kotlin.time.Duration.Companion.seconds
 
 /** The most of a response body to read into memory, so a hostile server can't run the app out of it. */
 internal const val MAX_BODY_BYTES: Long = 16L * 1024 * 1024
@@ -53,8 +54,9 @@ internal fun sharedHttpClient(
     OkHttpClient
         .Builder()
         .cookieJar(cookieJar)
-        // A whole call, including a slow drip, can't hold a connection and a thread forever.
-        .callTimeout(30, TimeUnit.SECONDS)
+        // A whole call, including a slow drip, can't hold a connection and a thread forever. It includes waiting for a
+        // site's browser check, which a slow TV can take over a minute to pass (#356).
+        .callTimeout((SITE_CHECK_LIMIT + 30.seconds).inWholeSeconds, TimeUnit.SECONDS)
         .addInterceptor { chain ->
             chain.proceed(
                 chain
