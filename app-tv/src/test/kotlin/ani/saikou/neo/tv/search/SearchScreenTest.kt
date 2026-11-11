@@ -132,6 +132,20 @@ class SearchScreenTest {
     }
 
     @Test
+    fun upFromTheTopKeysStaysOnTheKeys() {
+        show(found)
+        compose.onNodeWithTag(keyTag('a')).assertIsFocused()
+
+        // It jumped across to the filters (#364).
+        press(Key.DirectionRight, times = 5)
+        press(Key.DirectionUp)
+        compose.onNodeWithTag(keyTag('f')).assertIsFocused()
+
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(posterTag(0)).assertIsFocused()
+    }
+
+    @Test
     fun startsOnTheFirstKeyAndTypesWithTheRemote() {
         show()
 
