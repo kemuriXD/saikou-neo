@@ -351,7 +351,7 @@ class MainActivity : ComponentActivity() {
                                 ),
                                 playback,
                                 controls,
-                                video = {
+                                video = { subtitlesAbove ->
                                     StreamVideo(
                                         state,
                                         state.server.server.edition,
@@ -362,6 +362,7 @@ class MainActivity : ComponentActivity() {
                                         looks.drawing,
                                         onPlayed = player::played,
                                         sample = sample.takeIf { shown.looks },
+                                        subtitlesAbove = subtitlesAbove,
                                     )
                                 },
                                 looks =

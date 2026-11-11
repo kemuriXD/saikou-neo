@@ -95,4 +95,25 @@ class LookSubtitlesTest {
 
         assertEquals(null, view.labelBounds())
     }
+
+    @Test
+    fun linesStayAboveTheClearedBottom() {
+        // Two lines at 130 % on Raised, which sat on the seek bar (#358).
+        view.look(LookStyle().toPaint(), textFraction = 0.0533f * 1.3f, Placement(fromTop = false, fraction = 0.05f))
+        view.show(listOf("A first line of dialogue", "and a second one"))
+        view.clearBottom = 360f
+        layOut()
+
+        assertTrue(view.textBounds()!!.bottom <= 1080f - 360f)
+    }
+
+    @Test
+    fun linesAlreadyClearStayPut() {
+        view.look(LookStyle().toPaint(), textFraction = 0.0533f, Placement(fromTop = true, fraction = 0.1f))
+        view.show(listOf("One"))
+        view.clearBottom = 360f
+        layOut()
+
+        assertEquals(108f, view.textBounds()!!.top, 1f)
+    }
 }

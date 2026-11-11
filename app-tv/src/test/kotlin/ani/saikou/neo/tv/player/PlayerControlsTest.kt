@@ -693,4 +693,35 @@ class PlayerControlsTest {
         compose.onNodeWithTag(PLAYER_SCRUB_TAG).assertDoesNotExist()
         assertTrue(controlsShown())
     }
+
+    @Test
+    fun subtitlesKeepAboveTheBarAndTheScrubTime() {
+        var above: Float? = null
+        compose.setContent {
+            NeoTheme {
+                PlayerScreen(PlayerState(sub, PlayerPhase.Playing(answered)), request, PlayerActions(), playback, controls, video = {
+                    above =
+                        it
+                })
+            }
+        }
+        compose.waitForIdle()
+        assertEquals(null, above)
+
+        press(Key.DirectionDown)
+        assertEquals(top(PLAYER_BAR_TAG), above)
+
+        hold(Key.DirectionRight)
+        assertEquals(top(PLAYER_SCRUB_TAG), above)
+
+        back()
+        back()
+        assertEquals(null, above)
+    }
+
+    private fun top(tag: String) =
+        compose
+            .onNodeWithTag(tag)
+            .fetchSemanticsNode()
+            .boundsInWindow.top
 }
