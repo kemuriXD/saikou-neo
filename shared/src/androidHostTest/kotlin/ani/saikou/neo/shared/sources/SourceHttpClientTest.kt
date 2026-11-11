@@ -6,12 +6,16 @@ import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import okhttp3.Headers
+import okhttp3.Request
 import java.io.IOException
+import java.util.concurrent.TimeUnit
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.time.Duration.Companion.milliseconds
+import kotlin.time.Duration.Companion.seconds
 
 class SourceHttpClientTest {
     private val server = MockWebServer()
@@ -37,6 +41,28 @@ class SourceHttpClientTest {
     fun anOrdinaryCallGetsTheNormalLimit() {
         // Only a call waiting on a site's browser check is given longer, by the Cloudflare retry (#369).
         assertEquals(30_000, sharedHttpClient().callTimeoutMillis)
+    }
+
+    @Test
+    fun aMediaDownloadCanTakeLongerThanAnOrdinaryCall() {
+        // The whole-call limit includes reading the body, which for a large segment on a slow TV takes a while.
+        server.enqueue(
+            MockResponse
+                .Builder()
+                .body("x".repeat(64))
+                .throttleBody(16, 400, TimeUnit.MILLISECONDS)
+                .build(),
+        )
+        val ordinary = sharedHttpClient(callLimit = 500.milliseconds)
+
+        val media = ordinary.forMedia(limit = 10.seconds)
+
+        assertEquals(64, media.newCall(Request.Builder().url(server.url("/")).build()).execute().use { it.body.string().length })
+    }
+
+    @Test
+    fun mediaDownloadsGetTheLongLimit() {
+        assertEquals(150_000, sharedHttpClient().forMedia().callTimeoutMillis)
     }
 
     @Test

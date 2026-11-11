@@ -28,10 +28,16 @@ public class SourceHost(
     /** Whether a site's browser check is running, which a slow TV can take over a minute to pass. */
     public val siteChecking: StateFlow<Boolean> = clearer.checking
 
-    /** The shared client: the cookie jar, the pinned User-Agent and the Cloudflare retry. Media3 streams through it. */
-    public val client: OkHttpClient = sharedHttpClient(cookieJar, clearer, userAgent)
+    // Sources' own requests get the normal whole-call limit.
+    private val sourceClient = sharedHttpClient(cookieJar, clearer, userAgent)
 
-    private val http = SourceHttpClient(client)
+    /**
+     * The shared client for the player: the cookie jar, the pinned User-Agent and the Cloudflare retry, with room for a
+     * media download. Media3 streams through it.
+     */
+    public val client: OkHttpClient = sourceClient.forMedia()
+
+    private val http = SourceHttpClient(sourceClient)
     private val extractor = WebViewStreamExtractor(context, userAgent)
 
     /** Handed to each source through `SourceExtension.attach` before the app asks it for anything. */

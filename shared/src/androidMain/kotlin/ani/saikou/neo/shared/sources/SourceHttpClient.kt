@@ -50,6 +50,16 @@ internal val NORMAL_CALL_LIMIT: Duration = 30.seconds
 internal val SITE_CHECK_CALL_LIMIT: Duration = SITE_CHECK_LIMIT + 30.seconds
 
 /**
+ * How long one of the player's media downloads gets as a whole. The limit covers reading the body, so a large segment or
+ * file on a slow TV needs more than an ordinary call's. A download that stalls still fails at the read timeout.
+ */
+internal val MEDIA_CALL_LIMIT: Duration = 150.seconds
+
+/** This client for the player: the same connections, cookies, User-Agent and Cloudflare retry, with room for a media download. */
+internal fun OkHttpClient.forMedia(limit: Duration = MEDIA_CALL_LIMIT): OkHttpClient =
+    newBuilder().callTimeout(limit.inWholeMilliseconds, TimeUnit.MILLISECONDS).build()
+
+/**
  * The shared client. The pinned User-Agent is forced on every request, so a source can't change it. With a [clearer] it
  * also clears Cloudflare and keeps the clearance in [cookieJar] for later requests and the player. A call gets
  * [callLimit], and only one waiting on a browser check is given [siteCheckCallLimit] from when the check starts.
