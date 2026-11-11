@@ -120,6 +120,10 @@ private val SpotlightBottom = 320.dp
 
 // Content starts 24 dp clear of the closed rail.
 private val ContentStart = RailWidth + 24.dp
+
+// Rows scroll from the rail's edge, so a card scrolled past the keyline is cut there rather than showing under the
+// rail's icons (#366). The 24 dp left still fits a focused card's glow and growth.
+private val RowInset = ContentStart - RailWidth
 private val SpotlightWidth = 440.dp
 private val DotsTop = 344.dp
 private val RowsTop = 382.dp
@@ -345,11 +349,12 @@ private fun HomeRowSection(
         }
         // Up and down enter a row on the card you left, or its first card, not the one nearest on screen.
         val entryCard = lastCard?.takeIf { id -> id == SEE_MORE || rowState.items.any { it.id == id } } ?: rowState.items.firstOrNull()?.id
-        KeylineScrolling(keyline = ContentStart) {
+        KeylineScrolling(keyline = RowInset) {
             LazyRow(
                 state = listState,
                 modifier =
                     Modifier
+                        .padding(start = RailWidth)
                         .focusProperties {
                             onEnter = {
                                 if (requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down) {
@@ -357,7 +362,7 @@ private fun HomeRowSection(
                                 }
                             }
                         }.focusGroup(),
-                contentPadding = PaddingValues(start = ContentStart, end = dimensions.gridMargin),
+                contentPadding = PaddingValues(start = RowInset, end = dimensions.gridMargin),
                 horizontalArrangement = Arrangement.spacedBy(dimensions.gridGutter),
             ) {
                 // A card, or the See more button as SEE_MORE: focus is placed, entered and saved the same way.
