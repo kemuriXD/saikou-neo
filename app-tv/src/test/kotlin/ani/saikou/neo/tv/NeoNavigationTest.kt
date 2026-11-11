@@ -167,6 +167,34 @@ class NeoNavigationTest {
     }
 
     @Test
+    fun backInTheRowsGoesToTheTopFirst() {
+        show()
+        enterRows()
+        press(Key.DirectionDown)
+        press(Key.DirectionRight, times = 3)
+
+        // It left the app from any row (#365).
+        back()
+
+        compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused()
+        compose.activityRule.scenario.onActivity { assertFalse(it.isFinishing) }
+        back()
+        compose.activityRule.scenario.onActivity { assertTrue(it.isFinishing) }
+    }
+
+    @Test
+    fun backFromTheRailOverTheRowsClosesItFirst() {
+        show()
+        enterRows()
+        press(Key.DirectionLeft)
+
+        back()
+
+        compose.onNodeWithTag(homeCardTag(HomeRow.TRENDING, 0)).assertIsFocused()
+        compose.activityRule.scenario.onActivity { assertFalse(it.isFinishing) }
+    }
+
+    @Test
     fun selectingACardOpensItsDetails() {
         show()
 

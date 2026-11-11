@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv.home
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
@@ -30,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.listSaver
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -157,7 +159,7 @@ private data class CardKey(
  * Home: a spotlight on featured shows, over rows of anime that browse left and right. Selecting a show calls [onOpen];
  * the spotlight's dots call [onPick], and the button at the end of each row calls [onSeeMore]. [onSpotlightInView] says whether the spotlight is showing, so it only moves on
  * while seen. [onRest] gets the card focus is on, or null off the cards, so resting on one can find its art.
- * When the TV is offline, Home says so instead: Try again calls [onRetry], Network settings calls [onNetworkSettings],
+ * Back in the rows first returns to the top; Back there leaves. When the TV is offline, Home says so instead: Try again calls [onRetry], Network settings calls [onNetworkSettings],
  * and [onOfflineInView] says whether that's showing.
  */
 @Composable
@@ -213,6 +215,12 @@ fun HomeScreen(
         onDispose {}
     }
     DisposableEffect(Unit) { onDispose { onSpotlightInView(false) } }
+    // Down in the rows, Back first goes back to the top, so it doesn't leave the app by accident. Back there leaves (#365).
+    val scope = rememberCoroutineScope()
+    BackHandler(enabled = inRows) {
+        play.requestFocus()
+        scope.launch { columnState.scrollToItem(0) }
+    }
     // Behind the rows, the spotlight fades out and TalkBack skips it.
     val hide =
         Modifier.graphicsLayer { alpha = shown }.then(if (inRows) Modifier.semantics { hideFromAccessibility() } else Modifier)
