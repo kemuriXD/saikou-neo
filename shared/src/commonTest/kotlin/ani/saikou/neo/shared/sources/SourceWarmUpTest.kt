@@ -42,6 +42,29 @@ class SourceWarmUpTest {
         }
 
     @Test
+    fun sourcesStillBeingReadAreVisitedOnceTheyAreRead() =
+        runTest {
+            // The app reads its sources in the background, so Details can open before they're known.
+            val host = FakeHost()
+            val installed = MutableStateFlow<List<InstalledSource>?>(null)
+            val warmUp =
+                SourceWarmUp(
+                    installed = installed,
+                    extension = { FakeSource(site = "https://one.example/") },
+                    host = host,
+                    scope = backgroundScope,
+                    timeSource = testScheduler.timeSource,
+                )
+
+            warmUp.warm()
+            runCurrent()
+            installed.value = listOf(one)
+            runCurrent()
+
+            assertEquals(listOf("https://one.example/"), host.asked)
+        }
+
+    @Test
     fun aSourceThatCantBeUsedOrHasNoSiteIsSkipped() =
         runTest {
             val host = FakeHost()

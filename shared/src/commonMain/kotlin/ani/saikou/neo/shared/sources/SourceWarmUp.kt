@@ -6,6 +6,8 @@ import ani.saikou.neo.extension.api.SourceExtension
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -33,11 +35,15 @@ public class SourceWarmUp(
     private val lock = Mutex()
     private val visitedAt = mutableMapOf<String, TimeMark>()
 
-    /** Visits the sites of the sources installed now that haven't been visited lately. Returns at once. */
+    /**
+     * Visits the sites of the sources installed now that haven't been visited lately, once the installed sources have
+     * been read. Returns at once.
+     */
     public fun warm() {
         scope.launch {
-            installed.value
-                .orEmpty()
+            installed
+                .filterNotNull()
+                .first()
                 .filter { it.problem == null && claim(it.id) }
                 .forEach { source -> launch { visit(source) } }
         }
