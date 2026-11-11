@@ -45,7 +45,8 @@ class CloudflareChallengeTest {
 }
 
 class ClearanceTest {
-    private val clearance = Clearance(cookie = "cf_clearance=abc", userAgent = "a-user-agent", expiresAtMillis = 1_000)
+    private val clearance =
+        Clearance(cookie = "cf_clearance=abc", userAgent = "a-user-agent", mintedAtMillis = 100, expiresAtMillis = 1_000)
 
     @Test
     fun aClearanceIsFreshBeforeItExpires() {
@@ -56,5 +57,20 @@ class ClearanceTest {
     fun aClearanceIsStaleFromItsExpiryOnward() {
         assertFalse(clearance.isFresh(nowMillis = 1_000))
         assertFalse(clearance.isFresh(nowMillis = 1_001))
+    }
+
+    @Test
+    fun aClearanceMintedAfterARequestWasSentCanServeItsRetry() {
+        assertTrue(clearance.canRetry(sentAtMillis = 100, nowMillis = 500))
+    }
+
+    @Test
+    fun aClearanceMintedBeforeARequestWasSentIsTheOneItWasRefusedWith() {
+        assertFalse(clearance.canRetry(sentAtMillis = 101, nowMillis = 500))
+    }
+
+    @Test
+    fun aStaleClearanceCantServeARetry() {
+        assertFalse(clearance.canRetry(sentAtMillis = 0, nowMillis = 1_000))
     }
 }

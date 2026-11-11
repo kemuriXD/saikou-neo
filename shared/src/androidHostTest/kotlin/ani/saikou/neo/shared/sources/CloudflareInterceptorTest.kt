@@ -28,7 +28,9 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertIs
+import kotlin.test.assertNotNull
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.seconds
 
@@ -122,6 +124,20 @@ class CloudflareInterceptorTest {
         assertEquals(1, clearer.calls)
         server.takeRequest()
         assertEquals("cf_clearance=cleared", server.takeRequest().headers["Cookie"])
+    }
+
+    @Test
+    fun theClearerIsToldWhenTheChallengedRequestWentOut() {
+        // So it doesn't hand back the clearance the site just refused, such as one kept from before a restart.
+        val clearer = FakeClearer(jar, FakeClearer.Outcome.Clear)
+        server.enqueue(challenge())
+        server.enqueue(MockResponse(code = 200, body = "the page"))
+        val before = System.currentTimeMillis()
+
+        get(clearer).close()
+
+        val sentAt = assertNotNull(clearer.sentAt)
+        assertTrue(sentAt in before..System.currentTimeMillis())
     }
 
     @Test
@@ -247,9 +263,14 @@ private class FakeClearer(
     enum class Outcome { Clear, NeedsPerson, Error, Crash }
 
     var calls = 0
+    var sentAt: Long? = null
 
-    override suspend fun clear(url: HttpUrl): Clearance? {
+    override suspend fun clear(
+        url: HttpUrl,
+        sentAtMillis: Long,
+    ): Clearance? {
         calls++
+        sentAt = sentAtMillis
         delay(delayMillis)
         return when (outcome) {
             Outcome.Clear -> {
@@ -264,7 +285,7 @@ private class FakeClearer(
                             .build(),
                     ),
                 )
-                Clearance("cf_clearance=cleared", SOURCE_USER_AGENT, Long.MAX_VALUE)
+                Clearance("cf_clearance=cleared", SOURCE_USER_AGENT, sentAtMillis, Long.MAX_VALUE)
             }
 
             Outcome.NeedsPerson -> {

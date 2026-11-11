@@ -23,7 +23,7 @@ public class SourceHost(
     // The WebView's own User-Agent. Cloudflare doesn't finish its check for one that claims a different browser.
     private val userAgent = runCatching { WebSettings.getDefaultUserAgent(context) }.getOrDefault(SOURCE_USER_AGENT)
     private val cookieJar = InMemoryCookieJar()
-    private val clearer = WebViewCloudflareClearer(context, cookieJar, userAgent)
+    private val clearer = WebViewCloudflareClearer(context, cookieJar, userAgent, store = PrefsClearanceStore(context))
 
     /** Whether a site's browser check is running, which a slow TV can take over a minute to pass. */
     public val siteChecking: StateFlow<Boolean> = clearer.checking

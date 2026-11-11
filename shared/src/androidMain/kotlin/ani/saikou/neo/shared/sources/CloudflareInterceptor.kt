@@ -28,13 +28,14 @@ internal class CloudflareInterceptor(
     override fun intercept(chain: Interceptor.Chain): Response {
         // clear() needs the main thread, so this must run off it, or runBlocking would deadlock.
         requireOffMainThread()
+        val sentAt = System.currentTimeMillis()
         val response = chain.proceed(chain.request())
         if (!response.isCloudflareChallenge()) return response
         response.close()
 
         // Only now does this call wait on a browser check, so only now does it get the long limit.
         allowSiteCheck(chain)
-        clear(chain.request().url)
+        clear(chain.request().url, sentAt)
             ?: throw SourceFailure(SourceException.Blocked("Cloudflare needs a browser check a TV can't do"))
 
         val retry = chain.proceed(chain.request())
@@ -55,9 +56,12 @@ internal class CloudflareInterceptor(
         timer.enter()
     }
 
-    private fun clear(url: HttpUrl): Clearance? =
+    private fun clear(
+        url: HttpUrl,
+        sentAtMillis: Long,
+    ): Clearance? =
         try {
-            runBlocking { clearer.clear(url) }
+            runBlocking { clearer.clear(url, sentAtMillis) }
         } catch (e: SourceException) {
             throw SourceFailure(e)
         } catch (e: Exception) {

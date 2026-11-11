@@ -14,7 +14,6 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
-import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
 import java.util.concurrent.atomic.AtomicBoolean
@@ -28,7 +27,9 @@ import kotlin.time.Duration.Companion.minutes
  * [cookieJar], so the next request and the player send it. It gives up at
  * [timeout] (a challenge needing a person), returning null, and reports a page
  * that won't load as [SourceException.SourceDown]. The WebView has no bridge back
- * into the app and is destroyed after each call.
+ * into the app and is destroyed after each call. Each clearance is kept in
+ * [store], and those still usable go back into [cookieJar] when this starts, so a
+ * restart doesn't mean a new check.
  */
 internal class WebViewCloudflareClearer(
     private val context: Context,
@@ -36,22 +37,30 @@ internal class WebViewCloudflareClearer(
     private val userAgent: String = SOURCE_USER_AGENT,
     private val timeout: Duration = SITE_CHECK_LIMIT,
     private val clearanceLifetime: Duration = 30.minutes,
+    private val store: ClearanceStore? = null,
 ) : CloudflareClearer {
-    private val lastByHost = mutableMapOf<String, Clearance>()
+    private val lastByHost: MutableMap<String, Clearance> =
+        store?.let { seedClearances(it, cookieJar, userAgent, System.currentTimeMillis()).toMutableMap() } ?: mutableMapOf()
     private val checks = SiteChecks()
 
     /** Whether a check is running now, for those waiting on a source to allow for it. */
     val checking: StateFlow<Boolean> = checks.checking
 
     // One WebView at a time: asking again while a check runs waits for it and takes its clearance, or its failure.
-    override suspend fun clear(url: HttpUrl): Clearance? =
+    override suspend fun clear(
+        url: HttpUrl,
+        sentAtMillis: Long,
+    ): Clearance? =
         withContext(Dispatchers.Main) {
-            checks.run(url.host) { clearNow(url) }
+            checks.run(url.host) { clearNow(url, sentAtMillis) }
         }
 
-    private suspend fun clearNow(url: HttpUrl): Clearance? =
+    private suspend fun clearNow(
+        url: HttpUrl,
+        sentAtMillis: Long,
+    ): Clearance? =
         withContext(Dispatchers.Main) {
-            lastByHost[url.host]?.let { if (it.isFresh(System.currentTimeMillis())) return@withContext it }
+            lastByHost[url.host]?.let { if (it.canRetry(sentAtMillis, System.currentTimeMillis())) return@withContext it }
 
             val webView = WebView(context.applicationContext)
             try {
@@ -80,22 +89,17 @@ internal class WebViewCloudflareClearer(
                         found
                     } ?: return@withContext null
 
-                cookieJar.saveFromResponse(
-                    url,
-                    listOf(
-                        Cookie
-                            .Builder()
-                            .name("cf_clearance")
-                            .value(token)
-                            .domain(url.host)
-                            .build(),
-                    ),
-                )
+                cookieJar.saveFromResponse(url, listOf(clearanceCookie(url.host, token)))
+                val now = System.currentTimeMillis()
                 Clearance(
                     cookie = "cf_clearance=$token",
                     userAgent = userAgent,
-                    expiresAtMillis = System.currentTimeMillis() + clearanceLifetime.inWholeMilliseconds,
-                ).also { lastByHost[url.host] = it }
+                    mintedAtMillis = now,
+                    expiresAtMillis = now + clearanceLifetime.inWholeMilliseconds,
+                ).also {
+                    lastByHost[url.host] = it
+                    store?.save(lastByHost.filterValues { kept -> kept.isFresh(now) })
+                }
             } finally {
                 webView.stopLoading()
                 webView.destroy()

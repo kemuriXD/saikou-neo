@@ -25,13 +25,23 @@ private fun Map<String, String>.valueOf(name: String): String? = entries.firstOr
 
 /**
  * A Cloudflare clearance: the `cf_clearance` cookie, the User-Agent it was minted
- * with, and when it stops being usable. It is shared across sources and the
- * player, so all of them clear at once and keep playing until it expires.
+ * with, when it was minted and when it stops being usable. It is shared across
+ * sources and the player, so all of them clear at once and keep playing until it expires.
  */
 internal data class Clearance(
     val cookie: String,
     val userAgent: String,
+    val mintedAtMillis: Long,
     val expiresAtMillis: Long,
 ) {
     fun isFresh(nowMillis: Long): Boolean = nowMillis < expiresAtMillis
+
+    /**
+     * Whether a request sent at [sentAtMillis] and met with a challenge can be retried with this clearance. One minted
+     * before it was sent is likely the one the site just refused, so it takes a new check.
+     */
+    fun canRetry(
+        sentAtMillis: Long,
+        nowMillis: Long,
+    ): Boolean = isFresh(nowMillis) && mintedAtMillis >= sentAtMillis
 }
