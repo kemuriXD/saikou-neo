@@ -325,7 +325,7 @@ internal fun BoxScope.SourcesPanels(
     SlidingPanel(open) { panel, active, motion ->
         when (panel) {
             SourcePanel.Add -> {
-                AddPanel(adding, active, onAdd = actions.onAdd, onClose = closeAdd, modifier = motion)
+                AddPanel(adding, active, onAdd = actions.onAdd, onClose = closeAdd, onReset = actions.onDismiss, modifier = motion)
             }
 
             is SourcePanel.Remove -> {
@@ -552,7 +552,8 @@ internal fun SourceBadge(
 
 /**
  * Add a source: a field for the link or code, which opens the TV's keyboard on OK, and Add. While the app checks,
- * Add says so; if it fails, the reason shows under the field and the text stays.
+ * Add says so; if it fails, the reason shows under the field and the text stays. It opens with [onReset] for an error
+ * left from before.
  */
 @Composable
 private fun BoxScope.AddPanel(
@@ -560,6 +561,7 @@ private fun BoxScope.AddPanel(
     active: Boolean,
     onAdd: (String) -> Unit,
     onClose: () -> Unit,
+    onReset: () -> Unit,
     modifier: Modifier,
 ) {
     val colors = NeoTheme.colors
@@ -575,7 +577,12 @@ private fun BoxScope.AddPanel(
     val focusManager = LocalFocusManager.current
     val checking = adding == Adding.Checking
     val add = { if (!checking) onAdd(text.text.toString()) }
-    LaunchedEffect(Unit) { field.requestFocus() }
+    LaunchedEffect(Unit) {
+        field.requestFocus()
+        // An error from before belongs to an earlier panel. One can go without closing itself, such as when Settings
+        // is left while it slides in, so the panel drops it as it opens (#363).
+        if (adding is Adding.Failed) onReset()
+    }
     val title = stringResource(R.string.sources_add)
     SidePanel(title, SourcePanelWidth, active, onClose, modifier) {
         Text(title, style = PaneTitle, color = colors.paper)

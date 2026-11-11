@@ -288,6 +288,34 @@ class SourcesSettingsTest {
     }
 
     @Test
+    fun addASourceOpensWithoutAnErrorLeftFromBefore() {
+        // The panel can go without closing itself, such as when Settings is left while it slides in (#363).
+        state.value = SourcesState(emptyList(), Adding.Failed(AddError.NOT_SECURE))
+        compose.setContent {
+            NeoTheme {
+                SettingsScreen(
+                    Settings(),
+                    onChoose = { _, _ -> },
+                    sources = state.value,
+                    sourceActions =
+                        SourceActions(onDismiss = {
+                            dismissed++
+                            state.value = state.value.copy(adding = Adding.Idle)
+                        }),
+                )
+            }
+        }
+        press(Key.DirectionDown, times = 4)
+        press(Key.DirectionRight)
+
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithTag(SOURCE_FIELD_TAG).assertIsFocused()
+        compose.onNodeWithText("That link isn't secure. Use one that starts with https://.").assertDoesNotExist()
+        assertEquals(1, dismissed)
+    }
+
+    @Test
     fun backClosesTheAddPanelOntoAddASource() {
         show(SourcesState(listOf(example)))
         press(Key.DirectionCenter)
