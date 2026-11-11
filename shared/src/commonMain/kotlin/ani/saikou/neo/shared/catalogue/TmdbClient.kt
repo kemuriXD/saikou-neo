@@ -67,9 +67,7 @@ public class TmdbClient internal constructor(
         // The engine blocks while it waits for the network, so keep it off the main thread, as ApolloClient does.
         return withContext(io) {
             try {
-                val response = engine.execute(HttpRequest.Builder(HttpMethod.Get, url).build())
-                val body = response.body
-                if (response.statusCode != 200 || body == null) null else body.use { it.jsonReader().read() }
+                engine.execute(HttpRequest.Builder(HttpMethod.Get, url).build()).readIfOk { it.jsonReader().read() }
             } catch (_: ApolloException) {
                 null
             } catch (_: IOException) {

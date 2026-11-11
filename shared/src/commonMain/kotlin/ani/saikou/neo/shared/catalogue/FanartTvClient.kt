@@ -51,9 +51,7 @@ public class FanartTvClient internal constructor(
             try {
                 // The key goes in a header, not the url, so it stays out of logs.
                 val request = HttpRequest.Builder(HttpMethod.Get, "$FANART_TV_URL/$path").addHeader("api-key", apiKey).build()
-                val response = engine.execute(request)
-                val body = response.body
-                if (response.statusCode != 200 || body == null) null else body.use { it.jsonReader().art(fields) }
+                engine.execute(request).readIfOk { it.jsonReader().art(fields) }
             } catch (_: ApolloException) {
                 null
             } catch (_: IOException) {
