@@ -101,7 +101,6 @@ private val FadeHeight = 48.dp
 private val FocusGlowColor = Color.White.copy(alpha = 0.3f)
 private const val CHOICE_SCALE = 1.03f
 private const val PANEL_SCRIM = 0.35f
-private const val PANEL_FILL = 0.94f
 
 // Four rows show at once, and the rest scroll with focus.
 private const val ROWS_SHOWN = 4
@@ -167,7 +166,8 @@ internal fun BoxScope.PlayerPanel(
             .align(Alignment.TopEnd)
             .width(PanelWidth)
             .fillMaxHeight()
-            .background(colors.ink.copy(alpha = PANEL_FILL))
+            // Solid, so a bright scene can't show through and wash out the rows (#359).
+            .background(colors.ink)
             .padding(horizontal = PanelSide, vertical = PanelEdge)
             .testTag(PLAYER_PANEL_TAG),
         verticalArrangement = Arrangement.spacedBy(PanelGap),
@@ -443,7 +443,7 @@ private fun ChoiceList(
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .height(FadeHeight)
-                        .background(Brush.verticalGradient(listOf(colors.ink.copy(alpha = 0f), colors.ink.copy(alpha = PANEL_FILL)))),
+                        .background(Brush.verticalGradient(listOf(colors.ink.copy(alpha = 0f), colors.ink))),
                 )
             }
         }
@@ -499,9 +499,13 @@ private fun ChoiceRow(
             val ring =
                 when {
                     choice.picked && focused -> colors.onFocus
+
                     choice.picked -> colors.pink
+
                     focused -> colors.onFocusMuted
-                    else -> colors.outline
+
+                    // As bright as muted text, so the ring reads on a TV too (#359).
+                    else -> colors.textMuted
                 }
             Box(Modifier.size(Dot).border(if (choice.picked) DotPicked else DotPlain, ring, CircleShape))
             Text(

@@ -1,7 +1,9 @@
 package ani.saikou.neo.tv.player
 
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
@@ -11,11 +13,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -50,6 +55,7 @@ import ani.saikou.neo.shared.playback.Segment
 import ani.saikou.neo.shared.playback.SegmentKind
 import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.shared.sources.InstalledSource
+import ani.saikou.neo.tv.theme.NeoColors
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -724,4 +730,26 @@ class PlayerControlsTest {
             .onNodeWithTag(tag)
             .fetchSemanticsNode()
             .boundsInWindow.top
+
+    @Test
+    fun aBrightSceneDoesNotShowThroughThePanel() {
+        compose.setContent {
+            NeoTheme {
+                PlayerScreen(
+                    PlayerState(sub, PlayerPhase.Playing(answered)),
+                    request,
+                    PlayerActions(),
+                    playback,
+                    controls,
+                    video = { Box(Modifier.fillMaxSize().background(Color.White)) },
+                )
+            }
+        }
+        compose.waitForIdle()
+        press(Key.Menu)
+
+        // Below the last row, where only the panel is (#359).
+        val panel = compose.onNodeWithTag(PLAYER_PANEL_TAG).captureToImage().toPixelMap()
+        assertEquals(NeoColors().ink, panel[panel.width / 2, panel.height - 4])
+    }
 }
