@@ -364,6 +364,7 @@ class MainActivity : ComponentActivity() {
                                         onPlayed = player::played,
                                         sample = sample.takeIf { shown.looks },
                                         subtitlesAbove = subtitlesAbove,
+                                        online = ::isOnline,
                                     )
                                 },
                                 looks =

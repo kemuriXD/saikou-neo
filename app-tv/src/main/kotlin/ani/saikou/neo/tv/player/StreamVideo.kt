@@ -51,6 +51,7 @@ internal fun StreamVideo(
     modifier: Modifier = Modifier,
     sample: Sample? = null,
     subtitlesAbove: Float? = null,
+    online: () -> Boolean = { true },
     onPlayed: (positionMs: Long, durationMs: Long) -> Unit = { _, _ -> },
 ) {
     val context = LocalContext.current
@@ -71,7 +72,7 @@ internal fun StreamVideo(
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
-                    failed(error.toPlayerError(), player.currentPosition)
+                    failed(error.toPlayerError(online()), player.currentPosition)
                 }
             }
         player.addListener(listener)

@@ -390,7 +390,11 @@ private fun BoxScope.Stopped(
     ) {
         Icon(NeoIcons.Warning, contentDescription = null, tint = colors.warning, modifier = Modifier.size(28.dp))
         Text(
-            stringResource(R.string.player_stopped_title, server.server.name),
+            if (phase.reason == FailReason.Offline) {
+                stringResource(R.string.home_offline_title)
+            } else {
+                stringResource(R.string.player_stopped_title, server.server.name)
+            },
             style = typography.titleLarge.copy(fontSize = 24.sp, lineHeight = 30.sp),
             color = colors.paper,
         )

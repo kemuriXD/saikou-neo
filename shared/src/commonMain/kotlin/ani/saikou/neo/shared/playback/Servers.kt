@@ -51,6 +51,9 @@ public sealed interface FailReason {
 
     /** The source couldn't be loaded or run. */
     public data object WontStart : FailReason
+
+    /** The TV has no connection, so nothing could be asked. */
+    public data object Offline : FailReason
 }
 
 /** Thrown by a [ServerFinder] when a source fails for a known [reason]. Anything else counts as [FailReason.SourceDown]. */
