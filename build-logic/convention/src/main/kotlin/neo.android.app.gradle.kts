@@ -1,27 +1,16 @@
-// Shared setup for the TV and companion apps: SDK levels, ABIs, Compose,
-// and warnings as errors for both Kotlin and lint.
+// The app everyone installs: what the UI modules share (NeoAndroid.kt), plus the app's identity, release builds and the
+// legal files it carries.
+import com.android.build.api.dsl.ApplicationExtension
 import com.android.build.api.variant.HostTestBuilder
-import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     id("com.android.application")
-    id("org.jetbrains.kotlin.plugin.compose")
 }
 
-val libs = the<VersionCatalogsExtension>().named("libs")
-
-fun sdkLevel(name: String): Int =
-    libs
-        .findVersion(name)
-        .get()
-        .requiredVersion
-        .toInt()
+configureNeoAndroid(extensions.getByType<ApplicationExtension>())
 
 android {
-    compileSdk = sdkLevel("android-compileSdk")
-
     defaultConfig {
-        minSdk = sdkLevel("android-minSdk")
         targetSdk = sdkLevel("android-targetSdk")
         versionCode = 1
         versionName = "0.0.1"
@@ -40,57 +29,20 @@ android {
         }
     }
 
-    // Release channels (ADR 0005). Alpha and beta share the .preview ID, so a
-    // preview build installs next to stable instead of replacing it.
-    flavorDimensions += "channel"
+    // Alpha and beta share the .preview ID, so a preview build installs next to stable instead of replacing it.
     productFlavors {
-        create("alpha") {
-            dimension = "channel"
+        named("alpha") {
             applicationIdSuffix = ".preview"
             versionNameSuffix = "-alpha"
         }
-        create("beta") {
-            dimension = "channel"
+        named("beta") {
             applicationIdSuffix = ".preview"
             versionNameSuffix = "-beta"
         }
-        create("stable") {
-            dimension = "channel"
-        }
-    }
-    // Brand resources both apps draw the same way: the splash lockup, its loading line and their colours (ADR 0022).
-    sourceSets.named("main") { res.srcDir(rootProject.file("brand/res")) }
-    // Preview resources (the app name) and tests are shared by alpha and beta.
-    listOf("alpha", "beta").forEach { channel ->
-        sourceSets.named(channel) { res.srcDir("src/preview/res") }
-        sourceSets.named("test${channel.replaceFirstChar(Char::uppercase)}") {
-            kotlin.srcDir("src/testPreview/kotlin")
-        }
-    }
-
-    buildFeatures { compose = true }
-
-    testOptions {
-        unitTests.all {
-            // Robolectric's Android 17 image reaches into jdk.internal.access.
-            it.jvmArgs("--add-exports=java.base/jdk.internal.access=ALL-UNNAMED")
-        }
-    }
-
-    compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
-    }
-
-    lint {
-        abortOnError = true
-        warningsAsErrors = true
-        // New releases would fail unchanged code; Dependabot handles updates.
-        disable += setOf("GradleDependency", "NewerVersionAvailable", "AndroidGradlePluginVersion")
     }
 }
 
-// Both APKs carry the licence, the disclaimer, the privacy policy and the
+// The APK carries the licence, the disclaimer, the privacy policy and the
 // third-party notices as assets under legal/.
 abstract class CollectLegalFiles : DefaultTask() {
     @get:InputFiles
@@ -132,12 +84,5 @@ androidComponents {
     }
     onVariants { variant ->
         variant.sources.assets?.addGeneratedSourceDirectory(collectLegalFiles, CollectLegalFiles::outputDir)
-    }
-}
-
-kotlin {
-    compilerOptions {
-        allWarningsAsErrors.set(true)
-        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
