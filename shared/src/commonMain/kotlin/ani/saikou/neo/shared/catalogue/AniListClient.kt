@@ -282,7 +282,7 @@ public class AniListClient internal constructor(
     }
 }
 
-private fun ApolloException.toAniListError(): AniListError =
+internal fun ApolloException.toAniListError(): AniListError =
     when (this) {
         is ApolloHttpException -> {
             if (statusCode == 429) AniListError.RateLimited(retryAfter(headers)) else AniListError.Http(statusCode)

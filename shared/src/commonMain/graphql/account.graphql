@@ -1,0 +1,8 @@
+# The signed-in user, asked with their token. The phone shows the name and links to the profile page.
+query Viewer {
+  Viewer {
+    id
+    name
+    siteUrl
+  }
+}
