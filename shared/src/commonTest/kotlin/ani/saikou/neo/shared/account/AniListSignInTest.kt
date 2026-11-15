@@ -39,7 +39,10 @@ class AniListSignInTest {
             CallbackResult.Unrelated,
             parse("$redirect#access_token=t&token_type=Bearer&expires_in=60&state=someone-else"),
         )
-        assertEquals(CallbackResult.Unrelated, parse("$redirect#access_token=t&token_type=Bearer&expires_in=60&state=abc123", attempt = null))
+        assertEquals(
+            CallbackResult.Unrelated,
+            parse("$redirect#access_token=t&token_type=Bearer&expires_in=60&state=abc123", attempt = null),
+        )
         assertEquals(CallbackResult.Unrelated, parse("$redirect#access_token=t&token_type=Bearer&expires_in=60"))
     }
 

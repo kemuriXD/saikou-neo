@@ -208,6 +208,23 @@ class PhoneAccountViewModelTest {
         }
 
     @Test
+    fun anAccountThatCanNotBeSavedSaysSignInFailed() =
+        runTest(main) {
+            val store =
+                object : AccountStore by MemoryAccountStore() {
+                    override fun saveAccount(account: SignedInAccount): Unit = throw IllegalStateException("Keystore failed")
+                }
+            val model = viewModel(store)
+            model.signIn()
+            advanceUntilIdle()
+
+            model.finishSignIn(callback())
+            advanceUntilIdle()
+
+            assertEquals(AccountState.SignedOut(SignInProblem.FAILED), model.state.value)
+        }
+
+    @Test
     fun theAttemptSurvivesTheAppClosingWhileTheBrowserIsOpen() =
         runTest(main) {
             val store = MemoryAccountStore()

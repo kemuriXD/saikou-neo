@@ -45,7 +45,9 @@ public class KeystoreAccountStore internal constructor(
             null.also { clearAccount() }
         } catch (_: JSONException) {
             null.also { clearAccount() }
-        } catch (_: IllegalArgumentException) {
+        } catch (_: RuntimeException) {
+            // Some Keystores throw ProviderException or IllegalStateException instead. Base64 throws
+            // IllegalArgumentException. Any of them would otherwise fail every launch.
             null.also { clearAccount() }
         }
     }

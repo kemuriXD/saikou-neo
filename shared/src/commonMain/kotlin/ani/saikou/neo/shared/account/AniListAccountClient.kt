@@ -1,8 +1,8 @@
 package ani.saikou.neo.shared.account
 
-import ani.saikou.neo.shared.catalogue.anilist.ViewerQuery
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
+import ani.saikou.neo.shared.catalogue.anilist.ViewerQuery
 import ani.saikou.neo.shared.catalogue.toAniListError
 import com.apollographql.apollo.ApolloClient
 

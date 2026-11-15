@@ -134,11 +134,17 @@ public class PhoneAccountViewModel(
                     check(result.token, signingIn = true)
                 }
 
-                CallbackResult.Declined -> mutableState.value = AccountState.SignedOut()
+                CallbackResult.Declined -> {
+                    mutableState.value = AccountState.SignedOut()
+                }
 
-                CallbackResult.Expired -> mutableState.value = AccountState.SignedOut(SignInProblem.EXPIRED)
+                CallbackResult.Expired -> {
+                    mutableState.value = AccountState.SignedOut(SignInProblem.EXPIRED)
+                }
 
-                CallbackResult.Invalid, CallbackResult.Unrelated -> mutableState.value = AccountState.SignedOut(SignInProblem.FAILED)
+                CallbackResult.Invalid, CallbackResult.Unrelated -> {
+                    mutableState.value = AccountState.SignedOut(SignInProblem.FAILED)
+                }
             }
         }
     }
@@ -153,8 +159,14 @@ public class PhoneAccountViewModel(
     ) {
         when (val answer = viewer(token)) {
             is AniListResult.Success -> {
-                withContext(io) { store.saveAccount(SignedInAccount(answer.value, token)) }
-                mutableState.value = AccountState.SignedIn(answer.value)
+                val saved = withContext(io) { runCatching { store.saveAccount(SignedInAccount(answer.value, token)) } }.isSuccess
+                mutableState.value =
+                    when {
+                        saved || !signingIn -> AccountState.SignedIn(answer.value)
+
+                        // Signed in now but not after a restart would be a surprise, so say it didn't work.
+                        else -> AccountState.SignedOut(SignInProblem.FAILED)
+                    }
             }
 
             is AniListResult.Failure -> {

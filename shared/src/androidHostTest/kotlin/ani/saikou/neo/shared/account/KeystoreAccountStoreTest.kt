@@ -1,10 +1,11 @@
 package ani.saikou.neo.shared.account
 
 import android.content.Context
-import org.robolectric.RuntimeEnvironment
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
 import java.security.GeneralSecurityException
+import java.security.ProviderException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -30,7 +31,11 @@ class KeystoreAccountStoreTest {
     fun theTokenIsNeverSavedAsPlainText() {
         KeystoreAccountStore(context, FlipCipher).saveAccount(SignedInAccount(kemuri, AniListToken("the-token", 5_000)))
 
-        val files = context.getSharedPreferences(KeystoreAccountStore.FILE, Context.MODE_PRIVATE).all.values.joinToString()
+        val files =
+            context
+                .getSharedPreferences(KeystoreAccountStore.FILE, Context.MODE_PRIVATE)
+                .all.values
+                .joinToString()
 
         assertFalse("the-token" in files)
         assertFalse("Kemuri" in files)
@@ -41,6 +46,14 @@ class KeystoreAccountStoreTest {
         KeystoreAccountStore(context, FlipCipher).saveAccount(SignedInAccount(kemuri, AniListToken("the-token", 5_000)))
 
         assertNull(KeystoreAccountStore(context, BrokenCipher).readAccount())
+        assertNull(KeystoreAccountStore(context, FlipCipher).readAccount())
+    }
+
+    @Test
+    fun aKeystoreThatFailsAnotherWayIsForgottenToo() {
+        KeystoreAccountStore(context, FlipCipher).saveAccount(SignedInAccount(kemuri, AniListToken("the-token", 5_000)))
+
+        assertNull(KeystoreAccountStore(context, ProviderFailCipher).readAccount())
         assertNull(KeystoreAccountStore(context, FlipCipher).readAccount())
     }
 
@@ -70,6 +83,13 @@ private object FlipCipher : AccountCipher {
     override fun encrypt(plain: ByteArray): ByteArray = plain.map { it.toInt().inv().toByte() }.toByteArray()
 
     override fun decrypt(sealed: ByteArray): ByteArray = encrypt(sealed)
+}
+
+/** A Keystore that fails with a runtime exception, as some phones' do. */
+private object ProviderFailCipher : AccountCipher {
+    override fun encrypt(plain: ByteArray): ByteArray = throw ProviderException("Keystore failed")
+
+    override fun decrypt(sealed: ByteArray): ByteArray = throw ProviderException("Keystore failed")
 }
 
 /** A Keystore whose key is gone, as after restoring a backup on a new phone. */

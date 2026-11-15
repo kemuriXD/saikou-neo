@@ -135,7 +135,9 @@ private fun decode(value: String): String {
     var index = 0
     while (index < value.length) {
         val char = value[index]
-        val escaped = if (char == '%' && index + 2 <= value.lastIndex) value.substring(index + 1, index + 3).toIntOrNull(16) else null
+        val high = if (char == '%' && index + 2 <= value.lastIndex) value[index + 1].digitToIntOrNull(16) else null
+        val low = if (high != null) value[index + 2].digitToIntOrNull(16) else null
+        val escaped = if (high != null && low != null) high * 16 + low else null
         when {
             escaped != null -> {
                 bytes += escaped.toByte()
