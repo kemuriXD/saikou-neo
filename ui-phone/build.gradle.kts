@@ -49,6 +49,11 @@ dependencies {
     implementation(libs.activity.compose)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
+    // Scanning the TV's QR code (ADR 0039). Only the phone screens use the camera.
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.compose)
+    implementation(libs.zxing.core)
 
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)

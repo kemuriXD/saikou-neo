@@ -33,6 +33,27 @@
     <string name="home_your_tvs">Your TVs</string>
     <string name="home_no_tvs">No TVs yet. A TV you pair shows up here, ready to send things to or remove.</string>
 
+    <!-- 3.1 to 3.3 Pair a TV -->
+    <string name="pair_title">Pair a TV</string>
+    <string name="pair_close">Close</string>
+    <string name="pair_looking">Looking for the code…</string>
+    <string name="pair_scan_body">Point your camera at the code on your TV. It scans on its own.</string>
+    <string name="pair_camera">Camera, pointed at the TV</string>
+    <string name="pair_type_instead">Type the code instead</string>
+    <string name="pair_camera_off">Camera access is off</string>
+    <string name="pair_camera_off_body">To scan the TV’s code, let Saikou Neo use the camera in your phone’s settings. Or type the code shown under it on the TV.</string>
+    <string name="pair_open_settings">Open settings</string>
+    <string name="pair_type_title">Type the code</string>
+    <string name="pair_back">Back</string>
+    <string name="pair_type_body">Enter the 6-character code under the QR code on your TV.</string>
+    <string name="pair_code_field">TV code</string>
+    <plurals name="pair_code_count">
+        <item quantity="one">%1$d of %2$d typed</item>
+        <item quantity="other">%1$d of %2$d typed</item>
+    </plurals>
+    <string name="pair_code_hint">Letters and numbers only. Capitals are added for you.</string>
+    <string name="pair_connect">Connect</string>
+
     <!-- 6.1 Account -->
     <string name="account_title">Account</string>
     <string name="account_back">Back</string>
