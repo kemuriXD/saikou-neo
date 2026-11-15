@@ -111,7 +111,7 @@ jobs:
           echo "VARIANT=${CHANNEL^}" >> "$GITHUB_ENV"
           echo "Release channel: $CHANNEL" | tee -a "$GITHUB_STEP_SUMMARY"
 
-      # Runs spotless, lint and the JVM tests, and builds the debug APKs for
+      # Runs spotless, lint and the JVM tests, and builds the debug APK for
       # testing, all for the active channel only. `check` and `assembleDebug`
       # would cover every channel and take much longer. The fanart.tv, TMDB and
       # OMDb keys are only built into the APKs (ADR 0011, ADR 0012, ADR 0014);
@@ -125,19 +125,18 @@ jobs:
         run: >-
           ./gradlew spotlessCheck :shared:check :extension-api:check :extension-api:publishToMavenLocal
           :ui-tv:lint${VARIANT}Debug :ui-tv:test${VARIANT}DebugUnitTest
+          :ui-phone:lint${VARIANT}Debug :ui-phone:test${VARIANT}DebugUnitTest
           :app:lint${VARIANT}Debug :app:test${VARIANT}DebugUnitTest :app:assemble${VARIANT}Debug
-          :app-companion:lint${VARIANT}Debug :app-companion:test${VARIANT}DebugUnitTest
-          :app-companion:assemble${VARIANT}Debug
 
       # Release builds go through R8, which can break a build that debug
       # builds miss. PRs skip this to stay quick; main runs catch it.
-      - name: Build release APKs
+      - name: Build release APK
         if: github.event_name != 'pull_request'
         env:
           FANART_TV_API_KEY: ${{ secrets.FANART_TV_API_KEY }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
-        run: ./gradlew :app:assemble${VARIANT}Release :app-companion:assemble${VARIANT}Release
+        run: ./gradlew :app:assemble${VARIANT}Release
 
       # Lock files would stop the next run from reusing the cache.
       - name: Prepare Gradle cache
@@ -170,18 +169,11 @@ jobs:
           path: "**/build/reports/"
           retention-days: 7
 
-      - name: Upload TV debug APK
+      # One APK for TVs and phones (ADR 0038).
+      - name: Upload debug APK
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: saikou-neo-tv-${{ env.CHANNEL }}-debug
+          name: saikou-neo-${{ env.CHANNEL }}-debug
           path: app/build/outputs/apk/${{ env.CHANNEL }}/debug/*.apk
-          if-no-files-found: error
-          retention-days: 7
-
-      - name: Upload companion debug APK
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: saikou-neo-companion-${{ env.CHANNEL }}-debug
-          path: app-companion/build/outputs/apk/${{ env.CHANNEL }}/debug/*.apk
           if-no-files-found: error
           retention-days: 7

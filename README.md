@@ -39,9 +39,10 @@ public release is **v0.1.0**. Follow the work on the
 
 [![Download the latest build](https://img.shields.io/badge/Download-latest%20build-FF4F91?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kemuriXD/saikou-neo/actions/workflows/android.yml?query=branch%3Amain+is%3Asuccess)
 
-Open the newest run and download `saikou-neo-tv-alpha-debug` for the TV or
-`saikou-neo-companion-alpha-debug` for the phone. You need to be signed in to
-GitHub. These are alpha debug builds, and each one expires after 7 days.
+Open the newest run and download `saikou-neo-alpha-debug`. The same APK goes on
+the TV and the phone: a TV opens the full app, and a phone opens the companion
+for sign-in and pairing. You need to be signed in to GitHub. These are alpha
+debug builds, and each one expires after 7 days.
 
 | Milestone | What it adds | Progress |
 | --- | --- | --- |

@@ -29,4 +29,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "saikou-neo"
 
-include(":shared", ":app", ":ui-tv", ":app-companion", ":extension-api", ":benchmark-tv", ":example-source")
+include(":shared", ":app", ":ui-tv", ":ui-phone", ":extension-api", ":benchmark-tv", ":example-source")
