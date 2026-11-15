@@ -12,6 +12,8 @@ android {
     defaultConfig {
         applicationId = "ani.saikou.neo"
     }
+    // The debug-only switch that forces TV or phone screens reads BuildConfig.DEBUG.
+    buildFeatures { buildConfig = true }
     // Robolectric needs the merged resources and assets.
     testOptions { unitTests.isIncludeAndroidResources = true }
     // The PNG icons are for TVs on Android 7 (Fire OS 6), where a square TV
@@ -25,8 +27,12 @@ configure<BaselineProfileConsumerExtension> {
 }
 
 dependencies {
+    // The two UIs. They never depend on each other; LaunchActivity picks one at launch.
     implementation(project(":ui-tv"))
+    implementation(project(":ui-phone"))
 
+    // LaunchActivityTest opens the phone screens, which are a ComponentActivity.
+    testImplementation(libs.activity.compose)
     testImplementation(libs.robolectric)
     testImplementation(libs.junit)
     // Watches debug builds for memory leaks; Fire TV sticks have little memory (#244).

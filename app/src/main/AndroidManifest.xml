@@ -1,15 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- TV-only app: no touchscreen, and leanback isn't required so Fire TV can install it. -->
+    <!--
+        One app for TVs and phones (ADR 0038). Nothing here is required, so TV stores list it and phones can install it:
+        TVs have no touchscreen or camera, phones have no leanback.
+    -->
     <uses-feature
         android:name="android.hardware.touchscreen"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false" />
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
         android:required="false" />
     <uses-feature
         android:name="android.software.leanback"
         android:required="false" />
 
-    <!-- The icon, banner and name come from :ui-tv's resources, which follow the channel. -->
+    <!--
+        The icon, splash and theme have TV versions under the television qualifier. The banner is only shown on a TV.
+        NeoApp keeps the TV's stores, which are only made when the TV screens ask for them.
+    -->
     <application
         android:name="ani.saikou.neo.tv.NeoApp"
         android:banner="@mipmap/saikou_neo_banner"
@@ -18,17 +30,24 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.SaikouNeo">
+        <!-- Picks the TV or the phone screens, opens them and closes. -->
         <activity
-            android:name="ani.saikou.neo.tv.MainActivity"
+            android:name=".EntryActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <!-- Android TV and Google TV launchers. -->
                 <category android:name="android.intent.category.LEANBACK_LAUNCHER" />
-                <!-- Fire TV's launcher. -->
+                <!-- Phone launchers and Fire TV's launcher. -->
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <activity
+            android:name="ani.saikou.neo.tv.MainActivity"
+            android:exported="false" />
+        <activity
+            android:name="ani.saikou.neo.phone.MainActivity"
+            android:exported="false" />
     </application>
 
 </manifest>

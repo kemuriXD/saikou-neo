@@ -4,9 +4,7 @@
     <!-- To tell no connection at once, instead of waiting for a request to time out. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
 
-    <!-- The app declares MainActivity and its launcher entry. NeoApp is named here too, so this module's Robolectric tests run with it. -->
-    <application
-        android:name=".NeoApp"
-        android:theme="@style/Theme.SaikouNeo" />
+    <!-- The app declares MainActivity and opens it on a TV. NeoApp is named here too, so this module's Robolectric tests run with it. -->
+    <application android:name=".NeoApp" />
 
 </manifest>

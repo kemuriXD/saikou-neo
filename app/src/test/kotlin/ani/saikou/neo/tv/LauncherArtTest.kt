@@ -3,12 +3,14 @@ package ani.saikou.neo.tv
 import android.graphics.drawable.AdaptiveIconDrawable
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
@@ -22,11 +24,19 @@ class LauncherArtTest {
     }
 
     @Test
-    fun iconHasNoMonochromeLayer() {
+    @Config(qualifiers = "television")
+    fun theTvIconHasNoMonochromeLayer() {
         // Android TV doesn't support themed icons.
         val icon = app.getDrawable(app.applicationInfo.icon)
         assertTrue(icon is AdaptiveIconDrawable)
         assertNull((icon as AdaptiveIconDrawable).monochrome)
+    }
+
+    @Test
+    fun thePhoneIconHasAMonochromeLayer() {
+        // Phones on Android 13 and later can theme it.
+        val icon = app.getDrawable(app.applicationInfo.icon)
+        assertNotNull((icon as AdaptiveIconDrawable).monochrome)
     }
 
     @Test
