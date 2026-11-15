@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older. The AniList account is sealed with a key that never leaves this phone, so it stays here. -->
+<full-backup-content>
+    <exclude
+        domain="sharedpref"
+        path="anilist_account.xml" />
+</full-backup-content>

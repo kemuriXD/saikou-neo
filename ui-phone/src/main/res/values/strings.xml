@@ -1,5 +1,44 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name" translatable="false">Saikou Neo</string>
-    <string name="placeholder_title">Saikou Neo companion</string>
+
+    <!-- 1.2 Welcome -->
+    <string name="welcome_title">Sign in here. Watch on your TV.</string>
+    <string name="welcome_body">Saikou Neo on your phone looks after the things a TV remote is bad at.</string>
+    <string name="welcome_sign_in_once">Sign in to AniList once</string>
+    <string name="welcome_sign_in_once_body">Your list and progress follow you to every TV.</string>
+    <string name="welcome_pair">Pair a TV with its code</string>
+    <string name="welcome_pair_body">Scan the code on the TV. Nothing to type with a remote.</string>
+    <string name="welcome_finish">Finish what the TV starts</string>
+    <string name="welcome_finish_body">Bug reports and new sources come here to finish.</string>
+    <string name="welcome_sign_in">Sign in with AniList</string>
+    <string name="welcome_browser_note">Opens anilist.co in your browser. Saikou Neo never sees your password.</string>
+    <string name="welcome_checking">Checking with AniList…</string>
+    <string name="sign_in_not_set_up">This build can\'t sign in to AniList yet.</string>
+    <string name="sign_in_expired">That took a while, so the sign-in timed out. Try again.</string>
+    <string name="sign_in_no_network">Couldn\'t reach AniList. Check your connection and try again.</string>
+    <string name="sign_in_session_ended">AniList signed you out. Sign in again to carry on.</string>
+    <string name="sign_in_failed">Couldn\'t sign in to AniList. Try again.</string>
+    <string name="no_browser">There\'s no browser on this phone to open anilist.co.</string>
+
+    <!-- 2.1 Home: no TVs yet -->
+    <string name="home_title_saikou">Saikou</string>
+    <string name="home_title_neo">Neo</string>
+    <string name="home_account">Account</string>
+    <string name="home_pair_first">Pair your first TV</string>
+    <string name="home_step_one">On your TV, open Saikou Neo and choose Sign in.</string>
+    <string name="home_step_two">Scan the code it shows, or type it in.</string>
+    <string name="home_scan">Scan the TV code</string>
+    <string name="home_type">Type the code instead</string>
+    <string name="home_your_tvs">Your TVs</string>
+    <string name="home_no_tvs">No TVs yet. A TV you pair shows up here, ready to send things to or remove.</string>
+
+    <!-- 6.1 Account -->
+    <string name="account_title">Account</string>
+    <string name="account_back">Back</string>
+    <string name="account_signed_in_with">Signed in with AniList</string>
+    <string name="account_about">About</string>
+    <string name="account_profile">AniList profile</string>
+    <string name="account_profile_body">Opens anilist.co</string>
+    <string name="account_version">Version</string>
 </resources>
