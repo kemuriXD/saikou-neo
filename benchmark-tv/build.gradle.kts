@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "ani.saikou.neo.tv.benchmark"
-    targetProjectPath = ":app-tv"
+    targetProjectPath = ":app"
 
     // Measures the alpha channel, which is what the test TV has installed.
     flavorDimensions += "channel"

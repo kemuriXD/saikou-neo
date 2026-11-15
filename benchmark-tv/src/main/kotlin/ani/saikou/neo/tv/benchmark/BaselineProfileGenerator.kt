@@ -8,8 +8,8 @@ import org.junit.runner.RunWith
 
 /**
  * Records the code that starts the app and browses Home, See more and Details. Run it with
- * `./gradlew :app-tv:generateBaselineProfile` on an Android 13+ TV emulator with the internet; the profile lands in
- * app-tv/src/main/generated/baselineProfiles/baseline-prof.txt. On Windows the copy step finds nothing and the file is
+ * `./gradlew :app:generateBaselineProfile` on an Android 13+ TV emulator with the internet; the profile lands in
+ * app/src/main/generated/baselineProfiles/baseline-prof.txt. On Windows the copy step finds nothing and the file is
  * gone from the emulator once Gradle uninstalls the test. Then install both nonMinifiedRelease APKs, run this test with
  * `adb shell am instrument -w -e androidx.benchmark.enabledRules BaselineProfile ani.saikou.neo.tv.benchmark/androidx.test.runner.AndroidJUnitRunner`,
  * and pull `*-baseline-prof.txt` from /sdcard/Android/media/ani.saikou.neo.tv.benchmark to that file.

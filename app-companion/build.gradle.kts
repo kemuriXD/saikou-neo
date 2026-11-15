@@ -1,5 +1,7 @@
 plugins {
     id("neo.android.app")
+    // Until #375 turns this into the :ui-phone module, it builds its own Compose screens.
+    id("neo.android.compose")
 }
 
 android {

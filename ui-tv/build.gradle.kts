@@ -1,9 +1,8 @@
-import androidx.baselineprofile.gradle.consumer.BaselineProfileConsumerExtension
+// The TV screens, the player and extension loading. :app opens them on a TV (ADR 0038).
 import java.util.Properties
 
 plugins {
-    id("neo.android.app")
-    id("neo.baselineprofile")
+    id("neo.android.library")
 }
 
 val localProperties: Properties? =
@@ -27,7 +26,6 @@ val omdbApiKey = apiKey("omdb.apiKey", "OMDB_API_KEY")
 android {
     namespace = "ani.saikou.neo.tv"
     defaultConfig {
-        applicationId = "ani.saikou.neo"
         buildConfigField("String", "FANART_TV_API_KEY", "\"$fanartTvApiKey\"")
         buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
         buildConfigField("String", "OMDB_API_KEY", "\"$omdbApiKey\"")
@@ -38,11 +36,6 @@ android {
     // The PNG icons are for TVs on Android 7 (Fire OS 6), where a square TV
     // icon is expected. Phone launcher shapes don't apply.
     lint { disable += "IconLauncherShape" }
-}
-
-// :benchmark-tv records the profile on the alpha build. It goes into src/main, so beta and stable ship the same one.
-configure<BaselineProfileConsumerExtension> {
-    variants.create("alpha") { from(project(":benchmark-tv")) }
 }
 
 dependencies {
@@ -77,6 +70,4 @@ dependencies {
     testImplementation(libs.espresso.core)
     debugImplementation(platform(libs.compose.bom))
     debugImplementation(libs.compose.ui.test.manifest)
-    // Watches debug builds for memory leaks; Fire TV sticks have little memory (#244).
-    debugImplementation(libs.leakcanary)
 }
