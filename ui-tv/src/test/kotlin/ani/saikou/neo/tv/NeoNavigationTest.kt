@@ -139,6 +139,14 @@ class NeoNavigationTest {
                     )
                 },
                 genre = { genre, _ -> Text("Most popular ${genre.aniListName}") },
+                schedule = { openDetails, goHome ->
+                    val open = remember { FocusRequester() }
+                    LaunchedEffect(Unit) { open.requestFocus() }
+                    Column {
+                        Button(onClick = { openDetails(42) }, modifier = Modifier.focusRequester(open)) { Text("Open from Schedule") }
+                        Button(onClick = goHome) { Text("Home from Schedule") }
+                    }
+                },
                 player = { request, _ -> Text("Playing E${request.episode}") },
                 signIn = { _, _ -> Text("Sign in with your phone") },
                 signedIn = { signedIn },
@@ -428,10 +436,24 @@ class NeoNavigationTest {
     fun choosingASectionOpensItWithoutTheRail() {
         show()
 
-        openSection(Section.SCHEDULE)
+        openSection(Section.SETTINGS)
 
-        compose.onNodeWithText("Coming in a future update.").assertExists()
         compose.onNodeWithTag(RAIL_TAG).assertDoesNotExist()
+    }
+
+    // Schedule opens a show's Details, and its Back to Home goes Home.
+    @Test
+    fun scheduleOpensDetailsAndGoesHome() {
+        show()
+
+        openSection(Section.SCHEDULE)
+        press(Key.DirectionCenter)
+        compose.onNodeWithText("Details for 42").assertExists()
+
+        back()
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(RAIL_TAG).assertExists()
     }
 
     // Profile is the way in to the AniList account: signing in until the TV is signed in, then the profile.

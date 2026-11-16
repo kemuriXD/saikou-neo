@@ -1,7 +1,12 @@
 package ani.saikou.neo.tv
 
 import android.app.Application
+import ani.saikou.neo.shared.account.AniListAccountClient
+import ani.saikou.neo.shared.catalogue.AnimeScheduleClient
+import ani.saikou.neo.shared.catalogue.PrefsShowMatchStore
+import ani.saikou.neo.shared.catalogue.ShowMatcher
 import ani.saikou.neo.shared.home.WatchHistoryStore
+import ani.saikou.neo.shared.schedule.AnimeScheduleSource
 import ani.saikou.neo.shared.search.RecentSearchesStore
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SettingsStore
@@ -20,7 +25,7 @@ import java.io.File
 
 /**
  * Holds what lives as long as the app: the settings, recent searches, sources and last servers, each of which only one
- * store may have open, as can the watch history.
+ * store may have open, as can the watch history. Schedule's week is kept here too, so it outlasts the screen.
  */
 class NeoApp : Application() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -49,4 +54,10 @@ class NeoApp : Application() {
 
     /** How far this TV got in each show. */
     val history by lazy { WatchHistoryStore.at(File(filesDir, "watch_history.preferences_pb").absolutePath, scope) }
+
+    /** This week's timetable and show matches for Schedule (ADR 0041). The week it fetched lasts 15 minutes. */
+    val schedule by lazy {
+        val client = AnimeScheduleClient(BuildConfig.ANIMESCHEDULE_TOKEN.ifBlank { null })
+        AnimeScheduleSource(client, ShowMatcher(client, PrefsShowMatchStore(this)), AniListAccountClient())
+    }
 }

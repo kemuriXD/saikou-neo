@@ -129,7 +129,7 @@ private val BackStackSaver =
  * [recommendations], Settings on [sources], or the [player] for an episode. Settings opens [signIn], which leaves to where it was opened
  * from or goes Home. The rail down the left of Home opens each [section]; Back from a section goes to
  * Home. [search]
- * opens Details or a [genre]'s page, and [discover] opens Details. Each screen
+ * opens Details or a [genre]'s page, and [discover] and [schedule] open Details. Schedule can also go Home. Each screen
  * keeps its saved state and ViewModels while it's on the back stack, so Back finds Home as it was left. Back on Home
  * leaves the app.
  */
@@ -149,6 +149,9 @@ fun NeoNavigation(
     search: @Composable (openDetails: (animeId: Int) -> Unit, openGenre: (genre: SearchGenre) -> Unit) -> Unit = { _, _ -> },
     genre: @Composable (genre: SearchGenre, openDetails: (animeId: Int) -> Unit) -> Unit = { _, _ -> },
     discover: @Composable (openDetails: (animeId: Int) -> Unit) -> Unit = { SectionPlaceholder(Section.DISCOVER) },
+    schedule: @Composable (openDetails: (animeId: Int) -> Unit, goHome: () -> Unit) -> Unit = { _, _ ->
+        SectionPlaceholder(Section.SCHEDULE)
+    },
     sources: @Composable (openSignIn: () -> Unit) -> Unit = { section(Section.SETTINGS, it) },
     signIn: @Composable (leave: () -> Unit, goHome: () -> Unit) -> Unit = { _, _ -> },
     // Asked when Profile is chosen: signed out, it opens [signedOutProfile] rather than the profile.
@@ -215,6 +218,7 @@ fun NeoNavigation(
                         when (it.section) {
                             Section.SEARCH -> search(openDetails) { genre -> backStack.add(Screen.Genre(genre)) }
                             Section.DISCOVER -> discover(openDetails)
+                            Section.SCHEDULE -> schedule(openDetails) { backStack.retainAll(listOf(Screen.Home)) }
                             else -> section(it.section, openSignIn)
                         }
                     }
