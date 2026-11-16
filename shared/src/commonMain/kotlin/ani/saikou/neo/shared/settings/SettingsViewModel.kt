@@ -17,6 +17,8 @@ public enum class Setting(
     UPCOMING_EPISODES(OffOn),
     SLOW_TV(OffOn),
     SUB_OR_DUB(SubOrDub.entries),
+    CHINESE_ANIMATION(OffOn),
+    SHORT_EPISODES(OffOn),
 }
 
 /** The value [setting] has now, one of its [Setting.choices]. */
@@ -26,6 +28,8 @@ public operator fun Settings.get(setting: Setting): Any =
         Setting.UPCOMING_EPISODES -> showUpcomingEpisodes
         Setting.SLOW_TV -> slowTv
         Setting.SUB_OR_DUB -> subOrDub
+        Setting.CHINESE_ANIMATION -> schedule.chineseAnimation
+        Setting.SHORT_EPISODES -> schedule.shortEpisodes
     }
 
 private fun Settings.with(
@@ -37,6 +41,8 @@ private fun Settings.with(
         Setting.UPCOMING_EPISODES -> copy(showUpcomingEpisodes = value as Boolean)
         Setting.SLOW_TV -> copy(slowTv = value as Boolean)
         Setting.SUB_OR_DUB -> copy(subOrDub = value as SubOrDub)
+        Setting.CHINESE_ANIMATION -> copy(schedule = schedule.copy(chineseAnimation = value as Boolean))
+        Setting.SHORT_EPISODES -> copy(schedule = schedule.copy(shortEpisodes = value as Boolean))
     }
 
 /** The Settings screen's state: the saved settings, or null until they're read. */
@@ -52,5 +58,15 @@ public class SettingsViewModel(
     ) {
         require(value in setting.choices) { "$value isn't a choice for $setting" }
         viewModelScope.launch { store.update { it.with(setting, value) } }
+    }
+
+    /** Ticks [item] of [list] when [on], else unticks it, and saves it. The last format stays ticked. */
+    public fun tick(
+        list: TickList,
+        item: Any,
+        on: Boolean,
+    ) {
+        require(item in list.items) { "$item isn't in $list" }
+        viewModelScope.launch { store.update { it.withTick(list, item, on) } }
     }
 }
