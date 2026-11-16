@@ -180,6 +180,19 @@ public class PairTvViewModel(
             }
     }
 
+    /**
+     * Remove: forgets the TV with [id] on this phone. The TV keeps its account until it signs out in its own Settings
+     * (ADR 0040).
+     */
+    public fun removeTv(id: String) {
+        viewModelScope.launch {
+            val kept = mutableTvs.value.filterNot { it.id == id }
+            if (kept.size == mutableTvs.value.size) return@launch
+            withContext(io) { store.saveTvs(kept) }
+            mutableTvs.value = kept
+        }
+    }
+
     /** It doesn't match: drops the connection without sending anything. */
     public fun reject() {
         if (state.value !is PairTvState.CheckCode) return

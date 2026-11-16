@@ -47,7 +47,12 @@ internal fun PhoneApp(
 
             is AccountState.SignedIn -> {
                 BackHandler(enabled = screens.size > 1, onBack = back)
-                SignedIn(current, pairing, screens.last(), version, openInBrowser, open, back) { screens = it }
+                val signOut = {
+                    // Next time the phone signs in, it starts on Home.
+                    screens = listOf(PhoneScreen.Home)
+                    accounts.signOut()
+                }
+                SignedIn(current, pairing, screens.last(), version, openInBrowser, open, back, signOut) { screens = it }
             }
 
             is AccountState.SignedOut, AccountState.Verifying -> {
@@ -66,6 +71,7 @@ private fun SignedIn(
     openInBrowser: (url: String) -> Unit,
     open: (PhoneScreen) -> Unit,
     back: () -> Unit,
+    signOut: () -> Unit,
     replace: (List<PhoneScreen>) -> Unit,
 ) {
     val codes: PairCodeViewModel = viewModel { PairCodeViewModel() }
@@ -91,11 +97,12 @@ private fun SignedIn(
                 tvs = tvs,
                 onScan = { open(PhoneScreen.Scan) },
                 onType = { open(PhoneScreen.Type) },
+                onRemoveTv = { pairing.removeTv(it.id) },
             )
         }
 
         PhoneScreen.Account -> {
-            AccountScreen(account.profile, version, onBack = back, onOpen = openInBrowser)
+            AccountScreen(account.profile, version, onBack = back, onOpen = openInBrowser, onSignOut = signOut)
         }
 
         PhoneScreen.Scan -> {

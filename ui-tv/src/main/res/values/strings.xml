@@ -168,11 +168,16 @@
     <string name="settings_sources">Sources</string>
     <string name="settings_sources_intro">Sources are extensions that find streams for the anime you pick. The app comes with none, so you add your own.</string>
     <string name="settings_account">Account</string>
-    <string name="settings_account_intro">Your AniList account on this TV.</string>
+    <string name="settings_account_intro">Your AniList account on this TV. Sign in again with your phone to use a different one.</string>
     <string name="settings_account_signed_out_intro">Sign in to sync your AniList list and watch progress on this TV.</string>
     <string name="settings_account_sign_in">Sign in with your phone</string>
     <string name="settings_account_sign_in_help">Shows a code to scan with Saikou Neo on your phone</string>
-    <string name="settings_account_from_phone">Signed in to AniList from your phone</string>
+    <string name="settings_account_signed_in">Signed in</string>
+    <string name="settings_account_from_phone">Signed in from your phone</string>
+    <string name="settings_account_sign_out">Sign out</string>
+    <string name="settings_account_sign_out_title">Sign out on this TV?</string>
+    <string name="settings_account_sign_out_body">Your list stops syncing here. Your phone and any other TVs stay signed in.</string>
+    <string name="settings_account_stay">Stay signed in</string>
 
     <!-- Profile while the TV is signed out: the way in to Sign in (#116). -->
     <string name="profile_signed_out_eyebrow">Library and profile</string>

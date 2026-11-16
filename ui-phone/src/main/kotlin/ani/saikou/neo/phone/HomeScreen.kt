@@ -4,6 +4,7 @@ import android.text.format.DateFormat
 import androidx.annotation.StringRes
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,20 +19,32 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -45,6 +58,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.phone.theme.PhoneColors
@@ -66,8 +80,37 @@ internal fun HomeScreen(
     tvs: List<PairedTv> = emptyList(),
     onScan: () -> Unit = {},
     onType: () -> Unit = {},
+    onRemoveTv: (PairedTv) -> Unit = {},
 ) {
+    // 2.3 the options sheet and 2.4 the confirm dialog, by TV ID; 2.5 the snackbar once one is removed.
+    var optionsFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var confirmFor by rememberSaveable { mutableStateOf<String?>(null) }
+    var removed by remember { mutableStateOf<String?>(null) }
+    val snackbars = remember { SnackbarHostState() }
+    val removedMessage = removed?.let { stringResource(R.string.home_removed, it) }
+    LaunchedEffect(removedMessage) {
+        if (removedMessage != null) {
+            snackbars.showSnackbar(removedMessage)
+            removed = null
+        }
+    }
+
+    tvs.find { it.id == optionsFor }?.let { tv ->
+        TvOptions(tv, onDismiss = { optionsFor = null }) {
+            optionsFor = null
+            confirmFor = tv.id
+        }
+    }
+    tvs.find { it.id == confirmFor }?.let { tv ->
+        RemoveTvDialog(tv, onDismiss = { confirmFor = null }) {
+            confirmFor = null
+            onRemoveTv(tv)
+            removed = tv.name
+        }
+    }
+
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbars) },
         floatingActionButton = {
             if (tvs.isNotEmpty()) {
                 ExtendedFloatingActionButton(
@@ -117,7 +160,7 @@ internal fun HomeScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 if (tvs.isEmpty()) PairFirstTv(onScan, onType)
-                YourTvs(tvs)
+                YourTvs(tvs) { optionsFor = it.id }
             }
         }
     }
@@ -198,7 +241,10 @@ private fun Step(
 }
 
 @Composable
-private fun YourTvs(tvs: List<PairedTv>) {
+private fun YourTvs(
+    tvs: List<PairedTv>,
+    onOptions: (PairedTv) -> Unit,
+) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             stringResource(R.string.home_your_tvs),
@@ -207,7 +253,7 @@ private fun YourTvs(tvs: List<PairedTv>) {
         )
         if (tvs.isNotEmpty()) {
             Column(Modifier.clip(RoundedCornerShape(16.dp)), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                tvs.forEach { TvRow(it) }
+                tvs.forEach { tv -> TvRow(tv) { onOptions(tv) } }
             }
             return@Column
         }
@@ -224,14 +270,89 @@ private fun YourTvs(tvs: List<PairedTv>) {
     }
 }
 
-/** A paired TV: its name, and that it's signed in with the day it was paired. Its options come with #250. */
+/** A paired TV: its name, and that it's signed in with the day it was paired. The row and its menu open its options. */
 @Composable
-private fun TvRow(tv: PairedTv) {
+private fun TvRow(
+    tv: PairedTv,
+    onOptions: () -> Unit,
+) {
     ListItem(
         headlineContent = { Text(tv.name, style = MaterialTheme.typography.bodyLarge) },
         supportingContent = { Text(stringResource(R.string.home_tv_paired, pairedDay(tv.pairedAtEpochSeconds))) },
         leadingContent = { Icon(painterResource(R.drawable.icon_tv), contentDescription = null, Modifier.size(24.dp)) },
+        trailingContent = {
+            IconButton(onClick = onOptions) {
+                Icon(
+                    painterResource(R.drawable.icon_more_vert),
+                    contentDescription = stringResource(R.string.home_tv_options, tv.name),
+                    Modifier.size(24.dp),
+                )
+            }
+        },
         colors = ListItemDefaults.colors(containerColor = PhoneColors.surface),
+        modifier = Modifier.clickable(onClick = onOptions),
+    )
+}
+
+/**
+ * 2.3 A TV's options: the TV, when it was paired, and Remove this TV. It doesn't name the account, since the phone may
+ * have signed in as someone else since.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TvOptions(
+    tv: PairedTv,
+    onDismiss: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    ModalBottomSheet(onDismissRequest = onDismiss, containerColor = PhoneColors.surfaceRaised) {
+        Column(Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+            Row(
+                Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(painterResource(R.drawable.icon_tv), contentDescription = null, Modifier.size(24.dp), tint = PhoneColors.pink)
+                Column {
+                    Text(tv.name, style = MaterialTheme.typography.titleLarge, modifier = Modifier.semantics { heading() })
+                    Text(
+                        stringResource(R.string.home_tv_paired, pairedDay(tv.pairedAtEpochSeconds)),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            HorizontalDivider(color = PhoneColors.line)
+            ListItem(
+                headlineContent = { Text(stringResource(R.string.home_remove_tv), style = MaterialTheme.typography.bodyLarge) },
+                supportingContent = { Text(stringResource(R.string.home_remove_tv_body)) },
+                leadingContent = { Icon(painterResource(R.drawable.icon_delete), contentDescription = null, Modifier.size(24.dp)) },
+                colors = ListItemDefaults.colors(containerColor = PhoneColors.surfaceRaised),
+                modifier = Modifier.clickable(onClick = onRemove).padding(horizontal = 8.dp),
+            )
+        }
+    }
+}
+
+/** 2.4 Remove a TV? It only leaves Your TVs; the TV signs out in its own Settings (ADR 0040). */
+@Composable
+private fun RemoveTvDialog(
+    tv: PairedTv,
+    onDismiss: () -> Unit,
+    onRemove: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        icon = { Icon(painterResource(R.drawable.icon_delete), contentDescription = null, Modifier.size(24.dp)) },
+        title = { Text(stringResource(R.string.home_remove_title, tv.name), textAlign = TextAlign.Center) },
+        text = { Text(stringResource(R.string.home_remove_body)) },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.home_remove_cancel)) } },
+        confirmButton = {
+            TextButton(onClick = onRemove, colors = ButtonDefaults.textButtonColors(contentColor = PhoneColors.error)) {
+                Text(stringResource(R.string.home_remove_confirm))
+            }
+        },
+        containerColor = PhoneColors.surfaceRaised,
     )
 }
 

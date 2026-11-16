@@ -5,23 +5,32 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -34,8 +43,8 @@ import ani.saikou.neo.phone.theme.PhoneColors
 import ani.saikou.neo.shared.account.AniListProfile
 
 /**
- * 6.1 Account: the AniList profile and About. Sign out comes with #250. On a tablet the whole page, app bar too, sits
- * in the centred column, so Back stays next to what it closes.
+ * 6.1 Account: the AniList profile, About and Sign out, which asks first (6.2). On a tablet the whole page, app bar
+ * too, sits in the centred column, so Back stays next to what it closes.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -44,7 +53,10 @@ internal fun AccountScreen(
     version: String,
     onBack: () -> Unit,
     onOpen: (url: String) -> Unit,
+    onSignOut: () -> Unit = {},
 ) {
+    var asking by rememberSaveable { mutableStateOf(false) }
+    if (asking) SignOutDialog(onDismiss = { asking = false }, onSignOut = onSignOut)
     PhoneColumn {
         Scaffold(
             topBar = {
@@ -69,6 +81,11 @@ internal fun AccountScreen(
             ) {
                 Profile(profile)
                 About(profile, version, onOpen)
+                OutlinedButton(onClick = { asking = true }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                    Icon(painterResource(R.drawable.icon_logout), contentDescription = null, Modifier.size(20.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(R.string.account_sign_out), style = MaterialTheme.typography.labelLarge)
+                }
             }
         }
     }
@@ -147,4 +164,20 @@ private fun AboutRow(
         }
         trailing?.invoke()
     }
+}
+
+/** 6.2 Sign out on this phone? Paired TVs stay signed in (ADR 0040). */
+@Composable
+private fun SignOutDialog(
+    onDismiss: () -> Unit,
+    onSignOut: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.account_sign_out_title)) },
+        text = { Text(stringResource(R.string.account_sign_out_body)) },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(R.string.account_sign_out_cancel)) } },
+        confirmButton = { TextButton(onClick = onSignOut) { Text(stringResource(R.string.account_sign_out)) } },
+        containerColor = PhoneColors.surfaceRaised,
+    )
 }

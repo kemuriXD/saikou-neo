@@ -316,4 +316,32 @@ class PairTvViewModelTest {
             assertEquals(PairTvState.Connecting, model.state.value)
             assertNull(model.tvs.value.firstOrNull())
         }
+
+    @Test
+    fun removeForgetsOnlyThatTv() =
+        runTest(main) {
+            val bedroom = PairedTv("tv-2", "Bedroom Fire TV", 100)
+            val store = MemoryTvStore(listOf(PairedTv("tv-1", "Living room TV", 50), bedroom))
+            val model = viewModel(store) { FakeTv { livingRoom } }
+
+            model.removeTv("tv-1")
+            advanceUntilIdle()
+
+            assertEquals(listOf(bedroom), store.tvs)
+            assertEquals(listOf(bedroom), model.tvs.value)
+        }
+
+    @Test
+    fun removingATvThatIsNotThereChangesNothing() =
+        runTest(main) {
+            val bedroom = PairedTv("tv-2", "Bedroom Fire TV", 100)
+            val store = MemoryTvStore(listOf(bedroom))
+            val model = viewModel(store) { FakeTv { livingRoom } }
+
+            model.removeTv("tv-9")
+            advanceUntilIdle()
+
+            assertEquals(listOf(bedroom), store.tvs)
+            assertEquals(listOf(bedroom), model.tvs.value)
+        }
 }

@@ -119,8 +119,62 @@ class SettingsScreenTest {
         assertEquals(1, signIns)
 
         account.value = AccountSettings(AniListProfile(7, "Hikari", null))
-        compose.onNodeWithText("Hikari").assertExists()
-        compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).assertDoesNotExist()
+        compose.onNodeWithText("Hikari", useUnmergedTree = true).assertExists()
+        // Like Add a source, Sign in stays on top to switch accounts.
+        compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).assertExists()
+    }
+
+    private fun signedIn(onSignOut: () -> Unit) {
+        val account = AccountSettings(AniListProfile(7, "Hikari", null), onSignOut = onSignOut)
+        compose.setContent {
+            NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.ACCOUNT, account = account) }
+        }
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).assertIsFocused()
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(SIGN_OUT_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+    }
+
+    @Test
+    fun signOutAsksFirstWithStaySignedInFocused() {
+        var signOuts = 0
+        signedIn { signOuts++ }
+
+        compose.onNodeWithTag(SIGN_OUT_DIALOG_TAG).assertIsDisplayed()
+        compose.onNodeWithText("Stay signed in").assertIsFocused()
+        // Focus can't wander out of the dialog.
+        press(Key.DirectionLeft)
+        press(Key.DirectionUp)
+        compose.onNodeWithText("Stay signed in").assertIsFocused()
+
+        press(Key.DirectionCenter)
+
+        assertEquals(0, signOuts)
+        compose.onNodeWithTag(SIGN_OUT_DIALOG_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(SIGN_OUT_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun backStaysSignedIn() {
+        var signOuts = 0
+        signedIn { signOuts++ }
+
+        back()
+
+        assertEquals(0, signOuts)
+        compose.onNodeWithTag(SIGN_OUT_DIALOG_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun signOutInTheDialogSignsTheTvOut() {
+        var signOuts = 0
+        signedIn { signOuts++ }
+
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+
+        assertEquals(1, signOuts)
     }
 
     @Test

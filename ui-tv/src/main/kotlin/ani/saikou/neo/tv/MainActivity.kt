@@ -328,12 +328,12 @@ class MainActivity : ComponentActivity() {
                             if (section ==
                                 Section.SETTINGS
                             ) {
-                                SettingsSection(SettingsCategory.BROWSING, openSignIn, profile)
+                                SettingsSection(SettingsCategory.BROWSING, openSignIn, profile, account::signOut)
                             } else {
                                 SectionPlaceholder(section)
                             }
                         },
-                        sources = { openSignIn -> SettingsSection(SettingsCategory.SOURCES, openSignIn, profile) },
+                        sources = { openSignIn -> SettingsSection(SettingsCategory.SOURCES, openSignIn, profile, account::signOut) },
                         signedIn = { profile != null },
                         signedOutProfile = { openSignIn, back -> ProfileSignedOutScreen(onSignIn = openSignIn, onHome = back) },
                         signIn = { leave, goHome ->
@@ -428,12 +428,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Settings with the installed sources, opened on [start]. Account opens Sign in with [openSignIn]. */
+    /** Settings with the installed sources, opened on [start]. Account opens Sign in with [openSignIn] and signs out with [onSignOut]. */
     @Composable
     private fun SettingsSection(
         start: SettingsCategory,
         openSignIn: () -> Unit,
         profile: AniListProfile?,
+        onSignOut: () -> Unit,
     ) {
         val settingsScreen = viewModel { SettingsViewModel(app.settingsStore) }
         val state by settingsScreen.state.collectAsStateWithLifecycle()
@@ -474,7 +475,7 @@ class MainActivity : ComponentActivity() {
                         subtitlesScreen::clearShow,
                         subtitlesScreen::resetAll,
                     ),
-                account = AccountSettings(profile, openSignIn),
+                account = AccountSettings(profile, openSignIn, onSignOut),
             )
         }
     }

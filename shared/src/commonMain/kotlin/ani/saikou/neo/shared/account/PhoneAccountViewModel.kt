@@ -7,6 +7,9 @@ import ani.saikou.neo.shared.catalogue.AniListResult
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -89,8 +92,11 @@ public class PhoneAccountViewModel(
     /** Addresses to open in the browser, each once. */
     public val browser: Flow<String> = browserUrls.receiveAsFlow()
 
+    /** The start-up check and any sign-in being finished. Sign out stops them before it forgets the account. */
+    private val work = SupervisorJob(viewModelScope.coroutineContext[Job])
+
     init {
-        viewModelScope.launch {
+        viewModelScope.launch(work) {
             val saved = withContext(io) { store.readAccount() }
             when {
                 saved == null -> {
@@ -121,9 +127,23 @@ public class PhoneAccountViewModel(
         }
     }
 
+    /** Sign out in Account: forgets the account on this phone and goes back to Welcome. Paired TVs stay signed in. */
+    public fun signOut() {
+        viewModelScope.launch {
+            // A check that finished after this would save the account again.
+            work.children.toList().forEach { it.cancelAndJoin() }
+            withContext(io) {
+                // A browser answer that comes back later then belongs to no sign-in, and changes nothing.
+                store.clearAttempt()
+                store.clearAccount()
+            }
+            mutableState.value = AccountState.SignedOut()
+        }
+    }
+
     /** Reads the browser's answer at [uri]. An answer to some other sign-in changes nothing. */
     public fun finishSignIn(uri: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(work) {
             val attempt = withContext(io) { store.readAttempt() }
             val result = AniListSignIn.parseCallback(uri, redirectUri, attempt, now())
             if (result == CallbackResult.Unrelated) return@launch
