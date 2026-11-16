@@ -27,6 +27,9 @@ public sealed interface AniListError {
         val retryAfter: Duration,
     ) : AniListError
 
+    /** AniList refused the signed-in user's token, so they need to sign in again. */
+    public data object SignedOut : AniListError
+
     /** AniList answered with another error status, such as 404 for an unknown anime. */
     public data class Http(
         val statusCode: Int,
@@ -60,5 +63,5 @@ internal val AniListError.problem: LoadProblem
         when (this) {
             is AniListError.Network -> LoadProblem.NO_NETWORK
             is AniListError.RateLimited -> LoadProblem.RATE_LIMITED
-            is AniListError.Http, is AniListError.Unexpected -> LoadProblem.OTHER
+            is AniListError.SignedOut, is AniListError.Http, is AniListError.Unexpected -> LoadProblem.OTHER
         }
