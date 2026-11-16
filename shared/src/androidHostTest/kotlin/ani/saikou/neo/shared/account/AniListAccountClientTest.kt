@@ -31,7 +31,14 @@ class AniListAccountClientTest {
             val result = clientFor(RecordedEngine("viewer")).viewer(token)
 
             assertEquals(
-                AniListResult.Success(AniListProfile(5412345, "Kemuri", "https://anilist.co/user/5412345")),
+                AniListResult.Success(
+                    AniListProfile(
+                        5412345,
+                        "Kemuri",
+                        "https://anilist.co/user/5412345",
+                        "https://s4.anilist.co/file/anilistcdn/user/avatar/large/b5412345.png",
+                    ),
+                ),
                 result,
             )
         }

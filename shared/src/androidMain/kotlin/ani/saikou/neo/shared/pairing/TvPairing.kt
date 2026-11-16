@@ -2,7 +2,6 @@ package ani.saikou.neo.shared.pairing
 
 import android.content.Context
 import android.os.Build
-import android.provider.Settings
 import ani.saikou.neo.shared.account.AniListToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -70,7 +69,7 @@ private fun localAddress(): InetAddress? =
 
 /**
  * What this TV tells a phone it paired with: an ID made once and kept, so the phone replaces this TV rather than
- * listing it twice, and the TV's name as set in its settings.
+ * listing it twice, and its make and model, such as "Amazon AFTSSS".
  */
 public fun thisTv(context: Context): PairedTvReply {
     val preferences = context.getSharedPreferences(IDENTITY_FILE, Context.MODE_PRIVATE)
@@ -78,13 +77,17 @@ public fun thisTv(context: Context): PairedTvReply {
         preferences.getString(TV_ID, null) ?: UUID.randomUUID().toString().also {
             preferences.edit().putString(TV_ID, it).commit()
         }
-    val name =
-        Settings.Global
-            .getString(context.contentResolver, Settings.Global.DEVICE_NAME)
-            ?.trim()
-            ?.takeIf { it.isNotEmpty() }
-            ?: Build.MODEL
-    return PairedTvReply(id, name.take(MAX_NAME))
+    return PairedTvReply(id, tvName(Build.MANUFACTURER, Build.MODEL))
+}
+
+/** "Make Model", without the make twice when the model already starts with it. */
+internal fun tvName(
+    make: String,
+    model: String,
+): String {
+    val maker = make.trim().replaceFirstChar { it.uppercase() }
+    val name = if (maker.isEmpty() || model.trim().startsWith(maker, ignoreCase = true)) model.trim() else "$maker ${model.trim()}"
+    return name.ifEmpty { "TV" }.take(MAX_NAME)
 }
 
 // Long enough to compare the codes and choose It matches on the phone.

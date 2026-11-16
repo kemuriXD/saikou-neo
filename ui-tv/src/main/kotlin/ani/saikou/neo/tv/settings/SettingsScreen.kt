@@ -75,6 +75,7 @@ import ani.saikou.neo.shared.sources.SourceCheck
 import ani.saikou.neo.shared.sources.SourcesState
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.player.lookName
+import ani.saikou.neo.tv.signin.ProfileAvatar
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.FocusMemory
 import ani.saikou.neo.tv.ui.NeoIcons
@@ -493,9 +494,7 @@ private fun AccountPane(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box(Modifier.size(56.dp).background(colors.pinkDeep, CircleShape), contentAlignment = Alignment.Center) {
-                    Text(profile.name.take(1).uppercase(), style = NeoTheme.typography.titleLarge, color = colors.paper)
-                }
+                ProfileAvatar(profile, 56.dp, NeoTheme.typography.titleLarge)
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(profile.name, style = NeoTheme.typography.titleLarge, color = colors.paper, maxLines = 1)
                     Text(stringResource(R.string.settings_account_from_phone), style = Intro, color = colors.textMuted)

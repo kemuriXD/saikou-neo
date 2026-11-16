@@ -240,15 +240,7 @@ private fun Panel(state: TvSignInState) {
         }
 
         is TvSignInState.SignedIn -> {
-            Box(Modifier.size(96.dp).background(colors.pinkDeep, CircleShape), contentAlignment = Alignment.Center) {
-                Text(
-                    state.profile.name
-                        .take(1)
-                        .uppercase(),
-                    style = typography.display,
-                    color = colors.paper,
-                )
-            }
+            ProfileAvatar(state.profile, 96.dp, typography.display)
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(state.profile.name, style = typography.headline, color = colors.paper, maxLines = 1)
                 Icon(NeoIcons.Passed, contentDescription = null, tint = colors.pink, modifier = Modifier.size(24.dp))
