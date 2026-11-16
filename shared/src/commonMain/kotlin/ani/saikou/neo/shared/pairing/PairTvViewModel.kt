@@ -173,7 +173,9 @@ public class PairTvViewModel(
                 } catch (_: Exception) {
                     mutableState.value = PairTvState.Unreachable
                 } finally {
-                    closeLink()
+                    // Close this attempt's connection only; a newer one may have taken its place.
+                    tv.close()
+                    if (link === tv) link = null
                 }
             }
     }
@@ -184,8 +186,12 @@ public class PairTvViewModel(
         stop(PairTvState.Stopped)
     }
 
-    /** Cancel or Close: stops whatever is happening and sends nothing. */
+    /**
+     * Cancel or Close: stops whatever is happening and sends nothing. Once the account is on its way it can't be
+     * called back, so then it waits for the TV, to keep a TV that signed in from going missing from Your TVs.
+     */
     public fun cancel() {
+        if ((state.value as? PairTvState.CheckCode)?.sending == true) return
         request = null
         stop(PairTvState.Idle)
     }

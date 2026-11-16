@@ -20,6 +20,12 @@ import ani.saikou.neo.phone.theme.PhoneTheme
 import ani.saikou.neo.shared.account.AniListAccountClient
 import ani.saikou.neo.shared.account.KeystoreAccountStore
 import ani.saikou.neo.shared.account.PhoneAccountViewModel
+import ani.saikou.neo.shared.pairing.PairTvViewModel
+import ani.saikou.neo.shared.pairing.PrefsPairedTvStore
+import ani.saikou.neo.shared.pairing.connectForPairing
+import ani.saikou.neo.shared.pairing.connectPhoneToTv
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class MainActivity : ComponentActivity() {
     private val accounts: PhoneAccountViewModel by viewModels {
@@ -31,6 +37,24 @@ class MainActivity : ComponentActivity() {
                     redirectUri = aniListRedirect(applicationContext),
                     store = KeystoreAccountStore(applicationContext),
                     viewer = client::viewer,
+                )
+            }
+        }
+    }
+
+    private val pairing: PairTvViewModel by viewModels {
+        viewModelFactory {
+            initializer {
+                val accountStore = KeystoreAccountStore(applicationContext)
+                PairTvViewModel(
+                    connect = { request ->
+                        // Typed codes can't be looked up on the network yet, so they end on Couldn't reach the TV.
+                        connectForPairing(request, lookup = { null }) { host, port, key, session ->
+                            connectPhoneToTv(host, port, key, session)
+                        }
+                    },
+                    account = { withContext(Dispatchers.IO) { accountStore.readAccount()?.token } },
+                    store = PrefsPairedTvStore(applicationContext),
                 )
             }
         }
@@ -48,7 +72,7 @@ class MainActivity : ComponentActivity() {
         }
         takeCallback(intent)
         val version = versionName()
-        setContent { PhoneTheme { PhoneApp(accounts, version, ::openInBrowser) } }
+        setContent { PhoneTheme { PhoneApp(accounts, pairing, version, ::openInBrowser) } }
     }
 
     override fun onNewIntent(intent: Intent) {

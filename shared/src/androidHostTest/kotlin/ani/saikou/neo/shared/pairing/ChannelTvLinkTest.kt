@@ -95,6 +95,11 @@ class ChannelTvLinkTest {
         assertNull(read("""{"v":1,"type":"signed-in","id":"tv-1","name":"${"x".repeat(65)}"}"""))
         assertNull(read("""{"v":1,"type":"signed-in","id":"${"x".repeat(65)}","name":"TV"}"""))
         assertNull(read("not json"))
+
+        // Control and direction characters from the TV are dropped, so its name can't break or reorder the screen.
+        fun named(name: String) = PairingMessages.readSignedIn(PairingMessages.signedIn(PairedTvReply("tv-1", name)))
+        assertEquals(PairedTvReply("tv-1", "Living room TV"), named("Living\nroom‮ TV\u0007"))
+        assertNull(named("‮‏"))
     }
 
     @Test

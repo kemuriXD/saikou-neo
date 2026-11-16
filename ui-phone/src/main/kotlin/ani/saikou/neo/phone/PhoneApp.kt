@@ -18,15 +18,18 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import ani.saikou.neo.shared.account.AccountState
 import ani.saikou.neo.shared.account.PhoneAccountViewModel
 import ani.saikou.neo.shared.pairing.PairCodeViewModel
+import ani.saikou.neo.shared.pairing.PairTvState
+import ani.saikou.neo.shared.pairing.PairTvViewModel
 import ani.saikou.neo.shared.pairing.PairingRequest
 
-/** The screens behind Home, kept as a back stack. */
-internal enum class PhoneScreen { Home, Account, Scan, Type }
+/** The screens behind Home, kept as a back stack. Pair is 3.4 to 3.8, which follow [PairTvViewModel]. */
+internal enum class PhoneScreen { Home, Account, Scan, Type, Pair }
 
 /** Welcome until the phone is signed in, then Home, with Account behind the avatar and pairing behind its buttons. */
 @Composable
 internal fun PhoneApp(
     accounts: PhoneAccountViewModel,
+    pairing: PairTvViewModel,
     version: String,
     openInBrowser: (url: String) -> Unit,
 ) {
@@ -44,7 +47,7 @@ internal fun PhoneApp(
 
             is AccountState.SignedIn -> {
                 BackHandler(enabled = screens.size > 1, onBack = back)
-                SignedIn(current, screens.last(), version, openInBrowser, open, back) { screens = listOf(PhoneScreen.Home) }
+                SignedIn(current, pairing, screens.last(), version, openInBrowser, open, back) { screens = it }
             }
 
             is AccountState.SignedOut, AccountState.Verifying -> {
@@ -57,22 +60,35 @@ internal fun PhoneApp(
 @Composable
 private fun SignedIn(
     account: AccountState.SignedIn,
+    pairing: PairTvViewModel,
     screen: PhoneScreen,
     version: String,
     openInBrowser: (url: String) -> Unit,
     open: (PhoneScreen) -> Unit,
     back: () -> Unit,
-    home: () -> Unit,
+    replace: (List<PhoneScreen>) -> Unit,
 ) {
     val codes: PairCodeViewModel = viewModel { PairCodeViewModel() }
-    // #249 connects to the TV from here; until then a found TV leads back to Home.
-    val pair = { _: PairingRequest -> home() }
+    val tvs by pairing.tvs.collectAsStateWithLifecycle()
+    // Scanning or typing gives way to pairing, so Back from any pairing screen goes Home.
+    val pair = { request: PairingRequest ->
+        pairing.start(request)
+        replace(listOf(PhoneScreen.Home, PhoneScreen.Pair))
+    }
+    val leavePairing = {
+        // While the account is going to the TV, stay and wait for its answer.
+        if ((pairing.state.value as? PairTvState.CheckCode)?.sending != true) {
+            pairing.cancel()
+            replace(listOf(PhoneScreen.Home))
+        }
+    }
 
     when (screen) {
         PhoneScreen.Home -> {
             HomeScreen(
                 account.profile,
                 onAccount = { open(PhoneScreen.Account) },
+                tvs = tvs,
                 onScan = { open(PhoneScreen.Scan) },
                 onType = { open(PhoneScreen.Type) },
             )
@@ -93,6 +109,27 @@ private fun SignedIn(
         PhoneScreen.Type -> {
             val code by codes.state.collectAsStateWithLifecycle()
             PairCodeScreen(code, onCodeChange = codes::onCodeChange, onConnect = { codes.connect()?.let(pair) }, onBack = back)
+        }
+
+        PhoneScreen.Pair -> {
+            val state by pairing.state.collectAsStateWithLifecycle()
+            // Nothing in progress, such as after the app was closed mid-pairing: there's nothing to show here.
+            LaunchedEffect(state) { if (state == PairTvState.Idle) leavePairing() }
+            BackHandler(onBack = leavePairing)
+            PairTvScreen(
+                state,
+                PairTvActions(
+                    close = leavePairing,
+                    confirm = pairing::confirm,
+                    reject = pairing::reject,
+                    retry = pairing::retry,
+                    scanNew = {
+                        pairing.cancel()
+                        replace(listOf(PhoneScreen.Home, PhoneScreen.Scan))
+                    },
+                    done = leavePairing,
+                ),
+            )
         }
     }
 }

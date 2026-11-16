@@ -27,7 +27,11 @@ class PrefsPairedTvStoreTest {
 
     @Test
     fun aDamagedListIsForgotten() {
-        context.getSharedPreferences(PrefsPairedTvStore.FILE, Context.MODE_PRIVATE).edit().putString("tvs", "{oops").commit()
+        context
+            .getSharedPreferences(PrefsPairedTvStore.FILE, Context.MODE_PRIVATE)
+            .edit()
+            .putString("tvs", "{oops")
+            .commit()
 
         assertTrue(PrefsPairedTvStore(context).readTvs().isEmpty())
     }

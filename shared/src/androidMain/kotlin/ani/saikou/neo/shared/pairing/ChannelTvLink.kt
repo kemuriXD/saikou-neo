@@ -48,9 +48,22 @@ public object PairingMessages {
     public fun readSignedIn(bytes: ByteArray): PairedTvReply? =
         read(bytes, "signed-in")?.let { json ->
             val id = json.optString("id").takeIf { it.length in 1..MAX_FIELD } ?: return null
-            val name = json.optString("name").trim().takeIf { it.length in 1..MAX_FIELD } ?: return null
+            val name = cleanName(json.optString("name")).takeIf { it.length in 1..MAX_FIELD } ?: return null
             PairedTvReply(id, name)
         }
+
+    /**
+     * The TV's name as the phone shows it: line breaks and other control characters become spaces, and invisible
+     * format characters such as direction overrides go, so a name can't break or reorder the screen around it.
+     */
+    private fun cleanName(name: String): String =
+        name
+            .map { if (Character.getType(it) == Character.CONTROL.toInt()) ' ' else it }
+            .filterNot { Character.getType(it) == Character.FORMAT.toInt() }
+            .joinToString("")
+            .split(' ')
+            .filter { it.isNotEmpty() }
+            .joinToString(" ")
 
     private fun message(type: String) = JSONObject().put("v", VERSION).put("type", type)
 

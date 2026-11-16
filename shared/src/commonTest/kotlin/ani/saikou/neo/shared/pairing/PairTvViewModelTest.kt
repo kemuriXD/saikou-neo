@@ -152,6 +152,33 @@ class PairTvViewModelTest {
         }
 
     @Test
+    fun closingWhileTheAccountIsGoingStillAddsTheTv() =
+        runTest(main) {
+            val reply = CompletableDeferred<PairedTvReply>()
+            val store = MemoryTvStore()
+            val model = viewModel(store) { FakeTv { livingRoom }.let { tv -> AwaitingTv(tv, reply) } }
+
+            model.start(scanned)
+            advanceUntilIdle()
+            model.confirm()
+            advanceUntilIdle()
+            model.cancel()
+            reply.complete(livingRoom)
+            advanceUntilIdle()
+
+            assertEquals(PairTvState.SignedIn("Living room TV"), model.state.value)
+            assertEquals(listOf("tv-1"), store.tvs.map { it.id })
+        }
+
+    /** A TV that takes its time to answer, until [reply] completes. */
+    private class AwaitingTv(
+        private val tv: TvLink,
+        private val reply: CompletableDeferred<PairedTvReply>,
+    ) : TvLink by tv {
+        override suspend fun sendAccount(token: AniListToken): PairedTvReply = reply.await()
+    }
+
+    @Test
     fun cancelOnTheCheckCodeClosesTheConnectionWithoutSending() =
         runTest(main) {
             val tv = FakeTv { livingRoom }
