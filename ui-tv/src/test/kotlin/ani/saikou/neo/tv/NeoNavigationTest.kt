@@ -98,6 +98,7 @@ class NeoNavigationTest {
     private fun show(
         seeMoreState: SeeMoreState = SeeMoreState(List(24) { card(it) }, More.Done),
         searchState: SearchState = SearchState(),
+        signedIn: Boolean = true,
     ) = restoration.setContent {
         NeoTheme {
             NeoNavigation(
@@ -139,6 +140,13 @@ class NeoNavigationTest {
                 },
                 genre = { genre, _ -> Text("Most popular ${genre.aniListName}") },
                 player = { request, _ -> Text("Playing E${request.episode}") },
+                signIn = { _, _ -> Text("Sign in with your phone") },
+                signedIn = { signedIn },
+                signedOutProfile = { openSignIn, _ ->
+                    val signIn = remember { FocusRequester() }
+                    LaunchedEffect(Unit) { signIn.requestFocus() }
+                    Button(onClick = openSignIn, modifier = Modifier.focusRequester(signIn)) { Text("Sign in with AniList") }
+                },
             )
         }
     }
@@ -424,6 +432,28 @@ class NeoNavigationTest {
 
         compose.onNodeWithText("Coming in a future update.").assertExists()
         compose.onNodeWithTag(RAIL_TAG).assertDoesNotExist()
+    }
+
+    // Profile is the way in to the AniList account: signing in until the TV is signed in, then the profile.
+    @Test
+    fun profileLeadsToSignInWhileSignedOut() {
+        show(signedIn = false)
+
+        openSection(Section.PROFILE)
+        compose.onNodeWithText("Sign in with AniList").assertExists()
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithText("Sign in with your phone").assertExists()
+    }
+
+    @Test
+    fun profileOpensTheProfileOnceSignedIn() {
+        show(signedIn = true)
+
+        openSection(Section.PROFILE)
+
+        compose.onNodeWithText("Sign in with AniList").assertDoesNotExist()
+        compose.onNodeWithText("Coming in a future update.").assertExists()
     }
 
     @Test

@@ -17,6 +17,8 @@ public data class AniListProfile(
     val name: String,
     /** Their profile page on anilist.co. */
     val siteUrl: String?,
+    /** Their profile picture, at AniList's large size. */
+    val avatarUrl: String? = null,
 )
 
 /** A signed-in AniList user and their token. */

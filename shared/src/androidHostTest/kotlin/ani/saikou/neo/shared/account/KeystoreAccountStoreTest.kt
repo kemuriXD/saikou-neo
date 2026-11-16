@@ -14,7 +14,7 @@ import kotlin.test.assertNull
 @RunWith(RobolectricTestRunner::class)
 class KeystoreAccountStoreTest {
     private val context: Context = RuntimeEnvironment.getApplication()
-    private val kemuri = AniListProfile(5412345, "Kemuri", "https://anilist.co/user/5412345")
+    private val kemuri = AniListProfile(5412345, "Kemuri", "https://anilist.co/user/5412345", "https://s4.anilist.co/avatar.png")
 
     @Test
     fun anAccountReadsBackAfterARestart() {

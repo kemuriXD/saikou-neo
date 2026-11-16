@@ -23,9 +23,14 @@ import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Surface
+import ani.saikou.neo.shared.account.AniListAccountClient
+import ani.saikou.neo.shared.account.AniListProfile
+import ani.saikou.neo.shared.account.KeystoreAccountStore
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniZipClient
@@ -44,6 +49,11 @@ import ani.saikou.neo.shared.home.ContinueWatchingViewModel
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
+import ani.saikou.neo.shared.pairing.TvAccountViewModel
+import ani.saikou.neo.shared.pairing.TvSignInState
+import ani.saikou.neo.shared.pairing.TvSignInViewModel
+import ani.saikou.neo.shared.pairing.openTvPairing
+import ani.saikou.neo.shared.pairing.thisTv
 import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.PlayerViewModel
 import ani.saikou.neo.shared.playback.ServersViewModel
@@ -74,10 +84,13 @@ import ani.saikou.neo.tv.player.StreamVideo
 import ani.saikou.neo.tv.player.rememberExoPlayback
 import ani.saikou.neo.tv.search.SearchScreen
 import ani.saikou.neo.tv.search.genreLabels
+import ani.saikou.neo.tv.settings.AccountSettings
 import ani.saikou.neo.tv.settings.SettingsCategory
 import ani.saikou.neo.tv.settings.SettingsScreen
 import ani.saikou.neo.tv.settings.SourceActions
 import ani.saikou.neo.tv.settings.SubtitleActions
+import ani.saikou.neo.tv.signin.ProfileSignedOutScreen
+import ani.saikou.neo.tv.signin.SignInScreen
 import ani.saikou.neo.tv.sources.sourceThreads
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.Section
@@ -119,6 +132,9 @@ class MainActivity : ComponentActivity() {
             val settings = app.settings.collectAsStateWithLifecycle().value ?: return@setContent
             // An episode picked in the player, for the Details under it to open as the player goes.
             var episodeFromPlayer by remember { mutableStateOf<Int?>(null) }
+            // The AniList account on this TV, for Profile and Settings > Account. Read again once Sign in saves one.
+            val account = viewModel { TvAccountViewModel(KeystoreAccountStore(applicationContext)) }
+            val profile by account.profile.collectAsStateWithLifecycle()
             NeoTheme(light = settings.slowTv) {
                 // Every key passes through HeldKeys before it can move focus. Test tags double as resource IDs, so
                 // :benchmark-tv can find the cards.
@@ -308,10 +324,35 @@ class MainActivity : ComponentActivity() {
                                 onOfflineInView = discover::watchOffline,
                             )
                         },
-                        section = { section ->
-                            if (section == Section.SETTINGS) SettingsSection(SettingsCategory.BROWSING) else SectionPlaceholder(section)
+                        section = { section, openSignIn ->
+                            if (section ==
+                                Section.SETTINGS
+                            ) {
+                                SettingsSection(SettingsCategory.BROWSING, openSignIn, profile)
+                            } else {
+                                SectionPlaceholder(section)
+                            }
                         },
-                        sources = { SettingsSection(SettingsCategory.SOURCES) },
+                        sources = { openSignIn -> SettingsSection(SettingsCategory.SOURCES, openSignIn, profile) },
+                        signedIn = { profile != null },
+                        signedOutProfile = { openSignIn, back -> ProfileSignedOutScreen(onSignIn = openSignIn, onHome = back) },
+                        signIn = { leave, goHome ->
+                            val signIn =
+                                viewModel {
+                                    TvSignInViewModel(
+                                        open = ::openTvPairing,
+                                        viewer = AniListAccountClient()::viewer,
+                                        store = KeystoreAccountStore(applicationContext),
+                                        tv = thisTv(applicationContext),
+                                    )
+                                }
+                            val state by signIn.state.collectAsStateWithLifecycle()
+                            LaunchedEffect(state is TvSignInState.SignedIn) { if (state is TvSignInState.SignedIn) account.refresh() }
+                            // No pairing in the background: a phone can't finish signing in while nobody's watching.
+                            LifecycleEventEffect(Lifecycle.Event.ON_STOP) { signIn.cancel() }
+                            // Leaving clears the ViewModel, which closes the listener and any phone without signing in.
+                            SignInScreen(state, onNewCode = signIn::newCode, onLeave = leave, onHome = goHome)
+                        },
                         player = { request, back ->
                             val player = viewModel { PlayerViewModel(app.streamFinder, request, history = app.history) }
                             val state by player.state.collectAsStateWithLifecycle()
@@ -387,9 +428,13 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Settings with the installed sources, opened on [start]. */
+    /** Settings with the installed sources, opened on [start]. Account opens Sign in with [openSignIn]. */
     @Composable
-    private fun SettingsSection(start: SettingsCategory) {
+    private fun SettingsSection(
+        start: SettingsCategory,
+        openSignIn: () -> Unit,
+        profile: AniListProfile?,
+    ) {
         val settingsScreen = viewModel { SettingsViewModel(app.settingsStore) }
         val state by settingsScreen.state.collectAsStateWithLifecycle()
         val sourcesScreen = viewModel { SourcesViewModel(app.sources, ShortCodes(), SourceDownloads()) }
@@ -429,6 +474,7 @@ class MainActivity : ComponentActivity() {
                         subtitlesScreen::clearShow,
                         subtitlesScreen::resetAll,
                     ),
+                account = AccountSettings(profile, openSignIn),
             )
         }
     }

@@ -38,7 +38,12 @@ public class KeystoreAccountStore internal constructor(
         return try {
             val json = JSONObject(cipher.decrypt(Base64.decode(sealed, Base64.NO_WRAP)).decodeToString())
             SignedInAccount(
-                AniListProfile(json.getInt("id"), json.getString("name"), json.optString("siteUrl").ifEmpty { null }),
+                AniListProfile(
+                    json.getInt("id"),
+                    json.getString("name"),
+                    json.optString("siteUrl").ifEmpty { null },
+                    json.optString("avatar").ifEmpty { null },
+                ),
                 AniListToken(json.getString("token"), json.getLong("expires")),
             )
         } catch (_: GeneralSecurityException) {
@@ -58,6 +63,7 @@ public class KeystoreAccountStore internal constructor(
                 .put("id", account.profile.id)
                 .put("name", account.profile.name)
                 .put("siteUrl", account.profile.siteUrl ?: "")
+                .put("avatar", account.profile.avatarUrl ?: "")
                 .put("token", account.token.accessToken)
                 .put("expires", account.token.expiresAtEpochSeconds)
         val sealed = Base64.encodeToString(cipher.encrypt(json.toString().encodeToByteArray()), Base64.NO_WRAP)

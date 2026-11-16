@@ -21,7 +21,7 @@ public class AniListAccountClient internal constructor(
         response.exception?.let { return AniListResult.Failure(it.toAniListError()) }
         val viewer = response.data?.Viewer
         return if (viewer != null) {
-            AniListResult.Success(AniListProfile(viewer.id, viewer.name, viewer.siteUrl))
+            AniListResult.Success(AniListProfile(viewer.id, viewer.name, viewer.siteUrl, viewer.avatar?.large))
         } else {
             AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
         }

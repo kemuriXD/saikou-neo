@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.pairing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -10,6 +11,7 @@ import java.io.DataOutputStream
 import java.net.InetAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.util.concurrent.CopyOnWriteArrayList
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertContentEquals
@@ -52,6 +54,28 @@ class PairingChannelTest {
             }
             phone.close()
             tvSide.close()
+        }
+
+    @Test
+    fun theTvHearsWhenAPhoneStartsAHandshakeAndWhenItFails() =
+        pairing {
+            val attempts = CopyOnWriteArrayList<Boolean>()
+            val tv = async { listener.accept { attempts += it } }
+            withContext(Dispatchers.IO) {
+                // A phone that reads the TV's nonce and then hangs up.
+                rawSocket().use { socket ->
+                    val own = PairingKeyPair.generate()
+                    socket.writeFrame(byteArrayOf(1) + own.publicKey + pairingCommitment(own.publicKey, newPairingNonce()))
+                    socket.readFrame()
+                }
+            }
+            while (attempts.size < 2) delay(10)
+            assertEquals(listOf(true, false), attempts.toList())
+
+            val phone = phone()
+            tv.await().close()
+            phone.close()
+            assertEquals(listOf(true, false, true), attempts.toList())
         }
 
     @Test

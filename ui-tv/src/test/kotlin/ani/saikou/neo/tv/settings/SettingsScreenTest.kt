@@ -1,6 +1,7 @@
 package ani.saikou.neo.tv.settings
 
 import androidx.activity.ComponentActivity
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.focus.FocusManager
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalFocusManager
@@ -21,6 +22,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
+import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SubOrDub
@@ -93,13 +95,32 @@ class SettingsScreenTest {
         lateinit var focusManager: FocusManager
         compose.setContent {
             focusManager = LocalFocusManager.current
-            NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.SOURCES) }
+            // The last category, so the Down that brings focus in can't move it on.
+            NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.ACCOUNT) }
         }
         compose.runOnIdle { focusManager.clearFocus(force = true) }
 
         press(Key.DirectionDown)
 
-        category(SettingsCategory.SOURCES).assertIsFocused().assertIsSelected()
+        category(SettingsCategory.ACCOUNT).assertIsFocused().assertIsSelected()
+    }
+
+    @Test
+    fun accountOffersSignInWhileSignedOutAndShowsTheNameOnceSignedIn() {
+        var signIns = 0
+        val account = mutableStateOf(AccountSettings(onSignIn = { signIns++ }))
+        compose.setContent {
+            NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.ACCOUNT, account = account.value) }
+        }
+
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+        assertEquals(1, signIns)
+
+        account.value = AccountSettings(AniListProfile(7, "Hikari", null))
+        compose.onNodeWithText("Hikari").assertExists()
+        compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).assertDoesNotExist()
     }
 
     @Test

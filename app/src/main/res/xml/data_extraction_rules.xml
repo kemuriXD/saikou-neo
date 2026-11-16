@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android 12 and newer. The AniList account is sealed with a key that never leaves this phone, so it stays here, and so does Your TVs,
-     since the account is what signs those TVs in. -->
+     since the account is what signs those TVs in. A TV's pairing ID stays too, so two TVs never share one. -->
 <data-extraction-rules>
     <cloud-backup>
         <exclude
@@ -9,6 +9,9 @@
         <exclude
             domain="sharedpref"
             path="paired_tvs.xml" />
+        <exclude
+            domain="sharedpref"
+            path="tv_identity.xml" />
     </cloud-backup>
     <device-transfer>
         <exclude
@@ -17,5 +20,8 @@
         <exclude
             domain="sharedpref"
             path="paired_tvs.xml" />
+        <exclude
+            domain="sharedpref"
+            path="tv_identity.xml" />
     </device-transfer>
 </data-extraction-rules>

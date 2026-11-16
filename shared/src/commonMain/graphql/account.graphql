@@ -1,8 +1,12 @@
-# The signed-in user, asked with their token. The phone shows the name and links to the profile page.
+# The signed-in user, asked with their token. The phone shows the name and links to the profile page, and the TV
+# shows the profile picture.
 query Viewer {
   Viewer {
     id
     name
     siteUrl
+    avatar {
+      large
+    }
   }
 }
