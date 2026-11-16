@@ -21,12 +21,6 @@ import javax.crypto.spec.SecretKeySpec
 /** Which end of a pairing this device is. The TV listens; the phone connects. */
 public enum class PairingRole { TV, PHONE }
 
-/** A pairing step failed: a bad key, a message that didn't decrypt, or a broken connection. */
-public class PairingException(
-    message: String,
-    cause: Throwable? = null,
-) : Exception(message, cause)
-
 /** Size in bytes of a pairing session ID, which the TV picks at random each time pairing opens. */
 public const val PAIRING_SESSION_ID_SIZE: Int = 32
 
