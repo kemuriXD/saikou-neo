@@ -58,6 +58,10 @@ import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.PlayerViewModel
 import ani.saikou.neo.shared.playback.ServersViewModel
 import ani.saikou.neo.shared.playback.playRequest
+import ani.saikou.neo.shared.schedule.DeviceScheduleZone
+import ani.saikou.neo.shared.schedule.PrefsScheduleFilterStore
+import ani.saikou.neo.shared.schedule.ScheduleEvent
+import ani.saikou.neo.shared.schedule.ScheduleViewModel
 import ani.saikou.neo.shared.search.SearchViewModel
 import ani.saikou.neo.shared.settings.PlayerSubtitlesViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
@@ -82,6 +86,8 @@ import ani.saikou.neo.tv.player.PlayerScreen
 import ani.saikou.neo.tv.player.Sample
 import ani.saikou.neo.tv.player.StreamVideo
 import ani.saikou.neo.tv.player.rememberExoPlayback
+import ani.saikou.neo.tv.schedule.ScheduleActions
+import ani.saikou.neo.tv.schedule.ScheduleScreen
 import ani.saikou.neo.tv.search.SearchScreen
 import ani.saikou.neo.tv.search.genreLabels
 import ani.saikou.neo.tv.settings.AccountSettings
@@ -322,6 +328,40 @@ class MainActivity : ComponentActivity() {
                                 onRetry = discover::retry,
                                 onNetworkSettings = ::openNetworkSettings,
                                 onOfflineInView = discover::watchOffline,
+                            )
+                        },
+                        schedule = { openDetails, goHome ->
+                            val schedule =
+                                viewModel {
+                                    ScheduleViewModel(
+                                        app.schedule,
+                                        KeystoreAccountStore(applicationContext),
+                                        PrefsScheduleFilterStore(applicationContext),
+                                        DeviceScheduleZone(),
+                                    )
+                                }
+                            val state by schedule.state.collectAsStateWithLifecycle()
+                            var cantOpen by remember { mutableStateOf<ScheduleEvent.CantOpen?>(null) }
+                            LaunchedEffect(schedule) {
+                                schedule.events.collect { event ->
+                                    when (event) {
+                                        is ScheduleEvent.OpenDetails -> openDetails(event.aniListId)
+                                        is ScheduleEvent.CantOpen -> cantOpen = event
+                                    }
+                                }
+                            }
+                            ScheduleScreen(
+                                state,
+                                actions =
+                                    ScheduleActions(
+                                        onSelectDay = schedule::selectDay,
+                                        onFilter = schedule::showFilter,
+                                        onOpen = schedule::open,
+                                        onRetry = schedule::retry,
+                                        onHome = goHome,
+                                        onCantOpenShown = { cantOpen = null },
+                                    ),
+                                cantOpen = cantOpen,
                             )
                         },
                         section = { section, openSignIn ->

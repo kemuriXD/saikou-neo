@@ -593,4 +593,47 @@
     <string name="subs_medium">Medium</string>
     <string name="subs_thick">Thick</string>
     <string name="subs_chosen">%1$s, chosen</string>
+    <!-- Schedule (#192) -->
+    <string name="schedule_title">Airing this week</string>
+    <string name="schedule_zone">Times in your time zone</string>
+    <string name="schedule_zone_signed_out">Times in your time zone · Sign in from your phone to see just your list</string>
+    <string name="schedule_your_list">Your list</string>
+    <string name="schedule_all_shows">All shows</string>
+    <string name="schedule_today">Today</string>
+    <plurals name="schedule_day_episodes">
+        <item quantity="one">%d ep</item>
+        <item quantity="other">%d eps</item>
+    </plurals>
+    <string name="schedule_episode">Episode %1$d</string>
+    <string name="schedule_sub">Sub</string>
+    <string name="schedule_raw">Raw</string>
+    <string name="schedule_dub">Dub</string>
+    <!-- %1$s is Sub or Raw, %2$s a weekday, such as "Sub out now, dub Friday". -->
+    <string name="schedule_out_dub_later">%1$s out now, dub %2$s</string>
+    <string name="schedule_out_dub_out">%1$s and dub out now</string>
+    <string name="schedule_dub_later">%1$s, dub %2$s</string>
+    <string name="schedule_in_hours">in %1$dh %2$dm</string>
+    <string name="schedule_in_minutes">in %1$dm</string>
+    <string name="schedule_out_now">Out now</string>
+    <string name="schedule_delayed">Delayed</string>
+    <string name="schedule_status">%1$s · %2$s</string>
+    <!-- A weekday and date, then a time, such as "Wed 28 Oct · 17:30". -->
+    <string name="schedule_when">%1$s · %2$s</string>
+    <string name="schedule_nothing_yours_today">Nothing from your list today</string>
+    <string name="schedule_nothing_yours_on">Nothing from your list on %1$s</string>
+    <string name="schedule_nothing_yours_body">Your Watching and Planning shows air on other days this week.</string>
+    <string name="schedule_nothing_today">Nothing airing today</string>
+    <string name="schedule_nothing_on">Nothing airing on %1$s</string>
+    <string name="schedule_nothing_body">No new episodes are listed for this day.</string>
+    <string name="schedule_see_all">See all shows</string>
+    <string name="schedule_failed">Schedule couldn\'t load</string>
+    <string name="schedule_failed_network">Check the TV\'s connection, then try again.</string>
+    <string name="schedule_failed_busy">AnimeSchedule.net is busy. Try again in a minute.</string>
+    <string name="schedule_failed_other">Something went wrong reading the schedule. Try again in a bit.</string>
+    <string name="schedule_try_again">Try again</string>
+    <string name="schedule_back_home">Back to Home</string>
+    <string name="schedule_no_token">Schedule isn\'t available</string>
+    <string name="schedule_no_token_body">This version of the app can\'t read this week\'s schedule.</string>
+    <string name="schedule_cant_open">This show isn\'t on AniList yet, so it can\'t be opened.</string>
+    <string name="schedule_cant_open_retry">Couldn\'t find this show on AniList just now. Try again in a moment.</string>
 </resources>
