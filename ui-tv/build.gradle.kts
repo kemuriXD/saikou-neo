@@ -17,11 +17,12 @@ fun apiKey(
     variable: String,
 ): String = (localProperties?.getProperty(property) ?: providers.environmentVariable(variable).orNull ?: "").trim()
 
-// The fanart.tv project key (ADR 0011), the TMDB API key (ADR 0012) and the OMDb API key (ADR 0014). Without one, the
-// app asks that site nothing.
+// The fanart.tv project key (ADR 0011), the TMDB API key (ADR 0012), the OMDb API key (ADR 0014) and the
+// AnimeSchedule.net token (ADR 0041). Without one, the app asks that site nothing.
 val fanartTvApiKey = apiKey("fanartTv.apiKey", "FANART_TV_API_KEY")
 val tmdbApiKey = apiKey("tmdb.apiKey", "TMDB_API_KEY")
 val omdbApiKey = apiKey("omdb.apiKey", "OMDB_API_KEY")
+val animeScheduleToken = apiKey("animeSchedule.token", "ANIMESCHEDULE_TOKEN")
 
 android {
     namespace = "ani.saikou.neo.tv"
@@ -29,6 +30,7 @@ android {
         buildConfigField("String", "FANART_TV_API_KEY", "\"$fanartTvApiKey\"")
         buildConfigField("String", "TMDB_API_KEY", "\"$tmdbApiKey\"")
         buildConfigField("String", "OMDB_API_KEY", "\"$omdbApiKey\"")
+        buildConfigField("String", "ANIMESCHEDULE_TOKEN", "\"$animeScheduleToken\"")
     }
     buildFeatures { buildConfig = true }
     // Robolectric needs the merged resources, fonts included.

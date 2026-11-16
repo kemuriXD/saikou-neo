@@ -114,7 +114,8 @@ jobs:
       # Runs spotless, lint and the JVM tests, and builds the debug APK for
       # testing, all for the active channel only. `check` and `assembleDebug`
       # would cover every channel and take much longer. The fanart.tv, TMDB and
-      # OMDb keys (ADR 0011, ADR 0012, ADR 0014) and the AniList client ID are
+      # OMDb keys (ADR 0011, ADR 0012, ADR 0014), the AnimeSchedule.net token
+      # (ADR 0041) and the AniList client ID are
       # only built into the APKs; tests and PRs without them still pass.
       # Publishing the extension API to the local Maven folder checks its
       # release setup.
@@ -123,6 +124,7 @@ jobs:
           FANART_TV_API_KEY: ${{ secrets.FANART_TV_API_KEY }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+          ANIMESCHEDULE_TOKEN: ${{ secrets.ANIMESCHEDULE_TOKEN }}
           ANILIST_PREVIEW_CLIENT_ID: ${{ secrets.ANILIST_PREVIEW_CLIENT_ID }}
         run: >-
           ./gradlew spotlessCheck :shared:check :extension-api:check :extension-api:publishToMavenLocal
@@ -138,6 +140,7 @@ jobs:
           FANART_TV_API_KEY: ${{ secrets.FANART_TV_API_KEY }}
           TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
           OMDB_API_KEY: ${{ secrets.OMDB_API_KEY }}
+          ANIMESCHEDULE_TOKEN: ${{ secrets.ANIMESCHEDULE_TOKEN }}
           ANILIST_PREVIEW_CLIENT_ID: ${{ secrets.ANILIST_PREVIEW_CLIENT_ID }}
         run: ./gradlew :app:assemble${VARIANT}Release
 
