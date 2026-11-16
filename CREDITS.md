@@ -11,6 +11,8 @@ None of them make or endorse the app.
   that link a show across the other sites.
 - [MyAnimeList](https://myanimelist.net), through [Tenrai](https://api.tenrai.org):
   which episodes are filler or recaps.
+- Powered by [AnimeSchedule.net](https://animeschedule.net): this week's raw,
+  sub and dub air times for Schedule.
 
 ## Artwork
 
