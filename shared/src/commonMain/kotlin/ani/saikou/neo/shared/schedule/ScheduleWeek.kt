@@ -4,6 +4,7 @@ import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AirType
 import ani.saikou.neo.shared.catalogue.AiringStatus
 import ani.saikou.neo.shared.catalogue.TimetableEpisode
+import ani.saikou.neo.shared.settings.ScheduleSettings
 import kotlin.time.Duration
 import kotlin.time.Instant
 
@@ -81,6 +82,21 @@ private fun TimetableEpisode.toRow(dubAt: Instant?) =
         dubAt = dubAt,
         delayed = airingStatus == AiringStatus.DELAYED,
     )
+
+/**
+ * The episodes [settings] lets through, before they become rows. With raw off a raw release is dropped, so an episode
+ * with only a raw goes; with dubs off every dub release is dropped, so dub rows and dub times on rows go too.
+ */
+internal fun List<TimetableEpisode>.shownWith(settings: ScheduleSettings): List<TimetableEpisode> =
+    filter { episode ->
+        when {
+            episode.airType == AirType.RAW && !settings.rawEpisodes -> false
+            episode.airType == AirType.DUB && !settings.dubs -> false
+            episode.donghua && !settings.chineseAnimation -> false
+            episode.format != null && episode.format !in settings.formats -> false
+            else -> settings.shortEpisodes || (episode.lengthMinutes ?: Int.MAX_VALUE) >= ScheduleSettings.SHORT_EPISODE_MINUTES
+        }
+    }
 
 /** Monday to Sunday of the week [now] is in, and which of them is today. */
 internal data class Week(

@@ -56,6 +56,8 @@ class AnimeScheduleClientTest {
                     delayedUntil = null,
                     airingStatus = AiringStatus.AIRING,
                     donghua = false,
+                    format = ShowFormat.TV,
+                    lengthMinutes = 24,
                     imageUrl =
                         "https://img.animeschedule.net/production/assets/public/img/anime/jpg/default/" +
                             "mahou-shoujo-ikusei-keikaku-restart-8fd4ef30820c1c8a4d8f327c9d6d1e7e.jpg",
@@ -74,6 +76,57 @@ class AnimeScheduleClientTest {
                 episodes.map { it.airType },
             )
             assertTrue(episodes[0].donghua)
+        }
+
+    @Test
+    fun eachEpisodeHasItsFormatAndLength() =
+        runTest {
+            val episodes = assertIs<AnimeScheduleResult.Success>(client(ScheduleEngine()).week("UTC")).episodes
+
+            // "ONA (Chinese)" is an ONA. Chinese animation is told apart by donghua.
+            assertEquals(ShowFormat.ONA, episodes[0].format)
+            assertEquals(10, episodes[0].lengthMinutes)
+            assertEquals(ShowFormat.TV, episodes[3].format)
+        }
+
+    @Test
+    fun everyFormatIsRead() =
+        runTest {
+            val names = listOf("TV", "TV Short", "ONA", "ONA (Chinese)", "Movie", "OVA", "Special")
+            val body =
+                names.joinToString(",", "[", "]") {
+                    """{"route":"a","episodeDate":"2026-11-16T02:00:00Z","airType":"sub","mediaTypes":[{"name":"$it","route":"x"}]}"""
+                }
+
+            val episodes = assertIs<AnimeScheduleResult.Success>(client(ScheduleEngine(body = body)).week("UTC")).episodes
+
+            assertEquals(
+                listOf(
+                    ShowFormat.TV,
+                    ShowFormat.TV_SHORT,
+                    ShowFormat.ONA,
+                    ShowFormat.ONA,
+                    ShowFormat.MOVIE,
+                    ShowFormat.OVA,
+                    ShowFormat.SPECIAL,
+                ),
+                episodes.map { it.format },
+            )
+        }
+
+    // A few rows have a length of 0 or no media types. Neither is known, so neither is filtered on.
+    @Test
+    fun anUnknownFormatOrLengthIsNull() =
+        runTest {
+            val body =
+                """[{"route":"a","episodeDate":"2026-11-16T02:00:00Z","airType":"sub","lengthMin":0,"mediaTypes":[]},""" +
+                    """{"route":"b","episodeDate":"2026-11-16T02:00:00Z","airType":"sub","mediaTypes":[{"name":"Music"}]},""" +
+                    """{"route":"c","episodeDate":"2026-11-16T02:00:00Z","airType":"sub","mediaTypes":null}]"""
+
+            val episodes = assertIs<AnimeScheduleResult.Success>(client(ScheduleEngine(body = body)).week("UTC")).episodes
+
+            assertEquals(listOf(null, null, null), episodes.map { it.format })
+            assertEquals(listOf(null, null, null), episodes.map { it.lengthMinutes })
         }
 
     @Test

@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.schedule
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AirType
 import ani.saikou.neo.shared.catalogue.AiringStatus
+import ani.saikou.neo.shared.catalogue.ShowFormat
 import ani.saikou.neo.shared.catalogue.TimetableEpisode
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -16,6 +17,9 @@ internal fun episode(
     type: AirType,
     at: String,
     status: AiringStatus = AiringStatus.UNAIRED,
+    format: ShowFormat? = ShowFormat.TV,
+    lengthMinutes: Int? = 24,
+    donghua: Boolean = false,
 ): TimetableEpisode =
     TimetableEpisode(
         route = route,
@@ -28,7 +32,9 @@ internal fun episode(
         delayedFrom = null,
         delayedUntil = null,
         airingStatus = status,
-        donghua = false,
+        donghua = donghua,
+        format = format,
+        lengthMinutes = lengthMinutes,
         imageUrl = null,
     )
 

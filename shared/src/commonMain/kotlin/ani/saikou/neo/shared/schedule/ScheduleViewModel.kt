@@ -10,7 +10,10 @@ import ani.saikou.neo.shared.catalogue.AnimeScheduleError
 import ani.saikou.neo.shared.catalogue.AnimeScheduleResult
 import ani.saikou.neo.shared.catalogue.LoadProblem
 import ani.saikou.neo.shared.catalogue.ShowLookup
+import ani.saikou.neo.shared.catalogue.TimetableEpisode
 import ani.saikou.neo.shared.catalogue.problem
+import ani.saikou.neo.shared.settings.ScheduleSettings
+import ani.saikou.neo.shared.settings.Settings
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
@@ -20,6 +23,10 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -50,7 +57,7 @@ public sealed interface ScheduleState {
     ) : ScheduleState
 
     public data class Ready(
-        /** Monday to Sunday. Each day's rows, and so its count, follow [filter]. */
+        /** Monday to Sunday. Each day's rows, and so its count, follow [filter] and the Schedule settings. */
         val days: List<ScheduleDay>,
         val today: Int,
         val selectedDay: Int,
@@ -79,6 +86,7 @@ public class ScheduleViewModel(
     private val source: ScheduleSource,
     private val accounts: AccountStore,
     private val filters: ScheduleFilterStore,
+    settings: Flow<Settings>,
     private val zone: ScheduleZone,
     private val now: () -> Instant = { Clock.System.now() },
     private val io: CoroutineDispatcher = Dispatchers.IO,
@@ -89,7 +97,11 @@ public class ScheduleViewModel(
     private val mutableEvents = Channel<ScheduleEvent>(Channel.BUFFERED)
     public val events: Flow<ScheduleEvent> = mutableEvents.receiveAsFlow()
 
-    private var rows: List<ScheduleRow> = emptyList()
+    /** The loaded week, or null until it and your list are both in. */
+    private var episodes: List<TimetableEpisode>? = null
+
+    /** Which shows to leave out, or null until the settings are read. */
+    private var shown: ScheduleSettings? = null
 
     /** Routes of the airing shows on your list, with their AniList ids. Null when signed out. */
     private var yourList: Map<String, Int>? = null
@@ -97,6 +109,14 @@ public class ScheduleViewModel(
     private var loading: Job? = null
 
     init {
+        // The week loaded stays; a changed setting only filters it again.
+        settings
+            .map { it.schedule }
+            .distinctUntilChanged()
+            .onEach {
+                shown = it
+                publish()
+            }.launchIn(viewModelScope)
         load()
     }
 
@@ -133,14 +153,16 @@ public class ScheduleViewModel(
 
     private fun load() {
         loading?.cancel()
+        episodes = null
         mutableState.value = ScheduleState.Loading
         loading =
             viewModelScope.launch {
                 val account = withContext(io) { accounts.readAccount() }
-                when (val week = source.week(zone)) {
-                    is AnimeScheduleResult.Success -> rows = scheduleRows(week.episodes)
-                    is AnimeScheduleResult.Failure -> return@launch fail(week.error)
-                }
+                val week =
+                    when (val result = source.week(zone)) {
+                        is AnimeScheduleResult.Success -> result.episodes
+                        is AnimeScheduleResult.Failure -> return@launch fail(result.error)
+                    }
                 yourList =
                     when (val list = account?.let { yourList(it) }) {
                         null, ListResult.Refused -> null
@@ -148,6 +170,7 @@ public class ScheduleViewModel(
                         is ListResult.Matched -> list.routes
                     }
                 filter = if (yourList == null) null else withContext(io) { filters.readFilter() } ?: ScheduleFilter.YOUR_LIST
+                episodes = week
                 publish()
             }
     }
@@ -189,10 +212,14 @@ public class ScheduleViewModel(
         mutableState.value = ScheduleState.Failed(problem)
     }
 
+    /** Shows the week once it and the settings are both in. Each day's rows, and so its count, follow the filters. */
     private fun publish() {
+        val episodes = episodes ?: return
+        val settings = shown ?: return
         val list = yourList
-        val shown = if (filter == ScheduleFilter.YOUR_LIST && list != null) rows.filter { it.route in list } else rows
-        val week = scheduleWeek(shown, zone, now())
+        val rows = scheduleRows(episodes.shownWith(settings))
+        val listed = if (filter == ScheduleFilter.YOUR_LIST && list != null) rows.filter { it.route in list } else rows
+        val week = scheduleWeek(listed, zone, now())
         val selected = (state.value as? ScheduleState.Ready)?.selectedDay ?: week.today
         mutableState.value = ScheduleState.Ready(week.days, week.today, selected, filter)
     }

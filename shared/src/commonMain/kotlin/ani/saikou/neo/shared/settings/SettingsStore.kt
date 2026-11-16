@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import ani.saikou.neo.shared.catalogue.ShowFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -15,6 +16,11 @@ private val UnairedAnime = booleanPreferencesKey("show_unaired_anime")
 private val UpcomingEpisodes = booleanPreferencesKey("show_upcoming_episodes")
 private val SlowTv = booleanPreferencesKey("slow_tv")
 private val SubOrDubKey = stringPreferencesKey("sub_or_dub")
+private val ScheduleRaw = booleanPreferencesKey("schedule_raw_episodes")
+private val ScheduleDubs = booleanPreferencesKey("schedule_dubs")
+private val ScheduleFormats = stringPreferencesKey("schedule_formats")
+private val ScheduleChinese = booleanPreferencesKey("schedule_chinese_animation")
+private val ScheduleShort = booleanPreferencesKey("schedule_short_episodes")
 
 /**
  * Keeps [Settings] in a file, so they're there after the app restarts. Only one store may have a file open at a time,
@@ -35,6 +41,11 @@ public class SettingsStore private constructor(
             saved[UpcomingEpisodes] = changed.showUpcomingEpisodes
             saved[SlowTv] = changed.slowTv
             saved[SubOrDubKey] = changed.subOrDub.name
+            saved[ScheduleRaw] = changed.schedule.rawEpisodes
+            saved[ScheduleDubs] = changed.schedule.dubs
+            saved[ScheduleFormats] = changed.schedule.formats.joinToString(",") { it.name }
+            saved[ScheduleChinese] = changed.schedule.chineseAnimation
+            saved[ScheduleShort] = changed.schedule.shortEpisodes
         }
     }
 
@@ -63,5 +74,19 @@ private fun Preferences.toSettings(): Settings {
         showUpcomingEpisodes = this[UpcomingEpisodes] ?: defaults.showUpcomingEpisodes,
         slowTv = this[SlowTv] ?: defaults.slowTv,
         subOrDub = SubOrDub.entries.firstOrNull { it.name == this[SubOrDubKey] } ?: defaults.subOrDub,
+        schedule = toScheduleSettings(),
+    )
+}
+
+private fun Preferences.toScheduleSettings(): ScheduleSettings {
+    val defaults = ScheduleSettings()
+    val formats = this[ScheduleFormats]?.split(",")?.mapNotNull { name -> ShowFormat.entries.firstOrNull { it.name == name } }?.toSet()
+    return ScheduleSettings(
+        rawEpisodes = this[ScheduleRaw] ?: defaults.rawEpisodes,
+        dubs = this[ScheduleDubs] ?: defaults.dubs,
+        // At least one format stays on, so none read means the default.
+        formats = formats?.takeIf { it.isNotEmpty() } ?: defaults.formats,
+        chineseAnimation = this[ScheduleChinese] ?: defaults.chineseAnimation,
+        shortEpisodes = this[ScheduleShort] ?: defaults.shortEpisodes,
     )
 }

@@ -26,6 +26,9 @@ public enum class AirType { RAW, SUB, DUB }
 /** Where an episode stands, as AnimeSchedule.net tells it. */
 public enum class AiringStatus { AIRED, AIRING, UNAIRED, DELAYED, UNKNOWN }
 
+/** What kind of show it is, as AnimeSchedule.net lists it. A Chinese ONA is an [ONA]; see [TimetableEpisode.donghua]. */
+public enum class ShowFormat { TV, TV_SHORT, ONA, MOVIE, OVA, SPECIAL }
+
 /** One episode on this week's timetable. */
 public data class TimetableEpisode(
     /** AnimeSchedule's id for the show, such as `psyren`. */
@@ -43,6 +46,10 @@ public data class TimetableEpisode(
     val airingStatus: AiringStatus,
     /** A Chinese animation. */
     val donghua: Boolean,
+    /** The show's format, or null when AnimeSchedule lists none it knows. */
+    val format: ShowFormat?,
+    /** How long an episode runs, or null when it isn't known. */
+    val lengthMinutes: Int?,
     val imageUrl: String?,
 )
 
@@ -264,9 +271,14 @@ private fun JsonReader.readEpisode(): TimetableEpisode? {
     }
     val fields = mutableMapOf<String, String>()
     var donghua = false
+    var format: ShowFormat? = null
     beginObject()
     while (hasNext()) {
         val name = nextName()
+        if (name == "mediaTypes" && peek() == JsonReader.Token.BEGIN_ARRAY) {
+            format = mediaTypes()
+            continue
+        }
         when (peek()) {
             JsonReader.Token.STRING, JsonReader.Token.NUMBER, JsonReader.Token.LONG -> fields[name] = nextString()!!
             JsonReader.Token.BOOLEAN -> if (name == "donghua") donghua = nextBoolean() else skipValue()
@@ -289,9 +301,40 @@ private fun JsonReader.readEpisode(): TimetableEpisode? {
         delayedUntil = fields["delayedUntil"]?.takeIf { it != NO_DATE }?.let(::instantOrNull),
         airingStatus = airingStatus(fields["airingStatus"]),
         donghua = donghua,
+        format = format,
+        lengthMinutes = fields["lengthMin"]?.toDoubleOrNull()?.toInt()?.takeIf { it > 0 },
         imageUrl = fields["imageVersionRoute"].orNullIfBlank()?.let { IMAGE_URL + it },
     )
 }
+
+/** The first media type that's a [ShowFormat], or null when none is. */
+private fun JsonReader.mediaTypes(): ShowFormat? {
+    var format: ShowFormat? = null
+    beginArray()
+    while (hasNext()) {
+        val name =
+            if (peek() == JsonReader.Token.BEGIN_OBJECT) {
+                stringField("name")
+            } else {
+                skipValue()
+                null
+            }
+        if (format == null) format = showFormat(name)
+    }
+    endArray()
+    return format
+}
+
+private fun showFormat(name: String?): ShowFormat? =
+    when (name?.substringBefore('(')?.trim()?.lowercase()) {
+        "tv" -> ShowFormat.TV
+        "tv short" -> ShowFormat.TV_SHORT
+        "ona" -> ShowFormat.ONA
+        "movie" -> ShowFormat.MOVIE
+        "ova" -> ShowFormat.OVA
+        "special" -> ShowFormat.SPECIAL
+        else -> null
+    }
 
 private fun airingStatus(value: String?): AiringStatus =
     when (value) {
