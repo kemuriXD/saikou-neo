@@ -35,6 +35,18 @@
     <string name="home_pair_tv">Pair a TV</string>
     <!-- %1$s is the day and month the TV was paired, such as 31 Oct. -->
     <string name="home_tv_paired">Signed in · Paired %1$s</string>
+    <!-- 2.3 to 2.5 A TV's options, and removing it (ADR 0040: removing only forgets it on the phone). -->
+    <!-- %1$s is the TV's name. -->
+    <string name="home_tv_options">Options for %1$s</string>
+    <string name="home_remove_tv">Remove this TV</string>
+    <string name="home_remove_tv_body">Takes it off Your TVs</string>
+    <!-- %1$s is the TV's name. -->
+    <string name="home_remove_title">Remove %1$s?</string>
+    <string name="home_remove_body">It leaves Your TVs. To sign it out of AniList too, choose Sign out in its Settings > Account.</string>
+    <string name="home_remove_cancel">Cancel</string>
+    <string name="home_remove_confirm">Remove</string>
+    <!-- %1$s is the TV's name. -->
+    <string name="home_removed">%1$s removed</string>
 
     <!-- 3.1 to 3.3 Pair a TV -->
     <string name="pair_title">Pair a TV</string>
@@ -88,4 +100,10 @@
     <string name="account_profile">AniList profile</string>
     <string name="account_profile_body">Opens anilist.co</string>
     <string name="account_version">Version</string>
+    <string name="account_sign_out">Sign out</string>
+
+    <!-- 6.2 Account: sign out? -->
+    <string name="account_sign_out_title">Sign out on this phone?</string>
+    <string name="account_sign_out_body">Your TVs stay signed in. To sign one out, choose Sign out in its Settings > Account.</string>
+    <string name="account_sign_out_cancel">Cancel</string>
 </resources>

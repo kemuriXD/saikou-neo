@@ -119,14 +119,6 @@ enum class SettingsCategory(
     ACCOUNT(R.string.settings_account, R.string.settings_account_intro, emptyList()),
 }
 
-/** Settings > Account: the AniList [profile] this TV is signed in to, or null, and [onSignIn] to open Sign in. */
-class AccountSettings(
-    val profile: AniListProfile? = null,
-    val onSignIn: () -> Unit = {},
-)
-
-internal const val SIGN_IN_ENTRY_TAG = "settings-sign-in"
-
 // From the design, less the rail: the title sits on the safe area and both panes start 80 dp down. Categories are
 // 220 dp wide from the margin, and the settings start 248 dp after it and run to the safe area.
 private val PaneTop = 80.dp
@@ -217,7 +209,7 @@ private fun SettingsPage(
     val rows = remember { Setting.entries.associateWith { FocusRequester() } }
     val sourcesUi = remember { SourcesUi() }
     val subtitlesEntry = remember { FocusRequester() }
-    val signInEntry = remember { FocusRequester() }
+    val accountUi = remember { AccountUi() }
     LaunchedEffect(Unit) { focus.restoreOr { categories.getValue(shown).requestFocus() } }
     LaunchedEffect(closed) {
         closed?.let { rows.getValue(it).requestFocus() }
@@ -253,7 +245,7 @@ private fun SettingsPage(
                                 right =
                                     when (category) {
                                         SettingsCategory.SUBTITLES -> subtitlesEntry
-                                        SettingsCategory.ACCOUNT -> if (account.profile == null) signInEntry else FocusRequester.Cancel
+                                        SettingsCategory.ACCOUNT -> accountUi.signIn
                                         else -> category.settings.firstOrNull()?.let(rows::getValue) ?: sourcesUi.addSource
                                     }
                             },
@@ -284,7 +276,7 @@ private fun SettingsPage(
                 return@AnimatedContent
             }
             if (category == SettingsCategory.ACCOUNT) {
-                AccountPane(account, signInEntry, categories.getValue(category))
+                AccountPane(account, accountUi, categories.getValue(category))
                 return@AnimatedContent
             }
             Column(verticalArrangement = Arrangement.spacedBy(RowGap)) {
@@ -335,6 +327,21 @@ private fun SettingsPage(
             )
         }
         SourcesPanels(sources, sourcesUi, sourceActions, checks)
+        // Closed in the same frame either way, so focus can move to Sign in or back to Sign out.
+        SlidingPanel(Unit.takeIf { accountUi.asking && account.profile != null }) { _, active, _ ->
+            SignOutDialog(
+                active,
+                onStay = {
+                    accountUi.asking = false
+                    accountUi.focusNext = accountUi.signOut
+                },
+                onSignOut = {
+                    accountUi.asking = false
+                    accountUi.focusNext = accountUi.signIn
+                    account.onSignOut()
+                },
+            )
+        }
     }
 }
 
@@ -459,47 +466,6 @@ private fun Category(
                 stringResource(category.title),
                 style = NeoTheme.typography.body.copy(fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium),
             )
-        }
-    }
-}
-
-/** The AniList account on this TV, or a row that opens Sign in while it's signed out. */
-@Composable
-private fun AccountPane(
-    account: AccountSettings,
-    signIn: FocusRequester,
-    category: FocusRequester,
-) {
-    val colors = NeoTheme.colors
-    val profile = account.profile
-    Column(verticalArrangement = Arrangement.spacedBy(RowGap)) {
-        val intro = if (profile == null) R.string.settings_account_signed_out_intro else R.string.settings_account_intro
-        Text(stringResource(intro), style = Intro, color = colors.textMuted, modifier = Modifier.padding(bottom = 6.dp))
-        if (profile == null) {
-            NavRow(
-                stringResource(R.string.settings_account_sign_in),
-                stringResource(R.string.settings_account_sign_in_help),
-                "",
-                SIGN_IN_ENTRY_TAG,
-                onClick = account.onSignIn,
-                modifier =
-                    Modifier
-                        .focusRequester(signIn)
-                        .remembersFocus(SIGN_IN_ENTRY_TAG)
-                        .focusProperties { left = category },
-            )
-        } else {
-            Row(
-                Modifier.fillMaxWidth().background(colors.surface, RoundedCornerShape(RowRadius)).padding(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                ProfileAvatar(profile, 56.dp, NeoTheme.typography.titleLarge)
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text(profile.name, style = NeoTheme.typography.titleLarge, color = colors.paper, maxLines = 1)
-                    Text(stringResource(R.string.settings_account_from_phone), style = Intro, color = colors.textMuted)
-                }
-            }
         }
     }
 }

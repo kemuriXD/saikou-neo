@@ -62,4 +62,19 @@ class TvAccountViewModelTest {
             advanceUntilIdle()
             assertEquals(hikari, model.profile.value)
         }
+
+    @Test
+    fun signOutForgetsTheAccountOnThisTv() =
+        runTest(main) {
+            val store = OneAccount()
+            store.saveAccount(SignedInAccount(AniListProfile(7, "Hikari", null), AniListToken("t", 9_000)))
+            val model = TvAccountViewModel(store, io = main)
+            advanceUntilIdle()
+
+            model.signOut()
+            advanceUntilIdle()
+
+            assertNull(store.account)
+            assertNull(model.profile.value)
+        }
 }

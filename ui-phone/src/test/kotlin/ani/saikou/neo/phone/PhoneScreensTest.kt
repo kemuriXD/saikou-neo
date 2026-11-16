@@ -3,11 +3,16 @@ package ani.saikou.neo.phone
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -17,6 +22,7 @@ import ani.saikou.neo.phone.theme.PhoneTheme
 import ani.saikou.neo.shared.account.AccountState
 import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.account.SignInProblem
+import ani.saikou.neo.shared.pairing.PairedTv
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -83,6 +89,66 @@ class PhoneScreensTest {
 
         assertEquals("https://anilist.co/user/5412345", opened)
         assertTrue(back)
+    }
+
+    @Test
+    fun removingATvAsksFirstThenSaysItWasRemoved() {
+        val livingRoom = PairedTv("tv-1", "Living room TV", 1_761_868_800)
+        var tvs by mutableStateOf(listOf(livingRoom, PairedTv("tv-2", "Bedroom Fire TV", 1_762_041_600)))
+        val removed = mutableListOf<PairedTv>()
+        compose.setContent {
+            PhoneTheme {
+                HomeScreen(kemuri, onAccount = {}, tvs = tvs, onRemoveTv = {
+                    removed += it
+                    tvs = tvs - it
+                })
+            }
+        }
+
+        compose.onNodeWithContentDescription("Options for Living room TV").performClick()
+        compose.onNodeWithText("Remove this TV").performClick()
+        compose.onNodeWithText("Remove Living room TV?").assertIsDisplayed()
+        assertTrue(removed.isEmpty())
+
+        compose.onNodeWithText("Remove").performClick()
+
+        assertEquals(listOf(livingRoom), removed)
+        compose.onNodeWithText("Living room TV removed").assertIsDisplayed()
+    }
+
+    @Test
+    fun cancelKeepsTheTv() {
+        val removed = mutableListOf<PairedTv>()
+        compose.setContent {
+            PhoneTheme {
+                HomeScreen(kemuri, onAccount = {}, tvs = listOf(PairedTv("tv-1", "Living room TV", 1)), onRemoveTv = { removed += it })
+            }
+        }
+
+        compose.onNodeWithText("Living room TV").performClick()
+        compose.onNodeWithText("Remove this TV").performClick()
+        compose.onNodeWithText("Cancel").performClick()
+
+        assertTrue(removed.isEmpty())
+        compose.onNodeWithText("Remove Living room TV?").assertDoesNotExist()
+    }
+
+    @Test
+    fun signOutAsksFirst() {
+        var signOuts = 0
+        compose.setContent {
+            PhoneTheme { AccountScreen(kemuri, version = "0.0.5-alpha", onBack = {}, onOpen = {}, onSignOut = { signOuts++ }) }
+        }
+
+        compose.onNodeWithText("Sign out").performClick()
+        compose.onNodeWithText("Sign out on this phone?").assertIsDisplayed()
+        compose.onNodeWithText("Your TVs stay signed in. To sign one out, choose Sign out in its Settings > Account.").assertIsDisplayed()
+        assertEquals(0, signOuts)
+
+        // The dialog's Sign out, not the page's.
+        compose.onAllNodesWithText("Sign out").onLast().performClick()
+
+        assertEquals(1, signOuts)
     }
 
     @Test

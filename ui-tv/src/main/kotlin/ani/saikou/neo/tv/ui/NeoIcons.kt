@@ -241,6 +241,23 @@ object NeoIcons {
         }
     }
 
+    /** A phone, for Sign in with your phone. */
+    val Phone: ImageVector by lazy {
+        icon("Phone") {
+            svgStroke(
+                2f,
+                "M8.5 2.5h7a2.5 2.5 0 0 1 2.5 2.5v14a2.5 2.5 0 0 1-2.5 2.5h-7A2.5 2.5 0 0 1 6 19V5a2.5 2.5 0 0 1 2.5-2.5zM11 18h2",
+            )
+        }
+    }
+
+    /** A door with an arrow leaving it, for Sign out. */
+    val SignOut: ImageVector by lazy {
+        icon("SignOut") {
+            svgStroke(2f, "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9")
+        }
+    }
+
     /** A turning arrow, for Reset. */
     val Reset: ImageVector by lazy {
         icon("Reset") {

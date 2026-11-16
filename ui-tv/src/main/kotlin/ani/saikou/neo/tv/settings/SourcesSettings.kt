@@ -172,7 +172,7 @@ private val ChoiceHeight = 56.dp
 private val ChoiceBadge = 36.dp
 private val FocusGlowColor = Color.White.copy(alpha = 0.3f)
 
-private val Overline
+internal val Overline
     @Composable get() =
         NeoTheme.typography.caption.copy(
             fontSize = 12.sp,
@@ -388,7 +388,7 @@ private fun NoSourcesHeader() {
 
 /** A wide row that turns paper with a glow on focus, without growing. */
 @Composable
-private fun WideRow(
+internal fun WideRow(
     onClick: () -> Unit,
     height: Dp,
     container: Color,

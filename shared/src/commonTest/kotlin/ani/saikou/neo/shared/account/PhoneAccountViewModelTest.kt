@@ -2,6 +2,7 @@ package ani.saikou.neo.shared.account
 
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
@@ -236,6 +237,56 @@ class PhoneAccountViewModelTest {
             advanceUntilIdle()
 
             assertEquals(AccountState.SignedIn(kemuri), reopened.state.value)
+        }
+
+    @Test
+    fun signOutForgetsTheAccountAndGoesBackToWelcome() =
+        runTest(main) {
+            val store = MemoryAccountStore()
+            store.saveAccount(SignedInAccount(kemuri, AniListToken("tok", now + 3_600)))
+            val model = viewModel(store)
+            assertEquals(AccountState.SignedIn(kemuri), model.state.value)
+
+            model.signOut()
+            advanceUntilIdle()
+
+            assertNull(store.account)
+            assertEquals(AccountState.SignedOut(), model.state.value)
+        }
+
+    @Test
+    fun aBrowserAnswerAfterSigningOutChangesNothing() =
+        runTest(main) {
+            val store = MemoryAccountStore()
+            store.saveAccount(SignedInAccount(kemuri, AniListToken("tok", now + 3_600)))
+            val model = viewModel(store)
+            model.signIn()
+            advanceUntilIdle()
+
+            model.signOut()
+            advanceUntilIdle()
+            model.finishSignIn(callback())
+            advanceUntilIdle()
+
+            assertNull(store.account)
+            assertEquals(AccountState.SignedOut(), model.state.value)
+        }
+
+    @Test
+    fun aCheckStillRunningWhenSigningOutDoesNotSignBackIn() =
+        runTest(main) {
+            val store = MemoryAccountStore()
+            store.saveAccount(SignedInAccount(kemuri, AniListToken("tok", now + 3_600)))
+            val answer = CompletableDeferred<AniListResult<AniListProfile>>()
+            val model = viewModel(store) { answer.await() }
+
+            model.signOut()
+            advanceUntilIdle()
+            answer.complete(AniListResult.Success(kemuri))
+            advanceUntilIdle()
+
+            assertNull(store.account)
+            assertEquals(AccountState.SignedOut(), model.state.value)
         }
 }
 
