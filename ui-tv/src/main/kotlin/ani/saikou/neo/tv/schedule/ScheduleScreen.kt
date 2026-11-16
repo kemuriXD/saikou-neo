@@ -20,12 +20,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -69,6 +71,7 @@ import ani.saikou.neo.shared.schedule.ScheduleFilter
 import ani.saikou.neo.shared.schedule.ScheduleRow
 import ani.saikou.neo.shared.schedule.ScheduleState
 import ani.saikou.neo.shared.schedule.countdown
+import ani.saikou.neo.shared.schedule.nowIndex
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.settings.ScreenTitle
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -148,7 +151,8 @@ data class ScheduleActions(
 
 /**
  * Schedule: this week's episodes by day and air time, in the TV's time zone (ADR 0041). Moving along the days picks
- * each. Signed in, a toggle switches between your list and all shows. Selecting a row asks for its Details, and
+ * each. Today opens on the next episode to air, so Up goes back through earlier ones and Down on to later ones.
+ * Signed in, a toggle switches between your list and all shows. Selecting a row asks for its Details, and
  * [cantOpen] says when a show can't be opened. "Out now" and "in 2h" follow [clock], checked every minute.
  */
 @Composable
@@ -169,9 +173,12 @@ fun ScheduleScreen(
         }
     }
     val days = remember { List(7) { FocusRequester() } }
-    val selectedDay = (state as? ScheduleState.Ready)?.selectedDay
-    LaunchedEffect(selectedDay != null) {
-        if (selectedDay != null) focus.restoreOr { days[selectedDay].requestFocus() }
+    val nowRow = remember { FocusRequester() }
+    val ready = state as? ScheduleState.Ready
+    // Today's list starts at the time it is, on the next episode to air, and focus starts there too.
+    val startsAtNow = ready != null && ready.selectedDay == ready.today && ready.days[ready.today].rows.isNotEmpty()
+    LaunchedEffect(ready != null) {
+        if (ready != null) focus.restoreOr { if (startsAtNow) nowRow.requestFocus() else days[ready.selectedDay].requestFocus() }
     }
 
     Box(modifier.fillMaxSize().background(colors.ink)) {
@@ -198,7 +205,7 @@ fun ScheduleScreen(
                 }
 
                 is ScheduleState.Ready -> {
-                    Day(state, now, actions)
+                    Day(state, now, nowRow, actions)
                 }
             }
         }
@@ -373,6 +380,7 @@ private fun DayTab(
 private fun Day(
     state: ScheduleState.Ready,
     now: Instant,
+    nowRow: FocusRequester,
     actions: ScheduleActions,
 ) {
     val dimensions = NeoTheme.dimensions
@@ -397,14 +405,24 @@ private fun Day(
         }
         return
     }
+    // Today starts at the time it is; another day starts at the top. Each day keeps its own place.
+    val start = if (state.selectedDay == state.today) day.nowIndex(now) else null
+    val list = key(state.selectedDay) { rememberLazyListState(initialFirstVisibleItemIndex = start ?: 0) }
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
+        state = list,
         contentPadding =
             PaddingValues(start = dimensions.gridMargin, end = dimensions.gridMargin, top = RowsTop, bottom = dimensions.safeY),
         verticalArrangement = Arrangement.spacedBy(RowGap),
     ) {
-        items(day.rows, key = ::rowTag) { row ->
-            Slot(row, now, onOpen = { actions.onOpen(row) }, modifier = Modifier.testTag(rowTag(row)).remembersFocus(rowTag(row)))
+        itemsIndexed(day.rows, key = { _, row -> rowTag(row) }) { index, row ->
+            val modifier = Modifier.testTag(rowTag(row)).remembersFocus(rowTag(row))
+            Slot(
+                row,
+                now,
+                onOpen = { actions.onOpen(row) },
+                modifier = if (index == start) modifier.focusRequester(nowRow) else modifier,
+            )
         }
     }
 }
