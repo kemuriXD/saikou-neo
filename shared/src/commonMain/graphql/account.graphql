@@ -10,3 +10,31 @@ query Viewer {
     }
   }
 }
+
+# The shows on a user's Watching and Planning lists, asked with their token so private lists are included. Schedule
+# uses it to show only the user's shows.
+query WatchList($userId: Int!) {
+  MediaListCollection(userId: $userId, type: ANIME, status_in: [CURRENT, PLANNING]) {
+    lists {
+      isCustomList
+      entries {
+        status
+        media {
+          id
+          title {
+            romaji
+            english
+            native
+          }
+          coverImage {
+            extraLarge
+          }
+          status
+          nextAiringEpisode {
+            episode
+          }
+        }
+      }
+    }
+  }
+}
