@@ -173,7 +173,10 @@
     <string name="settings_chinese_animation">Donghua</string>
     <string name="settings_chinese_animation_help">Anime made in China</string>
     <string name="settings_short_episodes">Short episodes</string>
-    <string name="settings_short_episodes_help">Episodes under %1$d minutes</string>
+    <plurals name="settings_short_episodes_help">
+        <item quantity="one">Episodes under %1$d minute</item>
+        <item quantity="other">Episodes under %1$d minutes</item>
+    </plurals>
     <string name="settings_playback">Playback</string>
     <string name="settings_playback_intro">How episodes start, skip and carry on.</string>
     <string name="settings_display">Display</string>

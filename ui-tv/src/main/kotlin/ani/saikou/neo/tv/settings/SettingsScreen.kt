@@ -49,6 +49,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.paneTitle
@@ -709,16 +710,19 @@ private fun Choice(
     }
 }
 
-/** A setting's name and help line, filled in with [helpArg] if it has one, and [label] names each of its values. */
+/**
+ * A setting's name and help line, and [label] names each of its values. With a [helpCount], [help] is a plurals
+ * resource filled in with it.
+ */
 private class SettingText(
     @param:StringRes val title: Int,
-    @param:StringRes val help: Int,
-    val helpArg: Int? = null,
+    val help: Int,
+    val helpCount: Int? = null,
     val label: (value: Any) -> Int,
 )
 
 @Composable
-private fun SettingText.helpText() = if (helpArg == null) stringResource(help) else stringResource(help, helpArg)
+private fun SettingText.helpText() = if (helpCount == null) stringResource(help) else pluralStringResource(help, helpCount, helpCount)
 
 /** For a setting that's on or off, named [on] and [off]. */
 private fun switchText(
@@ -772,7 +776,7 @@ private fun Setting.text() =
         }
 
         Setting.SHORT_EPISODES -> {
-            SettingText(R.string.settings_short_episodes, R.string.settings_short_episodes_help, ScheduleSettings.SHORT_EPISODE_MINUTES) {
+            SettingText(R.string.settings_short_episodes, R.plurals.settings_short_episodes_help, ScheduleSettings.SHORT_EPISODE_MINUTES) {
                 if (it == true) R.string.settings_on else R.string.settings_off
             }
         }
