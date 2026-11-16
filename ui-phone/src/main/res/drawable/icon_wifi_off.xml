@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon/wifi-off from the design's Components page. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="36dp"
+    android:height="36dp"
+    android:viewportWidth="36"
+    android:viewportHeight="36">
+    <path
+        android:pathData="M4.5 4.5L31.5 31.5M12.75 24.75C14.152 23.3758 16.0369 22.6061 18 22.6061C19.9631 22.6061 21.848 23.3758 23.25 24.75M7.5 19.5C9.53673 17.3983 12.1438 15.9384 15 15.3M28.5 19.5C27.5145 18.5534 26.4042 17.7459 25.2 17.1M3 14.25C4.77914 12.6382 6.80475 11.3216 9 10.35M33 14.25C30.8419 12.0873 28.266 10.3867 25.4292 9.25198C22.5924 8.11727 19.5543 7.5722 16.5 7.65M18 30H18.015"
+        android:strokeWidth="2"
+        android:strokeColor="#FFF6F5F2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

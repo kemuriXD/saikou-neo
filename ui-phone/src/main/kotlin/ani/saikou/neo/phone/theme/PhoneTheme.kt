@@ -23,7 +23,7 @@ internal object PhoneColors {
     val textMuted = paper.copy(alpha = 0.72f)
     val fillTonal = paper.copy(alpha = 0.2f)
     val outline = paper.copy(alpha = 0.52f)
-    val error = Color(0xFFFFB4AB)
+    val error = Color(0xFFFF8A80)
 }
 
 // Static font files, since variable font settings need API 26. The TV uses the same files from brand/res.

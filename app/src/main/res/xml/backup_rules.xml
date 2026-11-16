@@ -1,7 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 11 and older. The AniList account is sealed with a key that never leaves this phone, so it stays here. -->
+<!-- Android 11 and older. The AniList account is sealed with a key that never leaves this phone, so it stays here, and so does Your TVs,
+     since the account is what signs those TVs in. -->
 <full-backup-content>
     <exclude
         domain="sharedpref"
         path="anilist_account.xml" />
+    <exclude
+        domain="sharedpref"
+        path="paired_tvs.xml" />
 </full-backup-content>

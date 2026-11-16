@@ -32,6 +32,9 @@
     <string name="home_type">Type the code instead</string>
     <string name="home_your_tvs">Your TVs</string>
     <string name="home_no_tvs">No TVs yet. A TV you pair shows up here, ready to send things to or remove.</string>
+    <string name="home_pair_tv">Pair a TV</string>
+    <!-- %1$s is the day and month the TV was paired, such as 31 Oct. -->
+    <string name="home_tv_paired">Signed in · Paired %1$s</string>
 
     <!-- 3.1 to 3.3 Pair a TV -->
     <string name="pair_title">Pair a TV</string>
@@ -53,6 +56,29 @@
     </plurals>
     <string name="pair_code_hint">Letters and numbers only. Capitals are added for you.</string>
     <string name="pair_connect">Connect</string>
+
+    <!-- 3.4 to 3.8 Pair a TV -->
+    <string name="pair_connecting">Connecting to your TV…</string>
+    <string name="pair_connecting_body">Keep Saikou Neo open on the TV with the code showing.</string>
+    <string name="pair_cancel">Cancel</string>
+    <string name="pair_check_title">Does your TV show this code?</string>
+    <!-- Read out by TalkBack. %1$s is the six digits with spaces between them, such as 4 8 2 9 1 3. -->
+    <string name="pair_check_code">Check code %1$s</string>
+    <string name="pair_check_body">Tap It matches only if the numbers are exactly the same. Your AniList account goes to the TV once you do.</string>
+    <string name="pair_matches">It matches</string>
+    <string name="pair_no_match">It doesn’t match</string>
+    <!-- %1$s is the TV's name, such as Living room TV. -->
+    <string name="pair_signed_in">%1$s is signed in</string>
+    <string name="pair_signed_in_body">It’s in Your TVs now. Send it sources or remove it from there.</string>
+    <string name="pair_done">Done</string>
+    <string name="pair_unreachable">Couldn’t reach the TV</string>
+    <string name="pair_unreachable_body">Check the phone and TV are on the same Wi-Fi, and the TV is still showing its code.</string>
+    <string name="pair_try_again">Try again</string>
+    <string name="pair_scan_new">Scan a new code</string>
+    <string name="pair_stopped">Pairing stopped</string>
+    <string name="pair_stopped_body">The codes didn’t match, so nothing was sent. Choose Sign in on the TV again to get a new code.</string>
+    <string name="pair_start_again">Start again</string>
+    <string name="pair_back_home">Back to Home</string>
 
     <!-- 6.1 Account -->
     <string name="account_title">Account</string>

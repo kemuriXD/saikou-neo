@@ -1,0 +1,318 @@
+package ani.saikou.neo.phone
+
+import androidx.annotation.DrawableRes
+import androidx.annotation.StringRes
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import ani.saikou.neo.phone.theme.PhoneColors
+import ani.saikou.neo.shared.pairing.PairTvState
+
+/** What the pairing screens can do. Each screen uses the ones its buttons need. */
+internal class PairTvActions(
+    val close: () -> Unit,
+    val confirm: () -> Unit,
+    val reject: () -> Unit,
+    val retry: () -> Unit,
+    val scanNew: () -> Unit,
+    val done: () -> Unit,
+)
+
+/** 3.4 to 3.8: connecting, checking the codes match, and how pairing ended. */
+@Composable
+internal fun PairTvScreen(
+    state: PairTvState,
+    actions: PairTvActions,
+) {
+    when (state) {
+        PairTvState.Idle, PairTvState.Connecting -> {
+            PairFrame(actions.close) {
+                Status(Modifier.weight(1f), R.string.pair_connecting, R.string.pair_connecting_body) { Spinner() }
+                Actions { OutlinedButton(onClick = actions.close, modifier = BIG_BUTTON) { ButtonLabel(R.string.pair_cancel) } }
+            }
+        }
+
+        is PairTvState.CheckCode -> {
+            PairFrame(actions.close, closeEnabled = !state.sending) { CheckCode(state, actions) }
+        }
+
+        is PairTvState.SignedIn -> {
+            Scaffold { padding ->
+                PhoneColumn(Modifier.padding(padding)) {
+                    Column(Modifier.fillMaxSize()) {
+                        Status(
+                            Modifier.weight(1f),
+                            title = stringResource(R.string.pair_signed_in, state.tvName),
+                            body = stringResource(R.string.pair_signed_in_body),
+                        ) { Badge(R.drawable.icon_check_circle, PhoneColors.pink, PhoneColors.fillTonal) }
+                        Actions { Button(onClick = actions.done, modifier = BIG_BUTTON) { ButtonLabel(R.string.pair_done) } }
+                    }
+                }
+            }
+        }
+
+        PairTvState.Unreachable -> {
+            PairFrame(actions.close) {
+                Status(Modifier.weight(1f), R.string.pair_unreachable, R.string.pair_unreachable_body) {
+                    Badge(R.drawable.icon_wifi_off, PhoneColors.error, PhoneColors.surfaceRaised)
+                }
+                Actions {
+                    Button(onClick = actions.retry, modifier = BIG_BUTTON) { ButtonLabel(R.string.pair_try_again, R.drawable.icon_refresh) }
+                    SmallButton(R.string.pair_scan_new, R.drawable.icon_qr_scan, actions.scanNew)
+                }
+            }
+        }
+
+        PairTvState.Stopped -> {
+            PairFrame(actions.close) {
+                Status(Modifier.weight(1f), R.string.pair_stopped, R.string.pair_stopped_body) {
+                    Badge(R.drawable.icon_warning, PhoneColors.error, PhoneColors.surfaceRaised)
+                }
+                Actions {
+                    Button(
+                        onClick = actions.scanNew,
+                        modifier = BIG_BUTTON,
+                    ) { ButtonLabel(R.string.pair_start_again, R.drawable.icon_qr_scan) }
+                    SmallButton(R.string.pair_back_home, null, actions.close)
+                }
+            }
+        }
+    }
+}
+
+/** 3.5: the check code in two groups of three, read out as one label, with It matches and It doesn't match. */
+@Composable
+private fun ColumnScope.CheckCode(
+    state: PairTvState.CheckCode,
+    actions: PairTvActions,
+) {
+    Column(
+        Modifier
+            .weight(1f)
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 16.dp),
+    ) {
+        Icon(painterResource(R.drawable.icon_tv), contentDescription = null, Modifier.size(32.dp), tint = PhoneColors.pink)
+        Spacer(Modifier.height(16.dp))
+        Text(
+            stringResource(R.string.pair_check_title),
+            style = MaterialTheme.typography.headlineMedium,
+            modifier = Modifier.semantics { heading() },
+        )
+        Spacer(Modifier.height(24.dp))
+        val label = stringResource(R.string.pair_check_code, state.code.toList().joinToString(" "))
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .background(PhoneColors.surface, RoundedCornerShape(20.dp))
+                .border(1.dp, PhoneColors.line, RoundedCornerShape(20.dp))
+                .padding(horizontal = 16.dp, vertical = 28.dp)
+                .clearAndSetSemantics { contentDescription = label },
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                state.code.chunked(3).joinToString(" "),
+                style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 4.sp),
+                fontSize = 56.sp,
+                lineHeight = 64.sp,
+                maxLines = 1,
+            )
+        }
+        Spacer(Modifier.height(24.dp))
+        Text(
+            stringResource(R.string.pair_check_body),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+    Actions {
+        Button(onClick = actions.confirm, enabled = !state.sending, modifier = BIG_BUTTON) {
+            ButtonLabel(R.string.pair_matches, R.drawable.icon_check)
+        }
+        SmallButton(R.string.pair_no_match, null, actions.reject, enabled = !state.sending)
+    }
+}
+
+/** The Pair a TV top bar with Close, over [content]. Close waits while the account is going to the TV. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun PairFrame(
+    onClose: () -> Unit,
+    closeEnabled: Boolean = true,
+    content: @Composable ColumnScope.() -> Unit,
+) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.pair_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onClose, enabled = closeEnabled) {
+                        Icon(painterResource(R.drawable.icon_close), contentDescription = stringResource(R.string.pair_close))
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),
+            )
+        },
+    ) { padding ->
+        PhoneColumn(Modifier.padding(padding)) { Column(Modifier.fillMaxSize(), content = content) }
+    }
+}
+
+@Composable
+private fun Status(
+    modifier: Modifier,
+    @StringRes title: Int,
+    @StringRes body: Int,
+    icon: @Composable () -> Unit,
+) = Status(modifier, stringResource(title), stringResource(body), icon)
+
+/** A centred icon, heading and line of help, as on 3.2 Camera access is off. */
+@Composable
+private fun Status(
+    modifier: Modifier,
+    title: String,
+    body: String,
+    icon: @Composable () -> Unit,
+) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 32.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        icon()
+        Spacer(Modifier.height(24.dp))
+        Text(
+            title,
+            style = MaterialTheme.typography.headlineSmall,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.semantics { heading() },
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            body,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+    }
+}
+
+@Composable
+private fun Badge(
+    @DrawableRes icon: Int,
+    tint: Color,
+    background: Color,
+) {
+    Box(Modifier.size(72.dp).background(background, CircleShape), contentAlignment = Alignment.Center) {
+        Icon(painterResource(icon), contentDescription = null, Modifier.size(36.dp), tint = tint)
+    }
+}
+
+/**
+ * The connecting ring. With the system's animations off, Material's ring would stand still, so it turns slowly on
+ * the frame clock instead, which the animation setting doesn't scale (#72).
+ */
+@Composable
+private fun Spinner() {
+    if (rememberAnimationsOn()) {
+        CircularProgressIndicator(Modifier.size(40.dp), trackColor = PhoneColors.line)
+        return
+    }
+    var degrees by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        val start = withFrameMillis { it }
+        while (true) withFrameMillis { degrees = (it - start) % SLOW_TURN_MILLIS * 360f / SLOW_TURN_MILLIS }
+    }
+    CircularProgressIndicator(progress = { 0.25f }, modifier = Modifier.size(40.dp).rotate(degrees), trackColor = PhoneColors.line)
+}
+
+@Composable
+private fun Actions(content: @Composable ColumnScope.() -> Unit) {
+    Column(
+        Modifier.fillMaxWidth().padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        content = content,
+    )
+}
+
+@Composable
+private fun ButtonLabel(
+    @StringRes text: Int,
+    @DrawableRes icon: Int? = null,
+) {
+    if (icon != null) {
+        Icon(painterResource(icon), contentDescription = null, Modifier.size(24.dp))
+        Spacer(Modifier.size(8.dp))
+    }
+    Text(stringResource(text), style = MaterialTheme.typography.titleMedium)
+}
+
+@Composable
+private fun SmallButton(
+    @StringRes text: Int,
+    @DrawableRes icon: Int?,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+) {
+    TextButton(onClick = onClick, enabled = enabled, modifier = Modifier.height(48.dp)) {
+        if (icon != null) {
+            Icon(painterResource(icon), contentDescription = null, Modifier.size(20.dp))
+            Spacer(Modifier.size(8.dp))
+        }
+        Text(stringResource(text), style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+private val BIG_BUTTON = Modifier.fillMaxWidth().height(56.dp)
+private const val SLOW_TURN_MILLIS = 4_000L
