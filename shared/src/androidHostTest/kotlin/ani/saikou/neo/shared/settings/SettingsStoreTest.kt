@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.settings
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import ani.saikou.neo.shared.catalogue.ShowFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -60,6 +61,71 @@ class SettingsStoreTest {
             assertEquals(
                 Settings(showUnairedAnime = true, showUpcomingEpisodes = true, slowTv = true, subOrDub = SubOrDub.DUB),
                 second.settings.first(),
+            )
+        }
+
+    @Test
+    fun aNewInstallHasTheScheduleDefaults() =
+        runBlocking {
+            val (store, _) = store()
+
+            assertEquals(
+                ScheduleSettings(
+                    rawEpisodes = true,
+                    dubs = true,
+                    formats = ShowFormat.entries.toSet(),
+                    chineseAnimation = false,
+                    shortEpisodes = true,
+                ),
+                store.settings.first().schedule,
+            )
+        }
+
+    @Test
+    fun everyScheduleSettingIsKeptAfterARestart() =
+        runBlocking {
+            val (first, scope) = store()
+            val changed =
+                ScheduleSettings(
+                    rawEpisodes = false,
+                    dubs = false,
+                    formats = setOf(ShowFormat.TV, ShowFormat.MOVIE),
+                    chineseAnimation = true,
+                    shortEpisodes = false,
+                )
+            first.update { it.copy(schedule = changed) }
+            scope.coroutineContext.job.cancelAndJoin()
+
+            val (second, _) = store()
+
+            assertEquals(Settings(schedule = changed), second.settings.first())
+        }
+
+    @Test
+    fun theLastFormatStaysOn() {
+        val tvOnly = ScheduleSettings(formats = setOf(ShowFormat.TV))
+
+        assertEquals(tvOnly, tvOnly.withFormat(ShowFormat.TV, on = false))
+        assertEquals(setOf(ShowFormat.TV, ShowFormat.OVA), tvOnly.withFormat(ShowFormat.OVA, on = true).formats)
+        assertEquals(setOf(ShowFormat.OVA), tvOnly.withFormat(ShowFormat.OVA, on = true).withFormat(ShowFormat.TV, on = false).formats)
+    }
+
+    @Test
+    fun noFormatsSavedReadsAsEveryFormat() =
+        runBlocking {
+            val scope = CoroutineScope(Dispatchers.IO + SupervisorJob())
+            val dataStore = PreferenceDataStoreFactory.createWithPath(scope = scope) { file.absolutePath.toPath() }
+            dataStore.edit { it[stringPreferencesKey("schedule_formats")] = "BOOK," }
+            dataStore.data.first()
+            scope.coroutineContext.job.cancelAndJoin()
+
+            val (store, _) = store()
+
+            assertEquals(
+                ShowFormat.entries.toSet(),
+                store.settings
+                    .first()
+                    .schedule.formats,
             )
         }
 

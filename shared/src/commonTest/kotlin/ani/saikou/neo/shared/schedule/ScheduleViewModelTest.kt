@@ -15,8 +15,11 @@ import ani.saikou.neo.shared.catalogue.AnimeScheduleResult
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.catalogue.LoadProblem
 import ani.saikou.neo.shared.catalogue.ShowLookup
+import ani.saikou.neo.shared.settings.ScheduleSettings
+import ani.saikou.neo.shared.settings.Settings
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -59,8 +62,12 @@ class ScheduleViewModelTest {
         val ids = mutableMapOf<String, ShowLookup<Int>>("psyren" to ShowLookup.Found(9))
         val routesAsked = mutableListOf<Int>()
         val idsAsked = mutableListOf<String>()
+        var weeksAsked = 0
 
-        override suspend fun week(zone: ScheduleZone) = week
+        override suspend fun week(zone: ScheduleZone): AnimeScheduleResult {
+            weeksAsked++
+            return week
+        }
 
         override suspend fun watchList(account: SignedInAccount) = list
 
@@ -105,8 +112,10 @@ class ScheduleViewModelTest {
 
     private val source = FakeSource()
     private val filters = Filters()
+    private val settings = MutableStateFlow(Settings())
 
-    private fun model(signedIn: Boolean) = ScheduleViewModel(source, Accounts(signedIn), filters, TestZone(0), now = { now }, io = main)
+    private fun model(signedIn: Boolean) =
+        ScheduleViewModel(source, Accounts(signedIn), filters, settings, TestZone(0), now = { now }, io = main)
 
     private fun ScheduleViewModel.ready() = assertIs<ScheduleState.Ready>(state.value)
 
@@ -165,6 +174,45 @@ class ScheduleViewModelTest {
             val again = model(signedIn = true)
             advanceUntilIdle()
             assertEquals(ScheduleFilter.ALL_SHOWS, again.ready().filter)
+        }
+
+    @Test
+    fun filteredShowsAreLeftOutFromTheStart() =
+        runTest(main) {
+            settings.value = Settings(schedule = ScheduleSettings(rawEpisodes = false))
+            val model = model(signedIn = false)
+            advanceUntilIdle()
+
+            assertEquals(listOf("frieren", "one-piece"), model.ready().routes())
+        }
+
+    @Test
+    fun aChangedSettingRefiltersTheWeekWithoutAskingAgain() =
+        runTest(main) {
+            val model = model(signedIn = false)
+            advanceUntilIdle()
+            model.selectDay(4)
+            assertEquals(
+                2,
+                model
+                    .ready()
+                    .days[2]
+                    .rows.size,
+            )
+
+            settings.value = Settings(schedule = ScheduleSettings(rawEpisodes = false))
+            advanceUntilIdle()
+
+            assertEquals(
+                1,
+                model
+                    .ready()
+                    .days[2]
+                    .rows.size,
+            )
+            assertEquals(listOf("frieren", "one-piece"), model.ready().routes())
+            assertEquals(4, model.ready().selectedDay)
+            assertEquals(1, source.weeksAsked)
         }
 
     @Test

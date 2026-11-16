@@ -337,6 +337,7 @@ class MainActivity : ComponentActivity() {
                                         app.schedule,
                                         KeystoreAccountStore(applicationContext),
                                         PrefsScheduleFilterStore(applicationContext),
+                                        app.settingsStore.settings,
                                         DeviceScheduleZone(),
                                     )
                                 }
