@@ -26,6 +26,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -36,6 +37,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -153,12 +155,17 @@ private fun ColumnScope.Message(
     Text(stringResource(title), style = Title, color = NeoTheme.colors.paper)
     body?.let { Text(stringResource(it), style = Body, color = NeoTheme.colors.textMuted) }
     if (body == null) Steps()
-    // Each board's buttons are new, and the first takes focus: Get a new code, Cancel or Go to Home. The request comes
-    // after the buttons, so a button is already watching its focus when it gets it. Asked earlier, the focus was taken
-    // but not drawn, as seen on the Fire TV going from the check code to Signed in.
+    // Each board's buttons are new, and the first takes focus: Get a new code, Cancel or Go to Home. When the focused
+    // button goes, focus can land on the new one before it watches for focus, and it then has focus without showing it
+    // (seen on the Fire TV going to Signed in). So focus is let go, and taken again a frame later.
+    val focusManager = LocalFocusManager.current
     key(state::class) {
         Buttons(state, first, onNewCode, onLeave, onHome)
-        LaunchedEffect(Unit) { first.requestFocus() }
+        LaunchedEffect(Unit) {
+            focusManager.clearFocus()
+            withFrameNanos {}
+            first.requestFocus()
+        }
     }
 }
 
