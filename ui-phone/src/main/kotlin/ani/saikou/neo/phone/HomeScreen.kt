@@ -45,10 +45,7 @@ import androidx.compose.ui.unit.dp
 import ani.saikou.neo.phone.theme.PhoneColors
 import ani.saikou.neo.shared.account.AniListProfile
 
-/**
- * 2.1 Home with no TVs yet: Pair your first TV and an empty Your TVs. Scanning and typing the code come in #248, so
- * those buttons don't lead anywhere yet.
- */
+/** 2.1 Home with no TVs yet: Pair your first TV, with Scan the TV code and Type the code instead, and an empty Your TVs. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun HomeScreen(

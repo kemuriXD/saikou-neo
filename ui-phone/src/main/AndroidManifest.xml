@@ -1,3 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The app declares MainActivity and opens it on a phone. -->
-<manifest />
+<!--
+    The app declares MainActivity and opens it on a phone. Only the phone screens ask for the camera, to scan the
+    TV's code; :app marks the camera as not required, so TVs without one still install the app (ADR 0038).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.CAMERA" />
+</manifest>
