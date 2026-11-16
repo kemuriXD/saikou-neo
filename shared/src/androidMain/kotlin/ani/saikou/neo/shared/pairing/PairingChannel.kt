@@ -111,12 +111,16 @@ public class PairingListener(
      * [PairingException]). Call it again to take another attempt, for example when the user says the check codes
      * didn't match. After too many unfinished attempts it throws [PairingException] for good; open a new
      * listener with a new key and session ID to try again.
+     *
+     * [onAttempt] gets true when a phone's hello arrives while no other attempt is past that point, and false once
+     * all of those have failed. It's called on an IO thread.
      */
-    public suspend fun accept(): PairingChannel =
+    public suspend fun accept(onAttempt: (inProgress: Boolean) -> Unit = {}): PairingChannel =
         coroutineScope {
             if (unfinished.get() >= MAX_UNFINISHED) throw PairingException(TOO_MANY_ATTEMPTS)
             val winner = CompletableDeferred<PairingChannel>()
             val running = AtomicInteger()
+            val pastHello = AtomicInteger()
             val acceptor =
                 launch(Dispatchers.IO) {
                     while (true) {
@@ -132,11 +136,12 @@ public class PairingListener(
                             val gotNonce = AtomicBoolean()
                             val channel =
                                 try {
-                                    attempt(socket, gotNonce)
+                                    attempt(socket, gotNonce) { if (pastHello.incrementAndGet() == 1) onAttempt(true) }
                                 } finally {
                                     running.decrementAndGet()
                                     untrack(socket)
                                 }
+                            if (channel == null && gotNonce.get() && pastHello.decrementAndGet() == 0) onAttempt(false)
                             when {
                                 channel != null -> {
                                     if (!winner.complete(channel)) channel.close()
@@ -191,9 +196,10 @@ public class PairingListener(
     private suspend fun attempt(
         socket: Socket,
         gotNonce: AtomicBoolean,
+        onHello: () -> Unit,
     ): PairingChannel? =
         try {
-            socket.within(handshakeTimeoutMillis) { handshake(socket, gotNonce) }
+            socket.within(handshakeTimeoutMillis) { handshake(socket, gotNonce, onHello) }
         } catch (e: CancellationException) {
             socket.close()
             throw e
@@ -205,6 +211,7 @@ public class PairingListener(
     private fun handshake(
         socket: Socket,
         gotNonce: AtomicBoolean,
+        onHello: () -> Unit,
     ): PairingChannel {
         socket.soTimeout = FIRST_FRAME_MILLIS
         val hello = socket.readFrame()
@@ -214,6 +221,7 @@ public class PairingListener(
         val commitment = hello.copyOfRange(1 + PUBLIC_KEY_SIZE, hello.size)
         val tvNonce = newPairingNonce()
         gotNonce.set(true)
+        onHello()
         socket.writeFrame(tvNonce)
         val phoneNonce = socket.readFrame()
         if (!MessageDigest.isEqual(pairingCommitment(phoneKey, phoneNonce), commitment)) {

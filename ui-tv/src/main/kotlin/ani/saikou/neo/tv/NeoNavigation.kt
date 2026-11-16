@@ -67,6 +67,9 @@ sealed interface Screen {
         override val visit: Int = 0,
     ) : Visited
 
+    /** Sign in with a phone, opened from Settings > Account. Pairing doesn't outlive the app, so it isn't saved. */
+    data object SignIn : Screen
+
     /** The player, over the Details it was opened from. Its stream doesn't outlive the app, so it isn't saved. */
     data class Player(
         val request: PlayRequest,
@@ -89,7 +92,7 @@ private val BackStackSaver =
         save = { stack ->
             stack.mapNotNull { screen ->
                 when (screen) {
-                    Screen.Home, is Screen.Player -> null
+                    Screen.Home, Screen.SignIn, is Screen.Player -> null
                     is Screen.SeeMore -> "s${screen.row.ordinal}"
                     is Screen.Section -> "t${screen.section.ordinal}"
                     Screen.Sources -> "o"
@@ -120,7 +123,8 @@ private val BackStackSaver =
 
 /**
  * Moves between [home], a row's [seeMore] page and [details], which can open another show's Details or all of its
- * [recommendations], Settings on [sources], or the [player] for an episode. The rail down the left of Home opens each [section]; Back from a section goes to
+ * [recommendations], Settings on [sources], or the [player] for an episode. Settings opens [signIn], which leaves to where it was opened
+ * from or goes Home. The rail down the left of Home opens each [section]; Back from a section goes to
  * Home. [search]
  * opens Details or a [genre]'s page, and [discover] opens Details. Each screen
  * keeps its saved state and ViewModels while it's on the back stack, so Back finds Home as it was left. Back on Home
@@ -138,11 +142,12 @@ fun NeoNavigation(
         openPlayer: (PlayRequest) -> Unit,
     ) -> Unit,
     recommendations: @Composable (animeId: Int, openDetails: (animeId: Int) -> Unit) -> Unit = { _, _ -> },
-    section: @Composable (section: Section) -> Unit = { SectionPlaceholder(it) },
+    section: @Composable (section: Section, openSignIn: () -> Unit) -> Unit = { it, _ -> SectionPlaceholder(it) },
     search: @Composable (openDetails: (animeId: Int) -> Unit, openGenre: (genre: SearchGenre) -> Unit) -> Unit = { _, _ -> },
     genre: @Composable (genre: SearchGenre, openDetails: (animeId: Int) -> Unit) -> Unit = { _, _ -> },
     discover: @Composable (openDetails: (animeId: Int) -> Unit) -> Unit = { SectionPlaceholder(Section.DISCOVER) },
-    sources: @Composable () -> Unit = { section(Section.SETTINGS) },
+    sources: @Composable (openSignIn: () -> Unit) -> Unit = { section(Section.SETTINGS, it) },
+    signIn: @Composable (leave: () -> Unit, goHome: () -> Unit) -> Unit = { _, _ -> },
     player: @Composable (request: PlayRequest, back: () -> Unit) -> Unit = { _, _ -> },
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
@@ -166,6 +171,7 @@ fun NeoNavigation(
         entryProvider =
             entryProvider {
                 val openDetails: (Int) -> Unit = { animeId -> backStack.add(Screen.Details(animeId, nextVisit(backStack))) }
+                val openSignIn: () -> Unit = { backStack.add(Screen.SignIn) }
 
                 // A screen fading out keeps its focus until the next one takes it, which can wait for that screen to load.
                 // Only the top screen takes the remote's keys, so a quick press can't move focus on the one left behind.
@@ -190,7 +196,7 @@ fun NeoNavigation(
                         when (it.section) {
                             Section.SEARCH -> search(openDetails) { genre -> backStack.add(Screen.Genre(genre)) }
                             Section.DISCOVER -> discover(openDetails)
-                            else -> section(it.section)
+                            else -> section(it.section, openSignIn)
                         }
                     }
                 }
@@ -207,7 +213,14 @@ fun NeoNavigation(
                         )
                     }
                 }
-                entry<Screen.Sources> { it.TakesKeysOnTop { sources() } }
+                entry<Screen.Sources> { it.TakesKeysOnTop { sources(openSignIn) } }
+                entry<Screen.SignIn> {
+                    it.TakesKeysOnTop {
+                        signIn({ if (backStack.lastOrNull() == Screen.SignIn) backStack.removeLastOrNull() }) {
+                            backStack.retainAll(listOf(Screen.Home))
+                        }
+                    }
+                }
                 entry<Screen.Player> { it.TakesKeysOnTop { player(it.request) { backStack.removeLastOrNull() } } }
                 entry<Screen.Recommendations> { it.TakesKeysOnTop { recommendations(it.animeId, openDetails) } }
             },

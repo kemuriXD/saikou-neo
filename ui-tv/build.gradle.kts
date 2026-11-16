@@ -54,6 +54,8 @@ dependencies {
     implementation(libs.coil.compose)
     // Uses the OkHttp library that Apollo already brings.
     implementation(libs.coil.network.okhttp)
+    // Draws the QR code on Sign in (#116).
+    implementation(libs.zxing.core)
     // The player (ADR 0002). PlayerView draws the video and subtitles.
     implementation(libs.media3.exoplayer)
     implementation(libs.media3.exoplayer.hls)

@@ -167,6 +167,47 @@
     <string name="settings_off">Off</string>
     <string name="settings_sources">Sources</string>
     <string name="settings_sources_intro">Sources are extensions that find streams for the anime you pick. The app comes with none, so you add your own.</string>
+    <string name="settings_account">Account</string>
+    <string name="settings_account_intro">Your AniList account on this TV.</string>
+    <string name="settings_account_signed_out_intro">Sign in to sync your AniList list and watch progress on this TV.</string>
+    <string name="settings_account_sign_in">Sign in with your phone</string>
+    <string name="settings_account_sign_in_help">Shows a code to scan with Saikou Neo on your phone</string>
+    <string name="settings_account_from_phone">Signed in to AniList from your phone</string>
+
+    <!-- Sign in on the TV with a phone (#116). -->
+    <string name="sign_in_eyebrow">Sign in</string>
+    <string name="sign_in_title">Use your phone to sign in to AniList</string>
+    <string name="sign_in_step_1">Open Saikou Neo on your phone.</string>
+    <string name="sign_in_pair_a_tv">Pair a TV</string>
+    <string name="sign_in_step_2">Choose %1$s, or scan the code.</string>
+    <string name="sign_in_step_3">Check your phone and this TV show the same numbers.</string>
+    <string name="sign_in_code_label">Code %1$s</string>
+    <string name="sign_in_waiting">Waiting for your phone · code lasts %1$s</string>
+    <string name="sign_in_new_code">Get a new code</string>
+    <string name="sign_in_not_now">Not now</string>
+    <string name="sign_in_cancel">Cancel</string>
+    <string name="sign_in_connecting_title">Your phone found this TV</string>
+    <string name="sign_in_connecting_body">Keep this screen open. Next, your phone and this TV show the same code so you can check it.</string>
+    <string name="sign_in_connecting_status">Connecting to your phone…</string>
+    <string name="sign_in_connecting_detail">This takes a few seconds.</string>
+    <string name="sign_in_check_title">Does your phone show this code?</string>
+    <string name="sign_in_check_body">Choose It matches on your phone only if the numbers are exactly the same. Your AniList account comes to this TV once you do.</string>
+    <string name="sign_in_check_overline">Check code</string>
+    <string name="sign_in_check_label">Check code %1$s</string>
+    <string name="sign_in_waiting_phone">Waiting for your phone</string>
+    <string name="sign_in_done_eyebrow">Signed in</string>
+    <string name="sign_in_done_title">This TV is signed in to AniList</string>
+    <string name="sign_in_done_body">Your list and watch progress sync from now on. You can sign out in Settings, under Account.</string>
+    <string name="sign_in_done_account">AniList account</string>
+    <string name="sign_in_go_home">Go to Home</string>
+    <string name="sign_in_expired_title">This code has expired</string>
+    <string name="sign_in_expired_body">Codes last 10 minutes. Get a new one, then scan it or type it on your phone.</string>
+    <string name="sign_in_expired_status">Code expired</string>
+    <string name="sign_in_expired_detail">%1$s no longer works on the phone.</string>
+    <string name="sign_in_stopped_title">Pairing stopped</string>
+    <string name="sign_in_stopped_body">Nothing was sent to this TV. Get a new code to try again.</string>
+    <string name="sign_in_stopped_status">The connection closed</string>
+    <string name="sign_in_stopped_detail">The codes didn’t match, pairing was cancelled on the phone, or the phone lost Wi-Fi.</string>
     <!-- Settings > Sources -->
     <string name="sources_add">Add a source</string>
     <string name="sources_add_help">With a link or a code</string>
