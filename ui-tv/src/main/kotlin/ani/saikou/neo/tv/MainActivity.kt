@@ -29,6 +29,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Surface
 import ani.saikou.neo.shared.account.AniListAccountClient
+import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.account.KeystoreAccountStore
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniListClient
@@ -49,6 +50,7 @@ import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.HomeViewModel
 import ani.saikou.neo.shared.home.SeeMoreViewModel
 import ani.saikou.neo.shared.pairing.TvAccountViewModel
+import ani.saikou.neo.shared.pairing.TvSignInState
 import ani.saikou.neo.shared.pairing.TvSignInViewModel
 import ani.saikou.neo.shared.pairing.openTvPairing
 import ani.saikou.neo.shared.pairing.thisTv
@@ -87,6 +89,7 @@ import ani.saikou.neo.tv.settings.SettingsCategory
 import ani.saikou.neo.tv.settings.SettingsScreen
 import ani.saikou.neo.tv.settings.SourceActions
 import ani.saikou.neo.tv.settings.SubtitleActions
+import ani.saikou.neo.tv.signin.ProfileSignedOutScreen
 import ani.saikou.neo.tv.signin.SignInScreen
 import ani.saikou.neo.tv.sources.sourceThreads
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -129,6 +132,9 @@ class MainActivity : ComponentActivity() {
             val settings = app.settings.collectAsStateWithLifecycle().value ?: return@setContent
             // An episode picked in the player, for the Details under it to open as the player goes.
             var episodeFromPlayer by remember { mutableStateOf<Int?>(null) }
+            // The AniList account on this TV, for Profile and Settings > Account. Read again once Sign in saves one.
+            val account = viewModel { TvAccountViewModel(KeystoreAccountStore(applicationContext)) }
+            val profile by account.profile.collectAsStateWithLifecycle()
             NeoTheme(light = settings.slowTv) {
                 // Every key passes through HeldKeys before it can move focus. Test tags double as resource IDs, so
                 // :benchmark-tv can find the cards.
@@ -322,12 +328,14 @@ class MainActivity : ComponentActivity() {
                             if (section ==
                                 Section.SETTINGS
                             ) {
-                                SettingsSection(SettingsCategory.BROWSING, openSignIn)
+                                SettingsSection(SettingsCategory.BROWSING, openSignIn, profile)
                             } else {
                                 SectionPlaceholder(section)
                             }
                         },
-                        sources = { openSignIn -> SettingsSection(SettingsCategory.SOURCES, openSignIn) },
+                        sources = { openSignIn -> SettingsSection(SettingsCategory.SOURCES, openSignIn, profile) },
+                        signedIn = { profile != null },
+                        signedOutProfile = { openSignIn, back -> ProfileSignedOutScreen(onSignIn = openSignIn, onHome = back) },
                         signIn = { leave, goHome ->
                             val signIn =
                                 viewModel {
@@ -339,6 +347,7 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             val state by signIn.state.collectAsStateWithLifecycle()
+                            LaunchedEffect(state is TvSignInState.SignedIn) { if (state is TvSignInState.SignedIn) account.refresh() }
                             // No pairing in the background: a phone can't finish signing in while nobody's watching.
                             LifecycleEventEffect(Lifecycle.Event.ON_STOP) { signIn.cancel() }
                             // Leaving clears the ViewModel, which closes the listener and any phone without signing in.
@@ -424,6 +433,7 @@ class MainActivity : ComponentActivity() {
     private fun SettingsSection(
         start: SettingsCategory,
         openSignIn: () -> Unit,
+        profile: AniListProfile?,
     ) {
         val settingsScreen = viewModel { SettingsViewModel(app.settingsStore) }
         val state by settingsScreen.state.collectAsStateWithLifecycle()
@@ -434,10 +444,6 @@ class MainActivity : ComponentActivity() {
         val checks by checksScreen.checks.collectAsStateWithLifecycle()
         val subtitlesScreen = viewModel { SubtitleSettingsViewModel(app.settingsStore.subtitles, app.settingsStore::updateSubtitles) }
         val subtitles by subtitlesScreen.state.collectAsStateWithLifecycle()
-        val accountScreen = viewModel { TvAccountViewModel(KeystoreAccountStore(applicationContext)) }
-        val profile by accountScreen.profile.collectAsStateWithLifecycle()
-        // Back from Sign in, Settings shows the account it may have saved.
-        LaunchedEffect(Unit) { accountScreen.refresh() }
         state?.let {
             SettingsScreen(
                 it,

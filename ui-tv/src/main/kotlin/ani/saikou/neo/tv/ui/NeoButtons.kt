@@ -2,6 +2,7 @@ package ani.saikou.neo.tv.ui
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
@@ -29,6 +30,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
@@ -60,6 +62,9 @@ private val DialogButtonGap = 10.dp
 private val TabHeight = 40.dp
 private val TabGlow = 14.dp
 
+// A logo is drawn a little larger than an icon, as it carries its own tile.
+private val ButtonLogo = 22.dp
+
 /** How far a tab's label sits inside its pill. */
 private val NeoTabPadding = 18.dp
 
@@ -90,6 +95,8 @@ fun NeoButton(
     icon: ImageVector? = null,
     // After the words, such as See more's arrow.
     trailingIcon: ImageVector? = null,
+    // A picture in its own colours before the words, such as AniList's mark. Used instead of [icon].
+    logo: Painter? = null,
 ) {
     NeoSurface(onClick, CircleShape, NeoTheme.dimensions.focusScaleButton, modifier.height(ButtonHeight)) {
         Row(
@@ -97,7 +104,8 @@ fun NeoButton(
             horizontalArrangement = Arrangement.spacedBy(ButtonIconGap),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            icon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(ButtonIcon)) }
+            logo?.let { Image(it, contentDescription = null, modifier = Modifier.size(ButtonLogo)) }
+            icon?.takeIf { logo == null }?.let { Icon(it, contentDescription = null, modifier = Modifier.size(ButtonIcon)) }
             Text(text = text, style = NeoTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), maxLines = 1)
             trailingIcon?.let { Icon(it, contentDescription = null, modifier = Modifier.size(ButtonIcon)) }
         }

@@ -67,8 +67,11 @@ sealed interface Screen {
         override val visit: Int = 0,
     ) : Visited
 
-    /** Sign in with a phone, opened from Settings > Account. Pairing doesn't outlive the app, so it isn't saved. */
+    /** Sign in with a phone, opened from Profile or Settings > Account. Pairing doesn't outlive the app, so it isn't saved. */
     data object SignIn : Screen
+
+    /** Profile while the TV is signed out, which leads to Sign in. Not saved, as the TV may have signed in since. */
+    data object SignedOutProfile : Screen
 
     /** The player, over the Details it was opened from. Its stream doesn't outlive the app, so it isn't saved. */
     data class Player(
@@ -92,7 +95,7 @@ private val BackStackSaver =
         save = { stack ->
             stack.mapNotNull { screen ->
                 when (screen) {
-                    Screen.Home, Screen.SignIn, is Screen.Player -> null
+                    Screen.Home, Screen.SignIn, Screen.SignedOutProfile, is Screen.Player -> null
                     is Screen.SeeMore -> "s${screen.row.ordinal}"
                     is Screen.Section -> "t${screen.section.ordinal}"
                     Screen.Sources -> "o"
@@ -148,6 +151,9 @@ fun NeoNavigation(
     discover: @Composable (openDetails: (animeId: Int) -> Unit) -> Unit = { SectionPlaceholder(Section.DISCOVER) },
     sources: @Composable (openSignIn: () -> Unit) -> Unit = { section(Section.SETTINGS, it) },
     signIn: @Composable (leave: () -> Unit, goHome: () -> Unit) -> Unit = { _, _ -> },
+    // Asked when Profile is chosen: signed out, it opens [signedOutProfile] rather than the profile.
+    signedIn: () -> Boolean = { true },
+    signedOutProfile: @Composable (openSignIn: () -> Unit, back: () -> Unit) -> Unit = { _, _ -> },
     player: @Composable (request: PlayRequest, back: () -> Unit) -> Unit = { _, _ -> },
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
@@ -187,7 +193,20 @@ fun NeoNavigation(
                             Box(Modifier.focusRequester(homeFocus).focusRestorer().focusGroup()) {
                                 home(openDetails) { row -> backStack.add(Screen.SeeMore(row)) }
                             }
-                            NeoRail(onSelect = { backStack.add(Screen.Section(it)) }, onClose = { homeFocus.requestFocus() })
+                            NeoRail(
+                                onSelect = { section ->
+                                    backStack.add(
+                                        if (section == Section.PROFILE &&
+                                            !signedIn()
+                                        ) {
+                                            Screen.SignedOutProfile
+                                        } else {
+                                            Screen.Section(section)
+                                        },
+                                    )
+                                },
+                                onClose = { homeFocus.requestFocus() },
+                            )
                         }
                     }
                 }
@@ -214,6 +233,9 @@ fun NeoNavigation(
                     }
                 }
                 entry<Screen.Sources> { it.TakesKeysOnTop { sources(openSignIn) } }
+                entry<Screen.SignedOutProfile> {
+                    it.TakesKeysOnTop { signedOutProfile(openSignIn) { backStack.removeLastOrNull() } }
+                }
                 entry<Screen.SignIn> {
                     it.TakesKeysOnTop {
                         signIn({ if (backStack.lastOrNull() == Screen.SignIn) backStack.removeLastOrNull() }) {

@@ -94,8 +94,26 @@ fun SignInScreen(
     onLeave: () -> Unit,
     onHome: () -> Unit,
 ) {
-    val colors = NeoTheme.colors
     val first = remember { FocusRequester() }
+    SignInBoard(
+        message = { Message(state, first, onNewCode, onLeave, onHome) },
+        // The panel isn't drawn while the listener opens.
+        panel = if (state == TvSignInState.Starting) null else ({ Panel(state) }),
+        panelHeight = PanelHeight.takeIf { state !is TvSignInState.Waiting },
+    )
+}
+
+/**
+ * The layout every Sign in board shares (Figma "TV · Start and Home", Start section): ink under a violet glow, the
+ * [message] on the left and the [panel] on the right, [panelHeight] tall or as tall as it needs.
+ */
+@Composable
+internal fun SignInBoard(
+    message: @Composable ColumnScope.() -> Unit,
+    panel: (@Composable ColumnScope.() -> Unit)?,
+    panelHeight: Dp? = null,
+) {
+    val colors = NeoTheme.colors
     Box(Modifier.fillMaxSize().background(colors.ink)) {
         Canvas(Modifier.fillMaxSize()) {
             val center = Offset(GlowCenter.x.dp.toPx(), GlowCenter.y.dp.toPx())
@@ -108,23 +126,21 @@ fun SignInScreen(
         Column(
             Modifier.padding(start = MessageStart, top = MessageTop).width(MessageWidth),
             verticalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            Message(state, first, onNewCode, onLeave, onHome)
-        }
-        if (state != TvSignInState.Starting) {
+            content = message,
+        )
+        if (panel != null) {
             Column(
                 Modifier
                     .padding(start = PanelStart, top = PanelTop)
                     .width(PanelWidth)
-                    .then(if (state is TvSignInState.Waiting) Modifier else Modifier.height(PanelHeight))
+                    .then(if (panelHeight == null) Modifier else Modifier.height(panelHeight))
                     .shadow(30.dp, PanelShape)
                     .background(colors.surface.copy(alpha = PANEL_ALPHA), PanelShape)
                     .padding(28.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp, Alignment.CenterVertically),
                 horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Panel(state)
-            }
+                content = panel,
+            )
         }
     }
 }
@@ -362,7 +378,7 @@ private fun Problem(
     Text(detail, style = Small, color = colors.textMuted, textAlign = TextAlign.Center)
 }
 
-private val Eyebrow
+internal val Eyebrow
     @Composable get() =
         NeoTheme.typography.overline.copy(
             fontSize = 12.sp,
@@ -371,16 +387,16 @@ private val Eyebrow
             letterSpacing = 1.2.sp,
         )
 
-private val Title
+internal val Title
     @Composable get() = NeoTheme.typography.headline.copy(fontSize = 34.sp, lineHeight = 40.sp, letterSpacing = 0.sp)
 
-private val Body
+internal val Body
     @Composable get() = NeoTheme.typography.bodyLarge.copy(lineHeight = 24.sp)
 
 private val StepNumber
     @Composable get() = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Bold, lineHeight = 16.sp)
 
-private val Small
+internal val Small
     @Composable get() = NeoTheme.typography.body.copy(fontSize = 14.sp)
 
 private val Overline
