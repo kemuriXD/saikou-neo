@@ -24,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -93,8 +94,6 @@ fun SignInScreen(
 ) {
     val colors = NeoTheme.colors
     val first = remember { FocusRequester() }
-    // The first button takes focus on every board: Get a new code, Cancel or Go to Home.
-    LaunchedEffect(state::class) { first.requestFocus() }
     Box(Modifier.fillMaxSize().background(colors.ink)) {
         Canvas(Modifier.fillMaxSize()) {
             val center = Offset(GlowCenter.x.dp.toPx(), GlowCenter.y.dp.toPx())
@@ -154,6 +153,23 @@ private fun ColumnScope.Message(
     Text(stringResource(title), style = Title, color = NeoTheme.colors.paper)
     body?.let { Text(stringResource(it), style = Body, color = NeoTheme.colors.textMuted) }
     if (body == null) Steps()
+    // Each board's buttons are new, and the first takes focus: Get a new code, Cancel or Go to Home. The request comes
+    // after the buttons, so a button is already watching its focus when it gets it. Asked earlier, the focus was taken
+    // but not drawn, as seen on the Fire TV going from the check code to Signed in.
+    key(state::class) {
+        Buttons(state, first, onNewCode, onLeave, onHome)
+        LaunchedEffect(Unit) { first.requestFocus() }
+    }
+}
+
+@Composable
+private fun Buttons(
+    state: TvSignInState,
+    first: FocusRequester,
+    onNewCode: () -> Unit,
+    onLeave: () -> Unit,
+    onHome: () -> Unit,
+) {
     NeoButtonRow(Modifier.padding(top = 14.dp)) {
         val focused = Modifier.focusRequester(first)
         when (state) {
