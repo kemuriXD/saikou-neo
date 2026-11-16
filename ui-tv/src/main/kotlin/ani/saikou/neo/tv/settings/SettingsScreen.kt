@@ -50,8 +50,12 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.paneTitle
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
@@ -66,11 +70,19 @@ import androidx.tv.material3.SelectableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.account.AniListProfile
+import ani.saikou.neo.shared.catalogue.ShowFormat
+import ani.saikou.neo.shared.settings.ScheduleRelease
+import ani.saikou.neo.shared.settings.ScheduleSettings
 import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.settings.SubtitleSettings
+import ani.saikou.neo.shared.settings.TickList
+import ani.saikou.neo.shared.settings.TickSummary
 import ani.saikou.neo.shared.settings.get
+import ani.saikou.neo.shared.settings.isLastTick
+import ani.saikou.neo.shared.settings.summary
+import ani.saikou.neo.shared.settings.ticked
 import ani.saikou.neo.shared.sources.SourceCheck
 import ani.saikou.neo.shared.sources.SourcesState
 import ani.saikou.neo.tv.R
@@ -88,6 +100,13 @@ internal fun settingsCategoryTag(category: SettingsCategory) = "settings-categor
 
 internal fun settingTag(setting: Setting) = "setting-${setting.name.lowercase()}"
 
+internal fun tickListTag(list: TickList) = "ticklist-${list.name.lowercase()}"
+
+internal fun tickItemTag(
+    list: TickList,
+    item: Any,
+) = "ticklist-${list.name.lowercase()}-${(item as Enum<*>).name.lowercase()}"
+
 internal fun settingChoiceTag(
     setting: Setting,
     value: Any,
@@ -99,13 +118,20 @@ internal fun settingChoiceTag(
         else -> value.toString()
     }
 
-/** The groups on the left of Settings, each with a line on what it covers and its settings. */
+/** The groups on the left of Settings, each with a line on what it covers and its settings, after any tick lists. */
 enum class SettingsCategory(
     @param:StringRes val title: Int,
     @param:StringRes val intro: Int,
     val settings: List<Setting>,
+    val tickLists: List<TickList> = emptyList(),
 ) {
     BROWSING(R.string.settings_browsing, R.string.settings_browsing_intro, listOf(Setting.UNAIRED_ANIME, Setting.UPCOMING_EPISODES)),
+    SCHEDULE(
+        R.string.settings_schedule,
+        R.string.settings_schedule_intro,
+        listOf(Setting.CHINESE_ANIMATION, Setting.SHORT_EPISODES),
+        listOf(TickList.RELEASES, TickList.FORMATS),
+    ),
     PLAYBACK(R.string.settings_playback, R.string.settings_playback_intro, listOf(Setting.SUB_OR_DUB)),
 
     // Opens its own page rather than listing settings.
@@ -146,6 +172,14 @@ private const val PANEL_SHADOW_ALPHA = 0.5f
 private val ChoiceHeight = 64.dp
 private val ChoicePadding = 16.dp
 private val Radio = 16.dp
+
+// A tick list's panel is a little wider, with 56 dp rows 6 dp apart.
+private val TickPanelWidth = 376.dp
+private val TickPanelGap = 12.dp
+private val TickHeight = 56.dp
+private val TickGap = 6.dp
+private val TickPadding = 14.dp
+private val TickRadius = 12.dp
 private const val SCRIM_ALPHA = 0.55f
 
 // A category's settings rise this far as they fade in.
@@ -157,7 +191,8 @@ private const val PANEL_SLIDE_PART = 4
 /**
  * Settings: categories on the left and the shown one's settings on the right, each with its value.
  * Resting on a category shows its settings; Right goes into them and Left comes back. Selecting a setting opens its
- * choices in a panel, and selecting one there calls [onChoose] with it. Sources lists the installed [sources], and adds and
+ * choices in a panel, and selecting one there calls [onChoose] with it. A tick list opens its items in a panel, where
+ * selecting one calls [onTick] to tick or untick it. Sources lists the installed [sources], and adds and
  * removes them through [sourceActions], which also check them, with each source's check in [checks]. Subtitles opens
  * a page of its own for [subtitles], changed through [subtitleActions]. It opens on [start].
  */
@@ -165,6 +200,7 @@ private const val PANEL_SLIDE_PART = 4
 fun SettingsScreen(
     settings: Settings,
     onChoose: (Setting, value: Any) -> Unit,
+    onTick: (TickList, item: Any, on: Boolean) -> Unit = { _, _, _ -> },
     sources: SourcesState = SourcesState(emptyList()),
     sourceActions: SourceActions = SourceActions(),
     start: SettingsCategory = SettingsCategory.BROWSING,
@@ -182,7 +218,7 @@ fun SettingsScreen(
             subtitlesOpen = false
         }
     } else {
-        SettingsPage(settings, focus, onChoose, sources, sourceActions, shown, checks, subtitles, account) { subtitlesOpen = true }
+        SettingsPage(settings, focus, onChoose, onTick, sources, sourceActions, shown, checks, subtitles, account) { subtitlesOpen = true }
     }
 }
 
@@ -191,6 +227,7 @@ private fun SettingsPage(
     settings: Settings,
     focus: FocusMemory,
     onChoose: (Setting, value: Any) -> Unit,
+    onTick: (TickList, item: Any, on: Boolean) -> Unit,
     sources: SourcesState,
     sourceActions: SourceActions,
     shownState: MutableState<SettingsCategory>,
@@ -205,8 +242,11 @@ private fun SettingsPage(
     var open by rememberSaveable { mutableStateOf<Setting?>(null) }
     // The setting whose panel just closed, to take focus back.
     var closed by remember { mutableStateOf<Setting?>(null) }
+    var openTicks by rememberSaveable { mutableStateOf<TickList?>(null) }
+    var closedTicks by remember { mutableStateOf<TickList?>(null) }
     val categories = remember { SettingsCategory.entries.associateWith { FocusRequester() } }
     val rows = remember { Setting.entries.associateWith { FocusRequester() } }
+    val tickRows = remember { TickList.entries.associateWith { FocusRequester() } }
     val sourcesUi = remember { SourcesUi() }
     val subtitlesEntry = remember { FocusRequester() }
     val accountUi = remember { AccountUi() }
@@ -214,6 +254,10 @@ private fun SettingsPage(
     LaunchedEffect(closed) {
         closed?.let { rows.getValue(it).requestFocus() }
         closed = null
+    }
+    LaunchedEffect(closedTicks) {
+        closedTicks?.let { tickRows.getValue(it).requestFocus() }
+        closedTicks = null
     }
     Box(Modifier.fillMaxSize().background(colors.ink)) {
         Text(
@@ -244,9 +288,19 @@ private fun SettingsPage(
                             .focusProperties {
                                 right =
                                     when (category) {
-                                        SettingsCategory.SUBTITLES -> subtitlesEntry
-                                        SettingsCategory.ACCOUNT -> accountUi.signIn
-                                        else -> category.settings.firstOrNull()?.let(rows::getValue) ?: sourcesUi.addSource
+                                        SettingsCategory.SUBTITLES -> {
+                                            subtitlesEntry
+                                        }
+
+                                        SettingsCategory.ACCOUNT -> {
+                                            accountUi.signIn
+                                        }
+
+                                        else -> {
+                                            category.tickLists.firstOrNull()?.let(tickRows::getValue)
+                                                ?: category.settings.firstOrNull()?.let(rows::getValue)
+                                                ?: sourcesUi.addSource
+                                        }
                                     }
                             },
                 )
@@ -295,6 +349,21 @@ private fun SettingsPage(
                                 .focusProperties { left = categories.getValue(category) },
                     )
                 }
+                category.tickLists.forEach { list ->
+                    val text = list.text()
+                    NavRow(
+                        stringResource(text.title),
+                        stringResource(text.help),
+                        tickSummary(list, settings),
+                        tickListTag(list),
+                        onClick = { openTicks = list },
+                        modifier =
+                            Modifier
+                                .focusRequester(tickRows.getValue(list))
+                                .remembersFocus("ticklist-${list.name}")
+                                .focusProperties { left = categories.getValue(category) },
+                    )
+                }
                 category.settings.forEach { setting ->
                     SettingRow(
                         setting,
@@ -323,6 +392,19 @@ private fun SettingsPage(
                     close()
                 },
                 onClose = close,
+                modifier = motion,
+            )
+        }
+        SlidingPanel(openTicks) { list, active, motion ->
+            TickPanel(
+                list,
+                settings,
+                onTick = { item, on -> onTick(list, item, on) },
+                onClose = {
+                    openTicks = null
+                    closedTicks = list
+                },
+                active = active,
                 modifier = motion,
             )
         }
@@ -383,6 +465,7 @@ internal fun BoxScope.SidePanel(
     onClose: () -> Unit,
     modifier: Modifier,
     tag: String = SETTINGS_PANEL_TAG,
+    gap: Dp = PanelGap,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     // Ahead of the navigation's own, so Back closes the panel and stays on Settings.
@@ -405,7 +488,7 @@ internal fun BoxScope.SidePanel(
                 .semantics { paneTitle = title }
                 .focusProperties { onExit = { if (active) cancelFocusChange() } }
                 .focusGroup(),
-            verticalArrangement = Arrangement.spacedBy(PanelGap),
+            verticalArrangement = Arrangement.spacedBy(gap),
             content = content,
         )
     }
@@ -479,7 +562,7 @@ private fun SettingRow(
     modifier: Modifier,
 ) {
     val text = setting.text()
-    NavRow(stringResource(text.title), stringResource(text.help), stringResource(text.label(value)), settingTag(setting), onClick, modifier)
+    NavRow(stringResource(text.title), text.helpText(), stringResource(text.label(value)), settingTag(setting), onClick, modifier)
 }
 
 /** A row with a [title] and [help] under it, and its [value] with an arrow on the right. */
@@ -556,7 +639,7 @@ private fun BoxScope.ChoicesPanel(
     SidePanel(stringResource(text.title), PanelWidth, active, onClose, modifier) {
         Text(stringResource(text.title), style = PaneTitle, color = colors.paper)
         Text(
-            stringResource(text.help),
+            text.helpText(),
             style = NeoTheme.typography.caption.copy(lineHeight = 19.sp),
             color = colors.textMuted,
             modifier = Modifier.padding(bottom = 8.dp),
@@ -626,12 +709,16 @@ private fun Choice(
     }
 }
 
-/** A setting's name and help line, and [label] names each of its values. */
+/** A setting's name and help line, filled in with [helpArg] if it has one, and [label] names each of its values. */
 private class SettingText(
     @param:StringRes val title: Int,
     @param:StringRes val help: Int,
+    val helpArg: Int? = null,
     val label: (value: Any) -> Int,
 )
+
+@Composable
+private fun SettingText.helpText() = if (helpArg == null) stringResource(help) else stringResource(help, helpArg)
 
 /** For a setting that's on or off, named [on] and [off]. */
 private fun switchText(
@@ -673,5 +760,210 @@ private fun Setting.text() =
                     SubOrDub.BOTH -> R.string.settings_both
                 }
             }
+        }
+
+        Setting.CHINESE_ANIMATION -> {
+            switchText(
+                R.string.settings_chinese_animation,
+                R.string.settings_chinese_animation_help,
+                R.string.settings_on,
+                R.string.settings_off,
+            )
+        }
+
+        Setting.SHORT_EPISODES -> {
+            SettingText(R.string.settings_short_episodes, R.string.settings_short_episodes_help, ScheduleSettings.SHORT_EPISODE_MINUTES) {
+                if (it == true) R.string.settings_on else R.string.settings_off
+            }
+        }
+    }
+
+/**
+ * A tick list's items in a panel on the right, with focus on the first. Selecting an item calls [onTick] to tick or
+ * untick it, and the panel stays open until Back calls [onClose]. The last format left ticked says it has to stay so,
+ * and selecting it does nothing. Once it isn't [active], as while it slides away, it lets focus and Back go.
+ */
+@Composable
+private fun BoxScope.TickPanel(
+    list: TickList,
+    settings: Settings,
+    onTick: (item: Any, on: Boolean) -> Unit,
+    onClose: () -> Unit,
+    active: Boolean,
+    modifier: Modifier,
+) {
+    val colors = NeoTheme.colors
+    val first = remember { FocusRequester() }
+    val text = list.text()
+    val ticked = settings.ticked(list)
+    LaunchedEffect(Unit) { first.requestFocus() }
+    SidePanel(stringResource(text.title), TickPanelWidth, active, onClose, modifier, gap = TickPanelGap) {
+        Text(stringResource(text.title), style = PaneTitle, color = colors.paper)
+        Text(stringResource(text.panelHelp), style = Intro, color = colors.textMuted)
+        Column(Modifier.padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(TickGap)) {
+            list.items.forEachIndexed { index, item ->
+                val on = item in ticked
+                val locked = settings.isLastTick(list, item)
+                val itemText = tickItemText(item)
+                TickRow(
+                    stringResource(itemText.name),
+                    help =
+                        when {
+                            locked -> stringResource(R.string.settings_keep_one_ticked)
+                            itemText.help != null -> stringResource(itemText.help)
+                            else -> null
+                        },
+                    warns = locked,
+                    ticked = on,
+                    onClick = { if (!locked) onTick(item, !on) },
+                    modifier =
+                        Modifier
+                            .testTag(tickItemTag(list, item))
+                            .then(if (index == 0) Modifier.focusRequester(first) else Modifier),
+                )
+            }
+        }
+    }
+}
+
+/** An item in a tick list: its name, a [help] line under it if it has one, and a tick box. */
+@Composable
+private fun TickRow(
+    name: String,
+    help: String?,
+    warns: Boolean,
+    ticked: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    val colors = NeoTheme.colors
+    var focused by remember { mutableStateOf(false) }
+    Surface(
+        onClick = onClick,
+        modifier =
+            modifier
+                .semantics {
+                    role = Role.Checkbox
+                    toggleableState = ToggleableState(ticked)
+                }.fillMaxWidth()
+                .height(TickHeight)
+                .onFocusChanged { focused = it.isFocused },
+        shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(TickRadius)),
+        colors =
+            ClickableSurfaceDefaults.colors(
+                containerColor = colors.surfaceRaised,
+                contentColor = colors.paper,
+                focusedContainerColor = colors.focus,
+                focusedContentColor = colors.onFocus,
+                pressedContainerColor = colors.focus,
+                pressedContentColor = colors.onFocus,
+            ),
+        scale = ClickableSurfaceDefaults.scale(focusedScale = 1f),
+        glow = ClickableSurfaceDefaults.glow(focusedGlow = Glow(FocusGlowColor, NeoTheme.dimensions.glowFocus)),
+    ) {
+        Row(
+            Modifier.fillMaxSize().padding(horizontal = TickPadding),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            val content = LocalContentColor.current
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(name, style = Name, maxLines = 1)
+                if (help != null) {
+                    val helpColor = if (warns && !focused) colors.warning else content.copy(alpha = 0.72f)
+                    Text(help, style = Help, color = helpColor, maxLines = 1)
+                }
+            }
+            TickBox(ticked, outline = content.copy(alpha = if (focused) 1f else 0.6f))
+        }
+    }
+}
+
+/** How a tick list's row sums up what's ticked: All, one or two names, a count, or Sub only for no extra releases. */
+@Composable
+private fun tickSummary(
+    list: TickList,
+    settings: Settings,
+): String =
+    when (val summary = list.summary(settings.ticked(list))) {
+        TickSummary.All -> {
+            stringResource(R.string.settings_ticks_all)
+        }
+
+        TickSummary.None -> {
+            stringResource(R.string.settings_releases_sub_only)
+        }
+
+        is TickSummary.Count -> {
+            stringResource(R.string.settings_ticks_count, summary.ticked, summary.of)
+        }
+
+        is TickSummary.Names -> {
+            val names = summary.items.map { stringResource(tickItemText(it).short) }
+            if (names.size == 1) names.single() else stringResource(R.string.settings_ticks_names, names[0], names[1])
+        }
+    }
+
+/** A tick list's name, the help line on its row, and the one in its panel. */
+private class TickListText(
+    @param:StringRes val title: Int,
+    @param:StringRes val help: Int,
+    @param:StringRes val panelHelp: Int,
+)
+
+private fun TickList.text() =
+    when (this) {
+        TickList.RELEASES -> {
+            TickListText(R.string.settings_releases, R.string.settings_releases_help, R.string.settings_releases_panel_help)
+        }
+
+        TickList.FORMATS -> {
+            TickListText(R.string.settings_formats, R.string.settings_formats_help, R.string.settings_formats_panel_help)
+        }
+    }
+
+/** An item's name in its panel, the [short] one a row sums it up with, and its help line if it has one. */
+private class TickItemText(
+    @param:StringRes val name: Int,
+    @param:StringRes val short: Int = name,
+    @param:StringRes val help: Int? = null,
+)
+
+private fun tickItemText(item: Any) =
+    when (item) {
+        ScheduleRelease.RAW -> {
+            TickItemText(R.string.settings_release_raw, R.string.settings_release_raw_short, R.string.settings_release_raw_help)
+        }
+
+        ScheduleRelease.DUB -> {
+            TickItemText(R.string.settings_release_dub, R.string.settings_dub, R.string.settings_release_dub_help)
+        }
+
+        ShowFormat.TV -> {
+            TickItemText(R.string.settings_format_tv)
+        }
+
+        ShowFormat.TV_SHORT -> {
+            TickItemText(R.string.settings_format_tv_short)
+        }
+
+        ShowFormat.ONA -> {
+            TickItemText(R.string.settings_format_ona)
+        }
+
+        ShowFormat.MOVIE -> {
+            TickItemText(R.string.settings_format_movie)
+        }
+
+        ShowFormat.OVA -> {
+            TickItemText(R.string.settings_format_ova)
+        }
+
+        ShowFormat.SPECIAL -> {
+            TickItemText(R.string.settings_format_special)
+        }
+
+        else -> {
+            error("$item isn't in a tick list")
         }
     }

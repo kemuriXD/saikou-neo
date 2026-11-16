@@ -89,8 +89,8 @@ class SourcesSettingsTest {
                 )
             }
         }
-        // Down to Sources, after Browsing, Playback, Subtitles and Display, then into it.
-        press(Key.DirectionDown, times = 4)
+        // Down to Sources, after Browsing, Schedule, Playback, Subtitles and Display, then into it.
+        press(Key.DirectionDown, times = 5)
         press(Key.DirectionRight)
     }
 
@@ -305,7 +305,7 @@ class SourcesSettingsTest {
                 )
             }
         }
-        press(Key.DirectionDown, times = 4)
+        press(Key.DirectionDown, times = 5)
         press(Key.DirectionRight)
 
         press(Key.DirectionCenter)

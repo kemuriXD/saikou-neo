@@ -27,7 +27,13 @@ class TickListTest {
 
     @Test
     fun tickingAReleaseTurnsItOnOrOff() {
-        val none = Settings().withTick(TickList.RELEASES, ScheduleRelease.RAW, false).withTick(TickList.RELEASES, ScheduleRelease.DUB, false)
+        val none =
+            Settings()
+                .withTick(
+                    TickList.RELEASES,
+                    ScheduleRelease.RAW,
+                    false,
+                ).withTick(TickList.RELEASES, ScheduleRelease.DUB, false)
 
         assertEquals(ScheduleSettings(rawEpisodes = false, dubs = false), none.schedule)
         assertEquals(true, none.withTick(TickList.RELEASES, ScheduleRelease.DUB, true).schedule.dubs)

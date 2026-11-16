@@ -131,7 +131,11 @@ class SettingsViewModelTest {
             viewModel.choose(Setting.CHINESE_ANIMATION, true)
 
             viewModel.state.filterNotNull().first { it.schedule.chineseAnimation }
-            assertTrue(store.settings.first().schedule.chineseAnimation)
+            assertTrue(
+                store.settings
+                    .first()
+                    .schedule.chineseAnimation,
+            )
         }
 
     @Test

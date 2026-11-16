@@ -822,7 +822,7 @@ private fun RowScope.ChoiceText(
 
 /** Pink with an ink tick when [ticked], else an empty square drawn in [outline]. */
 @Composable
-private fun TickBox(
+internal fun TickBox(
     ticked: Boolean,
     outline: Color,
 ) {

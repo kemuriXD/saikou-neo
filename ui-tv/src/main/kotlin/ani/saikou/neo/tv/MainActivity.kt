@@ -490,6 +490,7 @@ class MainActivity : ComponentActivity() {
             SettingsScreen(
                 it,
                 onChoose = settingsScreen::choose,
+                onTick = settingsScreen::tick,
                 sources = sources,
                 sourceActions =
                     SourceActions(
