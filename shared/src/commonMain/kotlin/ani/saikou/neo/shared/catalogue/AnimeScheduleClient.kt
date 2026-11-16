@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.withContext
+import okio.Buffer
 import okio.IOException
 import kotlin.time.Clock
 import kotlin.time.Duration
@@ -56,6 +57,20 @@ public sealed interface AnimeScheduleResult {
     ) : AnimeScheduleResult
 }
 
+/** The outcome of matching one show between AniList and AnimeSchedule.net. */
+public sealed interface ShowLookup<out T : Any> {
+    public data class Found<out T : Any>(
+        val value: T,
+    ) : ShowLookup<T>
+
+    /** AnimeSchedule doesn't know the show, or has no AniList link for it. */
+    public data object NoMatch : ShowLookup<Nothing>
+
+    public data class Failure(
+        val error: AnimeScheduleError,
+    ) : ShowLookup<Nothing>
+}
+
 /** Why an AnimeSchedule.net call failed. */
 public sealed interface AnimeScheduleError {
     /** The build has no token, so nothing was asked. */
@@ -98,11 +113,65 @@ public class AnimeScheduleClient internal constructor(
     public constructor(token: String?) : this(token, DefaultHttpEngine(TIMEOUT_MILLIS))
 
     /** Every raw, sub and dub episode airing this week, Monday to Sunday, with times for the IANA time zone [zone]. */
-    public suspend fun week(zone: String): AnimeScheduleResult {
-        if (token.isNullOrBlank()) return AnimeScheduleResult.Failure(AnimeScheduleError.NoToken)
+    public suspend fun week(zone: String): AnimeScheduleResult =
+        when (val reply = ask("/timetables/all?tz=${encode(zone)}")) {
+            is Reply.Answered -> read { Buffer().writeUtf8(reply.body).jsonReader().timetable() }
+            Reply.Missing -> AnimeScheduleResult.Failure(AnimeScheduleError.Http(404))
+            is Reply.Failed -> AnimeScheduleResult.Failure(reply.error)
+        }
+
+    /** AnimeSchedule's route for the AniList show [aniListId]. One show per call: repeating the id returns nothing. */
+    public suspend fun routeFor(aniListId: Int): ShowLookup<String> =
+        lookUp("/anime?anilist-ids=$aniListId") { body ->
+            body.jsonReader().routeOfFirstShow()
+        }
+
+    /** The AniList id of AnimeSchedule's show [route], read from its AniList link. */
+    public suspend fun aniListIdFor(route: String): ShowLookup<Int> {
+        if (route.isBlank()) return ShowLookup.NoMatch
+        return lookUp("/anime/${encode(route)}") { body ->
+            body.jsonReader().aniListLink()?.let(::aniListIdFromLink)
+        }
+    }
+
+    /** A 404, an empty answer or AnimeSchedule's plain-text "Couldn't find" is no match. Bad JSON is unexpected. */
+    private suspend fun <T : Any> lookUp(
+        path: String,
+        found: (Buffer) -> T?,
+    ): ShowLookup<T> =
+        when (val reply = ask(path)) {
+            is Reply.Answered -> {
+                if (!reply.body.trimStart().startsWith("{")) {
+                    ShowLookup.NoMatch
+                } else {
+                    try {
+                        found(Buffer().writeUtf8(reply.body))?.let { ShowLookup.Found(it) } ?: ShowLookup.NoMatch
+                    } catch (e: ApolloException) {
+                        ShowLookup.Failure(AnimeScheduleError.Unexpected(e.message))
+                    } catch (e: IllegalStateException) {
+                        ShowLookup.Failure(AnimeScheduleError.Unexpected(e.message))
+                    } catch (e: IOException) {
+                        // The JSON stopped part way.
+                        ShowLookup.Failure(AnimeScheduleError.Unexpected(e.message))
+                    }
+                }
+            }
+
+            Reply.Missing -> {
+                ShowLookup.NoMatch
+            }
+
+            is Reply.Failed -> {
+                ShowLookup.Failure(reply.error)
+            }
+        }
+
+    /** One GET of [path] with the token. Without a token, nothing is asked. */
+    private suspend fun ask(path: String): Reply {
+        if (token.isNullOrBlank()) return Reply.Failed(AnimeScheduleError.NoToken)
         val request =
             HttpRequest
-                .Builder(HttpMethod.Get, "$API_URL/timetables/all?tz=${encode(zone)}")
+                .Builder(HttpMethod.Get, API_URL + path)
                 // Apollo's engine logs nothing, so the token goes nowhere else.
                 .addHeader("Authorization", "Bearer $token")
                 .build()
@@ -112,17 +181,18 @@ public class AnimeScheduleClient internal constructor(
                 val response = engine.execute(request)
                 response.body.use { body ->
                     when (response.statusCode) {
-                        200 -> read { checkNotNull(body) { "No body" }.jsonReader().timetable() }
-                        401 -> AnimeScheduleResult.Failure(AnimeScheduleError.BadToken)
-                        429 -> AnimeScheduleResult.Failure(AnimeScheduleError.RateLimited(retryAfter(response.headers)))
-                        else -> AnimeScheduleResult.Failure(AnimeScheduleError.Http(response.statusCode))
+                        200 -> Reply.Answered(body?.readUtf8().orEmpty())
+                        401 -> Reply.Failed(AnimeScheduleError.BadToken)
+                        404 -> Reply.Missing
+                        429 -> Reply.Failed(AnimeScheduleError.RateLimited(retryAfter(response.headers)))
+                        else -> Reply.Failed(AnimeScheduleError.Http(response.statusCode))
                     }
                 }
             } catch (e: ApolloException) {
-                AnimeScheduleResult.Failure(AnimeScheduleError.Network(e.message))
+                Reply.Failed(AnimeScheduleError.Network(e.message))
             } catch (e: IOException) {
                 // The connection dropped while the answer was read.
-                AnimeScheduleResult.Failure(AnimeScheduleError.Network(e.message))
+                Reply.Failed(AnimeScheduleError.Network(e.message))
             }
         }
     }
@@ -145,6 +215,18 @@ public class AnimeScheduleClient internal constructor(
     }
 }
 
+private sealed interface Reply {
+    data class Answered(
+        val body: String,
+    ) : Reply
+
+    data object Missing : Reply
+
+    data class Failed(
+        val error: AnimeScheduleError,
+    ) : Reply
+}
+
 /** Reads a 200's timetable. A body that isn't one, such as AnimeSchedule's plain-text "Couldn't find", is unexpected. */
 private inline fun read(timetable: () -> List<TimetableEpisode>): AnimeScheduleResult =
     try {
@@ -155,6 +237,9 @@ private inline fun read(timetable: () -> List<TimetableEpisode>): AnimeScheduleR
     } catch (e: IllegalStateException) {
         AnimeScheduleResult.Failure(AnimeScheduleError.Unexpected(e.message))
     } catch (e: IllegalArgumentException) {
+        AnimeScheduleResult.Failure(AnimeScheduleError.Unexpected(e.message))
+    } catch (e: IOException) {
+        // The JSON stopped part way.
         AnimeScheduleResult.Failure(AnimeScheduleError.Unexpected(e.message))
     }
 
@@ -220,3 +305,54 @@ private fun airingStatus(value: String?): AiringStatus =
 private fun instantOrNull(text: String): Instant? = runCatching { Instant.parse(text) }.getOrNull()
 
 private fun String?.orNullIfBlank(): String? = this?.takeIf { it.isNotBlank() }
+
+/** The route of the first show in an `/anime` search, or null when there's none. */
+private fun JsonReader.routeOfFirstShow(): String? {
+    var route: String? = null
+    beginObject()
+    while (hasNext()) {
+        if (nextName() == "anime" && peek() == JsonReader.Token.BEGIN_ARRAY) {
+            beginArray()
+            while (hasNext()) {
+                if (route == null && peek() == JsonReader.Token.BEGIN_OBJECT) route = stringField("route") else skipValue()
+            }
+            endArray()
+        } else {
+            skipValue()
+        }
+    }
+    endObject()
+    return route.orNullIfBlank()
+}
+
+/** `websites.aniList` of one show, or null when it has none. */
+private fun JsonReader.aniListLink(): String? {
+    var link: String? = null
+    beginObject()
+    while (hasNext()) {
+        if (nextName() == "websites" && peek() == JsonReader.Token.BEGIN_OBJECT) link = stringField("aniList") else skipValue()
+    }
+    endObject()
+    return link
+}
+
+/** Reads an object, keeping only the string [name]. */
+private fun JsonReader.stringField(name: String): String? {
+    var value: String? = null
+    beginObject()
+    while (hasNext()) {
+        if (nextName() == name && peek() == JsonReader.Token.STRING) value = nextString() else skipValue()
+    }
+    endObject()
+    return value
+}
+
+private val ANILIST_LINK = Regex("""^(?:https?://)?(?:www\.)?anilist\.co/anime/(\d+)(?:[/?#].*)?$""")
+
+/** The id in an AniList show link such as `anilist.co/anime/154587/Sousou-no-Frieren/`, or null for any other link. */
+internal fun aniListIdFromLink(link: String): Int? =
+    ANILIST_LINK
+        .matchEntire(link.trim())
+        ?.groupValues
+        ?.get(1)
+        ?.toIntOrNull()

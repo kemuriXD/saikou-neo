@@ -152,6 +152,14 @@ class AnimeScheduleClientTest {
             assertIs<AnimeScheduleError.Unexpected>(assertIs<AnimeScheduleResult.Failure>(result).error)
         }
 
+    @Test
+    fun aTimetableThatStopsPartWayIsUnexpected() =
+        runTest {
+            val result = client(ScheduleEngine(body = """[{"route":"a",""")).week("UTC")
+
+            assertIs<AnimeScheduleError.Unexpected>(assertIs<AnimeScheduleResult.Failure>(result).error)
+        }
+
     // One odd row shouldn't hide the rest of the week.
     @Test
     fun aRowWithoutARouteOrTimeIsSkipped() =
