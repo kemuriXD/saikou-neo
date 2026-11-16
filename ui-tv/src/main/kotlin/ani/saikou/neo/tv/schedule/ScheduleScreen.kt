@@ -41,6 +41,7 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -556,7 +557,7 @@ private fun status(
             },
             stringResource(R.string.schedule_delayed).takeIf { row.delayed },
         )
-    val resources = LocalContext.current.resources
+    val resources = LocalResources.current
     return parts.reduce { joined, part -> resources.getString(R.string.schedule_status, joined, part) }
 }
 
