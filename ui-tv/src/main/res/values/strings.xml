@@ -146,6 +146,37 @@
     <!-- Settings -->
     <string name="settings_browsing">Browsing</string>
     <string name="settings_browsing_intro">What shows up in rows, search and episode lists.</string>
+    <string name="settings_schedule">Schedule</string>
+    <string name="settings_schedule_intro">What shows up in the Schedule each week.</string>
+    <string name="settings_releases">Releases</string>
+    <string name="settings_releases_help">Sub always shows. Add raw episodes or dubs</string>
+    <string name="settings_releases_panel_help">Sub always shows. Tick what else to list.</string>
+    <string name="settings_releases_sub_only">Sub only</string>
+    <string name="settings_release_raw">Raw episodes</string>
+    <string name="settings_release_raw_short">Raw</string>
+    <string name="settings_release_raw_help">Japanese audio, before subtitles are out</string>
+    <string name="settings_release_dub">Dubs</string>
+    <string name="settings_release_dub_help">English audio</string>
+    <string name="settings_formats">Formats</string>
+    <string name="settings_formats_help">TV series, movies, specials and more</string>
+    <string name="settings_formats_panel_help">Tick the kinds of anime to list.</string>
+    <string name="settings_format_tv">TV</string>
+    <string name="settings_format_tv_short">TV short</string>
+    <string name="settings_format_ona">ONA</string>
+    <string name="settings_format_movie">Movie</string>
+    <string name="settings_format_ova">OVA</string>
+    <string name="settings_format_special">Special</string>
+    <string name="settings_keep_one_ticked">Keep at least one ticked</string>
+    <string name="settings_ticks_all">All</string>
+    <string name="settings_ticks_names">%1$s, %2$s</string>
+    <string name="settings_ticks_count">%1$d of %2$d</string>
+    <string name="settings_chinese_animation">Donghua</string>
+    <string name="settings_chinese_animation_help">Anime made in China</string>
+    <string name="settings_short_episodes">Short episodes</string>
+    <plurals name="settings_short_episodes_help">
+        <item quantity="one">Episodes under %1$d minute</item>
+        <item quantity="other">Episodes under %1$d minutes</item>
+    </plurals>
     <string name="settings_playback">Playback</string>
     <string name="settings_playback_intro">How episodes start, skip and carry on.</string>
     <string name="settings_display">Display</string>

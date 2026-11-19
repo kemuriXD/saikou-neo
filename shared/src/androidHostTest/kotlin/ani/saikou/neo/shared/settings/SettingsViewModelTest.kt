@@ -1,6 +1,7 @@
 package ani.saikou.neo.shared.settings
 
 import androidx.lifecycle.viewModelScope
+import ani.saikou.neo.shared.catalogue.ShowFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -105,6 +106,42 @@ class SettingsViewModelTest {
             viewModel.state.filterNotNull().first { it.slowTv }
             assertEquals(Settings(showUpcomingEpisodes = true, slowTv = true), store.settings.first())
         }
+
+    @Test
+    fun tickingSavesAtOnce() =
+        withinSeconds {
+            val viewModel = viewModel()
+            viewModel.state.filterNotNull().first()
+
+            viewModel.tick(TickList.RELEASES, ScheduleRelease.RAW, false)
+            viewModel.tick(TickList.FORMATS, ShowFormat.MOVIE, false)
+
+            viewModel.state.filterNotNull().first { ShowFormat.MOVIE !in it.schedule.formats }
+            val saved = store.settings.first().schedule
+            assertFalse(saved.rawEpisodes)
+            assertEquals(ShowFormat.entries.toSet() - ShowFormat.MOVIE, saved.formats)
+        }
+
+    @Test
+    fun choosingChineseAnimationSavesIt() =
+        withinSeconds {
+            val viewModel = viewModel()
+            viewModel.state.filterNotNull().first()
+
+            viewModel.choose(Setting.CHINESE_ANIMATION, true)
+
+            viewModel.state.filterNotNull().first { it.schedule.chineseAnimation }
+            assertTrue(
+                store.settings
+                    .first()
+                    .schedule.chineseAnimation,
+            )
+        }
+
+    @Test
+    fun anItemThatIsntInTheListIsRefused() {
+        assertFailsWith<IllegalArgumentException> { viewModel().tick(TickList.RELEASES, ShowFormat.TV, true) }
+    }
 
     @Test
     fun eachSettingReadsItsOwnValue() {

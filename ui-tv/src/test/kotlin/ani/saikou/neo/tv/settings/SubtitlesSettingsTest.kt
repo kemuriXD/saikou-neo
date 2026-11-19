@@ -244,7 +244,7 @@ class SubtitlesSettingsTest {
             }
         }
         compose.waitForIdle()
-        press(Key.DirectionDown, 2)
+        press(Key.DirectionDown, 3)
         press(Key.DirectionRight)
 
         press(Key.DirectionCenter)
