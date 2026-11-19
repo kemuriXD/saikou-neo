@@ -3,6 +3,7 @@ package ani.saikou.neo.tv.settings
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputConnection
 import android.view.inputmethod.InputConnectionWrapper
+import androidx.annotation.StringRes
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -164,8 +165,8 @@ private val RowPillHeight = 36.dp
 internal val SourcePanelWidth = 376.dp
 private val FieldHeight = 52.dp
 private val EmptyIcon = 72.dp
-private val EmptyHeight = 400.dp
-private val ButtonHeight = 52.dp
+internal val EmptyHeight = 400.dp
+internal val ButtonHeight = 52.dp
 private val ButtonPadding = 26.dp
 private val EmptyTextWidth = 430.dp
 private val ChoiceHeight = 56.dp
@@ -233,19 +234,13 @@ internal fun SourcesPane(
         horizontalAlignment = if (empty) Alignment.CenterHorizontally else Alignment.Start,
     ) {
         if (empty) {
-            NoSourcesHeader()
+            EmptyHeader(NeoIcons.Puzzle, R.string.sources_empty_title, R.string.sources_empty_body)
         } else {
             Text(stringResource(R.string.settings_sources_intro), style = Body, color = colors.textMuted)
         }
         AddSource(empty, onClick = { ui.panel = SourcePanel.Add }, modifier = toCategory.focusRequester(ui.addSource))
         if (empty) {
-            Text(
-                stringResource(R.string.sources_trust),
-                style = Small,
-                color = colors.textFaint,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.widthIn(max = EmptyTextWidth).padding(top = 10.dp),
-            )
+            EmptyNote(R.string.sources_trust)
         } else {
             Row(Modifier.fillMaxWidth().padding(end = RowPadding), verticalAlignment = Alignment.CenterVertically) {
                 Text(
@@ -359,9 +354,13 @@ internal fun BoxScope.SourcesPanels(
     }
 }
 
-/** No sources yet, and what they're for. */
+/** An empty pane's top: [icon] in a round tile, [title] and [body], centred. Sources with none, Account signed out. */
 @Composable
-private fun NoSourcesHeader() {
+internal fun EmptyHeader(
+    icon: ImageVector,
+    @StringRes title: Int,
+    @StringRes body: Int,
+) {
     val colors = NeoTheme.colors
     Box(
         Modifier
@@ -370,19 +369,33 @@ private fun NoSourcesHeader() {
             .border(1.dp, colors.line, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(NeoIcons.Puzzle, contentDescription = null, tint = colors.pink, modifier = Modifier.size(34.dp))
+        Icon(icon, contentDescription = null, tint = colors.pink, modifier = Modifier.size(34.dp))
     }
     Text(
-        stringResource(R.string.sources_empty_title),
+        stringResource(title),
         style = NeoTheme.typography.headline.copy(fontSize = 24.sp, lineHeight = 32.sp),
         color = colors.paper,
     )
     Text(
-        stringResource(R.string.sources_empty_body),
+        stringResource(body),
         style = Body,
         color = colors.textMuted,
         textAlign = TextAlign.Center,
         modifier = Modifier.widthIn(max = EmptyTextWidth),
+    )
+}
+
+/** The faint note under an empty pane's button. */
+@Composable
+internal fun EmptyNote(
+    @StringRes note: Int,
+) {
+    Text(
+        stringResource(note),
+        style = Small,
+        color = NeoTheme.colors.textFaint,
+        textAlign = TextAlign.Center,
+        modifier = Modifier.widthIn(max = EmptyTextWidth).padding(top = 10.dp),
     )
 }
 

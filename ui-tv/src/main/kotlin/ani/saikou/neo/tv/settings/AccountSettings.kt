@@ -2,6 +2,7 @@ package ani.saikou.neo.tv.settings
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -29,11 +31,13 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Text
@@ -57,6 +61,7 @@ class AccountSettings(
 )
 
 internal const val SIGN_IN_ENTRY_TAG = "settings-sign-in"
+internal const val SIGN_IN_LOGO_TAG = "settings-sign-in-logo"
 internal const val SIGN_OUT_TAG = "settings-sign-out"
 internal const val SIGN_OUT_DIALOG_TAG = "settings-sign-out-dialog"
 
@@ -71,7 +76,8 @@ internal class AccountUi {
 }
 
 /**
- * Laid out like Sources: Sign in with your phone on top, as Add a source is, then the account signed in on this TV
+ * Laid out like Sources. Signed out, it's the empty look: an icon, a line on signing in, and Sign in with your phone as
+ * a button with AniList's mark. Signed in, Sign in with your phone sits on top, as Add a source does, then the account
  * with Sign out where a source has Remove. Left goes back to [category].
  */
 @Composable
@@ -82,31 +88,57 @@ internal fun AccountPane(
 ) {
     val colors = NeoTheme.colors
     val profile = account.profile
+    val signedOut = profile == null
     LaunchedEffect(ui.focusNext, profile) {
         ui.focusNext?.requestFocus()
         ui.focusNext = null
     }
     val toCategory = Modifier.focusProperties { left = category }
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        val intro = if (profile == null) R.string.settings_account_signed_out_intro else R.string.settings_account_intro
-        Text(stringResource(intro), style = Body, color = colors.textMuted)
+    // One column for both looks, so Sign in stays the same node and takes focus once the account goes.
+    Column(
+        if (signedOut) Modifier.fillMaxWidth().height(EmptyHeight) else Modifier,
+        verticalArrangement = if (signedOut) Arrangement.spacedBy(16.dp, Alignment.CenterVertically) else Arrangement.spacedBy(12.dp),
+        horizontalAlignment = if (signedOut) Alignment.CenterHorizontally else Alignment.Start,
+    ) {
+        if (signedOut) {
+            EmptyHeader(NeoIcons.Profile, R.string.settings_account_signed_out_title, R.string.settings_account_signed_out_intro)
+        } else {
+            Text(stringResource(R.string.settings_account_intro), style = Body, color = colors.textMuted)
+        }
         WideRow(
             onClick = account.onSignIn,
-            height = AccountRowHeight,
-            container = if (profile == null) colors.surface else colors.surfaceRaised,
-            modifier = toCategory.testTag(SIGN_IN_ENTRY_TAG).focusRequester(ui.signIn).remembersFocus(SIGN_IN_ENTRY_TAG),
+            height = if (signedOut) ButtonHeight else AccountRowHeight,
+            container = if (signedOut) colors.fillTonal else colors.surfaceRaised,
+            modifier =
+                toCategory
+                    .testTag(SIGN_IN_ENTRY_TAG)
+                    .focusRequester(ui.signIn)
+                    .remembersFocus(SIGN_IN_ENTRY_TAG)
+                    .padding(top = if (signedOut) 4.dp else 0.dp),
+            button = signedOut,
         ) {
-            Icon(NeoIcons.Phone, contentDescription = null, modifier = Modifier.size(22.dp))
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(stringResource(R.string.settings_account_sign_in), style = RowTitle)
-                Text(
-                    stringResource(R.string.settings_account_sign_in_help),
-                    style = Small,
-                    color = LocalContentColor.current.copy(alpha = 0.72f),
+            if (signedOut) {
+                Image(
+                    painterResource(R.drawable.ic_anilist_tile),
+                    contentDescription = null,
+                    modifier = Modifier.testTag(SIGN_IN_LOGO_TAG).size(20.dp),
                 )
+                Text(stringResource(R.string.settings_account_sign_in), style = RowTitle.copy(fontSize = 16.sp))
+            } else {
+                Icon(NeoIcons.Phone, contentDescription = null, modifier = Modifier.size(22.dp))
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    Text(stringResource(R.string.settings_account_sign_in), style = RowTitle)
+                    Text(
+                        stringResource(R.string.settings_account_sign_in_help),
+                        style = Small,
+                        color = LocalContentColor.current.copy(alpha = 0.72f),
+                    )
+                }
             }
         }
-        if (profile != null) {
+        if (profile == null) {
+            EmptyNote(R.string.settings_account_signed_out_note)
+        } else {
             Text(
                 stringResource(R.string.settings_account_signed_in).uppercase(),
                 style = Overline,
