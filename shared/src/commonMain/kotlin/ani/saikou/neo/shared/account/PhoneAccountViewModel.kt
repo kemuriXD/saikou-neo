@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
@@ -48,8 +49,10 @@ public sealed interface AccountState {
     /** Back from the browser, checking the token with AniList. */
     public data object Verifying : AccountState
 
+    /** Signed in. [justSignedIn] is true straight after a new sign-in, until [PhoneAccountViewModel.confirmSignIn]. */
     public data class SignedIn(
         val profile: AniListProfile,
+        val justSignedIn: Boolean = false,
     ) : AccountState
 }
 
@@ -67,7 +70,10 @@ public enum class SignInProblem {
     /** AniList stopped accepting the saved token, or it ran out. */
     SESSION_ENDED,
 
-    /** Anything else. */
+    /** The phone couldn't keep the account it was given. */
+    NOT_SAVED,
+
+    /** AniList didn't accept the sign-in, or anything else went wrong. */
     FAILED,
 }
 
@@ -141,6 +147,16 @@ public class PhoneAccountViewModel(
         }
     }
 
+    /** Moves on from the signed-in screen to Home. */
+    public fun confirmSignIn() {
+        mutableState.update { if (it is AccountState.SignedIn) it.copy(justSignedIn = false) else it }
+    }
+
+    /** Back from the sign-in problem: plain Welcome. */
+    public fun dismissProblem() {
+        mutableState.update { if (it is AccountState.SignedOut) AccountState.SignedOut() else it }
+    }
+
     /** Reads the browser's answer at [uri]. An answer to some other sign-in changes nothing. */
     public fun finishSignIn(uri: String) {
         viewModelScope.launch(work) {
@@ -182,10 +198,10 @@ public class PhoneAccountViewModel(
                 val saved = withContext(io) { runCatching { store.saveAccount(SignedInAccount(answer.value, token)) } }.isSuccess
                 mutableState.value =
                     when {
-                        saved || !signingIn -> AccountState.SignedIn(answer.value)
+                        saved || !signingIn -> AccountState.SignedIn(answer.value, justSignedIn = signingIn)
 
                         // Signed in now but not after a restart would be a surprise, so say it didn't work.
-                        else -> AccountState.SignedOut(SignInProblem.FAILED)
+                        else -> AccountState.SignedOut(SignInProblem.NOT_SAVED)
                     }
             }
 

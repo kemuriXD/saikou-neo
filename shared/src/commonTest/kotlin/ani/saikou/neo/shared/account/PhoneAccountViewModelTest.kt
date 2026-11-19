@@ -98,11 +98,47 @@ class PhoneAccountViewModelTest {
             model.finishSignIn(callback())
             advanceUntilIdle()
 
-            assertEquals(AccountState.SignedIn(kemuri), model.state.value)
+            assertEquals(AccountState.SignedIn(kemuri, justSignedIn = true), model.state.value)
             assertEquals(listOf("tok"), seen)
             assertEquals(kemuri, store.account?.profile)
             assertEquals(1_000 + 3_600L, store.account?.token?.expiresAtEpochSeconds)
             assertNull(store.attempt)
+        }
+
+    @Test
+    fun confirmingTheSignInMovesOnFromTheSignedInScreen() =
+        runTest(main) {
+            val model = viewModel()
+            model.signIn()
+            advanceUntilIdle()
+            model.finishSignIn(callback())
+            advanceUntilIdle()
+
+            model.confirmSignIn()
+
+            assertEquals(AccountState.SignedIn(kemuri), model.state.value)
+        }
+
+    @Test
+    fun confirmingWhileSignedOutChangesNothing() =
+        runTest(main) {
+            val model = viewModel()
+
+            model.confirmSignIn()
+
+            assertEquals(AccountState.SignedOut(), model.state.value)
+        }
+
+    @Test
+    fun dismissingAProblemGoesBackToPlainWelcome() =
+        runTest(main) {
+            val model = viewModel(clientId = "")
+            model.signIn()
+            advanceUntilIdle()
+
+            model.dismissProblem()
+
+            assertEquals(AccountState.SignedOut(), model.state.value)
         }
 
     @Test
@@ -209,7 +245,7 @@ class PhoneAccountViewModelTest {
         }
 
     @Test
-    fun anAccountThatCanNotBeSavedSaysSignInFailed() =
+    fun anAccountThatCanNotBeSavedSaysSo() =
         runTest(main) {
             val store =
                 object : AccountStore by MemoryAccountStore() {
@@ -222,7 +258,22 @@ class PhoneAccountViewModelTest {
             model.finishSignIn(callback())
             advanceUntilIdle()
 
+            assertEquals(AccountState.SignedOut(SignInProblem.NOT_SAVED), model.state.value)
+        }
+
+    @Test
+    fun aTokenAniListRefusesWhileSigningInSaysSignInFailed() =
+        runTest(main) {
+            val store = MemoryAccountStore()
+            val model = viewModel(store) { AniListResult.Failure(AniListError.Http(401)) }
+            model.signIn()
+            advanceUntilIdle()
+
+            model.finishSignIn(callback())
+            advanceUntilIdle()
+
             assertEquals(AccountState.SignedOut(SignInProblem.FAILED), model.state.value)
+            assertNull(store.account)
         }
 
     @Test
@@ -236,7 +287,7 @@ class PhoneAccountViewModelTest {
             reopened.finishSignIn(callback())
             advanceUntilIdle()
 
-            assertEquals(AccountState.SignedIn(kemuri), reopened.state.value)
+            assertEquals(AccountState.SignedIn(kemuri, justSignedIn = true), reopened.state.value)
         }
 
     @Test
