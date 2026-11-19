@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import java.net.Inet4Address
 import java.net.InetAddress
-import java.util.concurrent.Executors
+import java.util.concurrent.Executor
 
 /**
  * Advertises [invite] under [code] with Android's network service discovery, in the shape [PAIRING_SERVICE_TYPE]
@@ -141,7 +141,7 @@ private fun resolveWithCallback(
     service: NsdServiceInfo,
     found: (AdvertisedTv) -> Unit,
 ): () -> Unit {
-    val executor = Executors.newSingleThreadExecutor()
+    val callbacks = NsdCallbacks()
     val callback =
         object : NsdManager.ServiceInfoCallback {
             override fun onServiceUpdated(info: NsdServiceInfo) = info.hostAddresses.forEach { found(advert(info, it)) }
@@ -152,14 +152,30 @@ private fun resolveWithCallback(
 
             override fun onServiceInfoCallbackUnregistered() = Unit
         }
-    nsd.registerServiceInfoCallback(service, executor, callback)
+    nsd.registerServiceInfoCallback(service, callbacks, callback)
     return {
         try {
             nsd.unregisterServiceInfoCallback(callback)
         } catch (_: IllegalArgumentException) {
             // Registration failed, so there's nothing to stop.
         }
-        executor.shutdown()
+        callbacks.stop()
+    }
+}
+
+/**
+ * Runs NSD callbacks on the thread NSD calls from, until [stop]. NSD keeps calling after a lookup ends (it sends
+ * "unregistered", for one), so later callbacks are dropped. Refusing them throws on NSD's thread and crashes the app.
+ */
+internal class NsdCallbacks : Executor {
+    @Volatile private var stopped = false
+
+    override fun execute(task: Runnable) {
+        if (!stopped) task.run()
+    }
+
+    fun stop() {
+        stopped = true
     }
 }
 
