@@ -24,7 +24,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,6 +44,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.phone.theme.PhoneColors
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
 
 /** Below this width the window is compact (a phone) and screens use all of it. */
 private val COMPACT_WIDTH = 600.dp
@@ -62,7 +66,8 @@ internal fun PhoneColumn(
 
 /**
  * The AniList profile picture in a circle: 32 dp in the app bar, 56 dp on Account, 96 dp after signing in. The first
- * letter on pink sits underneath, so it shows until [pictureUrl] loads, or if there's no picture or it can't load.
+ * letter on pink shows until [pictureUrl] loads, or if there's no picture or it can't load. Once it loads, nothing is
+ * left behind it, so a see-through picture stays see-through.
  */
 @Composable
 internal fun Avatar(
@@ -72,12 +77,18 @@ internal fun Avatar(
     style: TextStyle,
     modifier: Modifier = Modifier,
 ) {
-    Box(modifier.size(size).clip(CircleShape).background(PhoneColors.pink), contentAlignment = Alignment.Center) {
-        Text(
-            text = name.firstOrNull()?.uppercase().orEmpty(),
-            style = style,
-            color = PhoneColors.ink,
-        )
+    var loaded by remember(pictureUrl) { mutableStateOf(false) }
+    Box(
+        modifier.size(size).clip(CircleShape).then(if (loaded) Modifier else Modifier.background(PhoneColors.pink)),
+        contentAlignment = Alignment.Center,
+    ) {
+        if (!loaded) {
+            Text(
+                text = name.firstOrNull()?.uppercase().orEmpty(),
+                style = style,
+                color = PhoneColors.ink,
+            )
+        }
         // Only a web address: Coil would also open file and content addresses.
         if (pictureUrl != null && pictureUrl.startsWith("https://")) {
             AsyncImage(
@@ -85,6 +96,7 @@ internal fun Avatar(
                 contentDescription = null,
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.fillMaxSize(),
+                onState = { loaded = it is AsyncImagePainter.State.Success },
             )
         }
     }

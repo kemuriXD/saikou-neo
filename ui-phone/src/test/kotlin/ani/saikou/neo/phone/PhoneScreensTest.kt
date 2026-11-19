@@ -1,12 +1,15 @@
 package ani.saikou.neo.phone
 
+import android.graphics.drawable.ColorDrawable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
@@ -24,6 +27,10 @@ import ani.saikou.neo.shared.account.AccountState
 import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.account.SignInProblem
 import ani.saikou.neo.shared.pairing.PairedTv
+import coil3.annotation.ExperimentalCoilApi
+import coil3.asImage
+import coil3.compose.AsyncImagePreviewHandler
+import coil3.compose.LocalAsyncImagePreviewHandler
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -70,6 +77,20 @@ class PhoneScreensTest {
         compose.setContent { PhoneTheme { SignedInScreen(withPicture, onPair = {}) } }
 
         compose.onNodeWithText("K").assertIsDisplayed()
+    }
+
+    @OptIn(ExperimentalCoilApi::class)
+    @Test
+    fun aLoadedPictureHasNothingBehindIt() {
+        val withPicture = kemuri.copy(avatarUrl = "https://example.invalid/avatar.png")
+        val picture = AsyncImagePreviewHandler { ColorDrawable(android.graphics.Color.TRANSPARENT).asImage() }
+        compose.setContent {
+            CompositionLocalProvider(LocalInspectionMode provides true, LocalAsyncImagePreviewHandler provides picture) {
+                PhoneTheme { SignedInScreen(withPicture, onPair = {}) }
+            }
+        }
+
+        compose.onNodeWithText("K").assertDoesNotExist()
     }
 
     @Test
