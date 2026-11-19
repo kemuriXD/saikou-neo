@@ -12,27 +12,37 @@ import java.net.ServerSocket
 import java.util.UUID
 
 /**
- * Opens pairing on the TV (#116): a listener on the TV's local network address with a new key and session ID.
- * Throws [PairingException] when the TV has no private or link-local IPv4 address, so a phone couldn't reach it.
+ * Opens pairing on the TV (#116): a listener on the TV's local network address with a new key and session ID,
+ * advertised under [code] so a phone can find it by the code alone (#381). Throws [PairingException] when the TV has no
+ * private or link-local IPv4 address, so a phone couldn't reach it.
  */
-public fun openTvPairing(accountTimeoutMillis: Int = ACCOUNT_TIMEOUT_MILLIS): TvPairingSession {
+public fun openTvPairing(
+    context: Context,
+    code: String,
+    accountTimeoutMillis: Int = ACCOUNT_TIMEOUT_MILLIS,
+): TvPairingSession {
     val address = localAddress() ?: throw PairingException("This TV isn't on a local network")
     val keyPair = PairingKeyPair.generate()
     val sessionId = newPairingSessionId()
     val listener = PairingListener(keyPair, sessionId, ServerSocket(0, BACKLOG, address))
     val invite = PairingInvite(address.hostAddress!!, listener.port, keyPair.publicKey, sessionId)
-    return ListenerSession(listener, invite, accountTimeoutMillis)
+    val advert = advertisePairing(context, code, invite)
+    return ListenerSession(listener, advert, invite, accountTimeoutMillis)
 }
 
 private class ListenerSession(
     private val listener: PairingListener,
+    private val advert: AutoCloseable,
     override val invite: PairingInvite,
     private val accountTimeoutMillis: Int,
 ) : TvPairingSession {
     override suspend fun accept(onAttempt: (inProgress: Boolean) -> Unit): PhoneLink =
         ChannelPhoneLink(listener.accept(onAttempt), accountTimeoutMillis)
 
-    override fun close() = listener.close()
+    override fun close() {
+        advert.close()
+        listener.close()
+    }
 }
 
 private class ChannelPhoneLink(

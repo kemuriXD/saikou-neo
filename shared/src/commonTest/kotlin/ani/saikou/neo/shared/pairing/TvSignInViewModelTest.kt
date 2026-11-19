@@ -93,12 +93,18 @@ class TvSignInViewModelTest {
     }
 
     private val sessions = mutableListOf<FakeSession>()
+    private val advertised = mutableListOf<String>()
     private val accounts = MemoryAccounts()
     private var codes = 0
 
     private fun TestScope.viewModel(viewer: AniListResult<AniListProfile> = AniListResult.Success(hikari)) =
         TvSignInViewModel(
-            open = { FakeSession().also { sessions += it } },
+            open = { code ->
+                FakeSession().also {
+                    advertised += code
+                    sessions += it
+                }
+            },
             viewer = { viewer },
             store = accounts,
             tv = thisTv,
@@ -134,6 +140,16 @@ class TvSignInViewModelTest {
             runCurrent()
             assertTrue(sessions[0].closed)
             assertEquals(TvSignInState.Waiting(invite.toQrText(), "ABC234", 600), model.state.value)
+            model.cancel()
+        }
+
+    @Test
+    fun pairingOpensUnderTheCodeTheTvShows() =
+        runTest(main) {
+            val model = viewModel()
+            model.newCode()
+            runCurrent()
+            assertEquals(listOf("K74Q9M", "ABC234"), advertised)
             model.cancel()
         }
 

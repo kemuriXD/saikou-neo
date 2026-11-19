@@ -24,6 +24,7 @@ import ani.saikou.neo.shared.pairing.PairTvViewModel
 import ani.saikou.neo.shared.pairing.PrefsPairedTvStore
 import ani.saikou.neo.shared.pairing.connectForPairing
 import ani.saikou.neo.shared.pairing.connectPhoneToTv
+import ani.saikou.neo.shared.pairing.lookupTvByCode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -48,8 +49,9 @@ class MainActivity : ComponentActivity() {
                 val accountStore = KeystoreAccountStore(applicationContext)
                 PairTvViewModel(
                     connect = { request ->
-                        // Typed codes can't be looked up on the network yet, so they end on Couldn't reach the TV.
-                        connectForPairing(request, lookup = { null }) { host, port, key, session ->
+                        connectForPairing(request, lookup = { code ->
+                            lookupTvByCode(applicationContext, code)
+                        }) { host, port, key, session ->
                             connectPhoneToTv(host, port, key, session)
                         }
                     },

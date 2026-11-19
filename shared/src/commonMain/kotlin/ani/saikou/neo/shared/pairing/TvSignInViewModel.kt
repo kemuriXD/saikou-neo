@@ -45,7 +45,7 @@ public interface TvPairingSession {
      */
     public suspend fun accept(onAttempt: (inProgress: Boolean) -> Unit): PhoneLink
 
-    /** Stops listening. A phone already connected keeps its link. */
+    /** Stops listening and stops advertising the code. A phone already connected keeps its link. */
     public fun close()
 }
 
@@ -97,12 +97,12 @@ public sealed interface TvSignInState {
 }
 
 /**
- * Signs the TV in to AniList from a phone (#116, ADR 0004). It opens a pairing session at once, shows its code for
- * [TV_CODE_SECONDS], and once a phone connects shows the check code. The account the phone sends is checked with
+ * Signs the TV in to AniList from a phone (#116, ADR 0004). It makes a code, opens a pairing session under it at once
+ * (so a phone can find the TV by typing the code, #381), shows the code for [TV_CODE_SECONDS], and once a phone connects shows the check code. The account the phone sends is checked with
  * [viewer], saved in [store], and the phone hears back with [tv], this TV's stable ID and name.
  */
 public class TvSignInViewModel(
-    private val open: suspend () -> TvPairingSession,
+    private val open: suspend (code: String) -> TvPairingSession,
     private val viewer: suspend (AniListToken) -> AniListResult<AniListProfile>,
     private val store: AccountStore,
     private val tv: PairedTvReply,
@@ -137,11 +137,12 @@ public class TvSignInViewModel(
     }
 
     private suspend fun pair() {
+        val code = makeCode()
         val opened =
             try {
                 // Opening isn't interrupted, so a listener opened just as pairing is cancelled is closed here.
                 val caller = currentCoroutineContext()
-                withContext(io + NonCancellable) { open().also { if (!caller.isActive) it.close() } }
+                withContext(io + NonCancellable) { open(code).also { if (!caller.isActive) it.close() } }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
@@ -149,7 +150,7 @@ public class TvSignInViewModel(
                 return
             }
         session = opened
-        var waiting = TvSignInState.Waiting(opened.invite.toQrText(), makeCode(), TV_CODE_SECONDS)
+        var waiting = TvSignInState.Waiting(opened.invite.toQrText(), code, TV_CODE_SECONDS)
         mutableState.value = waiting
         val countdown =
             viewModelScope.launch {

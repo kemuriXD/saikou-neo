@@ -40,9 +40,7 @@ public class PairingInvite(
 
     public companion object {
         private const val PREFIX = "saikouneo://pair?v="
-        private const val VERSION = "1"
         private val FIELDS = setOf("v", "host", "port", "key", "session")
-        private val base64 = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT)
 
         /** The invite in a scanned QR code, or null if the code is anything else. */
         public fun parse(text: String): PairingInvite? {
@@ -50,13 +48,25 @@ public class PairingInvite(
             val pairs = text.substringAfter('?').split('&').map { it.substringBefore('=', "") to it.substringAfter('=', "") }
             val fields = pairs.toMap()
             if (pairs.size != FIELDS.size || fields.keys != FIELDS || fields["v"] != VERSION) return null
-
-            val host = fields.getValue("host").takeIf(::isLocalIpv4) ?: return null
-            val port = fields.getValue("port").toIntOrNull()?.takeIf { it in 1..65_535 } ?: return null
-            val key = decode(fields.getValue("key"))?.takeIf { it.size == PUBLIC_KEY_SIZE && it[0] == UNCOMPRESSED } ?: return null
-            val session = decode(fields.getValue("session"))?.takeIf { it.size == PAIRING_SESSION_ID_BYTES } ?: return null
-            return PairingInvite(host, port, key, session)
+            val port = fields.getValue("port").toIntOrNull() ?: return null
+            return checked(fields.getValue("host"), port, fields.getValue("key"), fields.getValue("session"))
         }
+
+        /** The invite from fields as the QR code writes them, or null if any of them is wrong. */
+        internal fun checked(
+            host: String,
+            port: Int,
+            key: String,
+            session: String,
+        ): PairingInvite? {
+            if (!isLocalIpv4(host) || port !in 1..65_535) return null
+            val publicKey = decode(key)?.takeIf { it.size == PUBLIC_KEY_SIZE && it[0] == UNCOMPRESSED } ?: return null
+            val sessionId = decode(session)?.takeIf { it.size == PAIRING_SESSION_ID_BYTES } ?: return null
+            return PairingInvite(host, port, publicKey, sessionId)
+        }
+
+        internal const val VERSION = "1"
+        internal val base64 = Base64.UrlSafe.withPadding(Base64.PaddingOption.ABSENT)
 
         private fun decode(value: String): ByteArray? =
             try {
