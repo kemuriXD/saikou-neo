@@ -74,7 +74,7 @@ internal class ChannelPhoneLink(
                 val bytes = withContext(Dispatchers.IO) { channel.receive(0) }
                 PairingMessages.readAccount(bytes)
                     ?: throw PairingMessages.readStopped(bytes)?.let { PairingStoppedException(it) }
-                    ?: PairingException("The phone didn't send an account")
+                        ?: PairingException("The phone didn't send an account")
             } catch (e: PairingException) {
                 // Left at the check code. A device that keeps doing this gets cut off (#410).
                 listener.turnAway(channel)

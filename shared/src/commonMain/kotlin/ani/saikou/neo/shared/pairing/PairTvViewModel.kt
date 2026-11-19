@@ -81,7 +81,6 @@ public suspend fun connectForPairing(
     return connect(invite.host, invite.port, invite.publicKey, invite.sessionId)
 }
 
-
 /** Where pairing is, screen by screen (3.4 to 3.8). */
 public sealed interface PairTvState {
     /** Not pairing. */
@@ -193,8 +192,10 @@ public class PairTvViewModel(
         mutableState.value =
             when {
                 answer is TvAnswer.SignedIn && sent -> save(answer.reply)
+
                 // Only the phone has It doesn't match, so the TV saying it means something's wrong.
                 answer is TvAnswer.Stopped && answer.reason != PairingStop.NoMatch -> PairTvState.Stopped(answer.reason)
+
                 else -> PairTvState.Unreachable
             }
     }

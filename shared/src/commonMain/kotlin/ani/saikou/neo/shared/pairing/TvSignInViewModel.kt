@@ -299,8 +299,11 @@ public class TvSignInViewModel(
             Heard.Left(
                 when ((e as? PairingStoppedException)?.reason) {
                     PairingStop.NoMatch -> TvPairingNote.StoppedOnPhone
+
                     PairingStop.Cancelled -> TvPairingNote.CancelledOnPhone
+
                     PairingStop.TimedOut -> TvPairingNote.TookTooLong
+
                     // Only the TV refuses an account, so a phone saying so is as good as gone.
                     PairingStop.Refused, null -> TvPairingNote.LostConnection
                 },

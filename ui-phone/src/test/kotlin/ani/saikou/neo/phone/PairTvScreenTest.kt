@@ -12,8 +12,8 @@ import androidx.compose.ui.test.performClick
 import ani.saikou.neo.phone.theme.PhoneTheme
 import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.pairing.PairTvState
-import ani.saikou.neo.shared.pairing.PairingStop
 import ani.saikou.neo.shared.pairing.PairedTv
+import ani.saikou.neo.shared.pairing.PairingStop
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
