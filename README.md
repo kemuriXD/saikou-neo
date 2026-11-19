@@ -5,8 +5,6 @@
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/saikou-neo-dark.png">
     <img src=".github/assets/saikou-neo-light.png" alt="Saikou Neo" width="520">
   </picture>
-  <h3>Visitor Count</h3>
-  <img src="https://count.getloli.com/@kemurixd-saikou-neo?theme=booru-lewd&amp;padding=6&amp;scale=0.6&amp;darkmode=0" alt="Approximate README visits, displayed with pixel-art anime characters" width="360">
   <h1>Saikou Neo</h1>
   <p><strong>Anime, made for your TV.</strong></p>
   <p>
@@ -16,6 +14,8 @@
     <img src="https://img.shields.io/badge/Kotlin-Multiplatform-7F52FF?logo=kotlin&amp;logoColor=white" alt="Kotlin Multiplatform">
     <a href="https://github.com/kemuriXD/saikou-neo/commits/main"><img src="https://img.shields.io/github/last-commit/kemuriXD/saikou-neo" alt="Last commit"></a>
   </p>
+  <h3>Visitor Count</h3>
+  <img src="https://count.getloli.com/@kemurixd-saikou-neo?theme=booru-lewd&amp;padding=6&amp;scale=0.6&amp;darkmode=0" alt="Approximate README visits, displayed with pixel-art anime characters" width="360">
 </div>
 
 Saikou Neo is an anime app for Android TV and Fire TV. You browse and search on
