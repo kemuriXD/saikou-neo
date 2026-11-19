@@ -37,6 +37,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
@@ -54,6 +55,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.pairing.TvPairingNote
 import ani.saikou.neo.shared.pairing.TvSignInState
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -167,6 +169,7 @@ private fun ColumnScope.Message(
             is TvSignInState.SignedIn -> R.string.sign_in_done_title to R.string.sign_in_done_body
             is TvSignInState.Expired -> R.string.sign_in_expired_title to R.string.sign_in_expired_body
             TvSignInState.Stopped -> R.string.sign_in_stopped_title to R.string.sign_in_stopped_body
+            TvSignInState.NoNetwork -> R.string.sign_in_no_network_title to R.string.sign_in_no_network_body
         }
     Text(stringResource(title), style = Title, color = NeoTheme.colors.paper)
     body?.let { Text(stringResource(it), style = Body, color = NeoTheme.colors.textMuted) }
@@ -202,6 +205,11 @@ private fun Buttons(
 
             is TvSignInState.SignedIn -> {
                 NeoButton(stringResource(R.string.sign_in_go_home), onClick = onHome, modifier = focused)
+            }
+
+            TvSignInState.NoNetwork -> {
+                NeoButton(stringResource(R.string.sign_in_try_again), onClick = onNewCode, modifier = focused)
+                NeoButton(stringResource(R.string.sign_in_not_now), onClick = onLeave)
             }
 
             else -> {
@@ -257,6 +265,7 @@ private fun Panel(state: TvSignInState) {
             }
             val time = "%d:%02d".format(state.secondsLeft / 60, state.secondsLeft % 60)
             Status(stringResource(R.string.sign_in_waiting, time), 12.dp)
+            state.note?.let { Note(it) }
         }
 
         TvSignInState.Connecting -> {
@@ -293,6 +302,44 @@ private fun Panel(state: TvSignInState) {
 
         TvSignInState.Stopped -> {
             Problem(stringResource(R.string.sign_in_stopped_status), stringResource(R.string.sign_in_stopped_detail))
+        }
+
+        TvSignInState.NoNetwork -> {
+            Problem(
+                stringResource(R.string.sign_in_no_network_status),
+                stringResource(R.string.sign_in_no_network_detail),
+                NeoIcons.WifiOff,
+            )
+        }
+    }
+}
+
+/** Why the last phone left, under the code it can try again with (#414). Read out when it appears. */
+@Composable
+private fun Note(note: TvPairingNote) {
+    val colors = NeoTheme.colors
+    val reason =
+        when (note) {
+            TvPairingNote.StoppedOnPhone -> R.string.sign_in_note_stopped
+            TvPairingNote.CancelledOnPhone -> R.string.sign_in_note_cancelled
+            TvPairingNote.AniListRefused -> R.string.sign_in_note_refused
+            TvPairingNote.AniListUnreachable -> R.string.sign_in_note_unreachable
+            TvPairingNote.LostConnection -> R.string.sign_in_note_lost
+            TvPairingNote.TookTooLong -> R.string.sign_in_note_too_long
+        }
+    Row(
+        Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Icon(
+            if (note == TvPairingNote.LostConnection) NeoIcons.WifiOff else NeoIcons.Warning,
+            contentDescription = null,
+            tint = colors.warning,
+            modifier = Modifier.padding(top = 2.dp).size(18.dp),
+        )
+        Column {
+            Text(stringResource(reason), style = Small, color = colors.paper)
+            Text(stringResource(R.string.sign_in_note_same_code), style = Small, color = colors.textMuted)
         }
     }
 }
@@ -366,9 +413,10 @@ private fun Spinner(
 private fun Problem(
     title: String,
     detail: String,
+    icon: ImageVector = NeoIcons.Warning,
 ) {
     val colors = NeoTheme.colors
-    Icon(NeoIcons.Warning, contentDescription = null, tint = colors.warning, modifier = Modifier.size(48.dp))
+    Icon(icon, contentDescription = null, tint = colors.warning, modifier = Modifier.size(48.dp))
     Text(
         title,
         style = NeoTheme.typography.titleLarge,

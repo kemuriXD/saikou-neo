@@ -6,6 +6,7 @@ import ani.saikou.neo.shared.account.AccountStore
 import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.account.AniListToken
 import ani.saikou.neo.shared.account.SignedInAccount
+import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -60,11 +61,21 @@ public interface PhoneLink {
     /** The 6-digit code both screens show. */
     public val checkCode: String
 
-    /** Waits for the account the phone sends once It matches is chosen. Throws [PairingException] if it doesn't come. */
+    /**
+     * Waits for the account the phone sends once It matches is chosen. Throws [PairingStoppedException] when the phone
+     * stops pairing, or when the TV stops waiting (after telling the phone), and [PairingException] if the connection
+     * drops. Either way the phone counts as turned away.
+     */
     public suspend fun receiveAccount(): AniListToken
 
     /** Tells the phone this TV is signed in. */
     public suspend fun replySignedIn(reply: PairedTvReply)
+
+    /** Tells the phone why pairing stopped, then drops it. It counts as turned away. */
+    public suspend fun stop(reason: PairingStop)
+
+    /** Drops the phone without a word. It counts as turned away. */
+    public fun turnAway()
 
     public fun close()
 }
@@ -74,11 +85,15 @@ public sealed interface TvSignInState {
     /** Opening the listener. */
     public data object Starting : TvSignInState
 
-    /** The QR code and [code], with [secondsLeft] until they run out. */
+    /**
+     * The QR code and [code], with [secondsLeft] until they run out. [note] says why the last phone left without
+     * signing the TV in, so another try can use the same code (#410, #414).
+     */
     public data class Waiting(
         val qrText: String,
         val code: String,
         val secondsLeft: Int,
+        val note: TvPairingNote? = null,
     ) : TvSignInState
 
     /** A phone is making the encrypted link. */
@@ -98,15 +113,40 @@ public sealed interface TvSignInState {
         val code: String,
     ) : TvSignInState
 
-    /** The connection closed or failed, or AniList refused the account. Nothing was saved. */
+    /** Pairing couldn't go on: too many failed attempts, or the account couldn't be saved. Nothing was saved. */
     public data object Stopped : TvSignInState
+
+    /** Can't sign in yet: this TV isn't on a network, so no phone could reach it. Try again opens a new code. */
+    public data object NoNetwork : TvSignInState
+}
+
+/** Why the last phone left the check code, shown under the code it can try again with. */
+public enum class TvPairingNote {
+    /** It doesn't match on the phone. */
+    StoppedOnPhone,
+
+    /** Pairing was closed on the phone before it sent an account. */
+    CancelledOnPhone,
+
+    /** AniList didn't accept the account the phone sent. */
+    AniListRefused,
+
+    /** AniList couldn't be reached to check the account, for example with no internet. */
+    AniListUnreachable,
+
+    /** The connection dropped without a word. */
+    LostConnection,
+
+    /** The phone didn't choose It matches in time. */
+    TookTooLong,
 }
 
 /**
  * Signs the TV in to AniList from a phone (#116, ADR 0004). It makes a code, opens a pairing session under it at once
  * (so a phone can find the TV by typing the code, #381), shows the code for [TV_CODE_SECONDS], and once a phone connects shows the check code. If
- * that phone leaves without sending an account, the TV goes back to the same code (#410). The account the phone sends is checked with
- * [viewer], saved in [store], and the phone hears back with [tv], this TV's stable ID and name.
+ * that phone leaves without signing the TV in, the TV goes back to the same code (#410) and says why (#414). The account the phone sends
+ * is checked with [viewer], saved in [store], and the phone hears back with [tv], this TV's stable ID and name. If AniList refuses it, the
+ * phone hears that instead, and it counts against the phone like any other attempt that didn't finish.
  */
 public class TvSignInViewModel(
     private val open: suspend (code: String) -> TvPairingSession,
@@ -136,11 +176,15 @@ public class TvSignInViewModel(
     }
 
     /**
-     * Not now, Cancel or Back, or the app going to the background: stops pairing and sends the phone nothing. Unless
-     * the TV already signed in, Pairing stopped then shows, so coming back offers a new code.
+     * Not now, Cancel or Back, or the app going to the background: stops pairing, and a phone at the check code hears
+     * it was cancelled. Unless the TV already signed in, Pairing stopped then shows, so coming back offers a new code.
      */
     public fun cancel() {
+        val leaving = phone
+        phone = null
         stop()
+        // Not cancellable, so the phone is closed even if this screen goes away straight after.
+        leaving?.let { viewModelScope.launch(io + NonCancellable) { it.stop(PairingStop.Cancelled) } }
         mutableState.update { if (it is TvSignInState.SignedIn) it else TvSignInState.Stopped }
     }
 
@@ -155,9 +199,9 @@ public class TvSignInViewModel(
                 withContext(io + NonCancellable) { open(code).also { if (!caller.isActive) it.close() } }
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 currentCoroutineContext().ensureActive()
-                mutableState.value = TvSignInState.Stopped
+                mutableState.value = if (e is NoNetworkException) TvSignInState.NoNetwork else TvSignInState.Stopped
                 return
             }
         session = opened
@@ -177,19 +221,34 @@ public class TvSignInViewModel(
             while (true) {
                 val link = nextPhone(opened) { waiting } ?: return
                 phone = link
+                waiting = waiting.copy(note = null)
                 mutableState.value = TvSignInState.CheckCode(link.checkCode)
-                val token = receiveAccount(link)
-                if (token == null) {
-                    if (countdown.isCompleted) {
-                        mutableState.value = TvSignInState.Expired(code)
-                        return
+                val note =
+                    when (val heard = receiveAccount(link)) {
+                        is Heard.Left -> {
+                            heard.note
+                        }
+
+                        is Heard.Account -> {
+                            when (val checked = check(heard.token)) {
+                                is AniListResult.Success -> {
+                                    closeListener(opened, countdown)
+                                    mutableState.value = signIn(link, heard.token, checked.value)
+                                    return
+                                }
+
+                                is AniListResult.Failure -> {
+                                    turnAway(link, checked.error)
+                                }
+                            }
+                        }
                     }
-                    mutableState.value = waiting
-                    continue
+                if (countdown.isCompleted) {
+                    mutableState.value = TvSignInState.Expired(code)
+                    return
                 }
-                closeListener(opened, countdown)
-                mutableState.value = signIn(link, token)
-                return
+                waiting = waiting.copy(note = note)
+                mutableState.value = waiting
             }
         } finally {
             closeListener(opened, countdown)
@@ -227,18 +286,70 @@ public class TvSignInViewModel(
         return link
     }
 
-    /** The account the phone sends, or null once it leaves without sending one. */
-    private suspend fun receiveAccount(link: PhoneLink): AniListToken? =
+    /** What the phone at the check code did: sent an account, or left. */
+    private sealed interface Heard {
+        data class Account(
+            val token: AniListToken,
+        ) : Heard
+
+        data class Left(
+            val note: TvPairingNote,
+        ) : Heard
+    }
+
+    private suspend fun receiveAccount(link: PhoneLink): Heard =
         try {
-            link.receiveAccount()
+            Heard.Account(link.receiveAccount())
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             currentCoroutineContext().ensureActive()
             link.close()
             if (phone === link) phone = null
-            null
+            Heard.Left(
+                when ((e as? PairingStoppedException)?.reason) {
+                    PairingStop.NoMatch -> TvPairingNote.StoppedOnPhone
+
+                    PairingStop.Cancelled -> TvPairingNote.CancelledOnPhone
+
+                    PairingStop.TimedOut -> TvPairingNote.TookTooLong
+
+                    // Only the TV refuses an account, so a phone saying so is as good as gone.
+                    PairingStop.Refused, null -> TvPairingNote.LostConnection
+                },
+            )
         }
+
+    /** What AniList says about [token]. */
+    private suspend fun check(token: AniListToken): AniListResult<AniListProfile> =
+        try {
+            viewer(token)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            AniListResult.Failure(AniListError.Unexpected(e.message ?: "The account check failed"))
+        }
+
+    /**
+     * Drops the phone whose account didn't sign the TV in. Any device could send a bad one, so it counts against it.
+     * Only an account AniList refuses is reported as refused; if AniList couldn't be reached, the phone just loses
+     * the connection, since signing in again there wouldn't help.
+     */
+    private suspend fun turnAway(
+        link: PhoneLink,
+        error: AniListError,
+    ): TvPairingNote {
+        val refused = error == AniListError.SignedOut
+        try {
+            if (refused) link.stop(PairingStop.Refused) else link.turnAway()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            link.close()
+        }
+        if (phone === link) phone = null
+        return if (refused) TvPairingNote.AniListRefused else TvPairingNote.AniListUnreachable
+    }
 
     private fun closeListener(
         opened: TvPairingSession,
@@ -253,9 +364,9 @@ public class TvSignInViewModel(
     private suspend fun signIn(
         link: PhoneLink,
         token: AniListToken,
+        profile: AniListProfile,
     ): TvSignInState =
         try {
-            val profile = (viewer(token) as? AniListResult.Success)?.value ?: throw PairingException("AniList refused the account")
             withContext(io) { store.saveAccount(SignedInAccount(profile, token)) }
             try {
                 link.replySignedIn(tv)

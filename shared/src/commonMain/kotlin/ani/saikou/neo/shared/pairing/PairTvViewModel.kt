@@ -8,6 +8,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -17,7 +19,7 @@ import kotlinx.coroutines.withContext
 import kotlin.time.Clock
 
 /** A pairing step failed: a bad key, a message that didn't decrypt, a broken connection, or a TV that wasn't found. */
-public class PairingException(
+public open class PairingException(
     message: String,
     cause: Throwable? = null,
 ) : Exception(message, cause)
@@ -27,10 +29,19 @@ public interface TvLink {
     /** The 6-digit code both screens show. */
     public val checkCode: String
 
-    /** Sends the account and waits for the TV to say it's signed in. Throws [PairingException] if it doesn't. */
-    public suspend fun sendAccount(token: AniListToken): PairedTvReply
+    /**
+     * Waits for the TV's next word: signed in, or stopped and why. Throws [PairingException] if the connection drops
+     * or the TV says anything else. [close] ends the wait.
+     */
+    public suspend fun answer(): TvAnswer
 
-    /** Drops the connection. The TV takes that as pairing stopped. */
+    /** Sends the account. The TV's [answer] says how it went. */
+    public suspend fun sendAccount(token: AniListToken)
+
+    /** Tells the TV why pairing stopped, then drops the connection. */
+    public suspend fun stop(reason: PairingStop)
+
+    /** Drops the connection without a word. The TV takes that as a lost connection. */
     public fun close()
 }
 
@@ -93,13 +104,19 @@ public sealed interface PairTvState {
     /** 3.7 Couldn't reach the TV, or it dropped the connection. */
     public data object Unreachable : PairTvState
 
-    /** 3.8 The codes didn't match, so nothing was sent. */
-    public data object Stopped : PairTvState
+    /**
+     * 3.8a to 3.8d: pairing stopped at the check code, and why. [PairingStop.NoMatch] is It doesn't match on this
+     * phone; the others come from the TV.
+     */
+    public data class Stopped(
+        val reason: PairingStop,
+    ) : PairTvState
 }
 
 /**
  * Pairs the phone with a TV (#249). [start] connects; the account from [account] goes to the TV only in [confirm],
- * after the user says the check codes match. The TV is then saved in Your TVs ([tvs]).
+ * after the user says the check codes match. The TV is then saved in Your TVs ([tvs]). From the check code on, the
+ * phone listens to the TV, so a TV that stops pairing shows why straight away (#414).
  */
 public class PairTvViewModel(
     private val connect: suspend (PairingRequest) -> TvLink,
@@ -107,6 +124,7 @@ public class PairTvViewModel(
     private val store: PairedTvStore,
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val now: () -> Long = { Clock.System.now().epochSeconds },
+    private val replyTimeoutMillis: Long = 30_000,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<PairTvState>(PairTvState.Idle)
     public val state: StateFlow<PairTvState> = mutableState.asStateFlow()
@@ -117,6 +135,7 @@ public class PairTvViewModel(
     private var request: PairingRequest? = null
     private var link: TvLink? = null
     private var job: Job? = null
+    private var sending: Job? = null
 
     init {
         viewModelScope.launch { mutableTvs.value = withContext(io) { store.readTvs() } }
@@ -128,7 +147,7 @@ public class PairTvViewModel(
         retry()
     }
 
-    /** Try again on Couldn't reach the TV: connects to the same TV again. */
+    /** Try again or Start again: connects to the same TV again. */
     public fun retry() {
         val request = request ?: return
         stop(PairTvState.Connecting)
@@ -150,33 +169,70 @@ public class PairTvViewModel(
                 }
                 link = connected
                 mutableState.value = PairTvState.CheckCode(connected.checkCode)
+                listen(connected)
             }
     }
 
-    /** It matches: sends the account, then saves the TV once it says it's signed in. */
+    /** Waits for the TV's answer, from the check code until it signs in or stops. */
+    private suspend fun listen(tv: TvLink) {
+        val answer =
+            try {
+                tv.answer()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                null
+            }
+        sending?.cancel()
+        sending = null
+        // Close this attempt's connection only; a newer one may have taken its place.
+        tv.close()
+        if (link !== tv) return
+        link = null
+        val sent = (state.value as? PairTvState.CheckCode)?.sending == true
+        mutableState.value =
+            when {
+                answer is TvAnswer.SignedIn && sent -> save(answer.reply)
+
+                // Only the phone has It doesn't match, so the TV saying it means something's wrong.
+                answer is TvAnswer.Stopped && answer.reason != PairingStop.NoMatch -> PairTvState.Stopped(answer.reason)
+
+                else -> PairTvState.Unreachable
+            }
+    }
+
+    private suspend fun save(reply: PairedTvReply): PairTvState {
+        val saved = mutableTvs.value.filterNot { it.id == reply.id } + PairedTv(reply.id, reply.name, now())
+        try {
+            withContext(io) { store.saveTvs(saved) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            return PairTvState.Unreachable
+        }
+        mutableTvs.value = saved
+        return PairTvState.SignedIn(reply.name)
+    }
+
+    /** It matches: sends the account. The TV then has [replyTimeoutMillis] to answer. */
     public fun confirm() {
         val shown = state.value as? PairTvState.CheckCode ?: return
         if (shown.sending) return
         val tv = link ?: return
         mutableState.value = shown.copy(sending = true)
-        job =
+        sending =
             viewModelScope.launch {
                 try {
                     val token = account() ?: throw PairingException("The phone isn't signed in")
-                    val reply = tv.sendAccount(token)
-                    val saved = mutableTvs.value.filterNot { it.id == reply.id } + PairedTv(reply.id, reply.name, now())
-                    withContext(io) { store.saveTvs(saved) }
-                    mutableTvs.value = saved
-                    mutableState.value = PairTvState.SignedIn(reply.name)
+                    tv.sendAccount(token)
+                    delay(replyTimeoutMillis)
                 } catch (e: CancellationException) {
                     throw e
                 } catch (_: Exception) {
-                    mutableState.value = PairTvState.Unreachable
-                } finally {
-                    // Close this attempt's connection only; a newer one may have taken its place.
-                    tv.close()
-                    if (link === tv) link = null
+                    // Not sent: closing ends the wait below with Couldn't reach the TV.
                 }
+                // No answer in time, or nothing to send.
+                tv.close()
             }
     }
 
@@ -193,36 +249,47 @@ public class PairTvViewModel(
         }
     }
 
-    /** It doesn't match: drops the connection without sending anything. */
+    /** It doesn't match: tells the TV, without sending the account. */
     public fun reject() {
-        if (state.value !is PairTvState.CheckCode) return
-        stop(PairTvState.Stopped)
+        val shown = state.value as? PairTvState.CheckCode ?: return
+        if (shown.sending) return
+        stop(PairTvState.Stopped(PairingStop.NoMatch), PairingStop.NoMatch)
     }
 
     /**
-     * Cancel or Close: stops whatever is happening and sends nothing. Once the account is on its way it can't be
-     * called back, so then it waits for the TV, to keep a TV that signed in from going missing from Your TVs.
+     * Cancel or Close: stops whatever is happening and sends no account; at the check code the TV hears it was
+     * cancelled. Once the account is on its way it can't be called back, so then it waits for the TV, to keep a TV
+     * that signed in from going missing from Your TVs.
      */
     public fun cancel() {
-        if ((state.value as? PairTvState.CheckCode)?.sending == true) return
+        val shown = state.value
+        if ((shown as? PairTvState.CheckCode)?.sending == true) return
         request = null
-        stop(PairTvState.Idle)
+        stop(PairTvState.Idle, PairingStop.Cancelled.takeIf { shown is PairTvState.CheckCode })
     }
 
-    private fun stop(next: PairTvState) {
+    /** Stops listening and drops the connection, telling the TV [reason] first if there is one. */
+    private fun stop(
+        next: PairTvState,
+        reason: PairingStop? = null,
+    ) {
         job?.cancel()
         job = null
-        closeLink()
-        mutableState.value = next
-    }
-
-    private fun closeLink() {
-        link?.close()
+        sending?.cancel()
+        sending = null
+        val leaving = link
         link = null
+        if (leaving != null) {
+            // Not cancellable, so the TV is closed even if this screen goes away straight after.
+            if (reason == null) leaving.close() else viewModelScope.launch(io + NonCancellable) { leaving.stop(reason) }
+        }
+        mutableState.value = next
     }
 
     override fun onCleared() {
         job?.cancel()
-        closeLink()
+        sending?.cancel()
+        link?.close()
+        link = null
     }
 }

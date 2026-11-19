@@ -197,6 +197,11 @@ private fun SignedIn(
                         replace(listOf(PhoneScreen.Home, PhoneScreen.Scan))
                     },
                     done = leavePairing,
+                    // AniList refused this phone's account on the TV: sign out, so Welcome offers a fresh sign-in.
+                    signInAgain = {
+                        pairing.cancel()
+                        signOut()
+                    },
                 ),
             )
         }
