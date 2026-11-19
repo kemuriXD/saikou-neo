@@ -6,6 +6,7 @@ import ani.saikou.neo.shared.account.AccountStore
 import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.account.AniListToken
 import ani.saikou.neo.shared.account.SignedInAccount
+import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -73,6 +74,9 @@ public interface PhoneLink {
     /** Tells the phone why pairing stopped, then drops it. It counts as turned away. */
     public suspend fun stop(reason: PairingStop)
 
+    /** Drops the phone without a word. It counts as turned away. */
+    public fun turnAway()
+
     public fun close()
 }
 
@@ -127,6 +131,9 @@ public enum class TvPairingNote {
     /** AniList didn't accept the account the phone sent. */
     AniListRefused,
 
+    /** AniList couldn't be reached to check the account, for example with no internet. */
+    AniListUnreachable,
+
     /** The connection dropped without a word. */
     LostConnection,
 
@@ -176,7 +183,8 @@ public class TvSignInViewModel(
         val leaving = phone
         phone = null
         stop()
-        leaving?.let { viewModelScope.launch(io) { it.stop(PairingStop.Cancelled) } }
+        // Not cancellable, so the phone is closed even if this screen goes away straight after.
+        leaving?.let { viewModelScope.launch(io + NonCancellable) { it.stop(PairingStop.Cancelled) } }
         mutableState.update { if (it is TvSignInState.SignedIn) it else TvSignInState.Stopped }
     }
 
@@ -222,14 +230,16 @@ public class TvSignInViewModel(
                         }
 
                         is Heard.Account -> {
-                            val profile = check(heard.token)
-                            if (profile == null) {
-                                refuse(link)
-                                TvPairingNote.AniListRefused
-                            } else {
-                                closeListener(opened, countdown)
-                                mutableState.value = signIn(link, heard.token, profile)
-                                return
+                            when (val checked = check(heard.token)) {
+                                is AniListResult.Success -> {
+                                    closeListener(opened, countdown)
+                                    mutableState.value = signIn(link, heard.token, checked.value)
+                                    return
+                                }
+
+                                is AniListResult.Failure -> {
+                                    turnAway(link, checked.error)
+                                }
                             }
                         }
                     }
@@ -310,26 +320,35 @@ public class TvSignInViewModel(
             )
         }
 
-    /** The AniList profile for [token], or null if AniList doesn't accept it. */
-    private suspend fun check(token: AniListToken): AniListProfile? =
+    /** What AniList says about [token]. */
+    private suspend fun check(token: AniListToken): AniListResult<AniListProfile> =
         try {
-            (viewer(token) as? AniListResult.Success)?.value
+            viewer(token)
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
-            null
+        } catch (e: Exception) {
+            AniListResult.Failure(AniListError.Unexpected(e.message ?: "The account check failed"))
         }
 
-    /** Tells the phone AniList refused its account. Any device could send a bad one, so it counts against it. */
-    private suspend fun refuse(link: PhoneLink) {
+    /**
+     * Drops the phone whose account didn't sign the TV in. Any device could send a bad one, so it counts against it.
+     * Only an account AniList refuses is reported as refused; if AniList couldn't be reached, the phone just loses
+     * the connection, since signing in again there wouldn't help.
+     */
+    private suspend fun turnAway(
+        link: PhoneLink,
+        error: AniListError,
+    ): TvPairingNote {
+        val refused = error == AniListError.SignedOut
         try {
-            link.stop(PairingStop.Refused)
+            if (refused) link.stop(PairingStop.Refused) else link.turnAway()
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
             link.close()
         }
         if (phone === link) phone = null
+        return if (refused) TvPairingNote.AniListRefused else TvPairingNote.AniListUnreachable
     }
 
     private fun closeListener(

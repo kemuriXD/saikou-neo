@@ -125,6 +125,7 @@ class SignInScreenTest {
                 TvPairingNote.StoppedOnPhone to "Pairing was stopped on your phone.",
                 TvPairingNote.CancelledOnPhone to "Pairing was cancelled on your phone.",
                 TvPairingNote.AniListRefused to "AniList didn’t accept the account.",
+                TvPairingNote.AniListUnreachable to "Couldn’t reach AniList.",
                 TvPairingNote.LostConnection to "Lost the connection to your phone.",
                 TvPairingNote.TookTooLong to "Your phone took too long.",
             )

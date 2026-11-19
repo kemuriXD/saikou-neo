@@ -262,6 +262,7 @@
     <string name="sign_in_note_stopped">Pairing was stopped on your phone.</string>
     <string name="sign_in_note_cancelled">Pairing was cancelled on your phone.</string>
     <string name="sign_in_note_refused">AniList didn’t accept the account.</string>
+    <string name="sign_in_note_unreachable">Couldn’t reach AniList.</string>
     <string name="sign_in_note_lost">Lost the connection to your phone.</string>
     <string name="sign_in_note_too_long">Your phone took too long.</string>
     <string name="sign_in_note_same_code">This code still works.</string>

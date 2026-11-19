@@ -323,6 +323,7 @@ private fun Note(note: TvPairingNote) {
             TvPairingNote.StoppedOnPhone -> R.string.sign_in_note_stopped
             TvPairingNote.CancelledOnPhone -> R.string.sign_in_note_cancelled
             TvPairingNote.AniListRefused -> R.string.sign_in_note_refused
+            TvPairingNote.AniListUnreachable -> R.string.sign_in_note_unreachable
             TvPairingNote.LostConnection -> R.string.sign_in_note_lost
             TvPairingNote.TookTooLong -> R.string.sign_in_note_too_long
         }

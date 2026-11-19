@@ -8,6 +8,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.IO
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -279,7 +280,8 @@ public class PairTvViewModel(
         val leaving = link
         link = null
         if (leaving != null) {
-            if (reason == null) leaving.close() else viewModelScope.launch(io) { leaving.stop(reason) }
+            // Not cancellable, so the TV is closed even if this screen goes away straight after.
+            if (reason == null) leaving.close() else viewModelScope.launch(io + NonCancellable) { leaving.stop(reason) }
         }
         mutableState.value = next
     }

@@ -64,6 +64,13 @@ class TvSignInViewModelTest {
             closed = true
         }
 
+        var turnedAway = false
+
+        override fun turnAway() {
+            turnedAway = true
+            closed = true
+        }
+
         override fun close() {
             closed = true
         }
@@ -406,7 +413,7 @@ class TvSignInViewModelTest {
     @Test
     fun aTokenAniListRefusesTellsThePhoneAndGoesBackToTheSameCode() =
         runTest(main) {
-            val model = viewModel(viewer = AniListResult.Failure(AniListError.Http(401)))
+            val model = viewModel(viewer = AniListResult.Failure(AniListError.SignedOut))
             val phone = FakePhone()
             sessions.single().phone.complete(phone)
             runCurrent()
@@ -423,9 +430,26 @@ class TvSignInViewModelTest {
         }
 
     @Test
+    fun aniListOutOfReachIsNotCalledARefusal() =
+        runTest(main) {
+            val model = viewModel(viewer = AniListResult.Failure(AniListError.Network(null)))
+            val phone = FakePhone()
+            sessions.single().phone.complete(phone)
+            runCurrent()
+
+            phone.account.complete(token)
+            runCurrent()
+            val waiting = model.state.value as TvSignInState.Waiting
+            assertEquals(TvPairingNote.AniListUnreachable, waiting.note)
+            assertTrue(phone.stops.isEmpty())
+            assertTrue(phone.turnedAway)
+            assertNull(accounts.account)
+        }
+
+    @Test
     fun aTokenRefusedAfterTheCodeRanOutShowsItRanOut() =
         runTest(main) {
-            val model = viewModel(viewer = AniListResult.Failure(AniListError.Http(401)))
+            val model = viewModel(viewer = AniListResult.Failure(AniListError.SignedOut))
             val phone = FakePhone()
             sessions.single().phone.complete(phone)
             runCurrent()

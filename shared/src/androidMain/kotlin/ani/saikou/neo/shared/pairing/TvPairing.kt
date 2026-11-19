@@ -13,7 +13,7 @@ import java.net.InetAddress
 import java.net.NetworkInterface
 import java.net.ServerSocket
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.AtomicInteger
 
 /**
  * Opens pairing on the TV (#116): a listener on the TV's local network address with a new key and session ID,
@@ -62,23 +62,25 @@ internal class ChannelPhoneLink(
 
     override suspend fun receiveAccount(): AniListToken =
         coroutineScope {
-            val timedOut = AtomicBoolean()
+            // Whichever comes first, the phone's message or the deadline, decides. An account that lands as the TV
+            // says it stopped waiting is dropped, so the TV never signs in after telling the phone it didn't.
+            val outcome = AtomicInteger(WAITING)
             // The read itself has no deadline, so the TV can still say why before closing.
             val deadline =
                 launch(Dispatchers.IO) {
                     delay(accountTimeoutMillis.toLong())
-                    timedOut.set(true)
-                    channel.sendStop(PairingStop.TimedOut)
+                    if (outcome.compareAndSet(WAITING, TIMED_OUT)) channel.sendStop(PairingStop.TimedOut)
                 }
             try {
                 val bytes = withContext(Dispatchers.IO) { channel.receive(0) }
+                if (!outcome.compareAndSet(WAITING, HEARD)) throw PairingStoppedException(PairingStop.TimedOut)
                 PairingMessages.readAccount(bytes)
                     ?: throw PairingMessages.readStopped(bytes)?.let { PairingStoppedException(it) }
                         ?: PairingException("The phone didn't send an account")
             } catch (e: PairingException) {
                 // Left at the check code. A device that keeps doing this gets cut off (#410).
                 listener.turnAway(channel)
-                throw if (timedOut.get()) PairingStoppedException(PairingStop.TimedOut) else e
+                throw if (outcome.get() == TIMED_OUT) PairingStoppedException(PairingStop.TimedOut) else e
             } finally {
                 deadline.cancel()
             }
@@ -88,9 +90,14 @@ internal class ChannelPhoneLink(
 
     override suspend fun stop(reason: PairingStop) =
         withContext(Dispatchers.IO) {
-            channel.sendStop(reason)
-            listener.turnAway(channel)
+            try {
+                channel.sendStop(reason)
+            } finally {
+                listener.turnAway(channel)
+            }
         }
+
+    override fun turnAway() = listener.turnAway(channel)
 
     override fun close() = channel.close()
 }
@@ -137,6 +144,9 @@ internal fun tvName(
 // while it shows the check code, so a device that connects and stays silent holds it only this long (#410).
 private const val ACCOUNT_TIMEOUT_MILLIS = 90 * 1_000
 private const val BACKLOG = 8
+private const val WAITING = 0
+private const val HEARD = 1
+private const val TIMED_OUT = 2
 private val TUNNELS = listOf("tun", "ppp", "wg", "ipsec")
 private const val IDENTITY_FILE = "tv_identity"
 private const val TV_ID = "id"
