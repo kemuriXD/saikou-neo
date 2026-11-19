@@ -101,7 +101,7 @@ internal fun AccountPane(
         horizontalAlignment = if (signedOut) Alignment.CenterHorizontally else Alignment.Start,
     ) {
         if (signedOut) {
-            EmptyHeader(NeoIcons.Profile, R.string.settings_account_signed_out_title, R.string.settings_account_signed_out_intro)
+            EmptyHeader(NeoIcons.Person, R.string.settings_account_signed_out_title, R.string.settings_account_signed_out_intro)
         } else {
             Text(stringResource(R.string.settings_account_intro), style = Body, color = colors.textMuted)
         }
