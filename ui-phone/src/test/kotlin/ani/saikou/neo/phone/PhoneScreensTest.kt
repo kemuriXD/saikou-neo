@@ -1,13 +1,17 @@
 package ani.saikou.neo.phone
 
+import android.graphics.drawable.ColorDrawable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.requiredSize
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -23,6 +27,10 @@ import ani.saikou.neo.shared.account.AccountState
 import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.account.SignInProblem
 import ani.saikou.neo.shared.pairing.PairedTv
+import coil3.annotation.ExperimentalCoilApi
+import coil3.asImage
+import coil3.compose.AsyncImagePreviewHandler
+import coil3.compose.LocalAsyncImagePreviewHandler
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -43,7 +51,7 @@ class PhoneScreensTest {
     @Test
     fun welcomeSignsInWithAniList() {
         var signIns = 0
-        compose.setContent { PhoneTheme { WelcomeScreen(AccountState.SignedOut(), onSignIn = { signIns++ }) } }
+        compose.setContent { PhoneTheme { WelcomeScreen(onSignIn = { signIns++ }) } }
 
         compose.onNodeWithText("Sign in here. Watch on your TV.").assertIsDisplayed()
         compose.onNodeWithText("Sign in with AniList").performClick()
@@ -52,10 +60,78 @@ class PhoneScreensTest {
     }
 
     @Test
-    fun welcomeSaysWhyTheLastSignInDidNotWork() {
-        compose.setContent { PhoneTheme { WelcomeScreen(AccountState.SignedOut(SignInProblem.NO_NETWORK), onSignIn = {}) } }
+    fun aNewSignInShowsTheAccountAndPairsATvNext() {
+        var pairs = 0
+        compose.setContent { PhoneTheme { SignedInScreen(kemuri, onPair = { pairs++ }) } }
 
-        compose.onNodeWithText("Couldn't reach AniList. Check your connection and try again.").assertIsDisplayed()
+        compose.onNodeWithText("Signed in as Kemuri").assertIsDisplayed()
+        compose.onNodeWithText("Your AniList list and progress are ready. Pair a TV next so it signs in too.").assertIsDisplayed()
+        compose.onNodeWithText("Pair a TV").performClick()
+
+        assertEquals(1, pairs)
+    }
+
+    @Test
+    fun checkingSaysWhatIsHappening() {
+        compose.setContent { PhoneTheme { CheckingScreen() } }
+
+        compose.onNodeWithText("Checking with AniList…").assertIsDisplayed()
+        compose.onNodeWithText("Making sure it's your account. This only takes a moment.").assertIsDisplayed()
+    }
+
+    @Test
+    fun theFirstLetterShowsUntilThePictureLoads() {
+        val withPicture = kemuri.copy(avatarUrl = "https://example.invalid/avatar.png")
+        compose.setContent { PhoneTheme { SignedInScreen(withPicture, onPair = {}) } }
+
+        compose.onNodeWithText("K").assertIsDisplayed()
+    }
+
+    @OptIn(ExperimentalCoilApi::class)
+    @Test
+    fun aLoadedPictureHasNothingBehindIt() {
+        val withPicture = kemuri.copy(avatarUrl = "https://example.invalid/avatar.png")
+        val picture = AsyncImagePreviewHandler { ColorDrawable(android.graphics.Color.TRANSPARENT).asImage() }
+        compose.setContent {
+            CompositionLocalProvider(LocalInspectionMode provides true, LocalAsyncImagePreviewHandler provides picture) {
+                PhoneTheme { SignedInScreen(withPicture, onPair = {}) }
+            }
+        }
+
+        compose.onNodeWithText("K").assertDoesNotExist()
+    }
+
+    @Test
+    fun aFailedSignInSaysWhatWentWrongAndHowToFixIt() {
+        var tries = 0
+        compose.setContent { PhoneTheme { SignInProblemScreen(SignInProblem.NO_NETWORK, onTryAgain = { tries++ }) } }
+
+        compose.onNodeWithText("Couldn't reach AniList").assertIsDisplayed()
+        compose
+            .onNodeWithText(
+                "Your phone looks offline. Check Wi-Fi or mobile data, then try again. Nothing was saved, so you start the sign-in from the top.",
+            ).assertIsDisplayed()
+        compose.onNodeWithText("Try again").performClick()
+
+        assertEquals(1, tries)
+    }
+
+    @Test
+    fun everySignInProblemHasItsOwnHeading() {
+        var problem by mutableStateOf(SignInProblem.NO_NETWORK)
+        compose.setContent { PhoneTheme { SignInProblemScreen(problem, onTryAgain = {}) } }
+        val headings =
+            SignInProblem.entries.map {
+                problem = it
+                compose.waitForIdle()
+                compose
+                    .onNodeWithTag(SIGN_IN_PROBLEM_TITLE)
+                    .fetchSemanticsNode()
+                    .config[SemanticsProperties.Text]
+                    .joinToString()
+            }
+
+        assertEquals(SignInProblem.entries.size, headings.toSet().size)
     }
 
     @Test

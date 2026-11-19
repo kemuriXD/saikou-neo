@@ -11,6 +11,11 @@ import ani.saikou.neo.shared.catalogue.toAniListError
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.exception.ApolloException
 import com.apollographql.apollo.exception.ApolloHttpException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.coroutines.CoroutineContext
+import kotlin.time.Duration.Companion.seconds
 
 /** Which of the user's lists a show is on. */
 public enum class WatchListStatus {
@@ -32,6 +37,8 @@ public data class WatchListShow(
 /** Calls AniList with a signed-in user's token. These are the only calls that send the token, and only to AniList. */
 public class AniListAccountClient internal constructor(
     private val apollo: ApolloClient,
+    /** Where the viewer timeout is timed. Tests pass their own clock. */
+    private val clock: CoroutineContext = Dispatchers.Default,
 ) {
     // AniList's error body tells a refused token apart from a bad query, as both are 400s.
     public constructor() : this(
@@ -42,13 +49,20 @@ public class AniListAccountClient internal constructor(
             .build(),
     )
 
-    /** Who [token] belongs to. */
+    /**
+     * Who [token] belongs to. With no answer within 10 s it gives up as a network problem, so a phone on a dead
+     * connection says so instead of checking for a minute.
+     */
     public suspend fun viewer(token: AniListToken): AniListResult<AniListProfile> {
         val response =
-            apollo
-                .query(ViewerQuery())
-                .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
-                .execute()
+            withContext(clock) {
+                withTimeoutOrNull(VIEWER_TIMEOUT) {
+                    apollo
+                        .query(ViewerQuery())
+                        .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
+                        .execute()
+                }
+            } ?: return AniListResult.Failure(AniListError.Network("No answer from AniList"))
         response.exception?.let { return AniListResult.Failure(it.toAccountError(refusedIsSignedOut = false)) }
         val viewer = response.data?.Viewer
         return if (viewer != null) {
@@ -90,6 +104,7 @@ public class AniListAccountClient internal constructor(
 
     private companion object {
         const val ANILIST_URL = "https://graphql.anilist.co"
+        val VIEWER_TIMEOUT = 10.seconds
     }
 }
 

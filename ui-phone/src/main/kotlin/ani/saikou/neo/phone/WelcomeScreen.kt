@@ -24,22 +24,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.liveRegion
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.phone.theme.PhoneColors
 import ani.saikou.neo.shared.account.AccountState
-import ani.saikou.neo.shared.account.SignInProblem
 
-/** 1.2 Welcome: what the phone is for, and Sign in with AniList. */
+/**
+ * 1.2 Welcome: what the phone is for, and Sign in with AniList. Back from the browser, 1.3a shows while AniList
+ * checks, and 1.4 if the sign-in didn't work.
+ */
 @Composable
-internal fun WelcomeScreen(
-    state: AccountState,
-    onSignIn: () -> Unit,
-) {
-    val checking = state == AccountState.Verifying
+internal fun WelcomeScreen(onSignIn: () -> Unit) {
     PhoneColumn(Modifier.safeDrawingPadding()) {
         Column(Modifier.fillMaxSize()) {
             Column(
@@ -68,28 +63,10 @@ internal fun WelcomeScreen(
                 Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                val problem = (state as? AccountState.SignedOut)?.problem
-                if (problem != null) {
-                    Text(
-                        stringResource(problem.message),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.fillMaxWidth().semantics { liveRegion = LiveRegionMode.Polite },
-                    )
-                }
-                Button(
-                    onClick = onSignIn,
-                    enabled = !checking,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                ) {
-                    if (checking) {
-                        CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                        Spacer(Modifier.size(8.dp))
-                        Text(stringResource(R.string.welcome_checking), style = MaterialTheme.typography.titleMedium)
-                    } else {
-                        Icon(painterResource(R.drawable.icon_open_external), contentDescription = null, Modifier.size(24.dp))
-                        Spacer(Modifier.size(8.dp))
-                        Text(stringResource(R.string.welcome_sign_in), style = MaterialTheme.typography.titleMedium)
-                    }
+                Button(onClick = onSignIn, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                    Icon(painterResource(R.drawable.icon_open_external), contentDescription = null, Modifier.size(24.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(R.string.welcome_sign_in), style = MaterialTheme.typography.titleMedium)
                 }
                 Text(
                     stringResource(R.string.welcome_browser_note),
@@ -119,13 +96,3 @@ private fun Promise(
         }
     }
 }
-
-private val SignInProblem.message: Int
-    get() =
-        when (this) {
-            SignInProblem.NOT_SET_UP -> R.string.sign_in_not_set_up
-            SignInProblem.EXPIRED -> R.string.sign_in_expired
-            SignInProblem.NO_NETWORK -> R.string.sign_in_no_network
-            SignInProblem.SESSION_ENDED -> R.string.sign_in_session_ended
-            SignInProblem.FAILED -> R.string.sign_in_failed
-        }

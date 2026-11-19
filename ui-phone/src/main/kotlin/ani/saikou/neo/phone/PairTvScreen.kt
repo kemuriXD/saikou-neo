@@ -206,99 +206,6 @@ private fun PairFrame(
 }
 
 @Composable
-private fun Status(
-    modifier: Modifier,
-    @StringRes title: Int,
-    @StringRes body: Int,
-    icon: @Composable () -> Unit,
-) = Status(modifier, stringResource(title), stringResource(body), icon)
-
-/** A centred icon, heading and line of help, as on 3.2 Camera access is off. */
-@Composable
-private fun Status(
-    modifier: Modifier,
-    title: String,
-    body: String,
-    icon: @Composable () -> Unit,
-) {
-    Column(
-        modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 32.dp, vertical = 24.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        icon()
-        Spacer(Modifier.height(24.dp))
-        Text(
-            title,
-            style = MaterialTheme.typography.headlineSmall,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.semantics { heading() },
-        )
-        Spacer(Modifier.height(8.dp))
-        Text(
-            body,
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-    }
-}
-
-@Composable
-private fun Badge(
-    @DrawableRes icon: Int,
-    tint: Color,
-    background: Color,
-) {
-    Box(Modifier.size(72.dp).background(background, CircleShape), contentAlignment = Alignment.Center) {
-        Icon(painterResource(icon), contentDescription = null, Modifier.size(36.dp), tint = tint)
-    }
-}
-
-/**
- * The connecting ring. With the system's animations off, Material's ring would stand still, so it turns slowly on
- * the frame clock instead, which the animation setting doesn't scale (#72).
- */
-@Composable
-private fun Spinner() {
-    if (rememberAnimationsOn()) {
-        CircularProgressIndicator(Modifier.size(40.dp), trackColor = PhoneColors.line)
-        return
-    }
-    var degrees by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) {
-        val start = withFrameMillis { it }
-        while (true) withFrameMillis { degrees = (it - start) % SLOW_TURN_MILLIS * 360f / SLOW_TURN_MILLIS }
-    }
-    CircularProgressIndicator(progress = { 0.25f }, modifier = Modifier.size(40.dp).rotate(degrees), trackColor = PhoneColors.line)
-}
-
-@Composable
-private fun Actions(content: @Composable ColumnScope.() -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        content = content,
-    )
-}
-
-@Composable
-private fun ButtonLabel(
-    @StringRes text: Int,
-    @DrawableRes icon: Int? = null,
-) {
-    if (icon != null) {
-        Icon(painterResource(icon), contentDescription = null, Modifier.size(24.dp))
-        Spacer(Modifier.size(8.dp))
-    }
-    Text(stringResource(text), style = MaterialTheme.typography.titleMedium)
-}
-
-@Composable
 private fun SmallButton(
     @StringRes text: Int,
     @DrawableRes icon: Int?,
@@ -313,6 +220,3 @@ private fun SmallButton(
         Text(stringResource(text), style = MaterialTheme.typography.labelLarge)
     }
 }
-
-private val BIG_BUTTON = Modifier.fillMaxWidth().height(56.dp)
-private const val SLOW_TURN_MILLIS = 4_000L

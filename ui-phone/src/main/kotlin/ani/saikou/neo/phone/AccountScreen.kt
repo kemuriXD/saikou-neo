@@ -101,7 +101,7 @@ private fun Profile(profile: AniListProfile) {
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Avatar(profile.name, size = 56.dp, style = MaterialTheme.typography.titleLarge)
+        Avatar(profile.name, profile.avatarUrl, size = 56.dp, style = MaterialTheme.typography.titleLarge)
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(profile.name, style = MaterialTheme.typography.titleLarge)
             Text(
