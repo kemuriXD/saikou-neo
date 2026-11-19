@@ -37,6 +37,13 @@ public data class ScheduleDay(
     val rows: List<ScheduleRow>,
 )
 
+/**
+ * Where this day's list starts at [now]: the next episode to air, or the last one once they've all aired. Null when the
+ * day has none.
+ */
+public fun ScheduleDay.nowIndex(now: Instant): Int? =
+    if (rows.isEmpty()) null else rows.indexOfFirst { it.airsAt > now }.takeIf { it >= 0 } ?: rows.lastIndex
+
 /** Whether a time has come yet. */
 public sealed interface Countdown {
     public data object Out : Countdown

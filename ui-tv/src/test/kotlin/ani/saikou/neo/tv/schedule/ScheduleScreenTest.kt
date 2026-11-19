@@ -131,7 +131,53 @@ class ScheduleScreenTest {
         compose.onNodeWithText("Mon").assertExists()
         compose.onNodeWithTag(dayTag(2)).assertTextEquals("Today", "28", "4 eps")
         compose.onNodeWithTag(dayTag(1)).assertTextEquals("Tue", "27", "1 ep")
+    }
+
+    // It's 15:16, so today opens on Dandadan at 17:30, just after Kaiju No. 8 at 12:00.
+    @Test
+    fun todayOpensOnTheNextEpisodeToAir() {
+        show()
+
+        compose.onNodeWithTag(rowTag(dandadan)).assertIsFocused()
+        press(Key.DirectionUp)
+        compose.onNodeWithTag(rowTag(kaiju)).assertIsFocused()
+        press(Key.DirectionUp)
         compose.onNodeWithTag(dayTag(2)).assertIsFocused()
+    }
+
+    @Test
+    fun downFromNowGoesToLaterEpisodes() {
+        show()
+
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(rowTag(solo)).assertIsFocused()
+    }
+
+    @Test
+    fun onceTodayHasAiredItOpensOnTheLastEpisode() {
+        show(week(today = listOf(kaiju)))
+
+        compose.onNodeWithTag(rowTag(kaiju)).assertIsFocused()
+    }
+
+    // Another day opens on its tab, and its list starts at its first episode.
+    @Test
+    fun anotherDayStartsAtTheTop() {
+        show(week(selected = 4))
+
+        compose.onNodeWithTag(dayTag(4)).assertIsFocused()
+        press(Key.DirectionDown)
+
+        compose.onNodeWithTag(rowTag(row("r4-0", "Show 0", monday + 4.days))).assertIsFocused()
+    }
+
+    private fun press(
+        key: Key,
+        times: Int = 1,
+    ) = repeat(times) {
+        compose.onRoot().performKeyInput { pressKey(key) }
+        compose.waitForIdle()
     }
 
     @Test
@@ -159,7 +205,8 @@ class ScheduleScreenTest {
     fun movingAlongTheDaysPicksEach() {
         show()
 
-        compose.onRoot().performKeyInput { pressKey(Key.DirectionRight) }
+        press(Key.DirectionUp, times = 2)
+        press(Key.DirectionRight)
 
         compose.runOnIdle { assertEquals(3, days.last()) }
     }
@@ -168,12 +215,9 @@ class ScheduleScreenTest {
     fun selectingARowOpensIt() {
         show()
 
-        compose.onRoot().performKeyInput {
-            pressKey(Key.DirectionDown)
-            pressKey(Key.DirectionCenter)
-        }
+        press(Key.DirectionCenter)
 
-        compose.runOnIdle { assertEquals(listOf(kaiju), opened) }
+        compose.runOnIdle { assertEquals(listOf(dandadan), opened) }
     }
 
     @Test
@@ -181,6 +225,7 @@ class ScheduleScreenTest {
         show()
 
         compose.onNodeWithTag(filterTag(ScheduleFilter.ALL_SHOWS)).assertExists()
+        press(Key.DirectionUp, times = 2)
         compose.onRoot().performKeyInput {
             pressKey(Key.DirectionUp)
             pressKey(Key.DirectionRight)

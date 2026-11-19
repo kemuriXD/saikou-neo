@@ -155,4 +155,41 @@ class ScheduleWeekTest {
         assertEquals(Countdown.Out, countdown(at, now = at))
         assertEquals(Countdown.Out, countdown(at, now = at + 1.hours))
     }
+
+    private fun day(vararg times: String) =
+        ScheduleDay(
+            AirDate(2026, 11, 18),
+            times.mapIndexed { index, at ->
+                ScheduleRow("show$index", "Show $index", null, 1, AirType.SUB, Instant.parse(at), dubAt = null, delayed = false)
+            },
+        )
+
+    // Schedule opens at the next episode to air, so the ones just out sit right above it.
+    @Test
+    fun nowIsTheNextEpisodeToAir() {
+        val day = day("2026-11-18T09:00:00Z", "2026-11-18T14:00:00Z", "2026-11-18T20:00:00Z")
+
+        assertEquals(1, day.nowIndex(Instant.parse("2026-11-18T12:00:00Z")))
+        assertEquals(0, day.nowIndex(Instant.parse("2026-11-18T08:00:00Z")))
+    }
+
+    // An episode airing this minute has aired.
+    @Test
+    fun anEpisodeAiringNowCountsAsOut() {
+        val day = day("2026-11-18T09:00:00Z", "2026-11-18T14:00:00Z")
+
+        assertEquals(1, day.nowIndex(Instant.parse("2026-11-18T09:00:00Z")))
+    }
+
+    @Test
+    fun onceEverythingHasAiredNowIsTheLastEpisode() {
+        val day = day("2026-11-18T09:00:00Z", "2026-11-18T14:00:00Z")
+
+        assertEquals(1, day.nowIndex(Instant.parse("2026-11-18T23:00:00Z")))
+    }
+
+    @Test
+    fun anEmptyDayHasNoNow() {
+        assertEquals(null, day().nowIndex(Instant.parse("2026-11-18T12:00:00Z")))
+    }
 }
