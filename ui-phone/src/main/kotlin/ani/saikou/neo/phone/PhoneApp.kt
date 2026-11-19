@@ -25,7 +25,10 @@ import ani.saikou.neo.shared.pairing.PairingRequest
 /** The screens behind Home, kept as a back stack. Pair is 3.4 to 3.8, which follow [PairTvViewModel]. */
 internal enum class PhoneScreen { Home, Account, Scan, Type, Pair }
 
-/** Welcome until the phone is signed in, then Home, with Account behind the avatar and pairing behind its buttons. */
+/**
+ * Welcome until the phone is signed in, then 1.3 Signed in once and Home, with Account behind the avatar and pairing
+ * behind its buttons. A sign-in that didn't work shows 1.4 in place of Welcome.
+ */
 @Composable
 internal fun PhoneApp(
     accounts: PhoneAccountViewModel,
@@ -45,6 +48,15 @@ internal fun PhoneApp(
                 Box(Modifier.fillMaxSize())
             }
 
+            is AccountState.SignedIn if current.justSignedIn -> {
+                // Back from 1.3 goes Home; Pair a TV goes to scanning, with Home behind it.
+                BackHandler(onBack = accounts::confirmSignIn)
+                SignedInScreen(current.profile) {
+                    screens = listOf(PhoneScreen.Home, PhoneScreen.Scan)
+                    accounts.confirmSignIn()
+                }
+            }
+
             is AccountState.SignedIn -> {
                 BackHandler(enabled = screens.size > 1, onBack = back)
                 val signOut = {
@@ -55,7 +67,18 @@ internal fun PhoneApp(
                 SignedIn(current, pairing, screens.last(), version, openInBrowser, open, back, signOut) { screens = it }
             }
 
-            is AccountState.SignedOut, AccountState.Verifying -> {
+            is AccountState.SignedOut -> {
+                val problem = current.problem
+                if (problem == null) {
+                    WelcomeScreen(current, onSignIn = accounts::signIn)
+                } else {
+                    // Back from 1.4 goes to plain Welcome.
+                    BackHandler(onBack = accounts::dismissProblem)
+                    SignInProblemScreen(problem, onTryAgain = accounts::signIn)
+                }
+            }
+
+            AccountState.Verifying -> {
                 WelcomeScreen(current, onSignIn = accounts::signIn)
             }
         }

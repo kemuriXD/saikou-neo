@@ -144,7 +144,7 @@ internal fun HomeScreen(
                                     Role.Button
                             },
                     ) {
-                        Avatar(profile.name, size = 32.dp, style = MaterialTheme.typography.labelLarge)
+                        Avatar(profile.name, profile.avatarUrl, size = 32.dp, style = MaterialTheme.typography.labelLarge)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface),

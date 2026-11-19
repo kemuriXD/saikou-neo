@@ -142,6 +142,21 @@ class PhoneAccountViewModelTest {
         }
 
     @Test
+    fun tryingAgainClearsTheLastProblem() =
+        runTest(main) {
+            val model = viewModel { AniListResult.Failure(AniListError.Network("offline")) }
+            model.signIn()
+            advanceUntilIdle()
+            model.finishSignIn(callback())
+            advanceUntilIdle()
+
+            model.signIn()
+            advanceUntilIdle()
+
+            assertEquals(AccountState.SignedOut(), model.state.value)
+        }
+
+    @Test
     fun aSavedAccountSignsInStraightAwayAfterARestart() =
         runTest(main) {
             val store = MemoryAccountStore(account = SignedInAccount(kemuri, AniListToken("tok", 5_000)))

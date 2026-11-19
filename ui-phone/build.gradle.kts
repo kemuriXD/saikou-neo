@@ -54,6 +54,9 @@ dependencies {
     implementation(libs.camera.lifecycle)
     implementation(libs.camera.compose)
     implementation(libs.zxing.core)
+    // The AniList profile picture.
+    implementation(libs.coil.compose)
+    implementation(libs.coil.network.okhttp)
 
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.compose.ui.test.junit4)

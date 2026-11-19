@@ -126,6 +126,8 @@ public class PhoneAccountViewModel(
             mutableState.value = AccountState.SignedOut(SignInProblem.NOT_SET_UP)
             return
         }
+        // Back out of the browser without an answer and Welcome shows, not the last problem.
+        mutableState.update { if (it is AccountState.SignedOut) AccountState.SignedOut() else it }
         viewModelScope.launch {
             val attempt = SignInAttempt(newState(), now())
             withContext(io) { store.saveAttempt(attempt) }

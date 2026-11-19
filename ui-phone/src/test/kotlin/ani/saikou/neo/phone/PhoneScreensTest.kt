@@ -8,6 +8,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -52,10 +53,56 @@ class PhoneScreensTest {
     }
 
     @Test
-    fun welcomeSaysWhyTheLastSignInDidNotWork() {
-        compose.setContent { PhoneTheme { WelcomeScreen(AccountState.SignedOut(SignInProblem.NO_NETWORK), onSignIn = {}) } }
+    fun aNewSignInShowsTheAccountAndPairsATvNext() {
+        var pairs = 0
+        compose.setContent { PhoneTheme { SignedInScreen(kemuri, onPair = { pairs++ }) } }
 
-        compose.onNodeWithText("Couldn't reach AniList. Check your connection and try again.").assertIsDisplayed()
+        compose.onNodeWithText("Signed in as Kemuri").assertIsDisplayed()
+        compose.onNodeWithText("Your AniList list and progress are ready. Pair a TV next so it signs in too.").assertIsDisplayed()
+        compose.onNodeWithText("Pair a TV").performClick()
+
+        assertEquals(1, pairs)
+    }
+
+    @Test
+    fun theFirstLetterShowsUntilThePictureLoads() {
+        val withPicture = kemuri.copy(avatarUrl = "https://example.invalid/avatar.png")
+        compose.setContent { PhoneTheme { SignedInScreen(withPicture, onPair = {}) } }
+
+        compose.onNodeWithText("K").assertIsDisplayed()
+    }
+
+    @Test
+    fun aFailedSignInSaysWhatWentWrongAndHowToFixIt() {
+        var tries = 0
+        compose.setContent { PhoneTheme { SignInProblemScreen(SignInProblem.NO_NETWORK, onTryAgain = { tries++ }) } }
+
+        compose.onNodeWithText("Couldn't reach AniList").assertIsDisplayed()
+        compose
+            .onNodeWithText(
+                "Your phone looks offline. Check Wi-Fi or mobile data, then try again. Nothing was saved, so you start the sign-in from the top.",
+            ).assertIsDisplayed()
+        compose.onNodeWithText("Try again").performClick()
+
+        assertEquals(1, tries)
+    }
+
+    @Test
+    fun everySignInProblemHasItsOwnHeading() {
+        var problem by mutableStateOf(SignInProblem.NO_NETWORK)
+        compose.setContent { PhoneTheme { SignInProblemScreen(problem, onTryAgain = {}) } }
+        val headings =
+            SignInProblem.entries.map {
+                problem = it
+                compose.waitForIdle()
+                compose
+                    .onNodeWithTag(SIGN_IN_PROBLEM_TITLE)
+                    .fetchSemanticsNode()
+                    .config[SemanticsProperties.Text]
+                    .joinToString()
+            }
+
+        assertEquals(SignInProblem.entries.size, headings.toSet().size)
     }
 
     @Test
