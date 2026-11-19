@@ -15,7 +15,7 @@
     <a href="https://github.com/kemuriXD/saikou-neo/commits/main"><img src="https://img.shields.io/github/last-commit/kemuriXD/saikou-neo" alt="Last commit"></a>
   </p>
   <h3>Visitor Count</h3>
-  <img src="https://count.getloli.com/@kemurixd-saikou-neo?theme=booru-lewd&amp;padding=6&amp;scale=0.6&amp;darkmode=0" alt="Approximate README visits, displayed with pixel-art anime characters" width="360">
+  <p><img src="https://count.getloli.com/@kemurixd-saikou-neo?theme=booru-lewd&amp;padding=6&amp;scale=0.6&amp;darkmode=0" alt="Approximate README visits, displayed with pixel-art anime characters" width="360"></p>
 </div>
 
 Saikou Neo is an anime app for Android TV and Fire TV. You browse and search on
