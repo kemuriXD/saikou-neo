@@ -10,14 +10,19 @@ import ani.saikou.neo.shared.catalogue.AniListResult
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -69,6 +74,18 @@ class TvSignInViewModelTest {
 
         override fun close() {
             closed = true
+        }
+    }
+
+    /** A session whose wait fails with [PairingException] once it's closed, as the real listener's does. */
+    private inner class ClosingSession : TvPairingSession {
+        override val invite = this@TvSignInViewModelTest.invite
+        private val phone = CompletableDeferred<PhoneLink>()
+
+        override suspend fun accept(onAttempt: (inProgress: Boolean) -> Unit): PhoneLink = withContext(NonCancellable) { phone.await() }
+
+        override fun close() {
+            phone.completeExceptionally(PairingException("The listener closed"))
         }
     }
 
@@ -140,6 +157,49 @@ class TvSignInViewModelTest {
             runCurrent()
             assertTrue(sessions[0].closed)
             assertEquals(TvSignInState.Waiting(invite.toQrText(), "ABC234", 600), model.state.value)
+            model.cancel()
+        }
+
+    @Test
+    fun getANewCodeGoesStraightToTheNewCode() =
+        runTest(main) {
+            // Closing the real listener fails its wait with an ordinary error, not a cancellation.
+            val model =
+                TvSignInViewModel(
+                    open = { ClosingSession() },
+                    viewer = { AniListResult.Success(hikari) },
+                    store = accounts,
+                    tv = thisTv,
+                    io = main,
+                    makeCode = { listOf("K74Q9M", "ABC234")[codes++ % 2] },
+                )
+            runCurrent()
+            val states = mutableListOf<TvSignInState>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.state.toList(states) }
+
+            model.newCode()
+            runCurrent()
+
+            assertEquals(listOf("Waiting", "Starting", "Waiting"), states.map { it::class.simpleName })
+            model.cancel()
+        }
+
+    @Test
+    fun aNewCodeIsNeverTheOneBefore() =
+        runTest(main) {
+            val model =
+                TvSignInViewModel(
+                    open = { FakeSession().also { sessions += it } },
+                    viewer = { AniListResult.Success(hikari) },
+                    store = accounts,
+                    tv = thisTv,
+                    io = main,
+                    makeCode = { listOf("K74Q9M", "K74Q9M", "ABC234")[codes++ % 3] },
+                )
+            runCurrent()
+            model.newCode()
+            runCurrent()
+            assertEquals("ABC234", (model.state.value as TvSignInState.Waiting).code)
             model.cancel()
         }
 

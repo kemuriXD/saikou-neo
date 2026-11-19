@@ -27,6 +27,20 @@ class PairCodeViewModelTest {
     }
 
     @Test
+    fun connectingEmptiesTheFieldForTheNextCode() {
+        model.onCodeChange("K7P2QX")
+        model.connect()
+        assertEquals("", model.state.value.code)
+    }
+
+    @Test
+    fun clearCodeEmptiesWhatWasTyped() {
+        model.onCodeChange("K7P")
+        model.clearCode()
+        assertEquals("", model.state.value.code)
+    }
+
+    @Test
     fun aScannedInviteBecomesARequest() {
         val invite = PairingInvite("10.0.0.5", 4000, ByteArray(65) { if (it == 0) 0x04 else 1 }, ByteArray(32))
         assertEquals(PairingRequest.Scanned(invite), model.scanned(invite.toQrText()))

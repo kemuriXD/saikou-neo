@@ -81,6 +81,10 @@ private fun SignedIn(
         pairing.start(request)
         replace(listOf(PhoneScreen.Home, PhoneScreen.Pair))
     }
+    val openType = {
+        codes.clearCode()
+        open(PhoneScreen.Type)
+    }
     val leavePairing = {
         // While the account is going to the TV, stay and wait for its answer.
         if ((pairing.state.value as? PairTvState.CheckCode)?.sending != true) {
@@ -96,7 +100,7 @@ private fun SignedIn(
                 onAccount = { open(PhoneScreen.Account) },
                 tvs = tvs,
                 onScan = { open(PhoneScreen.Scan) },
-                onType = { open(PhoneScreen.Type) },
+                onType = { openType() },
                 onRemoveTv = { pairing.removeTv(it.id) },
             )
         }
@@ -108,7 +112,7 @@ private fun SignedIn(
         PhoneScreen.Scan -> {
             PairScanRoute(
                 onClose = back,
-                onType = { open(PhoneScreen.Type) },
+                onType = { openType() },
                 onQrCode = { text -> codes.scanned(text)?.also(pair) != null },
             )
         }
