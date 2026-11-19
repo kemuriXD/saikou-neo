@@ -234,10 +234,22 @@ class PhoneAccountViewModelTest {
         runTest(main) {
             val store = MemoryAccountStore(account = SignedInAccount(kemuri, AniListToken("tok", 5_000)))
 
-            val model = viewModel(store) { AniListResult.Failure(AniListError.Http(400)) }
+            val model = viewModel(store) { AniListResult.Failure(AniListError.SignedOut) }
 
             assertEquals(AccountState.SignedOut(SignInProblem.SESSION_ENDED), model.state.value)
             assertNull(store.account)
+        }
+
+    @Test
+    fun aQueryAniListRejectsKeepsTheSavedAccount() =
+        runTest(main) {
+            val saved = SignedInAccount(kemuri, AniListToken("tok", 5_000))
+            val store = MemoryAccountStore(account = saved)
+
+            val model = viewModel(store) { AniListResult.Failure(AniListError.Http(400)) }
+
+            assertEquals(AccountState.SignedIn(kemuri), model.state.value)
+            assertEquals(saved, store.account)
         }
 
     @Test
@@ -330,7 +342,7 @@ class PhoneAccountViewModelTest {
     fun aTokenAniListRefusesWhileSigningInSaysSignInFailed() =
         runTest(main) {
             val store = MemoryAccountStore()
-            val model = viewModel(store) { AniListResult.Failure(AniListError.Http(401)) }
+            val model = viewModel(store) { AniListResult.Failure(AniListError.SignedOut) }
             model.signIn()
             advanceUntilIdle()
 

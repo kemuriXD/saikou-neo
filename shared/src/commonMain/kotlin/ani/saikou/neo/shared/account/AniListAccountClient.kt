@@ -50,8 +50,8 @@ public class AniListAccountClient internal constructor(
     )
 
     /**
-     * Who [token] belongs to. With no answer within 10 s it gives up as a network problem, so a phone on a dead
-     * connection says so instead of checking for a minute.
+     * Who [token] belongs to. A token AniList refuses gives [AniListError.SignedOut]. With no answer within 10 s it
+     * gives up as a network problem, so a phone on a dead connection says so instead of checking for a minute.
      */
     public suspend fun viewer(token: AniListToken): AniListResult<AniListProfile> {
         val response =
@@ -63,7 +63,7 @@ public class AniListAccountClient internal constructor(
                         .execute()
                 }
             } ?: return AniListResult.Failure(AniListError.Network("No answer from AniList"))
-        response.exception?.let { return AniListResult.Failure(it.toAccountError(refusedIsSignedOut = false)) }
+        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
         val viewer = response.data?.Viewer
         return if (viewer != null) {
             AniListResult.Success(AniListProfile(viewer.id, viewer.name, viewer.siteUrl, viewer.avatar?.large))
@@ -85,7 +85,7 @@ public class AniListAccountClient internal constructor(
                 .query(WatchListQuery(userId))
                 .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
                 .execute()
-        response.exception?.let { return AniListResult.Failure(it.toAccountError(refusedIsSignedOut = true)) }
+        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
         val collection =
             response.data?.MediaListCollection
                 ?: return AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
@@ -115,13 +115,13 @@ private val REFUSED = setOf(401, 403)
 private const val INVALID_TOKEN = "Invalid token"
 
 /**
- * The error for a failed call. With [refusedIsSignedOut], a token AniList refuses is [AniListError.SignedOut]; any other
- * 400, such as a query AniList no longer accepts, stays an HTTP error. The error body is always closed.
+ * The error for a failed call. A token AniList refuses is [AniListError.SignedOut]; any other 400, such as a query
+ * AniList no longer accepts, stays an HTTP error. The error body is always closed.
  */
-private fun ApolloException.toAccountError(refusedIsSignedOut: Boolean): AniListError {
+private fun ApolloException.toAccountError(): AniListError {
     val body = (this as? ApolloHttpException)?.body?.use { runCatching { it.readUtf8() }.getOrNull() }
     val error = toAniListError()
-    if (!refusedIsSignedOut || error !is AniListError.Http) return error
+    if (error !is AniListError.Http) return error
     val refused =
         error.statusCode in REFUSED ||
             (error.statusCode == 400 && body?.contains(INVALID_TOKEN) == true)

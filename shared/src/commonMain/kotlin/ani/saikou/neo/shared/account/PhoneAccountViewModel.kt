@@ -231,10 +231,12 @@ public class PhoneAccountViewModel(
             }
 
             is AniListResult.Failure -> {
-                val refused = answer.error.let { it is AniListError.Http && it.statusCode in REFUSED }
                 when {
-                    !signingIn -> if (refused) forget(SignInProblem.SESSION_ENDED)
+                    // Any other error, such as a query AniList rejects, leaves a token that may still work.
+                    !signingIn -> if (answer.error == AniListError.SignedOut) forget(SignInProblem.SESSION_ENDED)
+
                     answer.error is AniListError.Network -> mutableState.value = AccountState.SignedOut(SignInProblem.NO_NETWORK)
+
                     else -> mutableState.value = AccountState.SignedOut(SignInProblem.FAILED)
                 }
             }
@@ -244,10 +246,5 @@ public class PhoneAccountViewModel(
     private suspend fun forget(problem: SignInProblem) {
         withContext(io) { store.clearAccount() }
         mutableState.value = AccountState.SignedOut(problem)
-    }
-
-    private companion object {
-        /** AniList answers 400 "Invalid token" for a token it no longer accepts; 401 and 403 mean the same. */
-        val REFUSED = setOf(400, 401, 403)
     }
 }
