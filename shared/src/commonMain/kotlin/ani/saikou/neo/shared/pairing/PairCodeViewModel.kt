@@ -34,8 +34,17 @@ public class PairCodeViewModel : ViewModel() {
         mutableState.update { it.copy(code = normalizeTvCode(text)) }
     }
 
-    /** The typed code to look up, once all of it is in. */
-    public fun connect(): PairingRequest.Typed? = state.value.takeIf { it.complete }?.let { PairingRequest.Typed(it.code) }
+    /** Empties the field, so 3.3 Type the code always opens ready for a new code. */
+    public fun clearCode() {
+        mutableState.value = PairCodeState()
+    }
+
+    /** The typed code to look up, once all of it is in. The field empties for next time. */
+    public fun connect(): PairingRequest.Typed? =
+        state.value
+            .takeIf { it.complete }
+            ?.let { PairingRequest.Typed(it.code) }
+            ?.also { clearCode() }
 
     /** The TV to connect to if [text], read from a QR code, is a TV's invite. Any other QR code gives null. */
     public fun scanned(text: String): PairingRequest.Scanned? = PairingInvite.parse(text)?.let(PairingRequest::Scanned)

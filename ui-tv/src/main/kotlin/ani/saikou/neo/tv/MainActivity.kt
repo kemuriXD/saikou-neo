@@ -381,7 +381,7 @@ class MainActivity : ComponentActivity() {
                             val signIn =
                                 viewModel {
                                     TvSignInViewModel(
-                                        open = ::openTvPairing,
+                                        open = { code -> openTvPairing(applicationContext, code) },
                                         viewer = AniListAccountClient()::viewer,
                                         store = KeystoreAccountStore(applicationContext),
                                         tv = thisTv(applicationContext),

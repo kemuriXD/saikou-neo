@@ -10,18 +10,25 @@ import ani.saikou.neo.shared.catalogue.AniListResult
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.toList
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withContext
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
@@ -72,6 +79,40 @@ class TvSignInViewModelTest {
         }
     }
 
+    /** A session whose wait fails with [PairingException] once it's closed, as the real listener's does. */
+    private inner class ClosingSession : TvPairingSession {
+        override val invite = this@TvSignInViewModelTest.invite
+        private val phone = CompletableDeferred<PhoneLink>()
+
+        override suspend fun accept(onAttempt: (inProgress: Boolean) -> Unit): PhoneLink = withContext(NonCancellable) { phone.await() }
+
+        override fun close() {
+            phone.completeExceptionally(PairingException("The listener closed"))
+        }
+    }
+
+    /**
+     * Like the real listener: once cancelled, its wait takes a while to wind down, and closing it fails the wait with
+     * [PairingException].
+     */
+    private inner class SlowToStopSession : TvPairingSession {
+        override val invite = this@TvSignInViewModelTest.invite
+        private val phone = CompletableDeferred<PhoneLink>()
+        var closed = false
+
+        override suspend fun accept(onAttempt: (inProgress: Boolean) -> Unit): PhoneLink =
+            try {
+                phone.await()
+            } finally {
+                withContext(NonCancellable) { delay(500) }
+            }
+
+        override fun close() {
+            closed = true
+            phone.completeExceptionally(PairingException("The listener closed"))
+        }
+    }
+
     private class MemoryAccounts : AccountStore {
         var account: SignedInAccount? = null
 
@@ -93,12 +134,18 @@ class TvSignInViewModelTest {
     }
 
     private val sessions = mutableListOf<FakeSession>()
+    private val advertised = mutableListOf<String>()
     private val accounts = MemoryAccounts()
     private var codes = 0
 
     private fun TestScope.viewModel(viewer: AniListResult<AniListProfile> = AniListResult.Success(hikari)) =
         TvSignInViewModel(
-            open = { FakeSession().also { sessions += it } },
+            open = { code ->
+                FakeSession().also {
+                    advertised += code
+                    sessions += it
+                }
+            },
             viewer = { viewer },
             store = accounts,
             tv = thisTv,
@@ -134,6 +181,82 @@ class TvSignInViewModelTest {
             runCurrent()
             assertTrue(sessions[0].closed)
             assertEquals(TvSignInState.Waiting(invite.toQrText(), "ABC234", 600), model.state.value)
+            model.cancel()
+        }
+
+    @Test
+    fun getANewCodeGoesStraightToTheNewCode() =
+        runTest(main) {
+            // Closing the real listener fails its wait with an ordinary error, not a cancellation.
+            val model =
+                TvSignInViewModel(
+                    open = { ClosingSession() },
+                    viewer = { AniListResult.Success(hikari) },
+                    store = accounts,
+                    tv = thisTv,
+                    io = main,
+                    makeCode = { listOf("K74Q9M", "ABC234")[codes++ % 2] },
+                )
+            runCurrent()
+            val states = mutableListOf<TvSignInState>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { model.state.toList(states) }
+
+            model.newCode()
+            runCurrent()
+
+            assertEquals(listOf("Waiting", "Starting", "Waiting"), states.map { it::class.simpleName })
+            model.cancel()
+        }
+
+    // Seen on a Fire TV: the old code's wait wound down after the new code's listener opened, then closed it.
+    @Test
+    fun theOldCodeWindingDownLeavesTheNewCodesListenerOpen() =
+        runTest(main) {
+            val slow = mutableListOf<SlowToStopSession>()
+            val model =
+                TvSignInViewModel(
+                    open = { SlowToStopSession().also { slow += it } },
+                    viewer = { AniListResult.Success(hikari) },
+                    store = accounts,
+                    tv = thisTv,
+                    io = main,
+                    makeCode = { listOf("K74Q9M", "ABC234")[codes++ % 2] },
+                )
+            runCurrent()
+            model.newCode()
+            advanceTimeBy(2_000)
+
+            assertFalse(slow[1].closed)
+            assertEquals("ABC234", (model.state.value as TvSignInState.Waiting).code)
+            model.cancel()
+        }
+
+    @Test
+    fun aNewCodeIsNeverTheOneBefore() =
+        runTest(main) {
+            val model =
+                TvSignInViewModel(
+                    open = { FakeSession().also { sessions += it } },
+                    viewer = { AniListResult.Success(hikari) },
+                    store = accounts,
+                    tv = thisTv,
+                    io = main,
+                    makeCode = { listOf("K74Q9M", "K74Q9M", "ABC234")[codes++ % 3] },
+                )
+            runCurrent()
+            model.newCode()
+            runCurrent()
+            assertEquals("ABC234", (model.state.value as TvSignInState.Waiting).code)
+            model.cancel()
+        }
+
+    @Test
+    fun pairingOpensUnderTheCodeTheTvShows() =
+        runTest(main) {
+            val model = viewModel()
+            model.newCode()
+            runCurrent()
+            assertEquals(listOf("K74Q9M", "ABC234"), advertised)
             model.cancel()
         }
 

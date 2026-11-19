@@ -15,6 +15,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -29,11 +30,16 @@ import kotlin.random.Random
 public const val TV_CODE_SECONDS: Int = 600
 
 // Letters and digits that can't be read as one another: no 0, O, 1, I or L.
-private const val TV_CODE_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"
+private const val TV_CODE_LETTERS = "ABCDEFGHJKMNPQRSTUVWXYZ"
+private const val TV_CODE_DIGITS = "23456789"
 
-/** A new code for the TV to show. */
-public fun newTvCode(random: Random = Random.Default): String =
-    String(CharArray(TV_CODE_LENGTH) { TV_CODE_ALPHABET[random.nextInt(TV_CODE_ALPHABET.length)] })
+/** A new code for the TV to show: six different characters, with at least one letter and one digit. */
+public fun newTvCode(random: Random = Random.Default): String {
+    val letter = TV_CODE_LETTERS[random.nextInt(TV_CODE_LETTERS.length)]
+    val digit = TV_CODE_DIGITS[random.nextInt(TV_CODE_DIGITS.length)]
+    val rest = (TV_CODE_LETTERS + TV_CODE_DIGITS).filter { it != letter && it != digit }.toList().shuffled(random)
+    return (rest.take(TV_CODE_LENGTH - 2) + letter + digit).shuffled(random).joinToString("")
+}
 
 /** The TV listening for a phone: what goes in its QR code, and the phones that connect. */
 public interface TvPairingSession {
@@ -45,7 +51,7 @@ public interface TvPairingSession {
      */
     public suspend fun accept(onAttempt: (inProgress: Boolean) -> Unit): PhoneLink
 
-    /** Stops listening. A phone already connected keeps its link. */
+    /** Stops listening and stops advertising the code. A phone already connected keeps its link. */
     public fun close()
 }
 
@@ -97,12 +103,12 @@ public sealed interface TvSignInState {
 }
 
 /**
- * Signs the TV in to AniList from a phone (#116, ADR 0004). It opens a pairing session at once, shows its code for
- * [TV_CODE_SECONDS], and once a phone connects shows the check code. The account the phone sends is checked with
+ * Signs the TV in to AniList from a phone (#116, ADR 0004). It makes a code, opens a pairing session under it at once
+ * (so a phone can find the TV by typing the code, #381), shows the code for [TV_CODE_SECONDS], and once a phone connects shows the check code. The account the phone sends is checked with
  * [viewer], saved in [store], and the phone hears back with [tv], this TV's stable ID and name.
  */
 public class TvSignInViewModel(
-    private val open: suspend () -> TvPairingSession,
+    private val open: suspend (code: String) -> TvPairingSession,
     private val viewer: suspend (AniListToken) -> AniListResult<AniListProfile>,
     private val store: AccountStore,
     private val tv: PairedTvReply,
@@ -115,6 +121,7 @@ public class TvSignInViewModel(
     private var job: Job? = null
     private var session: TvPairingSession? = null
     private var phone: PhoneLink? = null
+    private var lastCode: String? = null
 
     init {
         newCode()
@@ -137,19 +144,23 @@ public class TvSignInViewModel(
     }
 
     private suspend fun pair() {
+        var code = makeCode()
+        while (code == lastCode) code = makeCode()
+        lastCode = code
         val opened =
             try {
                 // Opening isn't interrupted, so a listener opened just as pairing is cancelled is closed here.
                 val caller = currentCoroutineContext()
-                withContext(io + NonCancellable) { open().also { if (!caller.isActive) it.close() } }
+                withContext(io + NonCancellable) { open(code).also { if (!caller.isActive) it.close() } }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
+                currentCoroutineContext().ensureActive()
                 mutableState.value = TvSignInState.Stopped
                 return
             }
         session = opened
-        var waiting = TvSignInState.Waiting(opened.invite.toQrText(), makeCode(), TV_CODE_SECONDS)
+        var waiting = TvSignInState.Waiting(opened.invite.toQrText(), code, TV_CODE_SECONDS)
         mutableState.value = waiting
         val countdown =
             viewModelScope.launch {
@@ -176,10 +187,14 @@ public class TvSignInViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
+                // Closing the listener for a new code also fails this wait. That's not Pairing stopped.
+                currentCoroutineContext().ensureActive()
                 null.also { mutableState.value = TvSignInState.Stopped }
             } finally {
                 countdown.cancel()
-                closeSession()
+                // Close this code's listener only. After Get a new code, the next one may already be open.
+                opened.close()
+                if (session === opened) session = null
             }
         if (link == null) {
             if (mutableState.value != TvSignInState.Stopped) mutableState.value = TvSignInState.Expired(waiting.code)
@@ -204,6 +219,7 @@ public class TvSignInViewModel(
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
+            currentCoroutineContext().ensureActive()
             TvSignInState.Stopped
         } finally {
             link.close()
