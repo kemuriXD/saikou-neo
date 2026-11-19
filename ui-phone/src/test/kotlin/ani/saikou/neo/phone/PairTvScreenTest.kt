@@ -12,6 +12,7 @@ import androidx.compose.ui.test.performClick
 import ani.saikou.neo.phone.theme.PhoneTheme
 import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.pairing.PairTvState
+import ani.saikou.neo.shared.pairing.PairingStop
 import ani.saikou.neo.shared.pairing.PairedTv
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -37,6 +38,7 @@ class PairTvScreenTest {
             retry = { taps += "retry" },
             scanNew = { taps += "scan" },
             done = { taps += "done" },
+            signInAgain = { taps += "sign in" },
         )
 
     private fun show(state: PairTvState) = compose.setContent { PhoneTheme { PairTvScreen(state, actions) } }
@@ -97,18 +99,55 @@ class PairTvScreenTest {
     }
 
     @Test
-    fun pairingStoppedSaysNothingWasSent() {
-        show(PairTvState.Stopped)
+    fun itDoesNotMatchSaysTheTvStillHasItsCode() {
+        show(PairTvState.Stopped(PairingStop.NoMatch))
 
-        compose.onNodeWithText("Pairing stopped").assertIsDisplayed()
-        compose
-            .onNodeWithText(
-                "The codes didn’t match, so nothing was sent. Choose Sign in on the TV again to get a new code.",
-            ).assertIsDisplayed()
+        compose.onNodeWithText("You stopped pairing").assertIsDisplayed()
+        compose.onNodeWithText("Nothing was sent to the TV. It still shows its code, so you can try again.").assertIsDisplayed()
         compose.onNodeWithText("Start again").performClick()
         compose.onNodeWithText("Back to Home").performClick()
 
         assertEquals(listOf("scan", "close"), taps)
+    }
+
+    @Test
+    fun cancelOnTheTvSaysSo() {
+        show(PairTvState.Stopped(PairingStop.Cancelled))
+
+        compose.onNodeWithText("Cancelled on the TV").assertIsDisplayed()
+        compose
+            .onNodeWithText("Pairing was cancelled on the TV, so nothing was sent. Choose Sign in on the TV to get a new code.")
+            .assertIsDisplayed()
+        compose.onNodeWithText("Start again").performClick()
+
+        assertEquals(listOf("scan"), taps)
+    }
+
+    @Test
+    fun anAccountTheTvCouldNotUseOffersSignInAgain() {
+        show(PairTvState.Stopped(PairingStop.Refused))
+
+        compose.onNodeWithText("The TV couldn’t sign in").assertIsDisplayed()
+        compose
+            .onNodeWithText("AniList didn’t accept your account on the TV. Sign in to AniList again on this phone, then pair the TV.")
+            .assertIsDisplayed()
+        compose.onNodeWithText("Sign in again").performClick()
+        compose.onNodeWithText("Back to Home").performClick()
+
+        assertEquals(listOf("sign in", "close"), taps)
+    }
+
+    @Test
+    fun aTvThatStoppedWaitingSaysTheCodeStillWorks() {
+        show(PairTvState.Stopped(PairingStop.TimedOut))
+
+        compose.onNodeWithText("The TV stopped waiting").assertIsDisplayed()
+        compose
+            .onNodeWithText("The codes weren’t checked in time. The TV still shows its code, so you can try again.")
+            .assertIsDisplayed()
+        compose.onNodeWithText("Start again").performClick()
+
+        assertEquals(listOf("scan"), taps)
     }
 
     @Test

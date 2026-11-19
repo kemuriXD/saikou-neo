@@ -105,8 +105,15 @@
     <string name="pair_unreachable_body">Check the phone and TV are on the same Wi-Fi, and the TV is still showing its code.</string>
     <string name="pair_try_again">Try again</string>
     <string name="pair_scan_new">Scan a new code</string>
-    <string name="pair_stopped">Pairing stopped</string>
-    <string name="pair_stopped_body">The codes didn’t match, so nothing was sent. Choose Sign in on the TV again to get a new code.</string>
+    <string name="pair_stopped_you">You stopped pairing</string>
+    <string name="pair_stopped_you_body">Nothing was sent to the TV. It still shows its code, so you can try again.</string>
+    <string name="pair_stopped_cancelled">Cancelled on the TV</string>
+    <string name="pair_stopped_cancelled_body">Pairing was cancelled on the TV, so nothing was sent. Choose Sign in on the TV to get a new code.</string>
+    <string name="pair_stopped_refused">The TV couldn’t sign in</string>
+    <string name="pair_stopped_refused_body">AniList didn’t accept your account on the TV. Sign in to AniList again on this phone, then pair the TV.</string>
+    <string name="pair_stopped_timed_out">The TV stopped waiting</string>
+    <string name="pair_stopped_timed_out_body">The codes weren’t checked in time. The TV still shows its code, so you can try again.</string>
+    <string name="pair_sign_in_again">Sign in again</string>
     <string name="pair_start_again">Start again</string>
     <string name="pair_back_home">Back to Home</string>
 

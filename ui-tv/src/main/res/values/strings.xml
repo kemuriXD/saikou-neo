@@ -257,8 +257,19 @@
     <string name="sign_in_expired_detail">%1$s no longer works on the phone.</string>
     <string name="sign_in_stopped_title">Pairing stopped</string>
     <string name="sign_in_stopped_body">Nothing was sent to this TV. Get a new code to try again.</string>
-    <string name="sign_in_stopped_status">The connection closed</string>
-    <string name="sign_in_stopped_detail">The codes didn’t match, pairing was cancelled on the phone, or the phone lost Wi-Fi.</string>
+    <string name="sign_in_stopped_status">This code stopped working</string>
+    <string name="sign_in_stopped_detail">Too many tries didn’t finish.</string>
+    <string name="sign_in_note_stopped">Pairing was stopped on your phone.</string>
+    <string name="sign_in_note_cancelled">Pairing was cancelled on your phone.</string>
+    <string name="sign_in_note_refused">AniList didn’t accept the account.</string>
+    <string name="sign_in_note_lost">Lost the connection to your phone.</string>
+    <string name="sign_in_note_too_long">Your phone took too long.</string>
+    <string name="sign_in_note_same_code">This code still works.</string>
+    <string name="sign_in_no_network_title">Can’t sign in yet</string>
+    <string name="sign_in_no_network_body">This TV needs a network to pair with your phone.</string>
+    <string name="sign_in_no_network_status">This TV isn’t on a network</string>
+    <string name="sign_in_no_network_detail">Connect it to Wi-Fi or a cable, on the same network as your phone.</string>
+    <string name="sign_in_try_again">Try again</string>
     <!-- Settings > Sources -->
     <string name="sources_add">Add a source</string>
     <string name="sources_add_help">With a link or a code</string>

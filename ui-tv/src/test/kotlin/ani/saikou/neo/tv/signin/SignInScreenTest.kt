@@ -14,6 +14,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import ani.saikou.neo.shared.account.AniListProfile
+import ani.saikou.neo.shared.pairing.TvPairingNote
 import ani.saikou.neo.shared.pairing.TvSignInState
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
@@ -102,6 +103,52 @@ class SignInScreenTest {
 
         state.value = TvSignInState.Stopped
         compose.onNodeWithText("Get a new code").assertIsFocused()
+    }
+
+    @Test
+    fun aPhoneThatLeftLeavesANoteUnderTheSameCode() {
+        state.value = TvSignInState.CheckCode("482913")
+        show()
+
+        state.value = TvSignInState.Waiting("saikouneo://pair?v=1", "K74Q9M", 512, TvPairingNote.StoppedOnPhone)
+        compose.onNodeWithContentDescription("Code K 7 4 Q 9 M").assertExists()
+        compose.onNodeWithText("Pairing was stopped on your phone.").assertExists()
+        compose.onNodeWithText("This code still works.").assertExists()
+        compose.onNodeWithText("Get a new code").assertIsFocused()
+    }
+
+    @Test
+    fun eachNoteSaysWhyThePhoneLeft() {
+        show()
+        val notes =
+            mapOf(
+                TvPairingNote.StoppedOnPhone to "Pairing was stopped on your phone.",
+                TvPairingNote.CancelledOnPhone to "Pairing was cancelled on your phone.",
+                TvPairingNote.AniListRefused to "AniList didn’t accept the account.",
+                TvPairingNote.LostConnection to "Lost the connection to your phone.",
+                TvPairingNote.TookTooLong to "Your phone took too long.",
+            )
+        notes.forEach { (note, text) ->
+            state.value = TvSignInState.Waiting("saikouneo://pair?v=1", "K74Q9M", 512, note)
+            compose.onNodeWithText(text).assertExists()
+        }
+    }
+
+    @Test
+    fun noNoteBeforeAPhoneLeaves() {
+        show()
+        compose.onNodeWithText("This code still works.").assertDoesNotExist()
+    }
+
+    @Test
+    fun aTvWithNoNetworkSaysSoAndTriesAgain() {
+        state.value = TvSignInState.NoNetwork
+        show()
+        compose.onNodeWithText("Can’t sign in yet").assertExists()
+        compose.onNodeWithText("This TV isn’t on a network").assertExists()
+        compose.onNodeWithText("Try again").assertIsFocused()
+        press(Key.DirectionCenter)
+        assertEquals(1, newCodes)
     }
 
     @Test

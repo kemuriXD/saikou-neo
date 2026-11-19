@@ -53,6 +53,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import ani.saikou.neo.phone.theme.PhoneColors
 import ani.saikou.neo.shared.pairing.PairTvState
+import ani.saikou.neo.shared.pairing.PairingStop
 
 /** What the pairing screens can do. Each screen uses the ones its buttons need. */
 internal class PairTvActions(
@@ -62,6 +63,7 @@ internal class PairTvActions(
     val retry: () -> Unit,
     val scanNew: () -> Unit,
     val done: () -> Unit,
+    val signInAgain: () -> Unit,
 )
 
 /** 3.4 to 3.8: connecting, checking the codes match, and how pairing ended. */
@@ -109,19 +111,36 @@ internal fun PairTvScreen(
             }
         }
 
-        PairTvState.Stopped -> {
-            PairFrame(actions.close) {
-                Status(Modifier.weight(1f), R.string.pair_stopped, R.string.pair_stopped_body) {
-                    Badge(R.drawable.icon_warning, PhoneColors.error, PhoneColors.surfaceRaised)
+        is PairTvState.Stopped -> {
+            Stopped(state.reason, actions)
+        }
+    }
+}
+
+/** 3.8a to 3.8d: why pairing stopped. Only a refused account needs this phone to sign in again first. */
+@Composable
+private fun Stopped(
+    reason: PairingStop,
+    actions: PairTvActions,
+) {
+    val (title, body) =
+        when (reason) {
+            PairingStop.NoMatch -> R.string.pair_stopped_you to R.string.pair_stopped_you_body
+            PairingStop.Cancelled -> R.string.pair_stopped_cancelled to R.string.pair_stopped_cancelled_body
+            PairingStop.Refused -> R.string.pair_stopped_refused to R.string.pair_stopped_refused_body
+            PairingStop.TimedOut -> R.string.pair_stopped_timed_out to R.string.pair_stopped_timed_out_body
+        }
+    PairFrame(actions.close) {
+        Status(Modifier.weight(1f), title, body) { Badge(R.drawable.icon_warning, PhoneColors.error, PhoneColors.surfaceRaised) }
+        Actions {
+            if (reason == PairingStop.Refused) {
+                Button(onClick = actions.signInAgain, modifier = BIG_BUTTON) {
+                    ButtonLabel(R.string.pair_sign_in_again, R.drawable.icon_person)
                 }
-                Actions {
-                    Button(
-                        onClick = actions.scanNew,
-                        modifier = BIG_BUTTON,
-                    ) { ButtonLabel(R.string.pair_start_again, R.drawable.icon_qr_scan) }
-                    SmallButton(R.string.pair_back_home, null, actions.close)
-                }
+            } else {
+                Button(onClick = actions.scanNew, modifier = BIG_BUTTON) { ButtonLabel(R.string.pair_start_again, R.drawable.icon_qr_scan) }
             }
+            SmallButton(R.string.pair_back_home, null, actions.close)
         }
     }
 }
