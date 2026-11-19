@@ -92,7 +92,8 @@ private fun TimetableEpisode.toRow(dubAt: Instant?) =
 
 /**
  * The episodes [settings] lets through, before they become rows. With raw off a raw release is dropped, so an episode
- * with only a raw goes; with dubs off every dub release is dropped, so dub rows and dub times on rows go too.
+ * with only a raw goes; with dubs off every dub release is dropped, so dub rows and dub times on rows go too. Donghua
+ * follow the Donghua setting rather than the formats, since AnimeSchedule lists them all as ONA.
  */
 internal fun List<TimetableEpisode>.shownWith(settings: ScheduleSettings): List<TimetableEpisode> =
     filter { episode ->
@@ -100,7 +101,7 @@ internal fun List<TimetableEpisode>.shownWith(settings: ScheduleSettings): List<
             episode.airType == AirType.RAW && !settings.rawEpisodes -> false
             episode.airType == AirType.DUB && !settings.dubs -> false
             episode.donghua && !settings.chineseAnimation -> false
-            episode.format != null && episode.format !in settings.formats -> false
+            !episode.donghua && episode.format != null && episode.format !in settings.formats -> false
             else -> settings.shortEpisodes || (episode.lengthMinutes ?: Int.MAX_VALUE) >= ScheduleSettings.SHORT_EPISODE_MINUTES
         }
     }
