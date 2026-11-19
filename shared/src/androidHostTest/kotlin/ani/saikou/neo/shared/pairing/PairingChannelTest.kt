@@ -180,6 +180,48 @@ class PairingChannelTest {
         }
 
     @Test
+    fun aDeviceTurnedAwayThreeTimesIsCutOff() =
+        pairing {
+            repeat(3) {
+                val tv = async { listener.accept() }
+                val phone = phone()
+                listener.turnAway(tv.await())
+                phone.close()
+            }
+            val tv = async { listener.accept() }
+
+            assertFailsWith<PairingException> { phone() }
+            delay(300)
+            assertTrue(tv.isActive)
+            tv.cancel()
+        }
+
+    @Test
+    fun turnedAwayDevicesCountTowardTheAttemptLimit() =
+        pairing {
+            val first = async { listener.accept() }
+            withContext(Dispatchers.IO) {
+                repeat(7) {
+                    rawSocket().use { socket ->
+                        val own = PairingKeyPair.generate()
+                        socket.writeFrame(byteArrayOf(1) + own.publicKey + pairingCommitment(own.publicKey, newPairingNonce()))
+                        socket.readFrame()
+                    }
+                }
+            }
+            delay(300)
+            phone().close()
+            listener.turnAway(first.await())
+            repeat(2) {
+                val tv = async { listener.accept() }
+                phone().close()
+                listener.turnAway(tv.await())
+            }
+
+            assertFailsWith<PairingException> { listener.accept() }
+        }
+
+    @Test
     fun aThirdAttemptFromOneAddressReplacesTheOldest() =
         pairing {
             val patient = PairingListener(tvKeys, session, ServerSocket(0, 50, loopback), handshakeTimeoutMillis = 8_000)
