@@ -45,7 +45,7 @@ internal fun Settings.withTick(
             when (list) {
                 TickList.RELEASES -> {
                     when (item as ScheduleRelease) {
-                        ScheduleRelease.RAW -> schedule.copy(rawEpisodes = on)
+                        ScheduleRelease.RAW -> schedule.withRawEpisodes(on)
                         ScheduleRelease.DUB -> schedule.copy(dubs = on)
                     }
                 }

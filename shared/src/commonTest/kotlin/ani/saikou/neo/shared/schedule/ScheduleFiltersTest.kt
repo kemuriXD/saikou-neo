@@ -39,6 +39,39 @@ class ScheduleFiltersTest {
         assertEquals(listOf("ling-wu-dalu"), shown.map { it.route })
     }
 
+    // AnimeSchedule lists donghua as ONA, so the Formats ticks would otherwise hide every one.
+    @Test
+    fun donghuaOnShowsDonghuaWhateverFormatsAreTicked() {
+        val shown =
+            rows(
+                ScheduleSettings(chineseAnimation = true, formats = setOf(ShowFormat.TV)),
+                episode("ling-wu-dalu", 233, AirType.RAW, "2026-11-18T02:00:00Z", format = ShowFormat.ONA, donghua = true),
+                episode("a-japanese-ona", 4, AirType.SUB, "2026-11-18T03:00:00Z", format = ShowFormat.ONA),
+            )
+
+        assertEquals(listOf("ling-wu-dalu"), shown.map { it.route })
+    }
+
+    @Test
+    fun releasesAndShortEpisodesStillApplyToDonghua() {
+        val shown =
+            rows(
+                ScheduleSettings(chineseAnimation = true, rawEpisodes = false, shortEpisodes = false, formats = setOf(ShowFormat.TV)),
+                episode("ling-wu-dalu", 233, AirType.RAW, "2026-11-18T02:00:00Z", format = ShowFormat.ONA, donghua = true),
+                episode(
+                    "wu-shang-shen-di",
+                    7,
+                    AirType.SUB,
+                    "2026-11-18T04:00:00Z",
+                    format = ShowFormat.ONA,
+                    lengthMinutes = 7,
+                    donghua = true,
+                ),
+            )
+
+        assertEquals(emptyList(), shown.map { it.route })
+    }
+
     @Test
     fun rawOffHidesRawOnlyEpisodesButNotSubs() {
         val shown =
