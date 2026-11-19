@@ -37,7 +37,7 @@ private class ListenerSession(
     private val accountTimeoutMillis: Int,
 ) : TvPairingSession {
     override suspend fun accept(onAttempt: (inProgress: Boolean) -> Unit): PhoneLink =
-        ChannelPhoneLink(listener.accept(onAttempt), accountTimeoutMillis)
+        ChannelPhoneLink(listener, listener.accept(onAttempt), accountTimeoutMillis)
 
     override fun close() {
         advert.close()
@@ -46,6 +46,7 @@ private class ListenerSession(
 }
 
 private class ChannelPhoneLink(
+    private val listener: PairingListener,
     private val channel: PairingChannel,
     private val accountTimeoutMillis: Int,
 ) : PhoneLink {
@@ -53,8 +54,14 @@ private class ChannelPhoneLink(
 
     override suspend fun receiveAccount(): AniListToken =
         withContext(Dispatchers.IO) {
-            PairingMessages.readAccount(channel.receive(accountTimeoutMillis))
-                ?: throw PairingException("The phone didn't send an account")
+            try {
+                PairingMessages.readAccount(channel.receive(accountTimeoutMillis))
+                    ?: throw PairingException("The phone didn't send an account")
+            } catch (e: PairingException) {
+                // Left at the check code. A device that keeps doing this gets cut off (#410).
+                listener.turnAway(channel)
+                throw e
+            }
         }
 
     override suspend fun replySignedIn(reply: PairedTvReply) = withContext(Dispatchers.IO) { channel.send(PairingMessages.signedIn(reply)) }
@@ -100,8 +107,9 @@ internal fun tvName(
     return name.ifEmpty { "TV" }.take(MAX_NAME)
 }
 
-// Long enough to compare the codes and choose It matches on the phone.
-private const val ACCOUNT_TIMEOUT_MILLIS = 5 * 60 * 1_000
+// Long enough to compare the codes and choose It matches on the phone. Kept short because the TV takes no other phone
+// while it shows the check code, so a device that connects and stays silent holds it only this long (#410).
+private const val ACCOUNT_TIMEOUT_MILLIS = 90 * 1_000
 private const val BACKLOG = 8
 private val TUNNELS = listOf("tun", "ppp", "wg", "ipsec")
 private const val IDENTITY_FILE = "tv_identity"

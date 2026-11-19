@@ -65,13 +65,21 @@ class TvSignInViewModelTest {
 
     private inner class FakeSession : TvPairingSession {
         override val invite = this@TvSignInViewModelTest.invite
-        val phone = CompletableDeferred<PhoneLink>()
+        private val phones = mutableListOf<CompletableDeferred<PhoneLink>>()
+        val phone get() = phoneFor(wait = 0)
         var onAttempt: ((Boolean) -> Unit)? = null
         var closed = false
+        private var waits = 0
+
+        /** The phone the [wait]th call to [accept] gets, counting from 0. */
+        fun phoneFor(wait: Int): CompletableDeferred<PhoneLink> {
+            while (phones.size <= wait) phones += CompletableDeferred()
+            return phones[wait]
+        }
 
         override suspend fun accept(onAttempt: (inProgress: Boolean) -> Unit): PhoneLink {
             this.onAttempt = onAttempt
-            return phone.await()
+            return phoneFor(waits++).await()
         }
 
         override fun close() {
@@ -280,11 +288,12 @@ class TvSignInViewModelTest {
             sessions.single().phone.complete(phone)
             runCurrent()
             assertEquals(TvSignInState.CheckCode("482913"), model.state.value)
-            assertTrue(sessions.single().closed)
+            assertFalse(sessions.single().closed)
 
             phone.account.complete(token)
             advanceUntilIdle()
             assertEquals(TvSignInState.SignedIn(hikari), model.state.value)
+            assertTrue(sessions.single().closed)
             assertEquals("the-token", accounts.account?.token?.accessToken)
             assertEquals(hikari, accounts.account?.profile)
             assertEquals(listOf(thisTv), phone.replies)
@@ -292,18 +301,47 @@ class TvSignInViewModelTest {
         }
 
     @Test
-    fun thePhoneClosingAfterTheCheckCodeStopsPairingAndSavesNothing() =
+    fun thePhoneLeavingAtTheCheckCodeGoesBackToTheSameCode() =
+        runTest(main) {
+            val model = viewModel()
+            val first = FakePhone()
+            sessions.single().phone.complete(first)
+            runCurrent()
+            advanceTimeBy(30_000)
+
+            first.account.completeExceptionally(PairingException("closed"))
+            runCurrent()
+            val waiting = model.state.value as TvSignInState.Waiting
+            assertEquals("K74Q9M", waiting.code)
+            assertEquals(invite.toQrText(), waiting.qrText)
+            assertTrue(waiting.secondsLeft in 569..571)
+            assertTrue(first.closed)
+            assertFalse(sessions.single().closed)
+            assertNull(accounts.account)
+
+            val second = FakePhone()
+            sessions.single().phoneFor(wait = 1).complete(second)
+            runCurrent()
+            assertEquals(TvSignInState.CheckCode("482913"), model.state.value)
+            second.account.complete(token)
+            advanceUntilIdle()
+            assertEquals(TvSignInState.SignedIn(hikari), model.state.value)
+            assertEquals(1, sessions.size)
+        }
+
+    @Test
+    fun aPhoneLeavingAfterTheCodeRanOutShowsItRanOut() =
         runTest(main) {
             val model = viewModel()
             val phone = FakePhone()
             sessions.single().phone.complete(phone)
             runCurrent()
+            advanceTimeBy(601_000)
 
             phone.account.completeExceptionally(PairingException("closed"))
-            advanceUntilIdle()
-            assertEquals(TvSignInState.Stopped, model.state.value)
-            assertNull(accounts.account)
-            assertTrue(phone.closed)
+            runCurrent()
+            assertEquals(TvSignInState.Expired("K74Q9M"), model.state.value)
+            assertTrue(sessions.single().closed)
         }
 
     @Test

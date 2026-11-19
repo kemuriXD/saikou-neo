@@ -104,7 +104,8 @@ public sealed interface TvSignInState {
 
 /**
  * Signs the TV in to AniList from a phone (#116, ADR 0004). It makes a code, opens a pairing session under it at once
- * (so a phone can find the TV by typing the code, #381), shows the code for [TV_CODE_SECONDS], and once a phone connects shows the check code. The account the phone sends is checked with
+ * (so a phone can find the TV by typing the code, #381), shows the code for [TV_CODE_SECONDS], and once a phone connects shows the check code. If
+ * that phone leaves without sending an account, the TV goes back to the same code (#410). The account the phone sends is checked with
  * [viewer], saved in [store], and the phone hears back with [tv], this TV's stable ID and name.
  */
 public class TvSignInViewModel(
@@ -170,15 +171,45 @@ public class TvSignInViewModel(
                     delay(SECOND_MILLIS)
                 }
             }
+        try {
+            // The code stays open until a phone sends an account, so a phone that leaves at the check code (#410)
+            // only sends the TV back to the same code.
+            while (true) {
+                val link = nextPhone(opened) { waiting } ?: return
+                phone = link
+                mutableState.value = TvSignInState.CheckCode(link.checkCode)
+                val token = receiveAccount(link)
+                if (token == null) {
+                    if (countdown.isCompleted) {
+                        mutableState.value = TvSignInState.Expired(code)
+                        return
+                    }
+                    mutableState.value = waiting
+                    continue
+                }
+                closeListener(opened, countdown)
+                mutableState.value = signIn(link, token)
+                return
+            }
+        } finally {
+            closeListener(opened, countdown)
+        }
+    }
+
+    /** Waits for a phone until the code runs out. Null, with the board set, when there won't be one. */
+    private suspend fun nextPhone(
+        opened: TvPairingSession,
+        waiting: () -> TvSignInState.Waiting,
+    ): PhoneLink? {
         val link =
             try {
-                withTimeoutOrNull(TV_CODE_SECONDS * SECOND_MILLIS) {
+                withTimeoutOrNull(waiting().secondsLeft * SECOND_MILLIS) {
                     // Called on another thread, so each change only applies to the board it expects.
                     opened.accept { inProgress ->
                         mutableState.update {
                             when {
                                 inProgress && it is TvSignInState.Waiting -> TvSignInState.Connecting
-                                !inProgress && it == TvSignInState.Connecting -> waiting
+                                !inProgress && it == TvSignInState.Connecting -> waiting()
                                 else -> it
                             }
                         }
@@ -189,25 +220,41 @@ public class TvSignInViewModel(
             } catch (_: Exception) {
                 // Closing the listener for a new code also fails this wait. That's not Pairing stopped.
                 currentCoroutineContext().ensureActive()
-                null.also { mutableState.value = TvSignInState.Stopped }
-            } finally {
-                countdown.cancel()
-                // Close this code's listener only. After Get a new code, the next one may already be open.
-                opened.close()
-                if (session === opened) session = null
+                mutableState.value = TvSignInState.Stopped
+                return null
             }
-        if (link == null) {
-            if (mutableState.value != TvSignInState.Stopped) mutableState.value = TvSignInState.Expired(waiting.code)
-            return
-        }
-        phone = link
-        mutableState.value = TvSignInState.CheckCode(link.checkCode)
-        mutableState.value = signIn(link)
+        if (link == null) mutableState.value = TvSignInState.Expired(waiting().code)
+        return link
     }
 
-    private suspend fun signIn(link: PhoneLink): TvSignInState =
+    /** The account the phone sends, or null once it leaves without sending one. */
+    private suspend fun receiveAccount(link: PhoneLink): AniListToken? =
         try {
-            val token = link.receiveAccount()
+            link.receiveAccount()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            currentCoroutineContext().ensureActive()
+            link.close()
+            if (phone === link) phone = null
+            null
+        }
+
+    private fun closeListener(
+        opened: TvPairingSession,
+        countdown: Job,
+    ) {
+        countdown.cancel()
+        // Close this code's listener only. After Get a new code, the next one may already be open.
+        opened.close()
+        if (session === opened) session = null
+    }
+
+    private suspend fun signIn(
+        link: PhoneLink,
+        token: AniListToken,
+    ): TvSignInState =
+        try {
             val profile = (viewer(token) as? AniListResult.Success)?.value ?: throw PairingException("AniList refused the account")
             withContext(io) { store.saveAccount(SignedInAccount(profile, token)) }
             try {

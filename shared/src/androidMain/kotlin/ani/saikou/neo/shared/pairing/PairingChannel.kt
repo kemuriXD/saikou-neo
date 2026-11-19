@@ -48,9 +48,13 @@ import java.util.concurrent.atomic.AtomicInteger
  * drops any that fail, so a bad, slow or wrong
  * attempt can't end pairing or hold it up.
  *
- * One limit does end pairing: after 10 attempts that got the TV's nonce but never sent a valid hello, the TV
- * stops listening and the user has to start pairing again. Each of those attempts gives someone in the middle a
- * one in a million chance of matching the check codes, so this keeps their total chance near one in 100,000.
+ * A phone that finishes the handshake but leaves without sending an account is passed to
+ * [PairingListener.turnAway]. After 3 of those from one address, the TV closes that address's connections straight
+ * away, so one device can't keep pairing busy.
+ *
+ * One limit does end pairing: after 10 attempts that got the TV's nonce but never sent a valid hello or an account,
+ * the TV stops listening and the user has to start pairing again. Each of those attempts gives someone in the
+ * middle a one in a million chance of matching the check codes, so this keeps their total chance near one in 100,000.
  *
  * [send] and [receive] block, so call them off the main thread.
  */
@@ -62,6 +66,9 @@ public class PairingChannel internal constructor(
 
     /** The 6-digit code both screens show. */
     public val checkCode: String get() = cipher.checkCode
+
+    /** Where the peer connected from. */
+    internal val address: InetAddress = socket.inetAddress
 
     /** Encrypts and sends one message. */
     public fun send(message: ByteArray): Unit =
@@ -97,6 +104,7 @@ public class PairingListener(
 ) : Closeable {
     private val unfinished = AtomicInteger()
     private val perAddress = HashMap<InetAddress, ArrayDeque<Socket>>()
+    private val turnedAway = HashMap<InetAddress, Int>()
 
     init {
         server.soTimeout = ACCEPT_POLL_MILLIS
@@ -108,8 +116,8 @@ public class PairingListener(
     /**
      * Waits for the first phone that completes the handshake, then drops the other attempts in progress. Failed
      * attempts are dropped and it keeps waiting, until it's cancelled or [close] is called (then it throws
-     * [PairingException]). Call it again to take another attempt, for example when the user says the check codes
-     * didn't match. After too many unfinished attempts it throws [PairingException] for good; open a new
+     * [PairingException]). Call it again to take another attempt, for example after [turnAway] when the phone left
+     * at the check code. After too many unfinished attempts it throws [PairingException] for good; open a new
      * listener with a new key and session ID to try again.
      *
      * [onAttempt] gets true when a phone's hello arrives while no other attempt is past that point, and false once
@@ -126,6 +134,10 @@ public class PairingListener(
                     while (true) {
                         ensureActive()
                         val socket = nextSocket() ?: continue
+                        if (isCutOff(socket.inetAddress)) {
+                            socket.close()
+                            continue
+                        }
                         if (running.incrementAndGet() > MAX_ATTEMPTS) {
                             running.decrementAndGet()
                             socket.close()
@@ -172,6 +184,18 @@ public class PairingListener(
             delay(ACCEPT_POLL_MILLIS.toLong())
             null
         }
+
+    /**
+     * Closes [channel], a phone that finished the handshake but didn't send an account. It counts as an unfinished
+     * attempt, and after [MAX_TURNED_AWAY] from one address that address is cut off until pairing starts again.
+     */
+    public fun turnAway(channel: PairingChannel) {
+        channel.close()
+        unfinished.incrementAndGet()
+        synchronized(turnedAway) { turnedAway[channel.address] = (turnedAway[channel.address] ?: 0) + 1 }
+    }
+
+    private fun isCutOff(address: InetAddress): Boolean = synchronized(turnedAway) { (turnedAway[address] ?: 0) >= MAX_TURNED_AWAY }
 
     /** Keeps attempts per address. A third from one address closes the oldest, so one device can't fill the slots. */
     private fun track(socket: Socket) {
@@ -274,6 +298,7 @@ private const val MAX_FRAME = 65_536
 private const val MAX_ATTEMPTS = 8
 private const val MAX_PER_ADDRESS = 2
 private const val MAX_UNFINISHED = 10
+private const val MAX_TURNED_AWAY = 3
 private const val FIRST_FRAME_MILLIS = 2_000
 private const val TOO_MANY_ATTEMPTS = "Too many unfinished pairing attempts. Start pairing again."
 private const val ACCEPT_POLL_MILLIS = 250
