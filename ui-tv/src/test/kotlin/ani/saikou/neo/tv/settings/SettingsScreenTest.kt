@@ -17,6 +17,7 @@ import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -36,6 +37,7 @@ import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.settings.TickList
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -190,6 +192,63 @@ class SettingsScreenTest {
         press(Key.DirectionCenter)
 
         assertEquals(1, signOuts)
+    }
+
+    // Signed out, Account is laid out like Sources with none: icon, title, a line on signing in, the button and a note,
+    // all centred in the pane.
+    @Test
+    fun signedOutAccountIsCentredLikeEmptySources() {
+        compose.setContent {
+            NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.ACCOUNT) }
+        }
+
+        compose.onNodeWithText("Not signed in").assertIsDisplayed()
+        compose.onNodeWithText("Sign in to sync your AniList list and watch progress on this TV.").assertIsDisplayed()
+        compose.onNodeWithText("Shows a code to scan with Saikou Neo on your phone.").assertIsDisplayed()
+        compose.onNodeWithTag(SIGN_IN_LOGO_TAG, useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Signed in").assertDoesNotExist()
+        // Sign in is a button under the title, not a row along the pane's left edge.
+        val signIn = compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).getUnclippedBoundsInRoot()
+        val title = compose.onNodeWithText("Not signed in").getUnclippedBoundsInRoot()
+        assertEquals(((title.left + title.right) / 2).value, ((signIn.left + signIn.right) / 2).value, 0.5f)
+        assertTrue(signIn.left > 400.dp)
+        compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).assertHeightIsEqualTo(52.dp)
+    }
+
+    @Test
+    fun signedInAccountKeepsTheWideSignInRow() {
+        val account = AccountSettings(AniListProfile(7, "Hikari", null))
+        compose.setContent {
+            NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.ACCOUNT, account = account) }
+        }
+
+        compose.onNodeWithText("Not signed in").assertDoesNotExist()
+        compose.onNodeWithTag(SIGN_IN_LOGO_TAG, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("Your AniList account on this TV. Sign in again with your phone to use a different one.").assertIsDisplayed()
+        compose
+            .onNodeWithTag(SIGN_IN_ENTRY_TAG)
+            .assertLeftPositionInRootIsEqualTo(306.dp)
+            .assertHeightIsEqualTo(60.dp)
+    }
+
+    @Test
+    fun signingOutFocusesSignInAndLeftGoesBackToTheCategories() {
+        val account = mutableStateOf(AccountSettings())
+        account.value = AccountSettings(AniListProfile(7, "Hikari", null), onSignOut = { account.value = AccountSettings() })
+        compose.setContent {
+            NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.ACCOUNT, account = account.value) }
+        }
+        press(Key.DirectionRight)
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(SIGN_OUT_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithText("Not signed in").assertIsDisplayed()
+        compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).assertIsFocused()
+        press(Key.DirectionLeft)
+        category(SettingsCategory.ACCOUNT).assertIsFocused()
     }
 
     @Test

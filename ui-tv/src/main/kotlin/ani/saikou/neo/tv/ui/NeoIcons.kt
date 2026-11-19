@@ -184,6 +184,13 @@ object NeoIcons {
         }
     }
 
+    /** A head and shoulders in outline, for Settings > Account while signed out. */
+    val Person: ImageVector by lazy {
+        icon("Person") {
+            svgStroke(2f, "M4 21a8 8 0 0 1 16 0M16 8a4 4 0 1 1-8 0a4 4 0 1 1 8 0")
+        }
+    }
+
     /** Wi-Fi waves struck through, for Home with no internet. */
     val WifiOff: ImageVector by lazy {
         icon("WifiOff") {
