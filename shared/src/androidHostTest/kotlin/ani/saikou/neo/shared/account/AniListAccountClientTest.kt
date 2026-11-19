@@ -10,7 +10,13 @@ import com.apollographql.apollo.api.http.HttpHeader
 import com.apollographql.apollo.api.http.HttpRequest
 import com.apollographql.apollo.api.http.HttpResponse
 import com.apollographql.apollo.network.http.HttpEngine
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
+import kotlin.coroutines.CoroutineContext
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -20,15 +26,18 @@ import kotlin.time.Duration.Companion.seconds
 class AniListAccountClientTest {
     private val token = AniListToken("the-token", 2_000_000_000)
 
-    private fun clientFor(engine: HttpEngine) =
-        AniListAccountClient(
-            ApolloClient
-                .Builder()
-                .serverUrl("https://anilist.test/graphql")
-                .httpEngine(engine)
-                .httpExposeErrorBody(true)
-                .build(),
-        )
+    private fun clientFor(
+        engine: HttpEngine,
+        clock: CoroutineContext = Dispatchers.Default,
+    ) = AniListAccountClient(
+        ApolloClient
+            .Builder()
+            .serverUrl("https://anilist.test/graphql")
+            .httpEngine(engine)
+            .httpExposeErrorBody(true)
+            .build(),
+        clock,
+    )
 
     @Test
     fun viewerReadsTheSignedInUser() =
@@ -72,6 +81,16 @@ class AniListAccountClientTest {
             val result = clientFor(OfflineEngine).viewer(token)
 
             assertIs<AniListError.Network>(assertIs<AniListResult.Failure>(result).error)
+        }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun aCheckWithNoAnswerGivesUpAfterTenSeconds() =
+        runTest {
+            val result = clientFor(SilentEngine, StandardTestDispatcher(testScheduler)).viewer(token)
+
+            assertIs<AniListError.Network>(assertIs<AniListResult.Failure>(result).error)
+            assertEquals(10_000, currentTime)
         }
 
     @Test
@@ -174,6 +193,13 @@ class AniListAccountClientTest {
 
             assertEquals(AniListResult.Failure(AniListError.RateLimited(30.seconds)), result)
         }
+}
+
+/** A network that drops everything: the request is never answered. */
+private object SilentEngine : HttpEngine {
+    override suspend fun execute(request: HttpRequest): HttpResponse = awaitCancellation()
+
+    override fun close() {}
 }
 
 /** Notes each request's Authorization header, then answers it with [engine]. */
