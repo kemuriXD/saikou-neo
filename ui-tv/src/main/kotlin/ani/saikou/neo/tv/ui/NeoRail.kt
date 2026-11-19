@@ -61,7 +61,9 @@ import androidx.tv.material3.Icon
 import androidx.tv.material3.SelectableSurfaceDefaults
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.tv.R
+import ani.saikou.neo.tv.signin.ProfileAvatar
 import ani.saikou.neo.tv.theme.NeoTheme
 
 internal const val RAIL_TAG = "rail"
@@ -69,6 +71,7 @@ internal const val RAIL_SCRIM_TAG = "rail-scrim"
 internal const val RAIL_LOGO_TAG = "rail-logo"
 internal const val RAIL_AVATAR_TAG = "rail-avatar"
 internal const val RAIL_AVATAR_ICON_TAG = "rail-avatar-icon"
+internal const val RAIL_ANILIST_TAG = "rail-anilist"
 
 internal fun railTag(section: Section) = "rail-${section.name.lowercase()}"
 
@@ -119,11 +122,12 @@ private const val SCRIM_ALPHA = 0.55f
 private val FocusGlowColor = Color.White.copy(alpha = 0.32f)
 private val ShadowColor = Color.Black.copy(alpha = 0.4f)
 
-// Until signing in brings the account's picture: a soft grey circle with a person in it.
+// Signed out: a soft grey circle with a person in it. Signed in, the AniList picture fills the circle.
 private const val PICTURE_FILL_ALPHA = 0.16f
 private val PictureOutline = 1.5.dp
 private val PictureIcon = 18.dp
 private val ProfileRing = 2.dp
+private val AniListLogoHeight = 16.dp
 
 private val PlaceholderTop = 40.dp
 private val PlaceholderGap = 6.dp
@@ -131,13 +135,15 @@ private val PlaceholderGap = 6.dp
 /**
  * The rail down the left of Home, with Home marked. Focus coming in lands on Home and opens the rail, with names and the
  * screen dimmed behind it. Selecting another section calls [onSelect]. Right, Back or selecting Home calls [onClose] to
- * send focus back to the screen.
+ * send focus back to the screen. Signed in, the profile shows the AniList [profile]'s picture, and its name with the
+ * AniList logo while open.
  */
 @Composable
 fun NeoRail(
     onSelect: (Section) -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    profile: AniListProfile? = null,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
@@ -219,7 +225,7 @@ fun NeoRail(
                 Section.entries.filter { it != Section.PROFILE }.forEach { RailItem(it, open, home, onSelect, onClose) }
             }
             Spacer(Modifier.weight(1f))
-            RailItem(Section.PROFILE, open, home, onSelect, onClose)
+            RailItem(Section.PROFILE, open, home, onSelect, onClose, account = profile)
         }
     }
 }
@@ -235,6 +241,7 @@ private fun RailItem(
     home: FocusRequester,
     onSelect: (Section) -> Unit,
     onClose: () -> Unit,
+    account: AniListProfile? = null,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
@@ -294,14 +301,18 @@ private fun RailItem(
                 ),
         ) {
             val icon = section.icon
-            // The picture fills the closed item, 4 dp in all round, where an icon has 12 dp either side.
+            // The picture fills the closed item, 4 dp in all round, where an icon has 12 dp either side. The AniList
+            // logo at the open item's end sits as far in as an icon.
             val padding = if (icon == null) PicturePadding else ItemPadding
+            val endPadding = if (account != null && open) ItemPadding else padding
             Row(
-                Modifier.fillMaxSize().padding(horizontal = padding),
+                Modifier.fillMaxSize().padding(start = padding, end = endPadding),
                 horizontalArrangement = Arrangement.spacedBy(LabelGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                if (icon == null) {
+                if (icon == null && account != null) {
+                    Box(Modifier.testTag(RAIL_AVATAR_TAG)) { ProfileAvatar(account, PictureSize, NeoTheme.typography.rowTitle) }
+                } else if (icon == null) {
                     Box(
                         Modifier
                             .testTag(RAIL_AVATAR_TAG)
@@ -322,14 +333,22 @@ private fun RailItem(
                 }
                 if (open) {
                     Text(
-                        stringResource(section.label),
+                        account?.name ?: stringResource(section.label),
                         style = NeoTheme.typography.bodyLarge.copy(fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium),
                         maxLines = 1,
                         softWrap = false,
-                        overflow = TextOverflow.Clip,
+                        // A long AniList name ends in an ellipsis before the logo.
+                        overflow = if (account != null) TextOverflow.Ellipsis else TextOverflow.Clip,
                         modifier = Modifier.weight(1f),
                     )
                     if (selected) Box(Modifier.size(DotSize).background(colors.pink, CircleShape))
+                    if (account != null) {
+                        Image(
+                            painterResource(R.drawable.rating_anilist),
+                            contentDescription = null,
+                            modifier = Modifier.testTag(RAIL_ANILIST_TAG).height(AniListLogoHeight),
+                        )
+                    }
                 }
             }
         }

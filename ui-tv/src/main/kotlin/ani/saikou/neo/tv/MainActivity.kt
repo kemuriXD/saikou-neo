@@ -376,6 +376,7 @@ class MainActivity : ComponentActivity() {
                         },
                         sources = { openSignIn -> SettingsSection(SettingsCategory.SOURCES, openSignIn, profile, account::signOut) },
                         signedIn = { profile != null },
+                        profile = profile,
                         signedOutProfile = { openSignIn, back -> ProfileSignedOutScreen(onSignIn = openSignIn, onHome = back) },
                         signIn = { leave, goHome ->
                             val signIn =
