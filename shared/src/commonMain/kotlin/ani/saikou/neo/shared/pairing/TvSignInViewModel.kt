@@ -192,7 +192,9 @@ public class TvSignInViewModel(
                 null.also { mutableState.value = TvSignInState.Stopped }
             } finally {
                 countdown.cancel()
-                closeSession()
+                // Close this code's listener only. After Get a new code, the next one may already be open.
+                opened.close()
+                if (session === opened) session = null
             }
         if (link == null) {
             if (mutableState.value != TvSignInState.Stopped) mutableState.value = TvSignInState.Expired(waiting.code)
