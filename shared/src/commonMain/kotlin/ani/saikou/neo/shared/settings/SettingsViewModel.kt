@@ -32,7 +32,7 @@ public operator fun Settings.get(setting: Setting): Any =
         Setting.SHORT_EPISODES -> schedule.shortEpisodes
     }
 
-private fun Settings.with(
+internal fun Settings.with(
     setting: Setting,
     value: Any,
 ): Settings =
@@ -41,8 +41,8 @@ private fun Settings.with(
         Setting.UPCOMING_EPISODES -> copy(showUpcomingEpisodes = value as Boolean)
         Setting.SLOW_TV -> copy(slowTv = value as Boolean)
         Setting.SUB_OR_DUB -> copy(subOrDub = value as SubOrDub)
-        Setting.CHINESE_ANIMATION -> copy(schedule = schedule.copy(chineseAnimation = value as Boolean))
-        Setting.SHORT_EPISODES -> copy(schedule = schedule.copy(shortEpisodes = value as Boolean))
+        Setting.CHINESE_ANIMATION -> copy(schedule = schedule.withChineseAnimation(value as Boolean))
+        Setting.SHORT_EPISODES -> copy(schedule = schedule.withShortEpisodes(value as Boolean))
     }
 
 /** The Settings screen's state: the saved settings, or null until they're read. */

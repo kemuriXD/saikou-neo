@@ -29,14 +29,28 @@ public data class ScheduleSettings(
     /** Episodes under [SHORT_EPISODE_MINUTES] minutes. */
     val shortEpisodes: Boolean = true,
 ) {
-    /** These settings with [format] turned [on] or off. Turning off the last format left on changes nothing. */
+    /**
+     * These settings with [format] turned [on] or off. Turning off the last format left on changes nothing. TV shorts
+     * are all under [SHORT_EPISODE_MINUTES], so ticking TV short turns short episodes on too.
+     */
     public fun withFormat(
         format: ShowFormat,
         on: Boolean,
     ): ScheduleSettings {
         val changed = if (on) formats + format else formats - format
-        return if (changed.isEmpty()) this else copy(formats = changed)
+        if (changed.isEmpty()) return this
+        return copy(formats = changed, shortEpisodes = shortEpisodes || (on && format == ShowFormat.TV_SHORT))
     }
+
+    /** Donghua are nearly all raw only, so turning them on turns raw episodes on too. */
+    public fun withChineseAnimation(on: Boolean): ScheduleSettings = copy(chineseAnimation = on, rawEpisodes = rawEpisodes || on)
+
+    /** Without raw episodes hardly any donghua are left, so turning raw off turns donghua off too. */
+    public fun withRawEpisodes(on: Boolean): ScheduleSettings = copy(rawEpisodes = on, chineseAnimation = chineseAnimation && on)
+
+    /** Turning short episodes off unticks TV short, unless it's the only format ticked. */
+    public fun withShortEpisodes(on: Boolean): ScheduleSettings =
+        if (on) copy(shortEpisodes = true) else copy(shortEpisodes = false).withFormat(ShowFormat.TV_SHORT, false)
 
     public companion object {
         /** An episode shorter than this is a short episode. */
