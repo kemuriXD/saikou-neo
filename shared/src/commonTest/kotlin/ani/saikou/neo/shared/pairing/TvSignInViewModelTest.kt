@@ -50,12 +50,18 @@ class TvSignInViewModelTest {
         override val checkCode = "482913"
         val account = CompletableDeferred<AniListToken>()
         val replies = mutableListOf<PairedTvReply>()
+        val stops = mutableListOf<PairingStop>()
         var closed = false
 
         override suspend fun receiveAccount(): AniListToken = account.await()
 
         override suspend fun replySignedIn(reply: PairedTvReply) {
             replies += reply
+        }
+
+        override suspend fun stop(reason: PairingStop) {
+            stops += reason
+            closed = true
         }
 
         override fun close() {
@@ -315,6 +321,7 @@ class TvSignInViewModelTest {
             assertEquals("K74Q9M", waiting.code)
             assertEquals(invite.toQrText(), waiting.qrText)
             assertTrue(waiting.secondsLeft in 569..571)
+            assertEquals(TvPairingNote.LostConnection, waiting.note)
             assertTrue(first.closed)
             assertFalse(sessions.single().closed)
             assertNull(accounts.account)
@@ -323,10 +330,62 @@ class TvSignInViewModelTest {
             sessions.single().phoneFor(wait = 1).complete(second)
             runCurrent()
             assertEquals(TvSignInState.CheckCode("482913"), model.state.value)
+            second.account.completeExceptionally(PairingStoppedException(PairingStop.NoMatch))
+            runCurrent()
+            assertEquals(TvPairingNote.StoppedOnPhone, (model.state.value as TvSignInState.Waiting).note)
+
+            val third = FakePhone()
+            sessions.single().phoneFor(wait = 2).complete(third)
+            runCurrent()
+            assertEquals(TvSignInState.CheckCode("482913"), model.state.value)
+            advanceTimeBy(1_000)
+            assertEquals(TvSignInState.CheckCode("482913"), model.state.value)
+            third.account.complete(token)
             second.account.complete(token)
             advanceUntilIdle()
             assertEquals(TvSignInState.SignedIn(hikari), model.state.value)
             assertEquals(1, sessions.size)
+        }
+
+    @Test
+    fun theTvSaysWhyThePhoneLeft() =
+        runTest(main) {
+            val model = viewModel()
+            val reasons =
+                listOf(
+                    PairingStoppedException(PairingStop.NoMatch) to TvPairingNote.StoppedOnPhone,
+                    PairingStoppedException(PairingStop.Cancelled) to TvPairingNote.CancelledOnPhone,
+                    PairingStoppedException(PairingStop.TimedOut) to TvPairingNote.TookTooLong,
+                    // Only the TV refuses an account, so a phone saying so is treated as a lost connection.
+                    PairingStoppedException(PairingStop.Refused) to TvPairingNote.LostConnection,
+                    PairingException("Connection reset") to TvPairingNote.LostConnection,
+                )
+            reasons.forEachIndexed { wait, (left, note) ->
+                val phone = FakePhone()
+                sessions.single().phoneFor(wait).complete(phone)
+                runCurrent()
+                phone.account.completeExceptionally(left)
+                runCurrent()
+                val waiting = model.state.value as TvSignInState.Waiting
+                assertEquals(note, waiting.note)
+                assertEquals("K74Q9M", waiting.code)
+            }
+        }
+
+    @Test
+    fun theNoteStaysWhileTheCodeCountsDown() =
+        runTest(main) {
+            val model = viewModel()
+            val phone = FakePhone()
+            sessions.single().phone.complete(phone)
+            runCurrent()
+            phone.account.completeExceptionally(PairingStoppedException(PairingStop.NoMatch))
+            runCurrent()
+            advanceTimeBy(5_000)
+
+            val waiting = model.state.value as TvSignInState.Waiting
+            assertEquals(TvPairingNote.StoppedOnPhone, waiting.note)
+            assertTrue(waiting.secondsLeft < TV_CODE_SECONDS)
         }
 
     @Test
@@ -345,7 +404,7 @@ class TvSignInViewModelTest {
         }
 
     @Test
-    fun aTokenAniListRefusesStopsPairingAndSavesNothing() =
+    fun aTokenAniListRefusesTellsThePhoneAndGoesBackToTheSameCode() =
         runTest(main) {
             val model = viewModel(viewer = AniListResult.Failure(AniListError.Http(401)))
             val phone = FakePhone()
@@ -353,10 +412,65 @@ class TvSignInViewModelTest {
             runCurrent()
 
             phone.account.complete(token)
-            advanceUntilIdle()
-            assertEquals(TvSignInState.Stopped, model.state.value)
+            runCurrent()
+            val waiting = model.state.value as TvSignInState.Waiting
+            assertEquals("K74Q9M", waiting.code)
+            assertEquals(TvPairingNote.AniListRefused, waiting.note)
+            assertEquals(listOf(PairingStop.Refused), phone.stops)
+            assertFalse(sessions.single().closed)
             assertNull(accounts.account)
             assertTrue(phone.replies.isEmpty())
+        }
+
+    @Test
+    fun aTokenRefusedAfterTheCodeRanOutShowsItRanOut() =
+        runTest(main) {
+            val model = viewModel(viewer = AniListResult.Failure(AniListError.Http(401)))
+            val phone = FakePhone()
+            sessions.single().phone.complete(phone)
+            runCurrent()
+            advanceTimeBy(601_000)
+
+            phone.account.complete(token)
+            runCurrent()
+            assertEquals(TvSignInState.Expired("K74Q9M"), model.state.value)
+            assertTrue(sessions.single().closed)
+        }
+
+    @Test
+    fun aTvWithNoNetworkSaysSoAndTriesAgain() =
+        runTest(main) {
+            var online = false
+            val model =
+                TvSignInViewModel(
+                    open = { if (online) FakeSession() else throw NoNetworkException() },
+                    viewer = { AniListResult.Success(hikari) },
+                    store = accounts,
+                    tv = thisTv,
+                    io = main,
+                )
+            runCurrent()
+            assertEquals(TvSignInState.NoNetwork, model.state.value)
+
+            online = true
+            model.newCode()
+            runCurrent()
+            assertTrue(model.state.value is TvSignInState.Waiting)
+        }
+
+    @Test
+    fun aListenerThatWontOpenForAnotherReasonStopsPairing() =
+        runTest(main) {
+            val model =
+                TvSignInViewModel(
+                    open = { throw PairingException("Port in use") },
+                    viewer = { AniListResult.Success(hikari) },
+                    store = accounts,
+                    tv = thisTv,
+                    io = main,
+                )
+            runCurrent()
+            assertEquals(TvSignInState.Stopped, model.state.value)
         }
 
     @Test
@@ -369,7 +483,7 @@ class TvSignInViewModelTest {
         }
 
     @Test
-    fun cancelClosesTheConnectionWithoutSigningIn() =
+    fun cancelTellsThePhoneWithoutSigningIn() =
         runTest(main) {
             val model = viewModel()
             val phone = FakePhone()
@@ -379,6 +493,7 @@ class TvSignInViewModelTest {
             model.cancel()
             phone.account.complete(token)
             advanceUntilIdle()
+            assertEquals(listOf(PairingStop.Cancelled), phone.stops)
             assertTrue(phone.closed)
             assertNull(accounts.account)
             assertEquals(TvSignInState.Stopped, model.state.value)

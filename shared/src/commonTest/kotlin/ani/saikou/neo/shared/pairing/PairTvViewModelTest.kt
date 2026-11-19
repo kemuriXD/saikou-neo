@@ -7,8 +7,10 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withContext
@@ -33,20 +35,36 @@ class PairTvViewModelTest {
     @AfterTest
     fun resetMain() = Dispatchers.resetMain()
 
+    /** A TV that answers [reply] once the account comes, or stays quiet until [says] when [reply] is null. */
     private class FakeTv(
-        private val reply: () -> PairedTvReply,
+        private val reply: (() -> PairedTvReply)?,
     ) : TvLink {
         override val checkCode = "482913"
         val sent = mutableListOf<AniListToken>()
+        val stops = mutableListOf<PairingStop>()
         var closed = false
+        private val said = CompletableDeferred<TvAnswer>()
 
-        override suspend fun sendAccount(token: AniListToken): PairedTvReply {
+        fun says(answer: TvAnswer) = said.complete(answer)
+
+        fun drops() = said.completeExceptionally(PairingException("Connection reset"))
+
+        override suspend fun answer(): TvAnswer = said.await()
+
+        override suspend fun sendAccount(token: AniListToken) {
             sent += token
-            return reply()
+            val reply = reply ?: return
+            runCatching(reply).fold({ says(TvAnswer.SignedIn(it)) }, { said.completeExceptionally(it) })
+        }
+
+        override suspend fun stop(reason: PairingStop) {
+            stops += reason
+            close()
         }
 
         override fun close() {
             closed = true
+            drops()
         }
     }
 
@@ -111,10 +129,104 @@ class PairTvViewModelTest {
             model.reject()
             advanceUntilIdle()
 
-            assertEquals(PairTvState.Stopped, model.state.value)
+            assertEquals(PairTvState.Stopped(PairingStop.NoMatch), model.state.value)
+            assertEquals(listOf(PairingStop.NoMatch), tv.stops)
             assertTrue(tv.sent.isEmpty())
             assertTrue(tv.closed)
             assertTrue(store.tvs.isEmpty())
+        }
+
+    @Test
+    fun cancelOnTheTvShowsWithoutWaitingForItMatches() =
+        runTest(main) {
+            val tv = FakeTv { livingRoom }
+            val model = viewModel { tv }
+
+            model.start(scanned)
+            advanceUntilIdle()
+            tv.says(TvAnswer.Stopped(PairingStop.Cancelled))
+            advanceUntilIdle()
+
+            assertEquals(PairTvState.Stopped(PairingStop.Cancelled), model.state.value)
+            assertTrue(tv.sent.isEmpty())
+            assertTrue(tv.closed)
+        }
+
+    @Test
+    fun aTvThatStopsWaitingSaysSo() =
+        runTest(main) {
+            val tv = FakeTv { livingRoom }
+            val model = viewModel { tv }
+
+            model.start(scanned)
+            advanceUntilIdle()
+            tv.says(TvAnswer.Stopped(PairingStop.TimedOut))
+            advanceUntilIdle()
+
+            assertEquals(PairTvState.Stopped(PairingStop.TimedOut), model.state.value)
+        }
+
+    @Test
+    fun anAccountAniListRefusesSaysTheTvCouldNotSignIn() =
+        runTest(main) {
+            val tv = FakeTv(reply = null)
+            val store = MemoryTvStore()
+            val model = viewModel(store) { tv }
+
+            model.start(scanned)
+            advanceUntilIdle()
+            model.confirm()
+            runCurrent()
+            tv.says(TvAnswer.Stopped(PairingStop.Refused))
+            advanceUntilIdle()
+
+            assertEquals(PairTvState.Stopped(PairingStop.Refused), model.state.value)
+            assertTrue(store.tvs.isEmpty())
+        }
+
+    @Test
+    fun aTvSayingItDoesNotMatchIsTreatedAsLost() =
+        runTest(main) {
+            val tv = FakeTv { livingRoom }
+            val model = viewModel { tv }
+
+            model.start(scanned)
+            advanceUntilIdle()
+            tv.says(TvAnswer.Stopped(PairingStop.NoMatch))
+            advanceUntilIdle()
+
+            assertEquals(PairTvState.Unreachable, model.state.value)
+        }
+
+    @Test
+    fun aConnectionDroppedAtTheCheckCodeCannotBeReached() =
+        runTest(main) {
+            val tv = FakeTv { livingRoom }
+            val model = viewModel { tv }
+
+            model.start(scanned)
+            advanceUntilIdle()
+            tv.drops()
+            advanceUntilIdle()
+
+            assertEquals(PairTvState.Unreachable, model.state.value)
+        }
+
+    @Test
+    fun aTvThatNeverAnswersItMatchesCannotBeReachedAfterThirtySeconds() =
+        runTest(main) {
+            val tv = FakeTv(reply = null)
+            val model = viewModel { tv }
+
+            model.start(scanned)
+            advanceUntilIdle()
+            model.confirm()
+            advanceTimeBy(29_000)
+            assertEquals(PairTvState.CheckCode("482913", sending = true), model.state.value)
+            advanceTimeBy(2_000)
+
+            assertEquals(PairTvState.Unreachable, model.state.value)
+            assertTrue(tv.closed)
         }
 
     @Test
@@ -154,32 +266,24 @@ class PairTvViewModelTest {
     @Test
     fun closingWhileTheAccountIsGoingStillAddsTheTv() =
         runTest(main) {
-            val reply = CompletableDeferred<PairedTvReply>()
+            val tv = FakeTv(reply = null)
             val store = MemoryTvStore()
-            val model = viewModel(store) { FakeTv { livingRoom }.let { tv -> AwaitingTv(tv, reply) } }
+            val model = viewModel(store) { tv }
 
             model.start(scanned)
             advanceUntilIdle()
             model.confirm()
-            advanceUntilIdle()
+            runCurrent()
             model.cancel()
-            reply.complete(livingRoom)
+            tv.says(TvAnswer.SignedIn(livingRoom))
             advanceUntilIdle()
 
             assertEquals(PairTvState.SignedIn("Living room TV"), model.state.value)
             assertEquals(listOf("tv-1"), store.tvs.map { it.id })
         }
 
-    /** A TV that takes its time to answer, until [reply] completes. */
-    private class AwaitingTv(
-        private val tv: TvLink,
-        private val reply: CompletableDeferred<PairedTvReply>,
-    ) : TvLink by tv {
-        override suspend fun sendAccount(token: AniListToken): PairedTvReply = reply.await()
-    }
-
     @Test
-    fun cancelOnTheCheckCodeClosesTheConnectionWithoutSending() =
+    fun cancelOnTheCheckCodeTellsTheTvWithoutSending() =
         runTest(main) {
             val tv = FakeTv { livingRoom }
             val model = viewModel { tv }
@@ -189,6 +293,8 @@ class PairTvViewModelTest {
             model.cancel()
             advanceUntilIdle()
 
+            assertEquals(PairTvState.Idle, model.state.value)
+            assertEquals(listOf(PairingStop.Cancelled), tv.stops)
             assertTrue(tv.closed)
             assertTrue(tv.sent.isEmpty())
         }

@@ -32,11 +32,17 @@ class ChannelTvLinkTest {
     private fun pairing(block: suspend CoroutineScope.() -> Unit) = runBlocking { withTimeout(10_000) { block() } }
 
     /** Connects the phone; returns the phone's link and the TV's channel. */
-    private suspend fun CoroutineScope.connect(replyTimeoutMillis: Int = 2_000): Pair<TvLink, PairingChannel> {
+    private suspend fun CoroutineScope.connect(answerTimeoutMillis: Int = 2_000): Pair<TvLink, PairingChannel> {
         val tv = async { listener.accept() }
-        val phone = connectPhoneToTv(loopback.hostAddress!!, listener.port, tvKeys.publicKey, session, replyTimeoutMillis)
+        val phone = connectPhoneToTv(loopback.hostAddress!!, listener.port, tvKeys.publicKey, session, answerTimeoutMillis)
         return phone to tv.await()
     }
+
+    /** The TV's side of [channel], as the TV app uses it. */
+    private fun tvSide(
+        channel: PairingChannel,
+        accountTimeoutMillis: Int = 2_000,
+    ): PhoneLink = ChannelPhoneLink(listener, channel, accountTimeoutMillis)
 
     @Test
     fun theTvGetsTheAccountAndThePhoneHearsItIsSignedIn() =
@@ -44,13 +50,14 @@ class ChannelTvLinkTest {
             val (phone, tv) = connect()
             assertEquals(tv.checkCode, phone.checkCode)
 
-            val reply = async { phone.sendAccount(token) }
-            val received = withContext(Dispatchers.IO) { PairingMessages.readAccount(tv.receive(2_000)) }
-            assertEquals("the-token", received?.accessToken)
-            assertEquals(9_000L, received?.expiresAtEpochSeconds)
+            val answer = async { phone.answer() }
+            phone.sendAccount(token)
+            val received = tvSide(tv).receiveAccount()
+            assertEquals("the-token", received.accessToken)
+            assertEquals(9_000L, received.expiresAtEpochSeconds)
 
-            withContext(Dispatchers.IO) { tv.send(PairingMessages.signedIn(PairedTvReply("tv-1", "Living room TV"))) }
-            assertEquals(PairedTvReply("tv-1", "Living room TV"), reply.await())
+            tvSide(tv).replySignedIn(PairedTvReply("tv-1", "Living room TV"))
+            assertEquals(TvAnswer.SignedIn(PairedTvReply("tv-1", "Living room TV")), answer.await())
             phone.close()
             tv.close()
         }
@@ -66,8 +73,8 @@ class ChannelTvLinkTest {
     @Test
     fun aTvThatNeverAnswersFails() =
         pairing {
-            val (phone, tv) = connect(replyTimeoutMillis = 200)
-            assertFailsWith<PairingException> { phone.sendAccount(token) }
+            val (phone, tv) = connect(answerTimeoutMillis = 200)
+            assertFailsWith<PairingException> { phone.answer() }
             tv.close()
         }
 
@@ -75,14 +82,55 @@ class ChannelTvLinkTest {
     fun anyOtherReplyFails() =
         pairing {
             val (phone, tv) = connect()
-            val reply = async { runCatching { phone.sendAccount(token) } }
-            withContext(Dispatchers.IO) {
-                tv.receive(2_000)
-                tv.send("""{"v":1,"type":"failed"}""".encodeToByteArray())
-            }
+            val reply = async { runCatching { phone.answer() } }
+            withContext(Dispatchers.IO) { tv.send("""{"v":1,"type":"failed"}""".encodeToByteArray()) }
             assertEquals(PairingException::class, reply.await().exceptionOrNull()?.let { it::class })
             tv.close()
         }
+
+    @Test
+    fun itDoesntMatchOnThePhoneReachesTheTvWithItsReason() =
+        pairing {
+            val (phone, tv) = connect()
+            phone.stop(PairingStop.NoMatch)
+            val stopped = assertFailsWith<PairingStoppedException> { tvSide(tv).receiveAccount() }
+            assertEquals(PairingStop.NoMatch, stopped.reason)
+        }
+
+    @Test
+    fun aPhoneThatJustClosesIsNotAStop() =
+        pairing {
+            val (phone, tv) = connect()
+            phone.close()
+            val failed = assertFailsWith<PairingException> { tvSide(tv).receiveAccount() }
+            assertEquals(PairingException::class, failed::class)
+        }
+
+    @Test
+    fun cancelOnTheTvReachesThePhoneBeforeItMatches() =
+        pairing {
+            val (phone, tv) = connect()
+            tvSide(tv).stop(PairingStop.Cancelled)
+            assertEquals(TvAnswer.Stopped(PairingStop.Cancelled), phone.answer())
+        }
+
+    @Test
+    fun aTvThatStopsWaitingTellsThePhone() =
+        pairing {
+            val (phone, tv) = connect()
+            val stopped = assertFailsWith<PairingStoppedException> { tvSide(tv, accountTimeoutMillis = 200).receiveAccount() }
+            assertEquals(PairingStop.TimedOut, stopped.reason)
+            assertEquals(TvAnswer.Stopped(PairingStop.TimedOut), phone.answer())
+        }
+
+    @Test
+    fun stopMessagesReadBack() {
+        PairingStop.entries.forEach { assertEquals(it, PairingMessages.readStopped(PairingMessages.stopped(it))) }
+        assertNull(PairingMessages.readStopped("""{"v":1,"type":"stopped","reason":"bored"}""".encodeToByteArray()))
+        assertNull(PairingMessages.readStopped("""{"v":1,"type":"stopped"}""".encodeToByteArray()))
+        assertNull(PairingMessages.readStopped("""{"v":1,"type":"signed-in","reason":"no-match"}""".encodeToByteArray()))
+        assertNull(PairingMessages.readStopped("""{"v":2,"type":"stopped","reason":"no-match"}""".encodeToByteArray()))
+    }
 
     @Test
     fun repliesAreChecked() {
