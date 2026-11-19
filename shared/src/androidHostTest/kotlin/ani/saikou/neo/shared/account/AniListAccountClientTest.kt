@@ -68,9 +68,19 @@ class AniListAccountClientTest {
         }
 
     @Test
-    fun aTokenAniListRefusesIsAnHttpError() =
+    fun aTokenAniListRefusesIsSignedOut() =
         runTest {
-            val result = clientFor(RecordedEngine("viewer-invalid-token", status = 400)).viewer(token)
+            for (status in listOf(400, 401, 403)) {
+                val result = clientFor(RecordedEngine("viewer-invalid-token", status = status)).viewer(token)
+
+                assertEquals(AniListResult.Failure(AniListError.SignedOut), result, "status $status")
+            }
+        }
+
+    @Test
+    fun aViewerQueryAniListRejectsIsNotSignedOut() =
+        runTest {
+            val result = clientFor(RecordedEngine("watch-list-bad-query", status = 400)).viewer(token)
 
             assertEquals(AniListResult.Failure(AniListError.Http(400)), result)
         }
