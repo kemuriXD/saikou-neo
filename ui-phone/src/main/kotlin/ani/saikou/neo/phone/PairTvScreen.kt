@@ -205,24 +205,6 @@ private fun PairFrame(
     }
 }
 
-/**
- * The connecting ring. With the system's animations off, Material's ring would stand still, so it turns slowly on
- * the frame clock instead, which the animation setting doesn't scale (#72).
- */
-@Composable
-private fun Spinner() {
-    if (rememberAnimationsOn()) {
-        CircularProgressIndicator(Modifier.size(40.dp), trackColor = PhoneColors.line)
-        return
-    }
-    var degrees by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(Unit) {
-        val start = withFrameMillis { it }
-        while (true) withFrameMillis { degrees = (it - start) % SLOW_TURN_MILLIS * 360f / SLOW_TURN_MILLIS }
-    }
-    CircularProgressIndicator(progress = { 0.25f }, modifier = Modifier.size(40.dp).rotate(degrees), trackColor = PhoneColors.line)
-}
-
 @Composable
 private fun SmallButton(
     @StringRes text: Int,
@@ -238,5 +220,3 @@ private fun SmallButton(
         Text(stringResource(text), style = MaterialTheme.typography.labelLarge)
     }
 }
-
-private const val SLOW_TURN_MILLIS = 4_000L

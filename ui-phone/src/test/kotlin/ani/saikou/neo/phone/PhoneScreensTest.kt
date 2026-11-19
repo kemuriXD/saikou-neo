@@ -51,7 +51,7 @@ class PhoneScreensTest {
     @Test
     fun welcomeSignsInWithAniList() {
         var signIns = 0
-        compose.setContent { PhoneTheme { WelcomeScreen(AccountState.SignedOut(), onSignIn = { signIns++ }) } }
+        compose.setContent { PhoneTheme { WelcomeScreen(onSignIn = { signIns++ }) } }
 
         compose.onNodeWithText("Sign in here. Watch on your TV.").assertIsDisplayed()
         compose.onNodeWithText("Sign in with AniList").performClick()
@@ -69,6 +69,14 @@ class PhoneScreensTest {
         compose.onNodeWithText("Pair a TV").performClick()
 
         assertEquals(1, pairs)
+    }
+
+    @Test
+    fun checkingSaysWhatIsHappening() {
+        compose.setContent { PhoneTheme { CheckingScreen() } }
+
+        compose.onNodeWithText("Checking with AniList…").assertIsDisplayed()
+        compose.onNodeWithText("Making sure it's your account. This only takes a moment.").assertIsDisplayed()
     }
 
     @Test

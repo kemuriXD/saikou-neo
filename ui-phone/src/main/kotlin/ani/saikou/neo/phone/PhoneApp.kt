@@ -1,6 +1,14 @@
 package ani.saikou.neo.phone
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
@@ -43,47 +51,74 @@ internal fun PhoneApp(
     val back = { screens = screens.dropLast(1) }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
-        when (val current = state) {
-            AccountState.Loading -> {
-                Box(Modifier.fillMaxSize())
-            }
-
-            is AccountState.SignedIn if current.justSignedIn -> {
-                // Back from 1.3 goes Home; Pair a TV goes to scanning, with Home behind it.
-                BackHandler(onBack = accounts::confirmSignIn)
-                SignedInScreen(current.profile) {
-                    screens = listOf(PhoneScreen.Home, PhoneScreen.Scan)
-                    accounts.confirmSignIn()
+        // A fade between Welcome, checking, the result and Home, in place of a hard cut.
+        AnimatedContent(
+            state,
+            transitionSpec = { accountFade() },
+            contentKey = ::screenOf,
+            label = "account",
+        ) { current ->
+            when (current) {
+                AccountState.Loading -> {
+                    Box(Modifier.fillMaxSize())
                 }
-            }
 
-            is AccountState.SignedIn -> {
-                BackHandler(enabled = screens.size > 1, onBack = back)
-                val signOut = {
-                    // Next time the phone signs in, it starts on Home.
-                    screens = listOf(PhoneScreen.Home)
-                    accounts.signOut()
+                is AccountState.SignedIn if current.justSignedIn -> {
+                    // Back from 1.3 goes Home; Pair a TV goes to scanning, with Home behind it.
+                    BackHandler(onBack = accounts::confirmSignIn)
+                    SignedInScreen(current.profile) {
+                        screens = listOf(PhoneScreen.Home, PhoneScreen.Scan)
+                        accounts.confirmSignIn()
+                    }
                 }
-                SignedIn(current, pairing, screens.last(), version, openInBrowser, open, back, signOut) { screens = it }
-            }
 
-            is AccountState.SignedOut -> {
-                val problem = current.problem
-                if (problem == null) {
-                    WelcomeScreen(current, onSignIn = accounts::signIn)
-                } else {
-                    // Back from 1.4 goes to plain Welcome.
-                    BackHandler(onBack = accounts::dismissProblem)
-                    SignInProblemScreen(problem, onTryAgain = accounts::signIn)
+                is AccountState.SignedIn -> {
+                    BackHandler(enabled = screens.size > 1, onBack = back)
+                    val signOut = {
+                        // Next time the phone signs in, it starts on Home.
+                        screens = listOf(PhoneScreen.Home)
+                        accounts.signOut()
+                    }
+                    SignedIn(current, pairing, screens.last(), version, openInBrowser, open, back, signOut) { screens = it }
                 }
-            }
 
-            AccountState.Verifying -> {
-                WelcomeScreen(current, onSignIn = accounts::signIn)
+                is AccountState.SignedOut -> {
+                    val problem = current.problem
+                    if (problem == null) {
+                        WelcomeScreen(onSignIn = accounts::signIn)
+                    } else {
+                        // Back from 1.4 goes to plain Welcome.
+                        BackHandler(onBack = accounts::dismissProblem)
+                        SignInProblemScreen(problem, onTryAgain = accounts::signIn)
+                    }
+                }
+
+                AccountState.Verifying -> {
+                    CheckingScreen()
+                }
             }
         }
     }
 }
+
+/**
+ * Checking appears at once, since it's what the app comes back from the browser on; a fade from Welcome would show
+ * Welcome during the return. Everything after it fades.
+ */
+private fun AnimatedContentTransitionScope<AccountState>.accountFade(): ContentTransform =
+    if (targetState == AccountState.Verifying) {
+        EnterTransition.None togetherWith ExitTransition.None
+    } else {
+        fadeIn() togetherWith fadeOut()
+    }
+
+/** Which account screen a state shows. The fade runs only when this changes, not when the profile updates. */
+private fun screenOf(state: AccountState): Any =
+    when (state) {
+        is AccountState.SignedIn -> state.justSignedIn
+        is AccountState.SignedOut -> state.problem ?: "welcome"
+        else -> state
+    }
 
 @Composable
 private fun SignedIn(

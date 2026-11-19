@@ -11,6 +11,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -20,6 +22,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.milliseconds
 
 /** Where the phone's AniList account and a sign-in in progress are kept. Calls block, so make them off the main thread. */
 public interface AccountStore {
@@ -89,6 +93,7 @@ public class PhoneAccountViewModel(
     private val io: CoroutineDispatcher = Dispatchers.IO,
     private val now: () -> Long = { Clock.System.now().epochSeconds },
     private val newState: () -> String = AniListSignIn::newState,
+    private val checkingAtLeast: Duration = 1_200.milliseconds,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<AccountState>(AccountState.Loading)
     public val state: StateFlow<AccountState> = mutableState.asStateFlow()
@@ -161,15 +166,27 @@ public class PhoneAccountViewModel(
 
     /** Reads the browser's answer at [uri]. An answer to some other sign-in changes nothing. */
     public fun finishSignIn(uri: String) {
+        val before = mutableState.value
+        // A token shows Checking from the first frame back from the browser, so Welcome doesn't flash first.
+        if (before is AccountState.SignedOut && uri.startsWith(redirectUri) && "access_token=" in uri) {
+            mutableState.value = AccountState.Verifying
+        }
         viewModelScope.launch(work) {
             val attempt = withContext(io) { store.readAttempt() }
             val result = AniListSignIn.parseCallback(uri, redirectUri, attempt, now())
-            if (result == CallbackResult.Unrelated) return@launch
+            if (result == CallbackResult.Unrelated) {
+                mutableState.compareAndSet(AccountState.Verifying, before)
+                return@launch
+            }
             withContext(io) { store.clearAttempt() }
             when (result) {
                 is CallbackResult.Token -> {
                     mutableState.value = AccountState.Verifying
-                    check(result.token, signingIn = true)
+                    coroutineScope {
+                        // Long enough to read "Checking with AniList", so the screen doesn't flash past.
+                        val shown = launch { delay(checkingAtLeast) }
+                        check(result.token, signingIn = true, beforeAnswer = shown::join)
+                    }
                 }
 
                 CallbackResult.Declined -> {
@@ -189,15 +206,21 @@ public class PhoneAccountViewModel(
 
     /**
      * Asks AniList who [token] belongs to. A new sign-in is saved once AniList answers. A saved one stays signed in
-     * through a network problem, and is forgotten only when AniList refuses the token.
+     * through a network problem, and is forgotten only when AniList refuses the token. [beforeAnswer] runs just
+     * before the answer shows.
      */
     private suspend fun check(
         token: AniListToken,
         signingIn: Boolean,
+        beforeAnswer: suspend () -> Unit = {},
     ) {
-        when (val answer = viewer(token)) {
+        val answer = viewer(token)
+        val saved =
+            answer is AniListResult.Success &&
+                withContext(io) { runCatching { store.saveAccount(SignedInAccount(answer.value, token)) } }.isSuccess
+        beforeAnswer()
+        when (answer) {
             is AniListResult.Success -> {
-                val saved = withContext(io) { runCatching { store.saveAccount(SignedInAccount(answer.value, token)) } }.isSuccess
                 mutableState.value =
                     when {
                         saved || !signingIn -> AccountState.SignedIn(answer.value, justSignedIn = signingIn)

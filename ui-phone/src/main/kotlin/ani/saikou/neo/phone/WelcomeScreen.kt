@@ -29,13 +29,12 @@ import androidx.compose.ui.unit.dp
 import ani.saikou.neo.phone.theme.PhoneColors
 import ani.saikou.neo.shared.account.AccountState
 
-/** 1.2 Welcome: what the phone is for, and Sign in with AniList. A sign-in that didn't work shows 1.4 instead. */
+/**
+ * 1.2 Welcome: what the phone is for, and Sign in with AniList. Back from the browser, 1.3a shows while AniList
+ * checks, and 1.4 if the sign-in didn't work.
+ */
 @Composable
-internal fun WelcomeScreen(
-    state: AccountState,
-    onSignIn: () -> Unit,
-) {
-    val checking = state == AccountState.Verifying
+internal fun WelcomeScreen(onSignIn: () -> Unit) {
     PhoneColumn(Modifier.safeDrawingPadding()) {
         Column(Modifier.fillMaxSize()) {
             Column(
@@ -64,20 +63,10 @@ internal fun WelcomeScreen(
                 Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                Button(
-                    onClick = onSignIn,
-                    enabled = !checking,
-                    modifier = Modifier.fillMaxWidth().height(56.dp),
-                ) {
-                    if (checking) {
-                        CircularProgressIndicator(Modifier.size(20.dp), color = MaterialTheme.colorScheme.onPrimary, strokeWidth = 2.dp)
-                        Spacer(Modifier.size(8.dp))
-                        Text(stringResource(R.string.welcome_checking), style = MaterialTheme.typography.titleMedium)
-                    } else {
-                        Icon(painterResource(R.drawable.icon_open_external), contentDescription = null, Modifier.size(24.dp))
-                        Spacer(Modifier.size(8.dp))
-                        Text(stringResource(R.string.welcome_sign_in), style = MaterialTheme.typography.titleMedium)
-                    }
+                Button(onClick = onSignIn, modifier = Modifier.fillMaxWidth().height(56.dp)) {
+                    Icon(painterResource(R.drawable.icon_open_external), contentDescription = null, Modifier.size(24.dp))
+                    Spacer(Modifier.size(8.dp))
+                    Text(stringResource(R.string.welcome_sign_in), style = MaterialTheme.typography.titleMedium)
                 }
                 Text(
                     stringResource(R.string.welcome_browser_note),

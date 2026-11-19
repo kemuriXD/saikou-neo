@@ -2,13 +2,17 @@ package ani.saikou.neo.phone
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.safeDrawingPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -22,6 +26,23 @@ import ani.saikou.neo.shared.account.SignInProblem
 
 /** Test tag on 1.4's heading. */
 internal const val SIGN_IN_PROBLEM_TITLE = "sign_in_problem_title"
+
+/**
+ * 1.3a Checking with AniList: straight after the browser, while AniList confirms the sign-in. The ring sits where 1.3
+ * puts the picture, so moving on to 1.3 changes nothing else.
+ */
+@Composable
+internal fun CheckingScreen() {
+    PhoneColumn(Modifier.safeDrawingPadding()) {
+        Column(Modifier.fillMaxSize()) {
+            Status(Modifier.weight(1f), R.string.checking_title, R.string.checking_body) {
+                Box(Modifier.size(96.dp), contentAlignment = Alignment.Center) { Spinner() }
+            }
+            // Holds the space 1.3's button takes, so the heading doesn't move when it arrives.
+            Actions { Spacer(BIG_BUTTON) }
+        }
+    }
+}
 
 /** 1.3 Signed in: shown once, straight after a new sign-in, with the AniList picture and name and Pair a TV. */
 @Composable

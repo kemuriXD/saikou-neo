@@ -5,11 +5,14 @@ import ani.saikou.neo.shared.catalogue.AniListResult
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import kotlin.test.AfterTest
@@ -103,6 +106,53 @@ class PhoneAccountViewModelTest {
             assertEquals(kemuri, store.account?.profile)
             assertEquals(1_000 + 3_600L, store.account?.token?.expiresAtEpochSeconds)
             assertNull(store.attempt)
+        }
+
+    @Test
+    fun aTokenFromTheBrowserShowsCheckingStraightAway() =
+        runTest(main) {
+            val model = viewModel()
+            model.signIn()
+            advanceUntilIdle()
+
+            model.finishSignIn(callback())
+
+            assertEquals(AccountState.Verifying, model.state.value)
+        }
+
+    @Test
+    fun theCheckStaysOnScreenLongEnoughToRead() =
+        runTest(main) {
+            val model = viewModel()
+            model.signIn()
+            advanceUntilIdle()
+
+            model.finishSignIn(callback())
+            advanceTimeBy(1_199)
+            runCurrent()
+            assertEquals(AccountState.Verifying, model.state.value)
+
+            advanceTimeBy(2)
+            runCurrent()
+            assertEquals(AccountState.SignedIn(kemuri, justSignedIn = true), model.state.value)
+        }
+
+    @Test
+    fun aSlowAnswerAddsNoExtraWait() =
+        runTest(main) {
+            val model =
+                viewModel { _ ->
+                    delay(2_000)
+                    AniListResult.Success(kemuri)
+                }
+            model.signIn()
+            advanceUntilIdle()
+
+            model.finishSignIn(callback())
+            advanceTimeBy(2_001)
+            runCurrent()
+
+            assertEquals(AccountState.SignedIn(kemuri, justSignedIn = true), model.state.value)
         }
 
     @Test

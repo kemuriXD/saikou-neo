@@ -20,17 +20,22 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
@@ -187,3 +192,23 @@ internal fun ButtonLabel(
 
 /** The full-width 56 dp button at the foot of a status screen. */
 internal val BIG_BUTTON = Modifier.fillMaxWidth().height(56.dp)
+
+/**
+ * The waiting ring, as on Connecting and Checking with AniList. With the system's animations off, Material's ring
+ * would stand still, so it turns slowly on the frame clock instead, which the animation setting doesn't scale (#72).
+ */
+@Composable
+internal fun Spinner() {
+    if (rememberAnimationsOn()) {
+        CircularProgressIndicator(Modifier.size(40.dp), trackColor = PhoneColors.line)
+        return
+    }
+    var degrees by remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(Unit) {
+        val start = withFrameMillis { it }
+        while (true) withFrameMillis { degrees = (it - start) % SLOW_TURN_MILLIS * 360f / SLOW_TURN_MILLIS }
+    }
+    CircularProgressIndicator(progress = { 0.25f }, modifier = Modifier.size(40.dp).rotate(degrees), trackColor = PhoneColors.line)
+}
+
+private const val SLOW_TURN_MILLIS = 4_000L
