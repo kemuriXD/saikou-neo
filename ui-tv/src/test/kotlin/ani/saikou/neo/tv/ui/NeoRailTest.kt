@@ -1,15 +1,23 @@
 package ani.saikou.neo.tv.ui
 
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import androidx.activity.ComponentActivity
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertCountEquals
@@ -29,7 +37,12 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
+import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.tv.theme.NeoTheme
+import coil3.annotation.ExperimentalCoilApi
+import coil3.asImage
+import coil3.compose.AsyncImagePreviewHandler
+import coil3.compose.LocalAsyncImagePreviewHandler
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -39,7 +52,7 @@ import org.robolectric.annotation.Config
 
 private const val CONTENT_TAG = "content"
 
-@OptIn(ExperimentalTestApi::class)
+@OptIn(ExperimentalTestApi::class, ExperimentalCoilApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w960dp-h540dp-land-television-xhdpi")
 class NeoRailTest {
@@ -49,25 +62,31 @@ class NeoRailTest {
     private val chosen = mutableListOf<Section>()
     private var closes = 0
 
-    /** The rail beside a button that starts with focus. */
-    private fun show() =
+    // The AniList account signed in on the TV, or null while signed out.
+    private var account by mutableStateOf<AniListProfile?>(null)
+
+    /** The rail beside a button that starts with focus, inside [around]. */
+    private fun show(around: @Composable (@Composable () -> Unit) -> Unit = { it() }) =
         compose.setContent {
-            NeoTheme {
-                val content = remember { FocusRequester() }
-                LaunchedEffect(Unit) { content.requestFocus() }
-                Box(Modifier.fillMaxSize()) {
-                    NeoButton(
-                        "Play",
-                        onClick = {},
-                        modifier = Modifier.padding(start = 300.dp, top = 200.dp).focusRequester(content).testTag(CONTENT_TAG),
-                    )
-                    NeoRail(
-                        onSelect = { chosen += it },
-                        onClose = {
-                            closes++
-                            content.requestFocus()
-                        },
-                    )
+            around {
+                NeoTheme {
+                    val content = remember { FocusRequester() }
+                    LaunchedEffect(Unit) { content.requestFocus() }
+                    Box(Modifier.fillMaxSize()) {
+                        NeoButton(
+                            "Play",
+                            onClick = {},
+                            modifier = Modifier.padding(start = 300.dp, top = 200.dp).focusRequester(content).testTag(CONTENT_TAG),
+                        )
+                        NeoRail(
+                            onSelect = { chosen += it },
+                            onClose = {
+                                closes++
+                                content.requestFocus()
+                            },
+                            profile = account,
+                        )
+                    }
                 }
             }
         }
@@ -215,5 +234,70 @@ class NeoRailTest {
 
         compose.onNodeWithTag(CONTENT_TAG).assertIsFocused()
         assertEquals(1, closes)
+    }
+
+    private val kemuri = AniListProfile(5412345, "Kemuri", "https://anilist.co/user/5412345", "https://example.invalid/a.png")
+
+    private fun openOnProfile() {
+        press(Key.DirectionLeft)
+        press(Key.DirectionDown, times = 4)
+        item(Section.PROFILE).assertIsFocused()
+    }
+
+    @Test
+    fun signedInTheClosedRailShowsTheFirstLetterUntilThePictureLoads() {
+        account = kemuri
+        show()
+
+        compose.onNodeWithTag(RAIL_AVATAR_ICON_TAG, useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithText("K", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(RAIL_AVATAR_TAG, useUnmergedTree = true).assertWidthIsEqualTo(36.dp).assertHeightIsEqualTo(36.dp)
+    }
+
+    @Test
+    fun signedInALoadedPictureHasNothingBehindIt() {
+        account = kemuri
+        val picture = AsyncImagePreviewHandler { ColorDrawable(Color.TRANSPARENT).asImage() }
+        show { content ->
+            CompositionLocalProvider(LocalInspectionMode provides true, LocalAsyncImagePreviewHandler provides picture) { content() }
+        }
+
+        compose.onNodeWithText("K", useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun signedInTheOpenRailShowsTheAniListNameAndLogo() {
+        account = kemuri
+        show()
+
+        openOnProfile()
+
+        compose.onNodeWithText("Kemuri", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Profile").assertDoesNotExist()
+        compose.onNodeWithTag(RAIL_ANILIST_TAG, useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun signedOutTheOpenRailHasNoAniListLogo() {
+        show()
+
+        openOnProfile()
+
+        compose.onNodeWithTag(RAIL_ANILIST_TAG, useUnmergedTree = true).assertDoesNotExist()
+    }
+
+    @Test
+    fun signingInAndOutUpdatesTheRailStraightAway() {
+        show()
+
+        account = kemuri
+        compose.waitForIdle()
+        compose.onNodeWithText("K", useUnmergedTree = true).assertExists()
+        compose.onNodeWithTag(RAIL_AVATAR_ICON_TAG, useUnmergedTree = true).assertDoesNotExist()
+
+        account = null
+        compose.waitForIdle()
+        compose.onNodeWithText("K", useUnmergedTree = true).assertDoesNotExist()
+        compose.onNodeWithTag(RAIL_AVATAR_ICON_TAG, useUnmergedTree = true).assertExists()
     }
 }

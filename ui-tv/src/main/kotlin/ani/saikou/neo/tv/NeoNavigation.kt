@@ -24,6 +24,7 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
+import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.search.SearchGenre
@@ -156,6 +157,8 @@ fun NeoNavigation(
     signIn: @Composable (leave: () -> Unit, goHome: () -> Unit) -> Unit = { _, _ -> },
     // Asked when Profile is chosen: signed out, it opens [signedOutProfile] rather than the profile.
     signedIn: () -> Boolean = { true },
+    // The AniList account signed in on this TV, for the rail's profile. Null while signed out.
+    profile: AniListProfile? = null,
     signedOutProfile: @Composable (openSignIn: () -> Unit, back: () -> Unit) -> Unit = { _, _ -> },
     player: @Composable (request: PlayRequest, back: () -> Unit) -> Unit = { _, _ -> },
 ) {
@@ -209,6 +212,7 @@ fun NeoNavigation(
                                     )
                                 },
                                 onClose = { homeFocus.requestFocus() },
+                                profile = profile,
                             )
                         }
                     }

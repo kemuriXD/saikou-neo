@@ -29,6 +29,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.tv.material3.Button
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.More
@@ -99,6 +100,7 @@ class NeoNavigationTest {
         seeMoreState: SeeMoreState = SeeMoreState(List(24) { card(it) }, More.Done),
         searchState: SearchState = SearchState(),
         signedIn: Boolean = true,
+        profile: AniListProfile? = null,
     ) = restoration.setContent {
         NeoTheme {
             NeoNavigation(
@@ -150,6 +152,7 @@ class NeoNavigationTest {
                 player = { request, _ -> Text("Playing E${request.episode}") },
                 signIn = { _, _ -> Text("Sign in with your phone") },
                 signedIn = { signedIn },
+                profile = profile,
                 signedOutProfile = { openSignIn, _ ->
                     val signIn = remember { FocusRequester() }
                     LaunchedEffect(Unit) { signIn.requestFocus() }
@@ -476,6 +479,17 @@ class NeoNavigationTest {
 
         compose.onNodeWithText("Sign in with AniList").assertDoesNotExist()
         compose.onNodeWithText("Coming in a future update.").assertExists()
+    }
+
+    @Test
+    fun theRailShowsTheSignedInAniListAccount() {
+        show(profile = AniListProfile(5412345, "Kemuri", "https://anilist.co/user/5412345", null))
+
+        press(Key.DirectionLeft)
+        press(Key.DirectionDown, times = Section.PROFILE.ordinal - Section.HOME.ordinal)
+
+        compose.onNodeWithText("Kemuri", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Profile").assertDoesNotExist()
     }
 
     @Test
