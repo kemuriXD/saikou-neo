@@ -106,6 +106,19 @@ class SettingsViewModelTest {
             assertEquals(Settings(updateAniList = UpdateAniList.OFF, privateMode = true), store.settings.first())
         }
 
+    @Test
+    fun choosingWhenToAskIfStillWatchingSavesIt() =
+        withinSeconds {
+            val viewModel = viewModel()
+            viewModel.state.filterNotNull().first()
+
+            viewModel.choose(Setting.STILL_WATCHING, StillWatching.AFTER_5)
+
+            viewModel.state.filterNotNull().first { it.stillWatching == StillWatching.AFTER_5 }
+            assertEquals(StillWatching.AFTER_5, store.settings.first().stillWatching)
+            assertEquals(StillWatching.entries, Setting.STILL_WATCHING.choices)
+        }
+
     // Picking the value a setting already has leaves it as it is, rather than switching it.
     @Test
     fun choosingTheCurrentValueKeepsIt() =

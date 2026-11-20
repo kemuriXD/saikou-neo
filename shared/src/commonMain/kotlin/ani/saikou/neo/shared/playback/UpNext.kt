@@ -17,9 +17,14 @@ public data class UpNextEpisode(
     val still: String?,
 )
 
-/** Up next is showing, counting down [secondsLeft], or waiting while it's null: on an answer, or for the next server. */
+/**
+ * Up next is showing, counting down [secondsLeft], or waiting while it's null: on an answer, or for the next server. After
+ * a run of episodes with no button pressed it asks if you're still watching instead, saying how many [stillWatching]
+ * played in a row (ADR 0055).
+ */
 public data class UpNext(
     val secondsLeft: Int?,
+    val stillWatching: Int? = null,
 )
 
 /** Where moving on goes: the next episode's [request], or the servers page for [episode]. */

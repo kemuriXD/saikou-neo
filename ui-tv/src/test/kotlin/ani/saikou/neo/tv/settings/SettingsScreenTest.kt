@@ -33,6 +33,7 @@ import ani.saikou.neo.shared.settings.ScheduleRelease
 import ani.saikou.neo.shared.settings.ScheduleSettings
 import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
+import ani.saikou.neo.shared.settings.StillWatching
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.settings.TickList
 import ani.saikou.neo.shared.settings.UpdateAniList
@@ -140,6 +141,28 @@ class SettingsScreenTest {
         compose.onNodeWithText("Hikari", useUnmergedTree = true).assertExists()
         // Like Add a source, Sign in stays on top to switch accounts.
         compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).assertExists()
+    }
+
+    // #458: Playback picks how many episodes play on before Up next asks if you're still watching (ADR 0055).
+    @Test
+    fun playbackChoosesWhenToAskIfStillWatching() {
+        compose.setContent {
+            NeoTheme {
+                SettingsScreen(Settings(), onChoose = { setting, value -> chosen += setting to value }, start = SettingsCategory.PLAYBACK)
+            }
+        }
+        press(Key.DirectionRight)
+        setting(Setting.STILL_WATCHING).assertIsFocused()
+        compose.onNodeWithText("After 2 episodes", useUnmergedTree = true).assertExists()
+
+        press(Key.DirectionCenter)
+        compose.onNodeWithText("About 50 minutes of a TV series", useUnmergedTree = true).assertExists()
+        choice(Setting.STILL_WATCHING, StillWatching.AFTER_2).assertIsFocused()
+        press(Key.DirectionDown, times = 3)
+        choice(Setting.STILL_WATCHING, StillWatching.NEVER).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(Setting.STILL_WATCHING to StillWatching.NEVER), chosen)
     }
 
     // Signed in, Account ends with Watching on this TV (ADR 0053). Update AniList opens its panel; Private mode
@@ -460,6 +483,8 @@ class SettingsScreenTest {
 
         press(Key.DirectionDown, times = 2)
         press(Key.DirectionRight)
+        // Still watching? comes first (ADR 0055).
+        press(Key.DirectionDown)
         press(Key.DirectionCenter)
 
         // Both is last and marked, with Dub and then Sub above it.
@@ -477,6 +502,8 @@ class SettingsScreenTest {
 
         press(Key.DirectionDown, times = 2)
         press(Key.DirectionRight)
+        // Still watching? comes first (ADR 0055).
+        press(Key.DirectionDown)
         press(Key.DirectionCenter)
         press(Key.DirectionUp)
         press(Key.DirectionCenter)

@@ -6,6 +6,7 @@ import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
+import ani.saikou.neo.shared.settings.StillWatching
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -129,12 +130,14 @@ class PlayerUpNextTest {
         updates: Updates = Updates(asks = null),
         streams: Streams = Streams(),
         audio: String? = null,
+        run: WatchingRun? = null,
     ) = PlayerViewModel(
         streams,
         PlayRequest(show, episode, null, listOf(PlayServer(demo, server, 2)), 0, audio = audio),
         history = NoHistory,
         updates = updates,
         servers = servers,
+        run = run,
     ).also { it.started() }
 
     private val PlayerViewModel<String>.going get() = state.value.going
@@ -301,6 +304,110 @@ class PlayerUpNextTest {
             assertEquals(1, servers.asked)
             assertNull(player.going)
             assertNull(player.state.value.upNext)
+        }
+
+    // After 2 with one episode already played on: this one's Up next asks.
+    private fun runAtTheSetting() = WatchingRun { StillWatching.AFTER_2 }.also { it.playedOn() }
+
+    @Test
+    fun afterARunUpNextAsksInsteadOfCountingDown() =
+        test {
+            val player = player(run = runAtTheSetting())
+            player.reachedUpNext()
+
+            assertEquals(UpNext(secondsLeft = null, stillWatching = 2), player.state.value.upNext)
+            advanceTimeBy(60.seconds)
+            assertNull(player.going)
+
+            player.playNext()
+            assertTrue(player.going is NextPlay.Play)
+        }
+
+    @Test
+    fun theCountdownPlayingOnAddsToTheRun() =
+        test {
+            val run = WatchingRun { StillWatching.AFTER_2 }
+            val player = player(run = run)
+            player.reachedUpNext()
+            advanceTimeBy(10.5.seconds)
+
+            assertTrue(player.going is NextPlay.Play)
+            assertEquals(2, run.asks())
+        }
+
+    @Test
+    fun playingOnFromPlayDoesntAddToTheRun() =
+        test {
+            val run = WatchingRun { StillWatching.AFTER_2 }
+            val player = player(run = run)
+            player.reachedUpNext()
+            player.playNext()
+
+            assertTrue(player.going is NextPlay.Play)
+            assertNull(run.asks())
+        }
+
+    @Test
+    fun afterWatchCreditsTheEndAsksAgainThoughBackWasAPress() =
+        test {
+            val run = runAtTheSetting()
+            val player = player(run = run)
+            player.reachedUpNext()
+            player.watchCredits()
+            run.pressed()
+
+            assertFalse(player.ended())
+            assertEquals(UpNext(secondsLeft = null, stillWatching = 2), player.state.value.upNext)
+            advanceTimeBy(60.seconds)
+            assertNull(player.going)
+        }
+
+    @Test
+    fun answeringAniListDoesntStartACountdownWhileItAsks() =
+        test {
+            val player = player(updates = Updates(asks = 1), run = runAtTheSetting())
+            player.played(positionMs = 1_400_000, durationMs = 1_440_000)
+            player.reachedUpNext()
+            assertEquals(7, player.state.value.askAniList)
+
+            player.answer(true)
+
+            assertEquals(UpNext(secondsLeft = null, stillWatching = 2), player.state.value.upNext)
+            advanceTimeBy(60.seconds)
+            assertNull(player.going)
+        }
+
+    @Test
+    fun whereUpNextShowsTheEpisodeIsDoneSoStoppingLeavesTheNextOneWaiting() =
+        test {
+            val saved = mutableListOf<WatchProgress>()
+            val history =
+                object : WatchHistory {
+                    override val shows = kotlinx.coroutines.flow.flowOf(emptyMap<Int, WatchProgress>())
+
+                    override fun save(
+                        animeId: Int,
+                        progress: WatchProgress,
+                    ) {
+                        saved += progress
+                    }
+                }
+            val updates = Updates(asks = null)
+            val player =
+                PlayerViewModel(
+                    Streams(),
+                    PlayRequest(show, 7, null, listOf(PlayServer(demo, sub, 2)), 0),
+                    history = history,
+                    updates = updates,
+                    run = runAtTheSetting(),
+                ).also { it.started() }
+            val length = 1_440_000L
+            player.played(positionMs = length - UP_NEXT_BEFORE_END.inWholeMilliseconds, durationMs = length)
+            player.reachedUpNext()
+
+            assertTrue(saved.last().watchedToEnd)
+            assertEquals(listOf(7), updates.watched)
+            assertTrue(player.leave().not())
         }
 }
 

@@ -150,6 +150,7 @@ class PlayerScreenTest {
                         onNext = { pressed += "play" },
                         onUpNext = { pressed += "up next" },
                         onWatchCredits = { pressed += "credits" },
+                        onLeave = { pressed += "leave" },
                     ),
                     playback,
                     controls,
@@ -192,6 +193,25 @@ class PlayerScreenTest {
         playback.positionMs = playback.durationMs - 30_000
         compose.mainClock.advanceTimeBy(1_000)
         assertEquals("up next", pressed.firstOrNull())
+    }
+
+    // #458: after a run, Up next asks if you're still watching, with no countdown, and Stop leaves.
+    @Test
+    fun afterARunUpNextAsksIfYoureStillWatching() {
+        showUpNext(UpNext(secondsLeft = null, stillWatching = 2))
+
+        compose.onNodeWithText("STILL WATCHING?").assertExists()
+        compose.onNodeWithText("2 episodes have played in a row. E8 waits until you press Play.").assertExists()
+        compose.onNodeWithText("A delivery job turns out to be a trap.").assertDoesNotExist()
+        compose.onNodeWithText("Watch credits").assertDoesNotExist()
+        compose.onNodeWithTag(UP_NEXT_PLAY_TAG).assertIsFocused()
+
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(UP_NEXT_STOP_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+        back()
+
+        assertEquals(listOf("leave", "credits"), pressed)
     }
 
     // ADR 0053, moved by 0054: the AniList question shows over Up next, and the countdown waits.

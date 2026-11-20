@@ -18,7 +18,19 @@ public data class Settings(
     val updateAniList: UpdateAniList = UpdateAniList.ALWAYS,
     /** Nothing goes to AniList from this TV while it's on, whatever [updateAniList] says. */
     val privateMode: Boolean = false,
+    /** How many episodes play on with no button pressed before Up next asks if you're still watching (ADR 0055). */
+    val stillWatching: StillWatching = StillWatching.AFTER_2,
 )
+
+/** Up next asks after this many [episodes] in a row with no button pressed, or never. */
+public enum class StillWatching(
+    public val episodes: Int?,
+) {
+    AFTER_2(2),
+    AFTER_3(3),
+    AFTER_5(5),
+    NEVER(null),
+}
 
 /** Whether finishing an episode here moves AniList: always, once the show's been answered yes, or never. */
 public enum class UpdateAniList { ALWAYS, ASK, OFF }

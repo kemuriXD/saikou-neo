@@ -21,6 +21,7 @@ public enum class Setting(
     SHORT_EPISODES(OffOn),
     UPDATE_ANILIST(UpdateAniList.entries),
     PRIVATE_MODE(OffOn),
+    STILL_WATCHING(StillWatching.entries),
 }
 
 /** The value [setting] has now, one of its [Setting.choices]. */
@@ -34,6 +35,7 @@ public operator fun Settings.get(setting: Setting): Any =
         Setting.SHORT_EPISODES -> schedule.shortEpisodes
         Setting.UPDATE_ANILIST -> updateAniList
         Setting.PRIVATE_MODE -> privateMode
+        Setting.STILL_WATCHING -> stillWatching
     }
 
 internal fun Settings.with(
@@ -49,6 +51,7 @@ internal fun Settings.with(
         Setting.SHORT_EPISODES -> copy(schedule = schedule.withShortEpisodes(value as Boolean))
         Setting.UPDATE_ANILIST -> copy(updateAniList = value as UpdateAniList)
         Setting.PRIVATE_MODE -> copy(privateMode = value as Boolean)
+        Setting.STILL_WATCHING -> copy(stillWatching = value as StillWatching)
     }
 
 /** The Settings screen's state: the saved settings, or null until they're read. */

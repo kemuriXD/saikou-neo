@@ -18,7 +18,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.createLifecycleAwareWindowRecomposer
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -147,14 +149,17 @@ class MainActivity : ComponentActivity() {
             val account = viewModel { TvAccountViewModel(KeystoreAccountStore(applicationContext)) }
             val profile by account.profile.collectAsStateWithLifecycle()
             NeoTheme(light = settings.slowTv) {
-                // Every key passes through HeldKeys before it can move focus. Test tags double as resource IDs, so
-                // :benchmark-tv can find the cards.
+                // Every key passes through HeldKeys before it can move focus, and tells the run of episodes someone's
+                // there (ADR 0055). Test tags double as resource IDs, so :benchmark-tv can find the cards.
                 Surface(
                     modifier =
                         Modifier
                             .fillMaxSize()
                             .semantics { testTagsAsResourceId = true }
-                            .onPreviewKeyEvent { heldKeys.drop(it.nativeKeyEvent) },
+                            .onPreviewKeyEvent {
+                                if (it.type == KeyEventType.KeyDown) app.watchingRun.pressed()
+                                heldKeys.drop(it.nativeKeyEvent)
+                            },
                 ) {
                     NeoNavigation(
                         home = { openDetails, openSeeMore ->
@@ -435,6 +440,7 @@ class MainActivity : ComponentActivity() {
                                         history = app.history,
                                         updates = app.sync,
                                         servers = app.serverFinder,
+                                        run = app.watchingRun,
                                     )
                                 }
                             val state by player.state.collectAsStateWithLifecycle()

@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +46,7 @@ import coil3.compose.AsyncImage
 internal const val UP_NEXT_TAG = "player-up-next"
 internal const val UP_NEXT_PLAY_TAG = "player-up-next-play"
 internal const val UP_NEXT_CREDITS_TAG = "player-up-next-credits"
+internal const val UP_NEXT_STOP_TAG = "player-up-next-stop"
 
 // From the design (3:4515): the video shrinks to 520 × 293 at the top left, with Up next beside it.
 internal val UpNextVideoLeft = 48.dp
@@ -62,7 +64,8 @@ private const val RING_TRACK_ALPHA = 0.2f
 
 /**
  * Up next over the shrunk video: [next]'s still, title and synopsis, with Play counting down [upNext]'s seconds and Watch
- * credits. Play has focus. [ending] says the ending is what's playing.
+ * credits. Play has focus. [ending] says the ending is what's playing. After a run of episodes it asks if you're still
+ * watching instead (204:172): Play has no countdown, and Stop calls [onStop] in place of Watch credits.
  */
 @Composable
 internal fun BoxScope.UpNextScreen(
@@ -72,7 +75,9 @@ internal fun BoxScope.UpNextScreen(
     ending: Boolean,
     onPlay: () -> Unit,
     onCredits: () -> Unit,
+    onStop: () -> Unit = {},
 ) {
+    val run = upNext.stillWatching
     val colors = NeoTheme.colors
     val typography = NeoTheme.typography
     val play = remember { FocusRequester() }
@@ -88,7 +93,7 @@ internal fun BoxScope.UpNextScreen(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            stringResource(R.string.player_up_next).uppercase(),
+            stringResource(if (run == null) R.string.player_up_next else R.string.player_still_watching).uppercase(),
             style = typography.overline.copy(fontSize = 12.sp, lineHeight = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp),
             color = colors.pink,
         )
@@ -101,7 +106,8 @@ internal fun BoxScope.UpNextScreen(
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
-        next.synopsis?.let {
+        val note = run?.let { pluralStringResource(R.plurals.player_still_watching_run, it, it, next.number) }
+        (note ?: next.synopsis)?.let {
             Text(
                 it,
                 style = typography.body.copy(fontSize = 14.sp, lineHeight = 20.sp),
@@ -124,9 +130,11 @@ internal fun BoxScope.UpNextScreen(
                     )
                 }
             }
-            NeoSurface(onCredits, CircleShape, NeoTheme.dimensions.focusScaleButton, Modifier.testTag(UP_NEXT_CREDITS_TAG)) {
+            val second = if (run == null) onCredits else onStop
+            val tag = if (run == null) UP_NEXT_CREDITS_TAG else UP_NEXT_STOP_TAG
+            NeoSurface(second, CircleShape, NeoTheme.dimensions.focusScaleButton, Modifier.testTag(tag)) {
                 Box(Modifier.height(44.dp).padding(horizontal = 18.dp), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.player_watch_credits), style = typography.label)
+                    Text(stringResource(if (run == null) R.string.player_watch_credits else R.string.player_stop), style = typography.label)
                 }
             }
         }

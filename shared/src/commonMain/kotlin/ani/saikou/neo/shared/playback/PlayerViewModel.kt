@@ -177,7 +177,8 @@ public data class PlayerState<out S>(
  * saved to [history] while it plays and when it stops, with the time [now] gives in seconds. Once the episode counts as
  * watched, or the viewer moves on to the next one, [updates] is told, once, unless it asks first. Then the episode is
  * held, and the question is asked as the viewer leaves, or over Up next. Going on to the next episode asks [servers] for
- * it on the same source (ADR 0054).
+ * it on the same source (ADR 0054). After a [run] of episodes with no button pressed, Up next asks instead of counting
+ * down (ADR 0055).
  */
 public class PlayerViewModel<S>(
     private val finder: StreamFinder<S>,
@@ -187,6 +188,7 @@ public class PlayerViewModel<S>(
     private val now: () -> Long = { Clock.System.now().epochSeconds },
     private val updates: WatchingUpdates? = null,
     private val servers: ServerFinder? = null,
+    private val run: WatchingRun? = null,
 ) : ViewModel() {
     private var index = request.picked
     private var triedNext = false
@@ -195,6 +197,10 @@ public class PlayerViewModel<S>(
     private var counted = false
     private var countdown: Job? = null
     private var goingOn: Job? = null
+    private var showing: Job? = null
+
+    // How many episodes played in a row once Up next has asked if you're still watching. It asks again at the end.
+    private var stillWatching: Int? = null
 
     // Play was pressed, so another press waits for it.
     private var startingNext: Job? = null
@@ -319,7 +325,7 @@ public class PlayerViewModel<S>(
         if (playsOnAfterAnswer) {
             playsOnAfterAnswer = false
             goOn()
-        } else if (state.value.upNext != null) {
+        } else if (state.value.upNext != null && stillWatching == null) {
             countDown()
         }
     }
@@ -341,6 +347,7 @@ public class PlayerViewModel<S>(
     public fun watchCredits() {
         if (state.value.going != null) return
         countdown?.cancel()
+        showing?.cancel()
         startingNext?.cancel()
         goingOn?.cancel()
         credits = true
@@ -349,12 +356,17 @@ public class PlayerViewModel<S>(
 
     private fun showUpNext() {
         if (state.value.next == null || state.value.going != null) return
-        mutableState.update { it.copy(upNext = UpNext(secondsLeft = null)) }
-        if (held != null) {
-            mutableState.update { it.copy(askAniList = request.episode) }
-        } else {
-            countDown()
-        }
+        mutableState.update { it.copy(upNext = UpNext(secondsLeft = null, stillWatching)) }
+        showing =
+            viewModelScope.launch {
+                if (stillWatching == null) stillWatching = run?.asks()
+                mutableState.update { it.copy(upNext = UpNext(secondsLeft = null, stillWatching)) }
+                if (held != null) {
+                    mutableState.update { it.copy(askAniList = request.episode) }
+                } else if (stillWatching == null) {
+                    countDown()
+                }
+            }
     }
 
     private fun countDown() {
@@ -365,6 +377,7 @@ public class PlayerViewModel<S>(
                     mutableState.update { it.copy(upNext = UpNext(left)) }
                     delay(1000)
                 }
+                run?.playedOn()
                 playNext()
             }
     }
@@ -382,7 +395,7 @@ public class PlayerViewModel<S>(
                     goOn()
                 } else {
                     playsOnAfterAnswer = true
-                    mutableState.update { it.copy(upNext = UpNext(secondsLeft = null), askAniList = request.episode) }
+                    mutableState.update { it.copy(upNext = UpNext(secondsLeft = null, stillWatching), askAniList = request.episode) }
                 }
             }
     }
@@ -393,7 +406,7 @@ public class PlayerViewModel<S>(
         val playing = state.value.server
         val answered = (state.value.phase as? PlayerPhase.Playing)?.answered
         val audio = answered?.audio?.getOrNull(state.value.pickedAudio)
-        mutableState.update { it.copy(upNext = UpNext(secondsLeft = null)) }
+        mutableState.update { it.copy(upNext = UpNext(secondsLeft = null, stillWatching)) }
         // Kept, so a second press waits for this one and Watch credits stops it.
         goingOn =
             viewModelScope.launch {
