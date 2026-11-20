@@ -42,6 +42,7 @@ import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import ani.saikou.neo.extension.api.Stream
+import ani.saikou.neo.shared.account.ShownNotice
 import ani.saikou.neo.shared.home.daysSince
 import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.FailReason
@@ -64,6 +65,7 @@ import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoDialogButton
 import ani.saikou.neo.tv.ui.NeoDialogButtons
 import ani.saikou.neo.tv.ui.NeoIcons
+import ani.saikou.neo.tv.ui.NoticeActions
 import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
@@ -152,6 +154,8 @@ internal fun PlayerScreen(
     video: @Composable (subtitlesAbove: Float?) -> Unit,
     modifier: Modifier = Modifier,
     looks: Looks = Looks(),
+    notice: ShownNotice? = null,
+    noticeActions: NoticeActions = NoticeActions(),
 ) {
     val scrim = NeoTheme.colors.scrimPlayer
     // Where the open controls start, in the window, for subtitles to stay above.
@@ -209,6 +213,8 @@ internal fun PlayerScreen(
                         actions.onNext,
                         actions.onWatchCredits,
                         actions.onLeave,
+                        notice,
+                        noticeActions,
                     )
                     BackHandler(enabled = state.askAniList == null, onBack = actions.onWatchCredits)
                 } else {

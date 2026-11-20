@@ -767,4 +767,22 @@
         <item quantity="one">Marks the episode watched</item>
         <item quantity="other">Marks all %d episodes watched</item>
     </plurals>
+
+    <!-- The notice after the TV changes your AniList list (ADR 0056). %1$s is the show. -->
+    <string name="notice_episode_on_anilist">%1$s · episode %2$d on AniList</string>
+    <!-- %2$s is a list status, such as "Completed on AniList". -->
+    <string name="notice_status_on_anilist">%1$s · %2$s on AniList</string>
+    <string name="notice_off_your_list">%1$s · off your list</string>
+    <string name="notice_saved_for_later">%1$s · episode %2$d saved for later</string>
+    <string name="notice_sent_when_online">Sent to AniList when this TV is back online</string>
+    <string name="notice_it_was_episode">It was episode %1$d</string>
+    <!-- Such as "It was Planning, episode 0". -->
+    <string name="notice_it_was_status">It was %1$s, episode %2$d</string>
+    <string name="notice_it_was">It was %1$s</string>
+    <string name="notice_wasnt_on_your_list">It wasn\'t on your list</string>
+    <string name="notice_couldnt_undo">Couldn\'t undo %1$s</string>
+    <string name="notice_couldnt_undo_why">AniList changed since, or can\'t be reached</string>
+    <!-- Stands in for the show's name when AniList didn't give one. -->
+    <string name="notice_this_show">This show</string>
+    <string name="notice_undo">Undo</string>
 </resources>

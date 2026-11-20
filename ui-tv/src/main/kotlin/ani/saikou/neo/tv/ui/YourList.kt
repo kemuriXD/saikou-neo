@@ -223,7 +223,7 @@ private fun Radio(ticked: Boolean) {
 }
 
 @Composable
-private fun statusName(status: ListStatus): String =
+internal fun statusName(status: ListStatus): String =
     stringResource(
         when (status) {
             ListStatus.WATCHING -> R.string.list_watching

@@ -10,14 +10,18 @@ import android.provider.Settings
 import android.view.Choreographer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -104,6 +108,8 @@ import ani.saikou.neo.tv.signin.ProfileSignedOutScreen
 import ani.saikou.neo.tv.signin.SignInScreen
 import ani.saikou.neo.tv.sources.sourceThreads
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.NoticeActions
+import ani.saikou.neo.tv.ui.NoticeOverScreens
 import ani.saikou.neo.tv.ui.Section
 import ani.saikou.neo.tv.ui.SectionPlaceholder
 import kotlinx.coroutines.flow.map
@@ -134,6 +140,8 @@ class MainActivity : ComponentActivity() {
         // Opened again after a long time away, the app starts on Home rather than where it was left.
         super.onCreate(absence.restore(savedInstanceState))
         // AniList updates that couldn't be sent before go now. Only the TV does this, so the phone never opens the queue.
+        // The notice listens from the start, so no change the TV makes goes unsaid (ADR 0056).
+        app.notices
         if (savedInstanceState == null) app.sync.flush()
         // Where the system splash shows, it goes with a plain cut to the same lockup in the window background (ADR 0018).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -148,6 +156,11 @@ class MainActivity : ComponentActivity() {
             // The AniList account on this TV, for Profile and Settings > Account. Read again once Sign in saves one.
             val account = viewModel { TvAccountViewModel(KeystoreAccountStore(applicationContext)) }
             val profile by account.profile.collectAsStateWithLifecycle()
+            // The AniList notice (ADR 0056): Up next shows it in the player, and it shows over every other screen.
+            val notice by app.notices.shown.collectAsStateWithLifecycle()
+            val noticeActions = remember { NoticeActions(app.notices::undo, app.notices::undoFocused) }
+            var inPlayer by remember { mutableStateOf(false) }
+            val screen = remember { FocusRequester() }
             NeoTheme(light = settings.slowTv) {
                 // Every key passes through HeldKeys before it can move focus, and tells the run of episodes someone's
                 // there (ADR 0055). Test tags double as resource IDs, so :benchmark-tv can find the cards.
@@ -156,6 +169,9 @@ class MainActivity : ComponentActivity() {
                         Modifier
                             .fillMaxSize()
                             .semantics { testTagsAsResourceId = true }
+                            // Where focus goes back to from the notice's Undo.
+                            .focusRequester(screen)
+                            .focusGroup()
                             .onPreviewKeyEvent {
                                 if (it.type == KeyEventType.KeyDown) app.watchingRun.pressed()
                                 heldKeys.drop(it.nativeKeyEvent)
@@ -444,6 +460,16 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             val state by player.state.collectAsStateWithLifecycle()
+                            // A notice from watching waits while the video is full screen, for Up next or the way out.
+                            val fullScreen = state.upNext == null
+                            LaunchedEffect(fullScreen) { app.notices.playing(fullScreen) }
+                            DisposableEffect(Unit) {
+                                inPlayer = true
+                                onDispose {
+                                    inPlayer = false
+                                    app.notices.playing(fullScreen = false)
+                                }
+                            }
                             // On to the next episode, or its servers page when the same server or audio isn't there (ADR 0054).
                             LaunchedEffect(state.going) {
                                 when (val going = state.going) {
@@ -543,9 +569,12 @@ class MainActivity : ComponentActivity() {
                                             subtitles::useMyLook,
                                         ),
                                     ),
+                                notice = notice,
+                                noticeActions = noticeActions,
                             )
                         },
                     )
+                    if (!inPlayer) NoticeOverScreens(notice, noticeActions, screen)
                 }
             }
         }
