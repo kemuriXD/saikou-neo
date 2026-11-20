@@ -32,6 +32,9 @@ public fun interface YourList {
         animeId: Int,
         progress: Int,
     ) {}
+
+    /** The list changed on AniList from this TV, so it's read again next time. */
+    public suspend fun forget() {}
 }
 
 /**
@@ -76,6 +79,8 @@ public class AniListYourList(
             val shows = list.shows.map { if (it.animeId == animeId) it.copy(progress = progress, updatedAt = now()) else it }
             kept = Kept(list.userId, list.at, shows)
         }
+
+    override suspend fun forget(): Unit = lock.withLock { kept = null }
 }
 
 /**

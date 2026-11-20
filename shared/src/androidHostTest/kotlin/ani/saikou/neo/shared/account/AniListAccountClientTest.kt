@@ -111,7 +111,9 @@ class AniListAccountClientTest {
             val result = clientFor(engine).showEntry(token, mediaId = 101)
 
             assertEquals(
-                AniListResult.Success(ShowEntry(12, ListEntry(ListStatus.PAUSED, 4, hasStartDate = true, repeat = 1), finished = true)),
+                AniListResult.Success(
+                    ShowEntry(12, ListEntry(ListStatus.PAUSED, 4, hasStartDate = true, repeat = 1, id = 555), finished = true),
+                ),
                 result,
             )
             assertEquals(listOf("Bearer the-token"), engine.authorizations)
@@ -123,6 +125,15 @@ class AniListAccountClientTest {
             val result = clientFor(RecordedEngine("list-entry-none")).showEntry(token, mediaId = 101)
 
             assertEquals(AniListResult.Success(ShowEntry(null, null)), result)
+        }
+
+    // Read as not on the list, a change would reset its progress and a remove would leave it there.
+    @Test
+    fun aStatusTheAppDoesntKnowIsAnError() =
+        runTest {
+            val result = clientFor(RecordedEngine("list-entry-unknown")).showEntry(token, mediaId = 101)
+
+            assertIs<AniListResult.Failure>(result)
         }
 
     @Test
@@ -165,6 +176,26 @@ class AniListAccountClientTest {
             assertTrue("\"status\":\"COMPLETED\"" in body && "\"repeat\":3" in body, body)
             assertTrue("\"completedAt\":{\"year\":2026,\"month\":11,\"day\":20}" in body, body)
             assertTrue("\"startedAt\"" !in body, body)
+        }
+
+    @Test
+    fun removeEntryDeletesItByItsId() =
+        runTest {
+            val engine = RecordedEngine("delete-entry")
+
+            val result = clientFor(engine).removeEntry(token, entryId = 555)
+
+            assertEquals(AniListResult.Success(Unit), result)
+            val body = engine.requestBodies.single()
+            assertTrue("\"id\":555" in body && "DeleteMediaListEntry" in body, body)
+        }
+
+    @Test
+    fun aTokenAniListRefusesForARemoveIsSignedOut() =
+        runTest {
+            val result = clientFor(RecordedEngine("viewer-invalid-token", status = 401)).removeEntry(token, 555)
+
+            assertEquals(AniListResult.Failure(AniListError.SignedOut), result)
         }
 
     @Test

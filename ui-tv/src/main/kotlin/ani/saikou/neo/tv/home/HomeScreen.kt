@@ -56,6 +56,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.account.ListButtonState
+import ani.saikou.neo.shared.account.ListStatus
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.HomeState
@@ -71,6 +73,7 @@ import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.PreloadLogo
 import ani.saikou.neo.tv.ui.RailWidth
+import ani.saikou.neo.tv.ui.YourListPanel
 import ani.saikou.neo.tv.ui.logoRequest
 import ani.saikou.neo.tv.ui.placeholder
 import ani.saikou.neo.tv.ui.rememberPulse
@@ -164,7 +167,9 @@ private data class CardKey(
  * the spotlight's dots call [onPick], and the button at the end of each row calls [onSeeMore]. [onSpotlightInView] says whether the spotlight is showing, so it only moves on
  * while seen. [onRest] gets the card focus is on, or null off the cards, so resting on one can find its art.
  * Back in the rows first returns to the top; Back there leaves. When the TV is offline, Home says so instead: Try again calls [onRetry], Network settings calls [onNetworkSettings],
- * and [onOfflineInView] says whether that's showing.
+ * and [onOfflineInView] says whether that's showing. Signed in, [list] gives a show's status on your list, and picking
+ * one in the list panel calls [onListChange] with it, or null to remove the show. Opening the panel stops the spotlight
+ * moving on.
  */
 @Composable
 fun HomeScreen(
@@ -178,6 +183,8 @@ fun HomeScreen(
     onRetry: () -> Unit = {},
     onNetworkSettings: () -> Unit = {},
     onOfflineInView: (inView: Boolean) -> Unit = {},
+    list: (animeId: Int) -> ListButtonState = { ListButtonState.Hidden },
+    onListChange: (animeId: Int, status: ListStatus?) -> Unit = { _, _ -> },
 ) {
     if (state.offline) {
         HomeOffline(onRetry, onNetworkSettings, onOfflineInView, modifier)
@@ -197,6 +204,9 @@ fun HomeScreen(
     val spotlight = rememberFirstShow(state.spotlight)
     val play = remember { FocusRequester() }
     val dots = remember { FocusRequester() }
+    val listFocus = remember { FocusRequester() }
+    // The show whose list panel is open.
+    var listFor by remember { mutableStateOf<AnimeCard?>(null) }
     // Where focus goes when nothing has it yet: the spotlight's Play button, there even while loading, or the saved card
     // if focus was in the rows. Null while the saved card's row is still loading.
     val focusPlay = !hasFocus && focused == null
@@ -257,7 +267,10 @@ fun HomeScreen(
                 Modifier
                     .padding(start = ContentStart, top = SpotlightTop)
                     .size(SpotlightWidth, SpotlightBottom - SpotlightTop)
-            SpotlightShow(spotlight, state.progress, play, dots, onOpen, place.then(hide))
+            SpotlightShow(spotlight, state.progress, play, dots, onOpen, list, listFocus, onList = { card ->
+                spotlight?.let { onPick(it.index) }
+                listFor = card
+            }, modifier = place.then(hide))
             // Centred beside the rail, as in the design.
             val dotsPlace = Modifier.align(Alignment.TopCenter).padding(start = RailWidth, top = DotsTop)
             if (spotlight == null) {
@@ -315,6 +328,18 @@ fun HomeScreen(
                     }
                 }
             }
+        }
+        val listing = listFor
+        val listed = listing?.let { list(it.id) } as? ListButtonState.Shown
+        if (listing != null && listed != null) {
+            fun close() {
+                listFor = null
+                listFocus.requestFocus()
+            }
+            YourListPanel(listing.displayTitle(), listed, onChange = { status ->
+                onListChange(listing.id, status)
+                close()
+            }, onClose = ::close)
         }
     }
 }

@@ -7,6 +7,8 @@ import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.home.YourList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -14,6 +16,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
@@ -46,6 +49,18 @@ class AniListSyncTest {
             calls++
             failWith?.let { return AniListResult.Failure(it) }
             saved += mediaId to update
+            return AniListResult.Success(Unit)
+        }
+
+        val removed = mutableListOf<Int>()
+
+        override suspend fun removeEntry(
+            token: AniListToken,
+            entryId: Int,
+        ): AniListResult<Unit> {
+            calls++
+            failWith?.let { return AniListResult.Failure(it) }
+            removed += entryId
             return AniListResult.Success(Unit)
         }
     }
@@ -353,4 +368,91 @@ class AniListSyncTest {
             progress: WatchProgress,
         ) = Unit
     }
+
+    @Test
+    fun theEntryIsTheSignedInUsers() =
+        runTest {
+            val client = FakeClient()
+
+            assertEquals(OnYourList(1, client.entry), sync(client, MemoryQueue()).entry(101))
+        }
+
+    @Test
+    fun thereIsNoEntrySignedOutWithAnExpiredTokenOrWhenAniListCantBeReached() =
+        runTest {
+            val expired = SignedInAccount(me.profile, AniListToken("old-token", 1_000))
+
+            assertNull(sync(FakeClient(), MemoryQueue(), account = null).entry(101))
+            assertNull(sync(FakeClient(), MemoryQueue(), account = expired).entry(101))
+            assertNull(sync(FakeClient(failWith = AniListError.Network("offline")), MemoryQueue()).entry(101))
+        }
+
+    // The entry is read again, so dates set elsewhere since the button showed are kept.
+    @Test
+    fun aStatusIsSavedFromAniListsEntryNow() =
+        runTest {
+            val client = FakeClient()
+
+            val sync = sync(client, MemoryQueue())
+            val told = async { sync.changes.first() }
+            runCurrent()
+
+            assertTrue(sync.changeStatus(101, ListStatus.COMPLETED, forUser = 1))
+            assertEquals(listOf(101 to ProgressUpdate(12, ListStatus.COMPLETED, null, completedAt = today)), client.saved)
+            assertEquals(ListChange(101, ListStatus.COMPLETED, userId = 1), told.await())
+        }
+
+    @Test
+    fun aStatusForSomeoneElseIsNotSent() =
+        runTest {
+            val client = FakeClient()
+
+            assertFalse(sync(client, MemoryQueue()).changeStatus(101, ListStatus.PAUSED, forUser = 2))
+            assertEquals(0, client.calls)
+        }
+
+    @Test
+    fun aStatusAniListDoesntTakeSaysSo() =
+        runTest {
+            assertFalse(sync(FakeClient(failWith = AniListError.Network("offline")), MemoryQueue()).changeStatus(101, ListStatus.PAUSED, 1))
+        }
+
+    // A waiting update would add the show back.
+    @Test
+    fun removingDeletesTheEntryAndWhatsWaitingForIt() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, ListEntry(ListStatus.WATCHING, 3, true, id = 555)))
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 4, userId = 1) }
+
+            val sync = sync(client, queue)
+            val told = async { sync.changes.first() }
+            runCurrent()
+
+            assertTrue(sync.remove(101, forUser = 1))
+            assertEquals(listOf(555), client.removed)
+            assertEquals(emptyList(), queue.all())
+            assertEquals(ListChange(101, null, userId = 1), told.await())
+        }
+
+    @Test
+    fun removingAShowThatsNotOnTheListIsDone() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, null))
+
+            assertTrue(sync(client, MemoryQueue()).remove(101, forUser = 1))
+            assertEquals(emptyList(), client.removed)
+        }
+
+    @Test
+    fun aRemoveForSomeoneElseOrThatFailsDeletesNothing() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, ListEntry(ListStatus.WATCHING, 3, true, id = 555)))
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 4, userId = 1) }
+
+            assertFalse(sync(client, queue).remove(101, forUser = 2))
+            assertEquals(0, client.calls)
+            client.failWith = AniListError.Network("offline")
+            assertFalse(sync(client, queue).remove(101, forUser = 1))
+            assertEquals(1, queue.all().size)
+        }
 }

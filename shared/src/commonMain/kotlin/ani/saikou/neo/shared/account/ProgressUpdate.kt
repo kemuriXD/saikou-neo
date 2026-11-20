@@ -20,14 +20,16 @@ public data class ListDate(
 )
 
 /**
- * A show's entry on the user's list: its [status], how many episodes they've watched, whether it has a start date, and
- * how many times they've rewatched it.
+ * A show's entry on the user's list: its [status], how many episodes they've watched, whether it has a start date, how
+ * many times they've rewatched it, whether it has a finish date, and the entry's own AniList [id].
  */
 public data class ListEntry(
     val status: ListStatus,
     val progress: Int,
     val hasStartDate: Boolean,
     val repeat: Int = 0,
+    val hasFinishDate: Boolean = false,
+    val id: Int? = null,
 )
 
 /**
@@ -98,7 +100,29 @@ public fun progressUpdate(
     }
 }
 
-/** The AniList calls watching makes with the signed-in user's token. */
+/**
+ * What picking [to] for [show] from the list button changes on AniList (ADR 0051). The status, and nothing else, except
+ * that Completed watches every episode AniList knows of, fills in empty start and finish dates with [today], and counts
+ * a rewatch it finishes. A show that isn't on the list is added at no progress.
+ */
+public fun statusUpdate(
+    show: ShowEntry,
+    to: ListStatus,
+    today: ListDate,
+): ProgressUpdate {
+    val entry = show.entry
+    val progress = entry?.progress ?: 0
+    if (to != ListStatus.COMPLETED) return ProgressUpdate(progress, to, null)
+    return ProgressUpdate(
+        show.episodes ?: progress,
+        to,
+        today.takeUnless { entry?.hasStartDate == true },
+        completedAt = today.takeUnless { entry?.hasFinishDate == true },
+        repeat = entry?.repeat?.plus(1)?.takeIf { entry.status == ListStatus.REWATCHING },
+    )
+}
+
+/** The AniList calls watching and the list button make with the signed-in user's token. */
 public interface ProgressClient {
     /** [mediaId]'s episode count and the user's entry for it. */
     public suspend fun showEntry(
@@ -111,5 +135,11 @@ public interface ProgressClient {
         token: AniListToken,
         mediaId: Int,
         update: ProgressUpdate,
+    ): AniListResult<Unit>
+
+    /** Takes the entry with AniList ID [entryId] off the user's list. */
+    public suspend fun removeEntry(
+        token: AniListToken,
+        entryId: Int,
     ): AniListResult<Unit>
 }

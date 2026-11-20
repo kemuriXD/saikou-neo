@@ -56,6 +56,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.account.ListButtonState
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.FeaturedReason
 import ani.saikou.neo.shared.home.Logo
@@ -63,6 +64,7 @@ import ani.saikou.neo.shared.home.Spotlight
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.ListButton
 import ani.saikou.neo.tv.ui.LogoHeight
 import ani.saikou.neo.tv.ui.LogoWidth
 import ani.saikou.neo.tv.ui.NeoButton
@@ -118,7 +120,8 @@ private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHei
  * while the buttons stay put, so focus never moves under the viewer. Down from any button goes to the dots.
  * Until [spotlight] arrives, pulsing bars hold the text's place and Play waits unseen, holding focus, then fades in
  * with the show. With [progress] on the
- * show, Play offers to resume it.
+ * show, Play offers to resume it. Signed in, the list button after Play shows the show's [list] status, and [onList]
+ * opens the list panel for it.
  */
 @Composable
 internal fun SpotlightShow(
@@ -127,6 +130,9 @@ internal fun SpotlightShow(
     play: FocusRequester,
     dots: FocusRequester,
     onOpen: (animeId: Int) -> Unit,
+    list: (animeId: Int) -> ListButtonState,
+    listFocus: FocusRequester,
+    onList: (AnimeCard) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val show = spotlight?.show
@@ -210,8 +216,10 @@ internal fun SpotlightShow(
                 )
             }
             if (show != null) {
-                // Lists arrive with AniList sign-in, so this does nothing yet.
-                NeoIconButton(NeoIcons.Add, stringResource(R.string.home_add_to_list), onClick = {}, modifier = toDots)
+                // It changes with Play's label, as the next show's text comes in.
+                (labelShow?.let { list(it.id) } as? ListButtonState.Shown)?.let { listed ->
+                    ListButton(listed, onClick = { onList(show) }, modifier = toDots.focusRequester(listFocus))
+                }
                 // Nothing is to its right, so Right stays here rather than jumping to the dots.
                 NeoIconButton(
                     NeoIcons.Info,
