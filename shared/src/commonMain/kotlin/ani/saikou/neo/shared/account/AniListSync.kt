@@ -4,6 +4,7 @@ import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -58,7 +59,7 @@ public class AniListSync(
     private val now: () -> Long = { Clock.System.now().epochSeconds },
 ) : YourListEntries {
     private val lock = Mutex()
-    private val changed = MutableSharedFlow<ListChange>(extraBufferCapacity = CHANGES_KEPT)
+    private val changed = MutableSharedFlow<ListChange>(extraBufferCapacity = CHANGES_KEPT, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
     override val changes: SharedFlow<ListChange> = changed.asSharedFlow()
 
@@ -127,7 +128,7 @@ public class AniListSync(
         once(forUser) { token ->
             val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
             if (client.saveProgress(token, animeId, statusUpdate(read.value, to, today())) !is AniListResult.Success) return@once false
-            changed.emit(ListChange(animeId, to, forUser))
+            changed.tryEmit(ListChange(animeId, to, forUser))
             true
         }
 
@@ -144,7 +145,7 @@ public class AniListSync(
             val id = read.value.entry?.id
             if (id != null && client.removeEntry(token, id) !is AniListResult.Success) return@once false
             if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
-            changed.emit(ListChange(animeId, null, forUser))
+            changed.tryEmit(ListChange(animeId, null, forUser))
             true
         }
 
@@ -215,7 +216,8 @@ public class AniListSync(
     }
 }
 
-// Changes from buttons on screens that aren't collecting yet aren't needed: those read the entry when they open.
+// Changes are never waited on, so a screen that's slow to collect can't hold up sync. Screens that miss one read the
+// entry when they open.
 private const val CHANGES_KEPT = 8
 
 // A refused token is kept too: signing in again as the same user sends it.

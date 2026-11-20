@@ -127,6 +127,15 @@ class AniListAccountClientTest {
             assertEquals(AniListResult.Success(ShowEntry(null, null)), result)
         }
 
+    // Read as not on the list, a change would reset its progress and a remove would leave it there.
+    @Test
+    fun aStatusTheAppDoesntKnowIsAnError() =
+        runTest {
+            val result = clientFor(RecordedEngine("list-entry-unknown")).showEntry(token, mediaId = 101)
+
+            assertIs<AniListResult.Failure>(result)
+        }
+
     @Test
     fun saveProgressSendsOnlyWhatChanges() =
         runTest {

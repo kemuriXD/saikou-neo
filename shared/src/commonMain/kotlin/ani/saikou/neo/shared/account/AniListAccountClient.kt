@@ -174,7 +174,10 @@ public class AniListAccountClient internal constructor(
                 ?: return AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
         val entry =
             media.mediaListEntry?.let { entry ->
-                val status = entry.status?.toListStatus() ?: return@let null
+                // An entry in a status the app doesn't know is on the list all the same, so it isn't read as missing.
+                val status =
+                    entry.status?.toListStatus()
+                        ?: return AniListResult.Failure(AniListError.Unexpected("Unknown list status ${entry.status}"))
                 ListEntry(
                     status,
                     entry.progress ?: 0,
