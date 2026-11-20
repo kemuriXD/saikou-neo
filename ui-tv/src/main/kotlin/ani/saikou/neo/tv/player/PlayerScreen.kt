@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv.player
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -89,6 +90,10 @@ internal data class PlayerActions(
     val onAudio: (audio: Int, positionMs: Long) -> Unit = { _, _ -> },
     val onServer: (PlayServer, positionMs: Long) -> Unit = { _, _ -> },
     val onEpisode: (Int) -> Unit = {},
+    // Back while an episode waits on "Update AniList as you watch?", which asks it (ADR 0053).
+    val onLeave: () -> Unit = {},
+    // Its answer, or null for Back on it.
+    val onAnswer: (update: Boolean?) -> Unit = {},
 )
 
 // From the design.
@@ -141,6 +146,8 @@ internal fun PlayerScreen(
     val scrim = NeoTheme.colors.scrimPlayer
     // Where the open controls start, in the window, for subtitles to stay above.
     var subtitlesAbove by remember { mutableStateOf<Float?>(null) }
+    // First, so the controls' own Back still closes them first.
+    BackHandler(enabled = state.holdsForAniList && state.askAniList == null, onBack = actions.onLeave)
     Box(modifier.fillMaxSize().background(scrim)) {
         video(subtitlesAbove.takeIf { state.phase is PlayerPhase.Playing })
         when (val phase = state.phase) {
@@ -167,6 +174,11 @@ internal fun PlayerScreen(
             is PlayerPhase.Playing -> {
                 PlayerControls(state, phase.answered, request, actions, playback, controls, looks) { subtitlesAbove = it }
             }
+        }
+        state.askAniList?.let { episode ->
+            LaunchedEffect(Unit) { playback.pause() }
+            AskAniList(request.show.card.displayTitle(), episode) { actions.onAnswer(it) }
+            BackHandler { actions.onAnswer(null) }
         }
     }
 }

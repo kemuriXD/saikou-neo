@@ -272,6 +272,14 @@ object NeoIcons {
         }
     }
 
+    /** A shield with a tick, for private mode. */
+    val Shield: ImageVector by lazy {
+        icon("Shield", viewport = 16f) {
+            svgStroke(2f, "M8 2L13.3333 4V8C13.3333 11.3333 11 13.3333 8 14C5 13.3333 2.66667 11.3333 2.66667 8V4L8 2Z")
+            svgStroke(2f, "M6 8L7.33333 9.33333L10 6.66667")
+        }
+    }
+
     /** A turning arrow, for Reset. */
     val Reset: ImageVector by lazy {
         icon("Reset") {

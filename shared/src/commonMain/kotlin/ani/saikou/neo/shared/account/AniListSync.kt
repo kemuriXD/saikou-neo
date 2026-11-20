@@ -2,6 +2,8 @@ package ani.saikou.neo.shared.account
 
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
+import ani.saikou.neo.shared.settings.Settings
+import ani.saikou.neo.shared.settings.UpdateAniList
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
 import kotlinx.coroutines.channels.BufferOverflow
@@ -55,6 +57,40 @@ public interface WatchedEpisodes : YourListEntries {
     ): Boolean
 }
 
+/** How watching in the player reaches AniList, behind the Update AniList setting (ADR 0053). */
+public interface WatchingUpdates {
+    /** [episode] of [animeId] counts as watched in the player. */
+    public fun watching(
+        animeId: Int,
+        episode: Int,
+    )
+
+    /** The user to ask before [animeId]'s first episode goes to AniList, or null when there's nothing to ask. */
+    public suspend fun asksFirst(animeId: Int): Int?
+
+    /** [forUser] answered whether to [update] AniList for [animeId]. Yes sends [episode] too. */
+    public fun answer(
+        animeId: Int,
+        forUser: Int,
+        update: Boolean,
+        episode: Int,
+    )
+}
+
+/** Each user's answer to "Update AniList as you watch?" for a show, kept on this TV. */
+public interface ShowAnswers {
+    public suspend fun answer(
+        userId: Int,
+        animeId: Int,
+    ): Boolean?
+
+    public suspend fun save(
+        userId: Int,
+        animeId: Int,
+        update: Boolean,
+    )
+}
+
 /** Updates waiting to reach AniList, one per show. */
 public interface SyncQueue {
     public suspend fun all(): List<PendingProgress>
@@ -68,7 +104,8 @@ public interface SyncQueue {
 /**
  * Moves the signed-in user's AniList progress as episodes are watched, following ADR 0047. Each update waits in
  * [queue] until AniList takes it, so one that fails is sent later, and only while the same user is signed in. Work runs
- * in [scope], one update at a time, so it carries on once the player has gone.
+ * in [scope], one update at a time, so it carries on once the player has gone. The [settings] gate it (ADR 0053):
+ * Update AniList decides what watching sends, with [answers] for Ask for each show, and private mode stops every write.
  */
 public class AniListSync(
     private val scope: CoroutineScope,
@@ -78,7 +115,10 @@ public class AniListSync(
     private val today: () -> ListDate,
     /** The time now, in seconds since 1970. */
     private val now: () -> Long = { Clock.System.now().epochSeconds },
-) : WatchedEpisodes {
+    private val settings: suspend () -> Settings = { Settings() },
+    private val answers: ShowAnswers? = null,
+) : WatchedEpisodes,
+    WatchingUpdates {
     private val lock = Mutex()
     private val changed = MutableSharedFlow<ListChange>(extraBufferCapacity = CHANGES_KEPT, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
@@ -96,6 +136,7 @@ public class AniListSync(
         locked {
             val signedIn = account() ?: return@locked
             if (forUser != null && signedIn.profile.id != forUser) return@locked
+            if (settings().privateMode) return@locked
             val waiting = queue.all().firstOrNull { it.animeId == animeId && it.userId == signedIn.profile.id }
             // Watching an earlier episode again doesn't replace a later one still waiting.
             if (waiting == null || waiting.episode < episode) queue.put(PendingProgress(animeId, episode, signedIn.profile.id))
@@ -120,6 +161,7 @@ public class AniListSync(
                     if (signedIn == null || signedIn.profile.id != forUser || signedIn.token.expiresAtEpochSeconds <= now()) {
                         return@withLock false
                     }
+                    if (settings().privateMode) return@withLock false
                     val saved = client.saveProgress(signedIn.token, animeId, ProgressUpdate(progress, null, null))
                     if (saved !is AniListResult.Success) return@withLock false
                     if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
@@ -132,6 +174,8 @@ public class AniListSync(
      * or when AniList can't be reached.
      */
     override suspend fun entry(animeId: Int): OnYourList? {
+        // In private mode the list button and marks hide, as when AniList can't be reached.
+        if (settings().privateMode) return null
         val signedIn = liveAccount() ?: return null
         val read = client.showEntry(signedIn.token, animeId) as? AniListResult.Success ?: return null
         return OnYourList(signedIn.profile.id, read.value)
@@ -204,6 +248,45 @@ public class AniListSync(
             true
         }
 
+    /** Off sends nothing, and Ask only sends once the show is answered yes. */
+    override fun watching(
+        animeId: Int,
+        episode: Int,
+    ) {
+        // Queued behind any update ahead of it, and a settings file that can't be read sends nothing.
+        locked {
+            val signedIn = account() ?: return@locked
+            val send =
+                when (settings().updateAniList) {
+                    UpdateAniList.ALWAYS -> true
+                    UpdateAniList.ASK -> answers?.answer(signedIn.profile.id, animeId) == true
+                    UpdateAniList.OFF -> false
+                }
+            if (send) watched(animeId, episode, signedIn.profile.id)
+        }
+    }
+
+    override suspend fun asksFirst(animeId: Int): Int? {
+        val now = settings()
+        if (now.privateMode || now.updateAniList != UpdateAniList.ASK) return null
+        val signedIn = account() ?: return null
+        return signedIn.profile.id.takeIf { answers?.answer(it, animeId) == null }
+    }
+
+    override fun answer(
+        animeId: Int,
+        forUser: Int,
+        update: Boolean,
+        episode: Int,
+    ) {
+        locked {
+            // Only the user who was asked can answer for their list.
+            if (account()?.profile?.id != forUser || settings().privateMode) return@locked
+            answers?.save(forUser, animeId, update)
+            if (update) watched(animeId, episode, forUser)
+        }
+    }
+
     // Runs in [scope], so it finishes once the screen has gone, after any update ahead of it, while [forUser] is signed in.
     private suspend fun once(
         forUser: Int,
@@ -213,7 +296,7 @@ public class AniListSync(
             .async {
                 lock.withLock {
                     val signedIn = liveAccount()
-                    if (signedIn == null || signedIn.profile.id != forUser) false else work(signedIn.token)
+                    if (signedIn == null || signedIn.profile.id != forUser || settings().privateMode) false else work(signedIn.token)
                 }
             }.await()
 
@@ -242,6 +325,8 @@ public class AniListSync(
         // AniList would refuse an expired token. What's waiting stays, for when this user signs in again.
         if (signedIn.token.expiresAtEpochSeconds <= now()) return
         for (pending in queue.all()) {
+            // Updates made before private mode, or left when it's turned on part way through, wait until it's off.
+            if (settings().privateMode) return
             if (pending.userId != signedIn.profile.id) {
                 queue.remove(pending.animeId)
                 continue

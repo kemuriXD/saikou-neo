@@ -220,6 +220,25 @@
     <string name="settings_account_sign_out_title">Sign out on this TV?</string>
     <string name="settings_account_sign_out_body">Your list stops syncing here. Your phone and any other TVs stay signed in.</string>
     <string name="settings_account_stay">Stay signed in</string>
+    <string name="settings_account_watching">Watching on this TV</string>
+    <string name="settings_update_anilist">Update AniList</string>
+    <string name="settings_update_anilist_help">When you finish an episode here</string>
+    <string name="settings_update_anilist_panel_help">What happens on AniList when you finish an episode on this TV. Your place is always saved here.</string>
+    <string name="settings_update_anilist_always">Always</string>
+    <string name="settings_update_anilist_always_help">Your progress moves on its own</string>
+    <string name="settings_update_anilist_ask">Ask for each show</string>
+    <string name="settings_update_anilist_ask_help">Asks once per show, then remembers</string>
+    <string name="settings_update_anilist_off_help">AniList stays as it is</string>
+    <string name="settings_private_mode">Private mode</string>
+    <string name="settings_private_mode_help">Stops all AniList updates, for when others watch</string>
+    <string name="settings_private_mode_on_help">Nothing goes to AniList until you turn it off</string>
+    <string name="home_private_mode">Private mode</string>
+    <string name="home_private_mode_detail">· AniList isn’t updated</string>
+    <string name="player_ask_anilist_title">Update AniList as you watch?</string>
+    <string name="player_ask_anilist_body">You finished episode %1$d. Should finishing episodes here move your progress for this show? This TV remembers your answer.</string>
+    <string name="player_ask_anilist_update">Update AniList</string>
+    <string name="player_ask_anilist_not">Not for this show</string>
+    <string name="player_ask_anilist_note">Change it any time in Settings › Account.</string>
 
     <!-- Profile while the TV is signed out: the way in to Sign in (#116). -->
     <string name="profile_signed_out_eyebrow">Library and profile</string>

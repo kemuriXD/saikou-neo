@@ -53,6 +53,7 @@ internal fun StreamVideo(
     subtitlesAbove: Float? = null,
     online: () -> Boolean = { true },
     onPlayed: (positionMs: Long, durationMs: Long) -> Unit = { _, _ -> },
+    onEnded: () -> Unit = {},
 ) {
     val context = LocalContext.current
     val player = playback.player
@@ -64,11 +65,13 @@ internal fun StreamVideo(
     }
     val started by rememberUpdatedState(onStarted)
     val failed by rememberUpdatedState(onFailed)
+    val ended by rememberUpdatedState(onEnded)
     DisposableEffect(player) {
         val listener =
             object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_READY) started()
+                    if (playbackState == Player.STATE_ENDED) ended()
                 }
 
                 override fun onPlayerError(error: PlaybackException) {

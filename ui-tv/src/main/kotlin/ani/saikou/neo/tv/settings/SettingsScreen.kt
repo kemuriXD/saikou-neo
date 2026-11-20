@@ -80,6 +80,7 @@ import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.settings.SubtitleSettings
 import ani.saikou.neo.shared.settings.TickList
 import ani.saikou.neo.shared.settings.TickSummary
+import ani.saikou.neo.shared.settings.UpdateAniList
 import ani.saikou.neo.shared.settings.get
 import ani.saikou.neo.shared.settings.isLastTick
 import ani.saikou.neo.shared.settings.summary
@@ -142,8 +143,8 @@ enum class SettingsCategory(
     // Lists the installed sources rather than settings.
     SOURCES(R.string.settings_sources, R.string.settings_sources_intro, emptyList()),
 
-    // Shows the AniList account, or Sign in with your phone.
-    ACCOUNT(R.string.settings_account, R.string.settings_account_intro, emptyList()),
+    // Shows the AniList account, or Sign in with your phone. Signed in, these settings follow it (ADR 0053).
+    ACCOUNT(R.string.settings_account, R.string.settings_account_intro, listOf(Setting.UPDATE_ANILIST, Setting.PRIVATE_MODE)),
 }
 
 // From the design, less the rail: the title sits on the safe area and both panes start 80 dp down. Categories are
@@ -330,8 +331,34 @@ private fun SettingsPage(
                 SourcesPane(sources, sourcesUi, categories.getValue(category), checks, sourceActions)
                 return@AnimatedContent
             }
+            // Private mode has no panel: selecting it turns it on or off.
+            val settingRows: @Composable () -> Unit = {
+                category.settings.forEach { setting ->
+                    SettingRow(
+                        setting,
+                        value = settings[setting],
+                        onClick = { if (setting.text().panel) open = setting else onChoose(setting, settings[setting] != true) },
+                        modifier =
+                            Modifier
+                                .focusRequester(rows.getValue(setting))
+                                .remembersFocus("setting-${setting.name}")
+                                .focusProperties { left = categories.getValue(category) },
+                    )
+                }
+            }
             if (category == SettingsCategory.ACCOUNT) {
-                AccountPane(account, accountUi, categories.getValue(category))
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    AccountPane(account, accountUi, categories.getValue(category))
+                    if (account.profile != null) {
+                        Text(
+                            stringResource(R.string.settings_account_watching).uppercase(),
+                            style = Overline,
+                            color = colors.textFaint,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                        settingRows()
+                    }
+                }
                 return@AnimatedContent
             }
             Column(verticalArrangement = Arrangement.spacedBy(RowGap)) {
@@ -365,18 +392,7 @@ private fun SettingsPage(
                                 .focusProperties { left = categories.getValue(category) },
                     )
                 }
-                category.settings.forEach { setting ->
-                    SettingRow(
-                        setting,
-                        value = settings[setting],
-                        onClick = { open = setting },
-                        modifier =
-                            Modifier
-                                .focusRequester(rows.getValue(setting))
-                                .remembersFocus("setting-${setting.name}")
-                                .focusProperties { left = categories.getValue(category) },
-                    )
-                }
+                settingRows()
             }
         }
         SlidingPanel(open) { setting, active, motion ->
@@ -563,7 +579,8 @@ private fun SettingRow(
     modifier: Modifier,
 ) {
     val text = setting.text()
-    NavRow(stringResource(text.title), text.helpText(), stringResource(text.label(value)), settingTag(setting), onClick, modifier)
+    val help = if (value == true && text.helpOn != null) stringResource(text.helpOn) else text.helpText()
+    NavRow(stringResource(text.title), help, stringResource(text.label(value)), settingTag(setting), onClick, modifier, text.panel)
 }
 
 /** A row with a [title] and [help] under it, and its [value] with an arrow on the right. */
@@ -575,6 +592,7 @@ private fun NavRow(
     tag: String,
     onClick: () -> Unit,
     modifier: Modifier,
+    chevron: Boolean = true,
 ) {
     val colors = NeoTheme.colors
     var focused by remember { mutableStateOf(false) }
@@ -614,7 +632,7 @@ private fun NavRow(
                 style = NeoTheme.typography.label.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                 color = valueColor,
             )
-            Icon(NeoIcons.Chevron, contentDescription = null, tint = valueColor, modifier = Modifier.size(Chevron))
+            if (chevron) Icon(NeoIcons.Chevron, contentDescription = null, tint = valueColor, modifier = Modifier.size(Chevron))
         }
     }
 }
@@ -640,7 +658,7 @@ private fun BoxScope.ChoicesPanel(
     SidePanel(stringResource(text.title), PanelWidth, active, onClose, modifier) {
         Text(stringResource(text.title), style = PaneTitle, color = colors.paper)
         Text(
-            text.helpText(),
+            text.panelHelp?.let { stringResource(it) } ?: text.helpText(),
             style = NeoTheme.typography.caption.copy(lineHeight = 19.sp),
             color = colors.textMuted,
             modifier = Modifier.padding(bottom = 8.dp),
@@ -648,6 +666,7 @@ private fun BoxScope.ChoicesPanel(
         setting.choices.forEach { choice ->
             Choice(
                 stringResource(text.label(choice)),
+                text.detail(choice)?.let { stringResource(it) },
                 selected = choice == value,
                 onClick = { onChoose(choice) },
                 modifier =
@@ -663,6 +682,7 @@ private fun BoxScope.ChoicesPanel(
 @Composable
 private fun Choice(
     label: String,
+    detail: String?,
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier,
@@ -705,19 +725,27 @@ private fun Choice(
                 val width = (if (selected) 5.dp else 2.dp).toPx()
                 drawCircle(ring, radius = (size.minDimension - width) / 2, style = Stroke(width))
             }
-            Text(label, style = Name)
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(label, style = Name)
+                detail?.let { Text(it, style = Help, color = LocalContentColor.current.copy(alpha = 0.72f)) }
+            }
         }
     }
 }
 
 /**
  * A setting's name and help line, and [label] names each of its values. With a [helpCount], [help] is a plurals
- * resource filled in with it.
+ * resource filled in with it. [helpOn] replaces the help while it's on, [panelHelp] heads its panel, and [detail]
+ * goes under a choice there. Without a [panel], selecting the row switches it.
  */
 private class SettingText(
     @param:StringRes val title: Int,
     val help: Int,
     val helpCount: Int? = null,
+    @param:StringRes val helpOn: Int? = null,
+    @param:StringRes val panelHelp: Int? = null,
+    val panel: Boolean = true,
+    val detail: (value: Any) -> Int? = { null },
     val label: (value: Any) -> Int,
 )
 
@@ -779,6 +807,36 @@ private fun Setting.text() =
             SettingText(R.string.settings_short_episodes, R.plurals.settings_short_episodes_help, ScheduleSettings.SHORT_EPISODE_MINUTES) {
                 if (it == true) R.string.settings_on else R.string.settings_off
             }
+        }
+
+        Setting.UPDATE_ANILIST -> {
+            SettingText(
+                R.string.settings_update_anilist,
+                R.string.settings_update_anilist_help,
+                panelHelp = R.string.settings_update_anilist_panel_help,
+                detail = {
+                    when (it as UpdateAniList) {
+                        UpdateAniList.ALWAYS -> R.string.settings_update_anilist_always_help
+                        UpdateAniList.ASK -> R.string.settings_update_anilist_ask_help
+                        UpdateAniList.OFF -> R.string.settings_update_anilist_off_help
+                    }
+                },
+            ) {
+                when (it as UpdateAniList) {
+                    UpdateAniList.ALWAYS -> R.string.settings_update_anilist_always
+                    UpdateAniList.ASK -> R.string.settings_update_anilist_ask
+                    UpdateAniList.OFF -> R.string.settings_off
+                }
+            }
+        }
+
+        Setting.PRIVATE_MODE -> {
+            SettingText(
+                R.string.settings_private_mode,
+                R.string.settings_private_mode_help,
+                helpOn = R.string.settings_private_mode_on_help,
+                panel = false,
+            ) { if (it == true) R.string.settings_on else R.string.settings_off }
         }
     }
 

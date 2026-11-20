@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -51,10 +52,13 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.tv.material3.Icon
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.account.ListButtonState
 import ani.saikou.neo.shared.account.ListStatus
@@ -185,6 +189,7 @@ fun HomeScreen(
     onOfflineInView: (inView: Boolean) -> Unit = {},
     list: (animeId: Int) -> ListButtonState = { ListButtonState.Hidden },
     onListChange: (animeId: Int, status: ListStatus?) -> Unit = { _, _ -> },
+    privateMode: Boolean = false,
 ) {
     if (state.offline) {
         HomeOffline(onRetry, onNetworkSettings, onOfflineInView, modifier)
@@ -329,6 +334,7 @@ fun HomeScreen(
                 }
             }
         }
+        if (privateMode) PrivateModeSign(Modifier.align(Alignment.TopEnd).padding(top = PrivateSignTop, end = NeoTheme.dimensions.safeX))
         val listing = listFor
         val listed = listing?.let { list(it.id) } as? ListButtonState.Shown
         if (listing != null && listed != null) {
@@ -341,6 +347,32 @@ fun HomeScreen(
                 close()
             }, onClose = ::close)
         }
+    }
+}
+
+internal const val PRIVATE_MODE_SIGN_TAG = "home-private-mode"
+
+// From the design: 27 dp down, on the safe area's right edge.
+private val PrivateSignTop = 27.dp
+
+/** "Private mode · AniList isn't updated", on Home while private mode is on (ADR 0053). It never takes focus. */
+@Composable
+private fun PrivateModeSign(modifier: Modifier) {
+    val colors = NeoTheme.colors
+    val shape = RoundedCornerShape(percent = 50)
+    Row(
+        modifier
+            .testTag(PRIVATE_MODE_SIGN_TAG)
+            .background(colors.surfaceScrim, shape)
+            .border(1.dp, colors.outline, shape)
+            .padding(start = 12.dp, end = 14.dp, top = 7.dp, bottom = 7.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(NeoIcons.Shield, contentDescription = null, tint = colors.paper, modifier = Modifier.size(16.dp))
+        val style = NeoTheme.typography.caption.copy(fontSize = 13.sp)
+        Text(stringResource(R.string.home_private_mode), style = style.copy(fontWeight = FontWeight.SemiBold), color = colors.paper)
+        Text(stringResource(R.string.home_private_mode_detail), style = style, color = colors.textMuted)
     }
 }
 

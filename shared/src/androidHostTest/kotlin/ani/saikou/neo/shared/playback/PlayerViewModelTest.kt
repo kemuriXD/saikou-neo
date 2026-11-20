@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import ani.saikou.neo.shared.account.WatchingUpdates
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
@@ -27,6 +28,8 @@ import kotlinx.coroutines.withContext
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.milliseconds
 import kotlin.time.Duration.Companion.minutes
@@ -584,8 +587,87 @@ class PlayerViewModelTest {
             assertEquals(0, player.state.value.startAtMs)
         }
 
-    private fun counting(watched: MutableList<Pair<Int, Int>>) =
-        PlayerViewModel(FakeStreams(), request(), history = FakeHistory(), watched = { id, episode -> watched += id to episode })
+    private class FakeUpdates(
+        private val watched: MutableList<Pair<Int, Int>>,
+        private val asks: Int?,
+    ) : WatchingUpdates {
+        val answers = mutableListOf<List<Any>>()
+
+        override fun watching(
+            animeId: Int,
+            episode: Int,
+        ) {
+            watched += animeId to episode
+        }
+
+        override suspend fun asksFirst(animeId: Int) = asks
+
+        override fun answer(
+            animeId: Int,
+            forUser: Int,
+            update: Boolean,
+            episode: Int,
+        ) {
+            answers += listOf(animeId, forUser, update, episode)
+        }
+    }
+
+    private fun counting(
+        watched: MutableList<Pair<Int, Int>>,
+        updates: FakeUpdates = FakeUpdates(watched, asks = null),
+    ) = PlayerViewModel(FakeStreams(), request(), history = FakeHistory(), updates = updates)
+
+    @Test
+    fun withNothingToAskLeavingIsStraightAway() =
+        test {
+            val watched = mutableListOf<Pair<Int, Int>>()
+            val player = counting(watched).also { it.started() }
+            player.played(positionMs = LENGTH, durationMs = LENGTH)
+
+            assertFalse(player.leave())
+            assertNull(player.state.value.askAniList)
+            assertEquals(listOf(1535 to 7), watched)
+        }
+
+    // Ask for each show (ADR 0053): the first episode waits for an answer, given on the way out.
+    @Test
+    fun askingHoldsTheEpisodeUntilLeavingAndSendsTheAnswer() =
+        test {
+            val watched = mutableListOf<Pair<Int, Int>>()
+            val updates = FakeUpdates(watched, asks = 1)
+            val player = counting(watched, updates).also { it.started() }
+            assertFalse(player.leave())
+
+            player.played(positionMs = LENGTH, durationMs = LENGTH)
+            assertEquals(emptyList(), watched)
+            assertTrue(player.state.value.holdsForAniList)
+            assertTrue(player.leave())
+            assertEquals(7, player.state.value.askAniList)
+
+            player.answer(update = true)
+
+            assertEquals(listOf(listOf<Any>(1535, 1, true, 7)), updates.answers)
+            assertNull(player.state.value.askAniList)
+            assertFalse(player.leave())
+        }
+
+    @Test
+    fun backOnTheQuestionSendsNothing() =
+        test {
+            val watched = mutableListOf<Pair<Int, Int>>()
+            val updates = FakeUpdates(watched, asks = 1)
+            val player = counting(watched, updates).also { it.started() }
+            player.played(positionMs = 60_000, durationMs = LENGTH)
+            player.movingOn(8)
+            assertTrue(player.leave())
+
+            player.noAnswer()
+
+            assertEquals(emptyList(), updates.answers)
+            assertEquals(emptyList(), watched)
+            assertNull(player.state.value.askAniList)
+            assertFalse(player.leave())
+        }
 
     @Test
     fun fourFifthsThroughCountsTheEpisodeOnce() =

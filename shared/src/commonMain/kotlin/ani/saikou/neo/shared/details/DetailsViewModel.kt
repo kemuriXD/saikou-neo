@@ -60,12 +60,15 @@ public sealed interface DetailsState {
         val listed: ListedProgress? = null,
         /** The signed-in user's AniList progress, whatever the show's status. Null signed out or when it can't be read. */
         val aniList: AniListWatched? = null,
+        /** False in private mode, where this TV's place wins without asking (ADR 0053). */
+        val asks: Boolean = true,
     ) : DetailsState {
         /** Whether [episode] is watched, or how much of it is (ADR 0052). */
         public fun markFor(episode: Int): EpisodeMark? = episodeMark(episode, place, aniList?.progress)
 
         /** Where to pick up from this TV's place and AniList's, and whether to ask (ADR 0050). */
-        val pickUp: PickUp? get() = pickUp(progress, listed)
+        val pickUp: PickUp?
+            get() = pickUp(progress, listed).let { if (!asks && it is PickUp.Ask) PickUp.At(it.thisTv) else it }
 
         /** The place Details carries on from until the viewer picks another. */
         val place: WatchProgress? get() = pickUp?.place
@@ -109,6 +112,7 @@ public class DetailsViewModel(
     private val marked: suspend () -> Unit = {},
     private val zoneOffsetSeconds: Int = 0,
     warmSources: () -> Unit = {},
+    private val asksWhereToPickUp: Boolean = true,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
     public val state: StateFlow<DetailsState> = mutableState.asStateFlow()
@@ -184,6 +188,7 @@ public class DetailsViewModel(
                     progress = saved.value,
                     listed = onList,
                     aniList = watched,
+                    asks = asksWhereToPickUp,
                 )
             if (found != null) {
                 mutableState.value = loaded.withArt(found)

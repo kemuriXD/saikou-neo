@@ -26,6 +26,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -72,6 +73,9 @@ class NeoApp : Application() {
             queue = SyncQueueStore.at(File(filesDir, "anilist_queue.preferences_pb").absolutePath, scope),
             // Calendar rather than java.time, which older Fire TVs don't have.
             today = { Calendar.getInstance().run { ListDate(get(Calendar.YEAR), get(Calendar.MONTH) + 1, get(Calendar.DAY_OF_MONTH)) } },
+            // Update AniList and private mode gate it (ADR 0053).
+            settings = { settingsStore.settings.first() },
+            answers = settingsStore,
         )
     }
 

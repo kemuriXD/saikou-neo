@@ -18,6 +18,7 @@ import kotlin.io.path.createTempDirectory
 import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
 
 class SettingsStoreTest {
     private val folder = createTempDirectory("settings").toFile()
@@ -184,6 +185,38 @@ class SettingsStoreTest {
             assertEquals(LookId.BuiltIn(BuiltInLook.CLASSIC), subtitles.look)
             assertEquals(SubtitlePosition.TOP, subtitles.position)
             assertEquals(LookStyle(textOpacity = Opacity.P75, bold = false), subtitles.myLooks[1])
+        }
+
+    @Test
+    fun theAniListSettingsAreKeptAfterARestart() =
+        runBlocking {
+            val (first, scope) = store()
+            assertEquals(UpdateAniList.ALWAYS, first.settings.first().updateAniList)
+            first.update { it.copy(updateAniList = UpdateAniList.ASK, privateMode = true) }
+            scope.coroutineContext.job.cancelAndJoin()
+
+            val (second, _) = store()
+
+            assertEquals(Settings(updateAniList = UpdateAniList.ASK, privateMode = true), second.settings.first())
+        }
+
+    @Test
+    fun aShowsAnswerIsKeptForItsUserAfterARestart() =
+        runBlocking {
+            val (first, scope) = store()
+            assertNull(first.answer(userId = 1, animeId = 101))
+            first.save(userId = 1, animeId = 101, update = true)
+            first.save(userId = 1, animeId = 202, update = false)
+            first.save(userId = 1, animeId = 202, update = true)
+            first.save(userId = 2, animeId = 101, update = false)
+            scope.coroutineContext.job.cancelAndJoin()
+
+            val (second, _) = store()
+
+            assertEquals(true, second.answer(userId = 1, animeId = 101))
+            assertEquals(true, second.answer(userId = 1, animeId = 202))
+            assertEquals(false, second.answer(userId = 2, animeId = 101))
+            assertNull(second.answer(userId = 2, animeId = 202))
         }
 
     @Test

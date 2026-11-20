@@ -168,7 +168,7 @@ class MainActivity : ComponentActivity() {
                             // A list button for each featured show, read once, so it's ready as the spotlight moves on.
                             val lists =
                                 state.spotlight?.shows.orEmpty().associate { card ->
-                                    card.id to listButton(card.id, profile?.id)
+                                    card.id to listButton(card.id, profile?.id, settings.privateMode)
                                 }
                             val listStates = lists.mapValues { (_, list) -> list.state.collectAsStateWithLifecycle().value }
                             HomeScreen(
@@ -183,6 +183,7 @@ class MainActivity : ComponentActivity() {
                                 onOfflineInView = home::watchOffline,
                                 list = { listStates[it] ?: ListButtonState.Hidden },
                                 onListChange = { animeId, status -> lists[animeId]?.change(status) },
+                                privateMode = settings.privateMode && profile != null,
                             )
                         },
                         seeMore = { row, openDetails ->
@@ -212,8 +213,9 @@ class MainActivity : ComponentActivity() {
                             }
                         },
                         details = { animeId, openDetails, openRecommendations, openSources, openPlayer ->
+                            // Private mode changes what Details may send, so turning it on or off reads the show again.
                             val details =
-                                viewModel {
+                                viewModel(key = "details-$animeId-${settings.privateMode}") {
                                     DetailsViewModel(
                                         client,
                                         library,
@@ -229,10 +231,11 @@ class MainActivity : ComponentActivity() {
                                         marked = { app.yourList.forget() },
                                         zoneOffsetSeconds = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000,
                                         warmSources = app.sourceWarmUp::warm,
+                                        asksWhereToPickUp = !settings.privateMode,
                                     )
                                 }
                             val state by details.state.collectAsStateWithLifecycle()
-                            val list = listButton(animeId, profile?.id)
+                            val list = listButton(animeId, profile?.id, settings.privateMode)
                             val listState by list.state.collectAsStateWithLifecycle()
                             DetailsScreen(
                                 state,
@@ -424,8 +427,11 @@ class MainActivity : ComponentActivity() {
                         },
                         player = { request, back ->
                             val player =
-                                viewModel { PlayerViewModel(app.streamFinder, request, history = app.history, watched = app.sync::watched) }
+                                viewModel { PlayerViewModel(app.streamFinder, request, history = app.history, updates = app.sync) }
                             val state by player.state.collectAsStateWithLifecycle()
+                            // Where to go once "Update AniList as you watch?" is answered (ADR 0053).
+                            var leaving by remember { mutableStateOf<(() -> Unit)?>(null) }
+                            val leaveThen = { go: () -> Unit -> if (player.leave()) leaving = go else go() }
                             val playback = rememberExoPlayback()
                             val subtitles =
                                 viewModel {
@@ -459,8 +465,16 @@ class MainActivity : ComponentActivity() {
                                     onServer = player::changeServer,
                                     onEpisode = { episode ->
                                         player.movingOn(episode)
-                                        episodeFromPlayer = episode
-                                        back()
+                                        leaveThen {
+                                            episodeFromPlayer = episode
+                                            back()
+                                        }
+                                    },
+                                    onLeave = { leaveThen(back) },
+                                    onAnswer = { update ->
+                                        if (update == null) player.noAnswer() else player.answer(update)
+                                        leaving?.invoke()
+                                        leaving = null
                                     },
                                 ),
                                 playback,
@@ -475,6 +489,7 @@ class MainActivity : ComponentActivity() {
                                         app.sourceHost.client,
                                         looks.drawing,
                                         onPlayed = player::played,
+                                        onEnded = { if (player.leave()) leaving = back },
                                         sample = sample.takeIf { shown.looks },
                                         subtitlesAbove = subtitlesAbove,
                                         online = ::isOnline,
@@ -592,12 +607,17 @@ class MainActivity : ComponentActivity() {
 
     // This season, for the This season row and its page.
 
-    /** [animeId]'s list button, read again for whoever [userId] is signed in now (ADR 0051). */
+    /**
+     * [animeId]'s list button, read again for whoever [userId] is signed in now (ADR 0051), and when [privateMode] turns
+     * on or off, which hides it (ADR 0053).
+     */
     @Composable
     private fun listButton(
         animeId: Int,
         userId: Int?,
-    ): ListButtonViewModel = viewModel(key = "list-$animeId-$userId") { ListButtonViewModel(animeId, app.sync) { app.yourList.forget() } }
+        privateMode: Boolean,
+    ): ListButtonViewModel =
+        viewModel(key = "list-$animeId-$userId-$privateMode") { ListButtonViewModel(animeId, app.sync) { app.yourList.forget() } }
 
     private fun season() = AnimeSeason.forMonth(Calendar.getInstance().get(Calendar.MONTH) + 1)
 
