@@ -1,6 +1,5 @@
 package ani.saikou.neo.tv.ui
 
-import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -15,27 +14,28 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.withFrameNanos
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
-import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,12 +47,12 @@ import ani.saikou.neo.shared.account.ShownNotice
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.theme.NeoTheme
+import android.view.KeyEvent as AndroidKeyEvent
 
 internal const val NOTICE_TAG = "anilist-notice"
 internal const val NOTICE_UNDO_TAG = "anilist-notice-undo"
 
-// About a second at 60 fps.
-private const val SETTLE_FRAMES = 60
+private const val UNDO_GLOW_ALPHA = 0.28f
 
 /** What the notice's Undo does, and how it tells the notice it has focus, so it stays. */
 internal data class NoticeActions(
@@ -61,15 +61,60 @@ internal data class NoticeActions(
 )
 
 /**
+ * Undo over every screen but the player. It never takes real focus, so focus can't get lost in the screen under it on
+ * the way back. While Undo shows focused, the app hands every key here first: OK presses Undo, and any D-pad key or Back
+ * only takes the focus off Undo, leaving focus where it was on the screen.
+ */
+@Stable
+internal class NoticeKeys {
+    var focused by mutableStateOf(false)
+        internal set
+
+    internal var onUndo: () -> Unit = {}
+
+    /** True when the key was Undo's. */
+    fun onKey(event: KeyEvent): Boolean {
+        if (!focused) return false
+        val down = event.type == KeyEventType.KeyDown
+        when (event.nativeKeyEvent.keyCode) {
+            AndroidKeyEvent.KEYCODE_DPAD_CENTER, AndroidKeyEvent.KEYCODE_ENTER, AndroidKeyEvent.KEYCODE_NUMPAD_ENTER -> {
+                if (!down) {
+                    focused = false
+                    onUndo()
+                }
+            }
+
+            // Back acts as it lifts, so the press doesn't go on to the screen.
+            AndroidKeyEvent.KEYCODE_BACK -> {
+                if (!down) focused = false
+            }
+
+            AndroidKeyEvent.KEYCODE_DPAD_UP, AndroidKeyEvent.KEYCODE_DPAD_DOWN, AndroidKeyEvent.KEYCODE_DPAD_LEFT,
+            AndroidKeyEvent.KEYCODE_DPAD_RIGHT,
+            -> {
+                if (down) focused = false
+            }
+
+            else -> {
+                return false
+            }
+        }
+        return true
+    }
+}
+
+/**
  * Says what the TV just changed on AniList, with Undo (TV/Notice, 196:589). Once Undo has failed there's no Undo, just
- * the warning. It sits bottom left, 48 dp in.
+ * the warning. It sits bottom left, 48 dp in. Up next gives Undo real focus through [undo]. Elsewhere [undoFocused] only
+ * draws it focused, for [NoticeKeys].
  */
 @Composable
 internal fun BoxScope.AniListNotice(
     shown: ShownNotice,
     actions: NoticeActions,
-    undo: FocusRequester,
+    undo: FocusRequester?,
     modifier: Modifier = Modifier,
+    undoFocused: Boolean = false,
 ) {
     val colors = NeoTheme.colors
     val typography = NeoTheme.typography
@@ -94,19 +139,8 @@ internal fun BoxScope.AniListNotice(
                 change is NoticeChange.SavedForLater -> NeoIcons.WifiOff
                 else -> NeoIcons.Passed
             }
-        Icon(
-            icon,
-            contentDescription = null,
-            tint =
-                if (icon ==
-                    NeoIcons.WifiOff
-                ) {
-                    colors.textMuted
-                } else {
-                    colors.pink
-                },
-            modifier = Modifier.size(22.dp),
-        )
+        val tint = if (icon == NeoIcons.WifiOff) colors.textMuted else colors.pink
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(22.dp))
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 title,
@@ -116,8 +150,10 @@ internal fun BoxScope.AniListNotice(
             )
             Text(detail, style = typography.caption.copy(fontSize = 12.sp, lineHeight = 16.sp), color = colors.textMuted, maxLines = 1)
         }
-        if (!shown.failed) {
-            Box(Modifier.width(4.dp))
+        if (shown.failed) return@Row
+        Box(Modifier.width(4.dp))
+        val label = stringResource(R.string.notice_undo)
+        if (undo != null) {
             NeoSurface(
                 actions.onUndo,
                 CircleShape,
@@ -128,101 +164,57 @@ internal fun BoxScope.AniListNotice(
                     .testTag(NOTICE_UNDO_TAG),
             ) {
                 Text(
-                    stringResource(R.string.notice_undo),
+                    label,
                     style = typography.label.copy(fontSize = 14.sp),
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp),
                 )
+            }
+        } else {
+            // Drawn as the focused button looks (196:561), without taking focus.
+            Box(
+                Modifier
+                    .semantics { selected = undoFocused }
+                    .testTag(NOTICE_UNDO_TAG)
+                    .scale(if (undoFocused) NeoTheme.dimensions.focusScaleButton else 1f)
+                    .then(
+                        if (undoFocused) {
+                            Modifier.shadow(
+                                18.dp,
+                                CircleShape,
+                                ambientColor = Color.White,
+                                spotColor = Color.White.copy(alpha = UNDO_GLOW_ALPHA),
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ).background(if (undoFocused) colors.focus else colors.fillTonal, CircleShape)
+                    .padding(horizontal = 16.dp, vertical = 7.dp),
+            ) {
+                Text(label, style = typography.label.copy(fontSize = 14.sp), color = if (undoFocused) colors.onFocus else colors.paper)
             }
         }
     }
 }
 
 /**
- * The notice over every screen but the player, where Up next shows it. It takes focus to Undo, and any D-pad move or
- * Back sends focus back to where it was on [screen], as does the notice closing while Undo has it. It has a box of its
- * own, so a parent that stretches its children, like the app's Surface, doesn't stretch the notice.
+ * The notice over every screen but the player, where Up next shows it. Undo shows focused as it comes, and [keys] takes
+ * the remote's keys while it is. It has a box of its own, so a parent that stretches its children, like the app's
+ * Surface, doesn't stretch the notice.
  */
-@OptIn(ExperimentalComposeUiApi::class)
 @Composable
 internal fun NoticeOverScreens(
     shown: ShownNotice?,
     actions: NoticeActions,
-    screen: FocusRequester,
+    keys: NoticeKeys,
 ) {
-    val undo = remember { FocusRequester() }
-    var undoFocused by remember { mutableStateOf(false) }
-    // Moved away from Undo on purpose, so it doesn't ask for focus again.
-    var left by remember { mutableStateOf(false) }
+    keys.onUndo = actions.onUndo
     val canUndo = shown != null && !shown.failed
-    // Read as the notice changes, before a closing Undo loses focus.
-    val hadFocus = undoFocused
-    LaunchedEffect(shown?.notice, canUndo) {
-        if (canUndo) {
-            left = false
-            // Leaving the player, the screen underneath arrives with the notice and takes focus a few frames later, so
-            // Undo asks again until things settle. What the screen picked is where focus goes back to.
-            repeat(SETTLE_FRAMES) {
-                if (!undoFocused && !left) {
-                    screen.saveFocusedChild()
-                    undo.requestFocus()
-                }
-                withFrameNanos {}
-            }
-        } else if (hadFocus) {
-            if (!screen.restoreFocusedChild()) screen.requestFocus()
-        }
-    }
+    LaunchedEffect(shown?.notice, canUndo) { keys.focused = canUndo }
+    // Undo showing focused keeps the notice up, as real focus would.
+    LaunchedEffect(keys) { snapshotFlow { keys.focused }.collect { actions.onUndoFocused(it) } }
+    DisposableEffect(keys) { onDispose { keys.focused = false } }
     shown ?: return
-    val focusManager = LocalFocusManager.current
-    // Back to what had focus. That can be gone, such as the player that was fading out as the notice came, so then the
-    // key moves focus on from Undo as it would anyway, and Back moves it up onto the screen.
-    val back = { key: Int ->
-        left = true
-        screen.restoreFocusedChild() || (key == KeyEvent.KEYCODE_BACK && focusManager.moveFocus(FocusDirection.Up)) ||
-            key == KeyEvent.KEYCODE_BACK
-    }
-    Box(Modifier.fillMaxSize()) { NoticeWithFocus(shown, actions, undo, back) { undoFocused = it } }
-}
-
-@Composable
-private fun BoxScope.NoticeWithFocus(
-    shown: ShownNotice,
-    actions: NoticeActions,
-    undo: FocusRequester,
-    back: (key: Int) -> Boolean,
-    focused: (Boolean) -> Unit,
-) {
-    AniListNotice(
-        shown,
-        actions.copy(
-            // Pressed, Undo has done its job, so focus goes back to the screen before the notice closes or says it failed.
-            onUndo = {
-                back(KeyEvent.KEYCODE_BACK)
-                actions.onUndo()
-            },
-            onUndoFocused = {
-                focused(it)
-                actions.onUndoFocused(it)
-            },
-        ),
-        undo,
-        Modifier.onPreviewKeyEvent {
-            when (it.nativeKeyEvent.keyCode) {
-                // Back acts as it lifts, so the press doesn't go on to the screen under.
-                KeyEvent.KEYCODE_BACK -> {
-                    if (it.type == KeyEventType.KeyUp) back(KeyEvent.KEYCODE_BACK) else true
-                }
-
-                KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    if (it.type == KeyEventType.KeyDown) back(it.nativeKeyEvent.keyCode) else true
-                }
-
-                else -> {
-                    false
-                }
-            }
-        },
-    )
+    Box(Modifier.fillMaxSize()) { AniListNotice(shown, actions, undo = null, undoFocused = keys.focused) }
 }
 
 @Composable

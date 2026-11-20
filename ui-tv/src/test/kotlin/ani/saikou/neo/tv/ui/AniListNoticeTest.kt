@@ -2,7 +2,6 @@ package ani.saikou.neo.tv.ui
 
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -10,13 +9,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -43,7 +44,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
-// ADR 0056: over every screen but the player, the notice takes focus to Undo and gives it back on any move.
+// ADR 0056: over every screen but the player, Undo shows focused as the notice comes, without taking focus from the
+// screen. OK presses it, and any D-pad key or Back takes the focus off it, leaving focus where it was.
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w960dp-h540dp-land-television-xhdpi")
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -53,6 +55,7 @@ class AniListNoticeTest {
 
     private val shown = mutableStateOf<ShownNotice?>(null)
     private val pressed = mutableListOf<String>()
+    private val undoFocus = mutableListOf<Boolean>()
     private val planning = ListEntry(ListStatus.PLANNING, 0, hasStartDate = false)
 
     private fun notice(
@@ -63,9 +66,9 @@ class AniListNoticeTest {
     private fun show() {
         compose.setContent {
             NeoTheme {
-                val screen = remember { FocusRequester() }
+                val keys = remember { NoticeKeys() }
                 val first = remember { FocusRequester() }
-                Box(Modifier.fillMaxSize().focusRequester(screen).focusGroup()) {
+                Box(Modifier.fillMaxSize().onPreviewKeyEvent { keys.onKey(it) }) {
                     BackHandler { pressed += "back" }
                     Row {
                         NeoSurface(
@@ -77,10 +80,16 @@ class AniListNoticeTest {
                         NeoSurface({ pressed += "second" }, CircleShape, 1f, Modifier.testTag("second")) { Text("Second") }
                     }
                     LaunchedEffect(Unit) { first.requestFocus() }
-                    NoticeOverScreens(shown.value, NoticeActions(onUndo = { pressed += "undo" }), screen)
+                    NoticeOverScreens(
+                        shown.value,
+                        NoticeActions(onUndo = { pressed += "undo" }, onUndoFocused = { undoFocus += it }),
+                        keys,
+                    )
                 }
             }
         }
+        compose.waitForIdle()
+        shown.value = notice(NoticeChange.Updated(ListStatus.WATCHING, 5, byEpisode = true))
         compose.waitForIdle()
     }
 
@@ -89,114 +98,63 @@ class AniListNoticeTest {
         compose.waitForIdle()
     }
 
-    // Leaving the player, the screen underneath arrives with the notice and takes focus a few frames later. Undo still
-    // ends up with it, and moving away goes to what the screen picked.
     @Test
-    fun undoKeepsFocusFromAScreenThatArrivesWithIt() {
-        shown.value = notice(NoticeChange.Updated(ListStatus.WATCHING, 5, byEpisode = true))
-        compose.setContent {
-            NeoTheme {
-                val screen = remember { FocusRequester() }
-                val first = remember { FocusRequester() }
-                Box(Modifier.fillMaxSize().focusRequester(screen).focusGroup()) {
-                    NeoSurface({}, CircleShape, 1f, Modifier.focusRequester(first).testTag("first")) { Text("First") }
-                    LaunchedEffect(Unit) {
-                        repeat(3) { withFrameNanos {} }
-                        first.requestFocus()
-                    }
-                    NoticeOverScreens(shown.value, NoticeActions(), screen)
-                }
-            }
-        }
-        compose.waitForIdle()
-
-        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertIsFocused()
-        press(Key.DirectionUp)
-        compose.onNodeWithTag("first").assertIsFocused()
-    }
-
-    // Leaving the player, what had focus as the notice came can be the player itself, gone a moment later. Moving away
-    // from Undo then still lands on the screen, not nowhere.
-    @Test
-    fun withWhatHadFocusGoneMovingAwayStillLandsOnTheScreen() {
-        val playerShowing = mutableStateOf(true)
-        compose.setContent {
-            NeoTheme {
-                val screen = remember { FocusRequester() }
-                val player = remember { FocusRequester() }
-                Box(Modifier.fillMaxSize().focusRequester(screen).focusGroup()) {
-                    if (playerShowing.value) {
-                        NeoSurface({}, CircleShape, 1f, Modifier.focusRequester(player).testTag("player")) { Text("Player") }
-                        LaunchedEffect(Unit) { player.requestFocus() }
-                    } else {
-                        NeoSurface({}, CircleShape, 1f, Modifier.testTag("server")) { Text("Server") }
-                    }
-                    NoticeOverScreens(shown.value, NoticeActions(), screen)
-                }
-            }
-        }
-        compose.waitForIdle()
-        shown.value = notice(NoticeChange.Updated(ListStatus.WATCHING, 5, byEpisode = true))
-        compose.waitForIdle()
-        playerShowing.value = false
-        compose.waitForIdle()
-        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertIsFocused()
-
-        press(Key.Back)
-
-        compose.onNodeWithTag("server").assertIsFocused()
-    }
-
-    // Once pressed, Undo has done its job, so focus goes back to the screen straight away.
-    @Test
-    fun pressingUndoGivesFocusBack() {
+    fun undoShowsFocusedAndTheScreenKeepsItsFocus() {
         show()
-        shown.value = notice(NoticeChange.Updated(ListStatus.WATCHING, 5, byEpisode = true))
-        compose.waitForIdle()
+
+        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertIsSelected()
+        compose.onNodeWithTag("first").assertIsFocused()
+        assertEquals(true, undoFocus.last())
+    }
+
+    @Test
+    fun okPressesUndoAndFocusIsStillWhereItWas() {
+        show()
 
         press(Key.DirectionCenter)
 
-        compose.onNodeWithTag("first").assertIsFocused()
         assertEquals(listOf("undo"), pressed)
+        compose.onNodeWithTag("first").assertIsFocused()
+        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertIsNotSelected()
     }
 
+    // The key only takes the focus off Undo, so focus doesn't jump along with it. The notice stays until it times out.
     @Test
-    fun undoTakesFocusAndAnyMoveGivesItBack() {
+    fun aDpadKeyTakesTheFocusOffUndoAndGoesNoFurther() {
         show()
-        shown.value = notice(NoticeChange.Updated(ListStatus.WATCHING, 5, byEpisode = true))
-        compose.waitForIdle()
 
-        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertIsFocused()
         press(Key.DirectionRight)
 
         compose.onNodeWithTag("first").assertIsFocused()
+        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertIsNotSelected()
         compose.onNodeWithTag(NOTICE_TAG).assertExists()
+        assertEquals(false, undoFocus.last())
+
+        press(Key.DirectionRight)
+        compose.onNodeWithTag("second").assertIsFocused()
         assertEquals(emptyList<String>(), pressed)
     }
 
     @Test
-    fun backOnUndoOnlyGivesFocusBack() {
+    fun backTakesTheFocusOffUndoWithoutGoingBack() {
         show()
-        shown.value = notice(NoticeChange.Updated(ListStatus.WATCHING, 5, byEpisode = true))
-        compose.waitForIdle()
 
         press(Key.Back)
 
-        compose.onNodeWithTag("first").assertIsFocused()
+        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertIsNotSelected()
         assertEquals(emptyList<String>(), pressed)
     }
 
     @Test
-    fun theNoticeClosingGivesFocusBack() {
+    fun aFailedUndoShowsNoUndo() {
         show()
-        shown.value = notice(NoticeChange.Removed)
+        shown.value = shown.value?.copy(failed = true)
         compose.waitForIdle()
 
-        shown.value = null
-        compose.waitForIdle()
-
-        compose.onNodeWithTag(NOTICE_TAG).assertDoesNotExist()
-        compose.onNodeWithTag("first").assertIsFocused()
+        compose.onNodeWithText("Couldn\'t undo English").assertExists()
+        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertDoesNotExist()
+        press(Key.DirectionRight)
+        compose.onNodeWithTag("second").assertIsFocused()
     }
 
     // The app's root Surface stretches its children to the screen; the notice keeps its own size, bottom left.
@@ -205,7 +163,7 @@ class AniListNoticeTest {
         compose.setContent {
             NeoTheme {
                 Surface(Modifier.fillMaxSize()) {
-                    NoticeOverScreens(notice(NoticeChange.Removed), NoticeActions(), remember { FocusRequester() })
+                    NoticeOverScreens(notice(NoticeChange.Removed), NoticeActions(), remember { NoticeKeys() })
                 }
             }
         }

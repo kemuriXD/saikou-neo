@@ -10,7 +10,6 @@ import android.provider.Settings
 import android.view.Choreographer
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -20,8 +19,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
@@ -109,6 +106,7 @@ import ani.saikou.neo.tv.signin.SignInScreen
 import ani.saikou.neo.tv.sources.sourceThreads
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.NoticeActions
+import ani.saikou.neo.tv.ui.NoticeKeys
 import ani.saikou.neo.tv.ui.NoticeOverScreens
 import ani.saikou.neo.tv.ui.Section
 import ani.saikou.neo.tv.ui.SectionPlaceholder
@@ -160,21 +158,19 @@ class MainActivity : ComponentActivity() {
             val notice by app.notices.shown.collectAsStateWithLifecycle()
             val noticeActions = remember { NoticeActions(app.notices::undo, app.notices::undoFocused) }
             var inPlayer by remember { mutableStateOf(false) }
-            val screen = remember { FocusRequester() }
+            val noticeKeys = remember { NoticeKeys() }
             NeoTheme(light = settings.slowTv) {
                 // Every key passes through HeldKeys before it can move focus, and tells the run of episodes someone's
-                // there (ADR 0055). Test tags double as resource IDs, so :benchmark-tv can find the cards.
+                // there (ADR 0055). While the AniList notice's Undo shows focused, its keys come first (ADR 0056). Test
+                // tags double as resource IDs, so :benchmark-tv can find the cards.
                 Surface(
                     modifier =
                         Modifier
                             .fillMaxSize()
                             .semantics { testTagsAsResourceId = true }
-                            // Where focus goes back to from the notice's Undo.
-                            .focusRequester(screen)
-                            .focusGroup()
                             .onPreviewKeyEvent {
                                 if (it.type == KeyEventType.KeyDown) app.watchingRun.pressed()
-                                heldKeys.drop(it.nativeKeyEvent)
+                                noticeKeys.onKey(it) || heldKeys.drop(it.nativeKeyEvent)
                             },
                 ) {
                     NeoNavigation(
@@ -574,7 +570,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                     )
-                    if (!inPlayer) NoticeOverScreens(notice, noticeActions, screen)
+                    if (!inPlayer) NoticeOverScreens(notice, noticeActions, noticeKeys)
                 }
             }
         }
