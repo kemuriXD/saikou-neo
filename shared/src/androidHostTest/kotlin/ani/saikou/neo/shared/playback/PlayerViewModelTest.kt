@@ -592,12 +592,15 @@ class PlayerViewModelTest {
         private val asks: Int?,
     ) : WatchingUpdates {
         val answers = mutableListOf<List<Any>>()
+        val titles = mutableListOf<AnimeTitle?>()
 
         override fun watching(
             animeId: Int,
             episode: Int,
+            title: AnimeTitle?,
         ) {
             watched += animeId to episode
+            titles += title
         }
 
         override suspend fun asksFirst(animeId: Int) = asks
@@ -607,8 +610,10 @@ class PlayerViewModelTest {
             forUser: Int,
             update: Boolean,
             episode: Int,
+            title: AnimeTitle?,
         ) {
             answers += listOf(animeId, forUser, update, episode)
+            titles += title
         }
     }
 
@@ -616,6 +621,23 @@ class PlayerViewModelTest {
         watched: MutableList<Pair<Int, Int>>,
         updates: FakeUpdates = FakeUpdates(watched, asks = null),
     ) = PlayerViewModel(FakeStreams(), request(), history = FakeHistory(), updates = updates)
+
+    // ADR 0056: the notice names the show even when AniList can't be reached to read it.
+    @Test
+    fun theShowsTitleGoesWithTheEpisodeAndTheAnswer() =
+        test {
+            val watched = mutableListOf<Pair<Int, Int>>()
+            val updates = FakeUpdates(watched, asks = null)
+            counting(watched, updates).also { it.started() }.played(positionMs = LENGTH, durationMs = LENGTH)
+            val asking = FakeUpdates(watched, asks = 1)
+            counting(watched, asking).also { it.started() }.apply {
+                played(positionMs = LENGTH, durationMs = LENGTH)
+                answer(update = true)
+            }
+
+            assertEquals(listOf<AnimeTitle?>(show.card.title), updates.titles)
+            assertEquals(listOf<AnimeTitle?>(show.card.title), asking.titles)
+        }
 
     @Test
     fun withNothingToAskLeavingIsStraightAway() =

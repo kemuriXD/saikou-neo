@@ -2,6 +2,7 @@ package ani.saikou.neo.shared.account
 
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
+import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.home.SyncedSides
 import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
@@ -12,6 +13,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -63,6 +65,19 @@ class AniListSyncTest {
             calls++
             failWith?.let { return AniListResult.Failure(it) }
             removed += entryId
+            return AniListResult.Success(Unit)
+        }
+
+        val restored = mutableListOf<Pair<Int, ListEntry>>()
+
+        override suspend fun restoreEntry(
+            token: AniListToken,
+            mediaId: Int,
+            entry: ListEntry,
+        ): AniListResult<Unit> {
+            calls++
+            failWith?.let { return AniListResult.Failure(it) }
+            restored += mediaId to entry
             return AniListResult.Success(Unit)
         }
     }
@@ -705,5 +720,170 @@ class AniListSyncTest {
             assertFalse(sync.markUnwatched(101, episode = 2, forUser = 1))
             assertFalse(sync.movedBack(101, 2, forUser = 1))
             assertEquals(0, client.calls)
+        }
+
+    // ADR 0056: each change the TV makes says what it changed, with the entry as it was, so Undo can put it back.
+    private val title = AnimeTitle("Romaji", "English", null)
+    private val watching3 = ListEntry(ListStatus.WATCHING, 3, hasStartDate = true, id = 555)
+
+    @Test
+    fun watchingSaysWhatChangedAndHowItWas() =
+        runTest {
+            val sync = sync(FakeClient(ShowEntry(12, watching3)), MemoryQueue())
+            val told = async { sync.notices.first() }
+            runCurrent()
+
+            sync.watching(101, 4, title)
+            runCurrent()
+
+            val notice = told.await()
+            assertEquals(NoticeChange.Updated(ListStatus.WATCHING, 4, byEpisode = true), notice.change)
+            assertEquals(watching3, notice.before)
+            assertEquals(title, notice.title)
+            assertTrue(notice.fromWatching)
+        }
+
+    @Test
+    fun anUpdateThatCantBeSentIsSavedForLater() =
+        runTest {
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 3, userId = 1) }
+            val sync = sync(FakeClient(failWith = AniListError.Network("offline")), queue)
+            val told = async { sync.notices.first() }
+            runCurrent()
+
+            sync.watching(101, 4, title)
+            runCurrent()
+
+            val notice = told.await()
+            assertEquals(NoticeChange.SavedForLater(PendingProgress(101, 4, 1), replaced = PendingProgress(101, 3, 1)), notice.change)
+            assertEquals(title, notice.title)
+        }
+
+    @Test
+    fun updatesSentLaterFromTheQueueSayNothing() =
+        runTest {
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 4, userId = 1) }
+            val sync = sync(FakeClient(), queue)
+            val told = async { sync.notices.first() }
+            runCurrent()
+
+            sync.flush()
+            runCurrent()
+
+            assertFalse(told.isCompleted)
+            told.cancel()
+        }
+
+    @Test
+    fun theListButtonAndMarksSayWhatChanged() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, watching3, title = title))
+            val sync = sync(client, MemoryQueue())
+            val told = mutableListOf<ListNotice>()
+            val collecting = launch { sync.notices.collect { told += it } }
+            runCurrent()
+
+            sync.changeStatus(101, ListStatus.PAUSED, forUser = 1)
+            sync.markWatched(101, upTo = 5, forUser = 1)
+            sync.markUnwatched(101, episode = 3, forUser = 1)
+            sync.remove(101, forUser = 1)
+            runCurrent()
+            collecting.cancel()
+
+            assertEquals(
+                listOf(
+                    NoticeChange.Updated(ListStatus.PAUSED, 3, byEpisode = false),
+                    NoticeChange.Updated(ListStatus.WATCHING, 5, byEpisode = true),
+                    NoticeChange.Updated(ListStatus.WATCHING, 2, byEpisode = true),
+                    NoticeChange.Removed,
+                ),
+                told.map { it.change },
+            )
+            assertTrue(told.all { it.before == watching3 && it.title == title && !it.fromWatching })
+        }
+
+    @Test
+    fun undoPutsTheEntryBackAsItWas() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, watching3.copy(progress = 4)))
+            val notice = ListNotice(101, 1, title, NoticeChange.Updated(ListStatus.WATCHING, 4, byEpisode = true), watching3)
+
+            assertTrue(sync(client, MemoryQueue()).undo(notice))
+            assertEquals(listOf(101 to watching3), client.restored)
+        }
+
+    @Test
+    fun undoTakesAShowThatWasntOnTheListOffAgain() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, ListEntry(ListStatus.WATCHING, 1, hasStartDate = true, id = 777)))
+            val notice = ListNotice(101, 1, title, NoticeChange.Updated(ListStatus.WATCHING, 1, byEpisode = true), before = null)
+
+            assertTrue(sync(client, MemoryQueue()).undo(notice))
+            assertEquals(listOf(777), client.removed)
+            assertEquals(emptyList(), client.restored)
+        }
+
+    @Test
+    fun undoingARemoveBringsTheWholeEntryBack() =
+        runTest {
+            val before = watching3.copy(score = 85, notes = "Rewatch the finale", private = true, startedAt = EntryDate(2026, 10, 1))
+            val client = FakeClient(ShowEntry(12, null))
+            val notice = ListNotice(101, 1, title, NoticeChange.Removed, before)
+
+            assertTrue(sync(client, MemoryQueue()).undo(notice))
+            assertEquals(listOf(101 to before), client.restored)
+        }
+
+    @Test
+    fun undoSendsNothingOnceTheEntryHasChangedSince() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, watching3.copy(progress = 6)))
+            val notice = ListNotice(101, 1, title, NoticeChange.Updated(ListStatus.WATCHING, 4, byEpisode = true), watching3)
+
+            assertFalse(sync(client, MemoryQueue()).undo(notice))
+            assertEquals(emptyList(), client.restored)
+            assertEquals(emptyList(), client.removed)
+        }
+
+    @Test
+    fun undoForSomeoneElseInPrivateModeOrOfflineSendsNothing() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, watching3.copy(progress = 4)))
+            val notice = ListNotice(101, 1, title, NoticeChange.Updated(ListStatus.WATCHING, 4, byEpisode = true), watching3)
+            val someoneElse = SignedInAccount(AniListProfile(2, "Other", null), me.token)
+
+            assertFalse(sync(client, MemoryQueue(), account = someoneElse).undo(notice))
+            assertFalse(sync(client, MemoryQueue(), settings = Settings(privateMode = true)).undo(notice))
+            assertEquals(0, client.calls)
+            client.failWith = AniListError.Network("offline")
+            assertFalse(sync(client, MemoryQueue()).undo(notice))
+            assertEquals(emptyList(), client.restored)
+        }
+
+    @Test
+    fun undoingAnUpdateSavedForLaterPutsTheQueueBack() =
+        runTest {
+            val client = FakeClient()
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 4, userId = 1) }
+            val sync = sync(client, queue)
+
+            val replacing =
+                ListNotice(101, 1, title, NoticeChange.SavedForLater(PendingProgress(101, 4, 1), PendingProgress(101, 3, 1)), null)
+            assertTrue(sync.undo(replacing))
+            assertEquals(listOf(PendingProgress(101, 3, userId = 1)), queue.all())
+
+            queue.items[101] = PendingProgress(101, 4, userId = 1)
+            assertTrue(sync.undo(replacing.copy(change = NoticeChange.SavedForLater(PendingProgress(101, 4, 1), replaced = null))))
+            assertEquals(emptyList(), queue.all())
+            assertEquals(0, client.calls)
+        }
+
+    // Sent since it was saved, it's on AniList, and the queue no longer has it to take back.
+    @Test
+    fun undoingAnUpdateAlreadySentSaysSo() =
+        runTest {
+            val notice = ListNotice(101, 1, title, NoticeChange.SavedForLater(PendingProgress(101, 4, 1), null), null)
+
+            assertFalse(sync(FakeClient(), MemoryQueue()).undo(notice))
         }
 }

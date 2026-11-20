@@ -1,6 +1,7 @@
 package ani.saikou.neo.shared.account
 
 import ani.saikou.neo.shared.catalogue.AniListResult
+import ani.saikou.neo.shared.catalogue.AnimeTitle
 
 /** Where a show sits on the user's AniList list. */
 public enum class ListStatus {
@@ -19,9 +20,17 @@ public data class ListDate(
     val day: Int,
 )
 
+/** A date on an AniList entry, any part of which can be missing. */
+public data class EntryDate(
+    val year: Int?,
+    val month: Int?,
+    val day: Int?,
+)
+
 /**
  * A show's entry on the user's list: its [status], how many episodes they've watched, whether it has a start date, how
- * many times they've rewatched it, whether it has a finish date, and the entry's own AniList [id].
+ * many times they've rewatched it, whether it has a finish date, and the entry's own AniList [id]. The rest is what
+ * Undo needs to put it back (ADR 0056): the dates themselves, the [score] out of 100, [notes] and whether it's [private].
  */
 public data class ListEntry(
     val status: ListStatus,
@@ -30,16 +39,22 @@ public data class ListEntry(
     val repeat: Int = 0,
     val hasFinishDate: Boolean = false,
     val id: Int? = null,
+    val startedAt: EntryDate? = null,
+    val completedAt: EntryDate? = null,
+    val score: Int = 0,
+    val notes: String? = null,
+    val private: Boolean = false,
 )
 
 /**
- * A show's episode count, if AniList knows it, the user's [entry] for it, if it's on their list, and whether it has
- * [finished] airing.
+ * A show's episode count, if AniList knows it, the user's [entry] for it, if it's on their list, whether it has
+ * [finished] airing, and its [title] for the notice.
  */
 public data class ShowEntry(
     val episodes: Int?,
     val entry: ListEntry?,
     val finished: Boolean = false,
+    val title: AnimeTitle? = null,
 )
 
 /**
@@ -156,5 +171,12 @@ public interface ProgressClient {
     public suspend fun removeEntry(
         token: AniListToken,
         entryId: Int,
+    ): AniListResult<Unit>
+
+    /** Puts the user's entry for [mediaId] back as [entry], adding it if it's gone. A missing date is cleared. */
+    public suspend fun restoreEntry(
+        token: AniListToken,
+        mediaId: Int,
+        entry: ListEntry,
     ): AniListResult<Unit>
 }

@@ -6,6 +6,7 @@ import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.catalogue.anilist.ContinueListQuery
 import ani.saikou.neo.shared.catalogue.anilist.DeleteEntryMutation
 import ani.saikou.neo.shared.catalogue.anilist.ListEntryQuery
+import ani.saikou.neo.shared.catalogue.anilist.RestoreEntryMutation
 import ani.saikou.neo.shared.catalogue.anilist.SaveProgressMutation
 import ani.saikou.neo.shared.catalogue.anilist.ViewerQuery
 import ani.saikou.neo.shared.catalogue.anilist.WatchListQuery
@@ -185,9 +186,15 @@ public class AniListAccountClient internal constructor(
                     repeat = entry.repeat ?: 0,
                     hasFinishDate = entry.completedAt?.year != null,
                     id = entry.id,
+                    startedAt = entry.startedAt?.run { EntryDate(year, month, day) }?.takeIf { it.year != null },
+                    completedAt = entry.completedAt?.run { EntryDate(year, month, day) }?.takeIf { it.year != null },
+                    score = entry.score?.toInt() ?: 0,
+                    notes = entry.notes,
+                    private = entry.private == true,
                 )
             }
-        return AniListResult.Success(ShowEntry(media.episodes, entry, finished = media.status == MediaStatus.FINISHED))
+        val title = media.title?.run { AnimeTitle(romaji, english, native) }
+        return AniListResult.Success(ShowEntry(media.episodes, entry, finished = media.status == MediaStatus.FINISHED, title = title))
     }
 
     override suspend fun saveProgress(
@@ -228,6 +235,36 @@ public class AniListAccountClient internal constructor(
                 .execute()
         response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
         return if (response.data?.DeleteMediaListEntry?.deleted == true) {
+            AniListResult.Success(Unit)
+        } else {
+            AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+        }
+    }
+
+    override suspend fun restoreEntry(
+        token: AniListToken,
+        mediaId: Int,
+        entry: ListEntry,
+    ): AniListResult<Unit> {
+        val mutation =
+            RestoreEntryMutation(
+                mediaId = mediaId,
+                status = entry.status.toMediaListStatus(),
+                progress = entry.progress,
+                repeat = entry.repeat,
+                scoreRaw = entry.score,
+                notes = Optional.present(entry.notes),
+                private = entry.private,
+                startedAt = entry.startedAt.toFuzzyDate(),
+                completedAt = entry.completedAt.toFuzzyDate(),
+            )
+        val response =
+            apollo
+                .mutation(mutation)
+                .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
+                .execute()
+        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+        return if (response.data?.SaveMediaListEntry != null) {
             AniListResult.Success(Unit)
         } else {
             AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
@@ -302,3 +339,7 @@ private fun ListStatus.toMediaListStatus(): MediaListStatus =
     }
 
 private fun ListDate.toFuzzyDate(): FuzzyDateInput = FuzzyDateInput(Optional.present(year), Optional.present(month), Optional.present(day))
+
+// All parts null clears the date on AniList.
+private fun EntryDate?.toFuzzyDate(): FuzzyDateInput =
+    FuzzyDateInput(Optional.present(this?.year), Optional.present(this?.month), Optional.present(this?.day))

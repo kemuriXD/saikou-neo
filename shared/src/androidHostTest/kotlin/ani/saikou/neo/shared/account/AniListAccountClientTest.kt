@@ -112,7 +112,22 @@ class AniListAccountClientTest {
 
             assertEquals(
                 AniListResult.Success(
-                    ShowEntry(12, ListEntry(ListStatus.PAUSED, 4, hasStartDate = true, repeat = 1, id = 555), finished = true),
+                    ShowEntry(
+                        12,
+                        ListEntry(
+                            ListStatus.PAUSED,
+                            4,
+                            hasStartDate = true,
+                            repeat = 1,
+                            id = 555,
+                            startedAt = EntryDate(2025, null, null),
+                            score = 85,
+                            notes = "Rewatch the finale",
+                            private = true,
+                        ),
+                        finished = true,
+                        title = AnimeTitle("Romaji", "English", null),
+                    ),
                 ),
                 result,
             )
@@ -176,6 +191,33 @@ class AniListAccountClientTest {
             assertTrue("\"status\":\"COMPLETED\"" in body && "\"repeat\":3" in body, body)
             assertTrue("\"completedAt\":{\"year\":2026,\"month\":11,\"day\":20}" in body, body)
             assertTrue("\"startedAt\"" !in body, body)
+        }
+
+    // ADR 0056: Undo puts every field back, and clears a date the change filled in.
+    @Test
+    fun restoreEntrySendsTheWholeEntryAndClearsMissingDates() =
+        runTest {
+            val engine = RecordedEngine("save-progress")
+            val entry =
+                ListEntry(
+                    ListStatus.PLANNING,
+                    0,
+                    hasStartDate = false,
+                    repeat = 2,
+                    score = 70,
+                    notes = "Later",
+                    private = true,
+                    completedAt = EntryDate(2024, 3, 9),
+                )
+
+            val result = clientFor(engine).restoreEntry(token, mediaId = 101, entry)
+
+            assertEquals(AniListResult.Success(Unit), result)
+            val body = engine.requestBodies.single()
+            assertTrue("\"status\":\"PLANNING\"" in body && "\"progress\":0" in body && "\"repeat\":2" in body, body)
+            assertTrue("\"scoreRaw\":70" in body && "\"notes\":\"Later\"" in body && "\"private\":true" in body, body)
+            assertTrue("\"startedAt\":{\"year\":null,\"month\":null,\"day\":null}" in body, body)
+            assertTrue("\"completedAt\":{\"year\":2024,\"month\":3,\"day\":9}" in body, body)
         }
 
     @Test

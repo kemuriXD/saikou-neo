@@ -1,1 +1,1 @@
-{"data":{"Media":{"episodes":12,"status":"FINISHED","mediaListEntry":{"id":555,"status":"PAUSED","progress":4,"repeat":1,"startedAt":{"year":2025},"completedAt":{"year":null}}}}}
+{"data":{"Media":{"episodes":12,"status":"FINISHED","title":{"romaji":"Romaji","english":"English","native":null},"mediaListEntry":{"id":555,"status":"PAUSED","progress":4,"repeat":1,"score":85,"notes":"Rewatch the finale","private":true,"startedAt":{"year":2025,"month":null,"day":null},"completedAt":{"year":null,"month":null,"day":null}}}}}
