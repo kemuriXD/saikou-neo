@@ -46,7 +46,7 @@ public class AniListSync(
     private val today: () -> ListDate,
     /** The time now, in seconds since 1970. */
     private val now: () -> Long = { Clock.System.now().epochSeconds },
-) {
+) : YourListEntries {
     private val lock = Mutex()
 
     /**
@@ -96,7 +96,7 @@ public class AniListSync(
      * [animeId] and the signed-in user's entry for it, for the list button. Null when signed out, with an expired token,
      * or when AniList can't be reached.
      */
-    public suspend fun entry(animeId: Int): OnYourList? {
+    override suspend fun entry(animeId: Int): OnYourList? {
         val signedIn = liveAccount() ?: return null
         val read = client.showEntry(signedIn.token, animeId) as? AniListResult.Success ?: return null
         return OnYourList(signedIn.profile.id, read.value)
@@ -106,7 +106,7 @@ public class AniListSync(
      * Sets [animeId]'s status on the list of [forUser], whose entry the button showed, from AniList's entry now (ADR
      * 0051). False if it wasn't saved, or someone else is signed in.
      */
-    public suspend fun changeStatus(
+    override suspend fun changeStatus(
         animeId: Int,
         to: ListStatus,
         forUser: Int,
@@ -120,7 +120,7 @@ public class AniListSync(
      * Takes [animeId] off the list of [forUser], and drops an update waiting for it, which would add it back. True once
      * it's off, including when it wasn't on.
      */
-    public suspend fun remove(
+    override suspend fun remove(
         animeId: Int,
         forUser: Int,
     ): Boolean =

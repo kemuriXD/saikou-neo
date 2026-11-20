@@ -223,4 +223,18 @@ class AniListYourListTest {
             assertEquals(listOf(ListedProgress(201, 1, 1_000, 24)), yourList.shows())
             assertEquals(1, client.asked.size)
         }
+
+    // A status changed from the list button can take a show on or off the list (ADR 0051).
+    @Test
+    fun aForgottenListIsReadAgain() =
+        runTest {
+            val client = FakeClient { AniListResult.Success(shows) }
+            val yourList = AniListYourList({ me }, client, now = { 1_000 })
+
+            yourList.shows()
+            yourList.forget()
+            yourList.shows()
+
+            assertEquals(2, client.asked.size)
+        }
 }
