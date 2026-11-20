@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -21,6 +22,12 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -61,7 +68,19 @@ internal fun EpisodeMenu(
     val colors = NeoTheme.colors
     val first = remember { FocusRequester() }
     LaunchedEffect(Unit) { first.requestFocus() }
-    Box(Modifier.fillMaxSize().background(colors.scrimPlayer.copy(alpha = SCRIM_ALPHA))) {
+    // Holding OK opens the menu, and letting go of it mustn't pick the row it opens on. Only an OK pressed here counts.
+    val pressedHere = remember { mutableStateOf(false) }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(colors.scrimPlayer.copy(alpha = SCRIM_ALPHA))
+            .onPreviewKeyEvent { event ->
+                if (!event.isOk()) return@onPreviewKeyEvent false
+                // The held key keeps repeating once the menu is open; a fresh press starts at 0.
+                if (event.type == KeyEventType.KeyDown && event.nativeKeyEvent.repeatCount == 0) pressedHere.value = true
+                !pressedHere.value
+            },
+    ) {
         Column(
             Modifier
                 .align(Alignment.TopEnd)
@@ -110,6 +129,8 @@ internal fun EpisodeMenu(
         }
     }
 }
+
+private fun KeyEvent.isOk() = key == Key.DirectionCenter || key == Key.Enter || key == Key.NumPadEnter
 
 /** Sets the menu level with the middle of [row], kept on the screen. */
 private fun Modifier.besideRow(row: Rect) =

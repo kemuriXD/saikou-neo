@@ -1641,6 +1641,24 @@ class DetailsScreenTest {
         assertEquals(listOf(1 to false), marked)
     }
 
+    // Letting go of the OK held to open the menu doesn't pick the row it opens on.
+    @Test
+    fun holdingOkOpensTheMenuWithoutMarkingAnything() {
+        val marked = mutableListOf<Pair<Int, Boolean>>()
+        showMarks(AniListWatched(userId = 1, progress = 0)) { episode, watched -> marked += episode to watched }
+
+        compose.onRoot().performKeyInput {
+            keyDown(Key.DirectionCenter)
+            advanceEventTime(1_500)
+            keyUp(Key.DirectionCenter)
+        }
+
+        compose.onNodeWithTag(MARK_WATCHED_TAG).assertIsFocused()
+        assertEquals(emptyList<Pair<Int, Boolean>>(), marked)
+        press(Key.DirectionCenter)
+        assertEquals(listOf(1 to true), marked)
+    }
+
     @Test
     fun backClosesTheEpisodeMenuWithNothingMarked() {
         val marked = mutableListOf<Pair<Int, Boolean>>()

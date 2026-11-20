@@ -176,7 +176,8 @@ internal fun EpisodesSection(
         if (!listState.isVisible(episode - first)) listState.scrollToItem(episode - first)
     }
     Column(modifier.heightIn(max = SectionHeight), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        // As wide as the rows, so the hint ends on their right edge.
+        Row(Modifier.width(RowWidth), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 text = list.header(),
                 style = NeoTheme.typography.label.copy(fontWeight = FontWeight.Normal),
