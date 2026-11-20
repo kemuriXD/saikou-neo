@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -75,8 +76,8 @@ internal fun BoxScope.AniListNotice(
             .shadow(12.dp, shape, ambientColor = Color.Black, spotColor = Color.Black)
             .background(colors.surfaceRaised, shape)
             .border(1.dp, colors.line, shape)
-            .padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 10.dp)
-            .testTag(NOTICE_TAG),
+            .testTag(NOTICE_TAG)
+            .padding(start = 16.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -132,11 +133,12 @@ internal fun BoxScope.AniListNotice(
 
 /**
  * The notice over every screen but the player, where Up next shows it. It takes focus to Undo, and any D-pad move or
- * Back sends focus back to where it was on [screen], as does the notice closing while Undo has it.
+ * Back sends focus back to where it was on [screen], as does the notice closing while Undo has it. It has a box of its
+ * own, so a parent that stretches its children, like the app's Surface, doesn't stretch the notice.
  */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
-internal fun BoxScope.NoticeOverScreens(
+internal fun NoticeOverScreens(
     shown: ShownNotice?,
     actions: NoticeActions,
     screen: FocusRequester,
@@ -159,11 +161,22 @@ internal fun BoxScope.NoticeOverScreens(
         if (!screen.restoreFocusedChild()) screen.requestFocus()
         true
     }
+    Box(Modifier.fillMaxSize()) { NoticeWithFocus(shown, actions, undo, back) { undoFocused = it } }
+}
+
+@Composable
+private fun BoxScope.NoticeWithFocus(
+    shown: ShownNotice,
+    actions: NoticeActions,
+    undo: FocusRequester,
+    back: () -> Boolean,
+    focused: (Boolean) -> Unit,
+) {
     AniListNotice(
         shown,
         actions.copy(
             onUndoFocused = {
-                undoFocused = it
+                focused(it)
                 actions.onUndoFocused(it)
             },
         ),

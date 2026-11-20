@@ -16,12 +16,15 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.unit.dp
+import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.account.ListEntry
 import ani.saikou.neo.shared.account.ListNotice
@@ -31,6 +34,7 @@ import ani.saikou.neo.shared.account.ShownNotice
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -122,6 +126,23 @@ class AniListNoticeTest {
 
         compose.onNodeWithTag(NOTICE_TAG).assertDoesNotExist()
         compose.onNodeWithTag("first").assertIsFocused()
+    }
+
+    // The app's root Surface stretches its children to the screen; the notice keeps its own size, bottom left.
+    @Test
+    fun insideTheAppsSurfaceTheNoticeKeepsItsOwnSize() {
+        compose.setContent {
+            NeoTheme {
+                Surface(Modifier.fillMaxSize()) {
+                    NoticeOverScreens(notice(NoticeChange.Removed), NoticeActions(), remember { FocusRequester() })
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        val bounds = compose.onNodeWithTag(NOTICE_TAG).getUnclippedBoundsInRoot()
+        assertEquals(48.dp, bounds.left)
+        assertTrue(bounds.right - bounds.left < 600.dp && bounds.bottom - bounds.top < 100.dp)
     }
 
     @Test
