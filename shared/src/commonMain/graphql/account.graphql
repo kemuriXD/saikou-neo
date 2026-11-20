@@ -59,16 +59,20 @@ query ContinueList($userId: Int!) {
 }
 
 # A show's episode count, whether it has finished airing and the signed-in user's entry for it, asked before watching
-# updates their progress.
+# or the list button updates their list.
 query ListEntry($mediaId: Int!) {
   Media(id: $mediaId, type: ANIME) {
     episodes
     status
     mediaListEntry {
+      id
       status
       progress
       repeat
       startedAt {
+        year
+      }
+      completedAt {
         year
       }
     }
@@ -93,5 +97,12 @@ mutation SaveProgress(
     repeat: $repeat
   ) {
     id
+  }
+}
+
+# Takes a show off the signed-in user's list, from the list button.
+mutation DeleteEntry($id: Int!) {
+  DeleteMediaListEntry(id: $id) {
+    deleted
   }
 }

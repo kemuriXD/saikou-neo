@@ -17,6 +17,12 @@ public data class PendingProgress(
     val userId: Int,
 )
 
+/** [show] as read from the list of the AniList user [userId]. */
+public data class OnYourList(
+    val userId: Int,
+    val show: ShowEntry,
+)
+
 /** Updates waiting to reach AniList, one per show. */
 public interface SyncQueue {
     public suspend fun all(): List<PendingProgress>
@@ -85,6 +91,61 @@ public class AniListSync(
                     true
                 }
             }.await()
+
+    /**
+     * [animeId] and the signed-in user's entry for it, for the list button. Null when signed out, with an expired token,
+     * or when AniList can't be reached.
+     */
+    public suspend fun entry(animeId: Int): OnYourList? {
+        val signedIn = liveAccount() ?: return null
+        val read = client.showEntry(signedIn.token, animeId) as? AniListResult.Success ?: return null
+        return OnYourList(signedIn.profile.id, read.value)
+    }
+
+    /**
+     * Sets [animeId]'s status on the list of [forUser], whose entry the button showed, from AniList's entry now (ADR
+     * 0051). False if it wasn't saved, or someone else is signed in.
+     */
+    public suspend fun changeStatus(
+        animeId: Int,
+        to: ListStatus,
+        forUser: Int,
+    ): Boolean =
+        once(forUser) { token ->
+            val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
+            client.saveProgress(token, animeId, statusUpdate(read.value, to, today())) is AniListResult.Success
+        }
+
+    /**
+     * Takes [animeId] off the list of [forUser], and drops an update waiting for it, which would add it back. True once
+     * it's off, including when it wasn't on.
+     */
+    public suspend fun remove(
+        animeId: Int,
+        forUser: Int,
+    ): Boolean =
+        once(forUser) { token ->
+            val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
+            val id = read.value.entry?.id
+            if (id != null && client.removeEntry(token, id) !is AniListResult.Success) return@once false
+            if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
+            true
+        }
+
+    // Runs in [scope], so it finishes once the screen has gone, after any update ahead of it, while [forUser] is signed in.
+    private suspend fun once(
+        forUser: Int,
+        work: suspend (AniListToken) -> Boolean,
+    ): Boolean =
+        scope
+            .async {
+                lock.withLock {
+                    val signedIn = liveAccount()
+                    if (signedIn == null || signedIn.profile.id != forUser) false else work(signedIn.token)
+                }
+            }.await()
+
+    private suspend fun liveAccount(): SignedInAccount? = account()?.takeIf { it.token.expiresAtEpochSeconds > now() }
 
     /** Sends the updates still waiting, such as when the app starts. */
     public fun flush() {

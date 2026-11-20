@@ -4,6 +4,7 @@ import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.catalogue.anilist.ContinueListQuery
+import ani.saikou.neo.shared.catalogue.anilist.DeleteEntryMutation
 import ani.saikou.neo.shared.catalogue.anilist.ListEntryQuery
 import ani.saikou.neo.shared.catalogue.anilist.SaveProgressMutation
 import ani.saikou.neo.shared.catalogue.anilist.ViewerQuery
@@ -174,7 +175,14 @@ public class AniListAccountClient internal constructor(
         val entry =
             media.mediaListEntry?.let { entry ->
                 val status = entry.status?.toListStatus() ?: return@let null
-                ListEntry(status, entry.progress ?: 0, hasStartDate = entry.startedAt?.year != null, repeat = entry.repeat ?: 0)
+                ListEntry(
+                    status,
+                    entry.progress ?: 0,
+                    hasStartDate = entry.startedAt?.year != null,
+                    repeat = entry.repeat ?: 0,
+                    hasFinishDate = entry.completedAt?.year != null,
+                    id = entry.id,
+                )
             }
         return AniListResult.Success(ShowEntry(media.episodes, entry, finished = media.status == MediaStatus.FINISHED))
     }
@@ -200,6 +208,23 @@ public class AniListAccountClient internal constructor(
                 .execute()
         response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
         return if (response.data?.SaveMediaListEntry != null) {
+            AniListResult.Success(Unit)
+        } else {
+            AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+        }
+    }
+
+    override suspend fun removeEntry(
+        token: AniListToken,
+        entryId: Int,
+    ): AniListResult<Unit> {
+        val response =
+            apollo
+                .mutation(DeleteEntryMutation(entryId))
+                .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
+                .execute()
+        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+        return if (response.data?.DeleteMediaListEntry?.deleted == true) {
             AniListResult.Success(Unit)
         } else {
             AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
