@@ -86,12 +86,13 @@ internal fun PickUpDialog(
                 )
             }
             Row(Modifier.keepsArrowsIn(), horizontalArrangement = Arrangement.spacedBy(ChoiceGap)) {
+                // AniList's place is its last episode watched, so it carries on with the one after.
                 val listed = asked.aniList
                 Choice(
-                    episode = listed.episode,
+                    episode = listed.episode + 1,
                     still = art,
                     source = stringResource(R.string.details_pick_up_anilist),
-                    choice = stringResource(R.string.details_pick_up_start, listed.episode),
+                    choice = stringResource(R.string.details_pick_up_start, listed.episode + 1),
                     detail = aniListDetail(listed),
                     onClick = onAniList,
                     recommended = true,
@@ -205,7 +206,7 @@ private val Eyebrow
 /** "Episode 7 marked watched on AniList, 2 days ago". */
 @Composable
 private fun aniListDetail(listed: WatchProgress): String {
-    val watched = listed.episode - 1
+    val watched = listed.episode
     val what =
         if (watched > 0) {
             stringResource(R.string.details_pick_up_listed, watched)

@@ -201,7 +201,7 @@ class DetailsViewModelTest {
             val viewModel = detailsViewModel(listed = ListedProgress(195516, 2, 500, 24))
 
             val loaded = assertIs<DetailsState.Loaded>(viewModel.settled())
-            assertEquals(WatchProgress(3, Duration.ZERO, 24.minutes, null, 500), loaded.place)
+            assertEquals(WatchProgress(2, 24.minutes, 24.minutes, null, 500), loaded.place)
             assertEquals(WatchProgress(3, Duration.ZERO, 24.minutes, null, 500), loaded.upNext)
         }
 

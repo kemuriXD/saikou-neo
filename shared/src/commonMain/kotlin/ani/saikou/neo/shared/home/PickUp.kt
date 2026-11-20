@@ -3,7 +3,6 @@ package ani.saikou.neo.shared.home
 import ani.saikou.neo.shared.account.AniListSync
 import ani.saikou.neo.shared.account.ListedProgress
 import kotlin.time.Clock
-import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
 /** Where Details carries on with a show, from this TV's place and AniList's (ADR 0050). */
@@ -16,7 +15,7 @@ public sealed interface PickUp {
         override val place: WatchProgress,
     ) : PickUp
 
-    /** The two disagree, so the viewer picks [aniList], the episode after its progress, or [thisTv]. */
+    /** The two disagree, so the viewer picks [aniList], its last episode watched, or [thisTv]. */
     public data class Ask(
         val aniList: WatchProgress,
         val thisTv: WatchProgress,
@@ -34,20 +33,16 @@ public fun pickUp(
     onTv: WatchProgress?,
     listed: ListedProgress?,
 ): PickUp? {
+    // Its last episode, watched to the end, as Continue watching keeps it (ADR 0049).
     val aniList =
         listed?.let {
-            WatchProgress(
-                it.progress + 1,
-                Duration.ZERO,
-                it.episodeMinutes?.minutes ?: USUAL_EPISODE,
-                null,
-                it.updatedAt,
-            )
+            val length = it.episodeMinutes?.minutes ?: USUAL_EPISODE
+            WatchProgress(it.progress, length, length, null, it.updatedAt)
         }
     return when {
         onTv == null -> aniList?.let { PickUp.At(it) }
-        aniList == null || onTv.picksUpAt == aniList.episode -> PickUp.At(onTv)
-        aniList.episode > onTv.picksUpAt && onTv.resumeAtMs(onTv.episode) == null -> PickUp.At(aniList)
+        aniList == null || onTv.picksUpAt == aniList.picksUpAt -> PickUp.At(onTv)
+        aniList.picksUpAt > onTv.picksUpAt && onTv.resumeAtMs(onTv.episode) == null -> PickUp.At(aniList)
         else -> PickUp.Ask(aniList, onTv)
     }
 }

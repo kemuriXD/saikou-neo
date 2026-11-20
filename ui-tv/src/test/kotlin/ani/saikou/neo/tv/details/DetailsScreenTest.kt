@@ -685,7 +685,9 @@ class DetailsScreenTest {
         press(Key.DirectionCenter)
 
         compose.onNodeWithTag(PICK_UP_TAG).assertDoesNotExist()
-        compose.onNodeWithTag(episodeTag(8)).assertIsFocused()
+        // AniList keeps no position, so episode 8 isn't marked as begun on this TV.
+        compose.onNodeWithTag(episodeTag(8)).assertIsFocused().assert(!hasText("Position saved on this TV", substring = true))
+        compose.onNodeWithTag(episodeTag(7)).assert(hasText("Watched"))
     }
 
     @Test

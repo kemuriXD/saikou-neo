@@ -16,7 +16,8 @@ class PickUpTest {
 
     private fun listed(progress: Int) = ListedProgress(201, progress, updatedAt = 500, episodeMinutes = 24)
 
-    private fun fromList(episode: Int) = WatchProgress(episode, Duration.ZERO, 24.minutes, null, 500)
+    // AniList's place is its last episode watched to the end, as Continue watching keeps it, so nothing shows as begun.
+    private fun fromList(next: Int) = WatchProgress(next - 1, 24.minutes, 24.minutes, null, 500)
 
     @Test
     fun withNeitherThereIsNothingToPickUp() {
@@ -59,7 +60,7 @@ class PickUpTest {
     fun aListedEpisodeLengthIsKept() {
         val place = pickUp(null, ListedProgress(201, 0, null, episodeMinutes = null))
 
-        assertEquals(PickUp.At(WatchProgress(1, Duration.ZERO, 24.minutes, null, null)), place)
+        assertEquals(PickUp.At(WatchProgress(0, 24.minutes, 24.minutes, null, null)), place)
     }
 
     @Test
