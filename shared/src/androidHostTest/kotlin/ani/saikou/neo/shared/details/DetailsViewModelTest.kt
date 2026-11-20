@@ -1,6 +1,12 @@
 package ani.saikou.neo.shared.details
 
+import ani.saikou.neo.shared.account.ListChange
+import ani.saikou.neo.shared.account.ListEntry
+import ani.saikou.neo.shared.account.ListStatus
 import ani.saikou.neo.shared.account.ListedProgress
+import ani.saikou.neo.shared.account.OnYourList
+import ani.saikou.neo.shared.account.ShowEntry
+import ani.saikou.neo.shared.account.WatchedEpisodes
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
@@ -31,11 +37,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestDispatcher
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.resetMain
@@ -79,6 +87,8 @@ class DetailsViewModelTest {
         progress: Flow<WatchProgress?> = flowOf(null),
         listed: ListedProgress? = null,
         sides: PickUpSides? = null,
+        marks: WatchedEpisodes? = null,
+        marked: suspend () -> Unit = {},
         animeId: Int = 195516,
         zoneOffsetSeconds: Int = 0,
         warmSources: () -> Unit = {},
@@ -93,6 +103,8 @@ class DetailsViewModelTest {
         progress = progress,
         listed = { listed },
         sides = sides,
+        marks = marks,
+        marked = marked,
         zoneOffsetSeconds = zoneOffsetSeconds,
         warmSources = warmSources,
     )
@@ -233,6 +245,213 @@ class DetailsViewModelTest {
 
             assertEquals(listOf(Triple(195516, 3, 1)), sides.moved)
             assertEquals(PickUp.At(here), assertIs<DetailsState.Loaded>(viewModel.state.value).pickUp)
+        }
+
+    // The signed-in user's entry for the show, or none signed out.
+    private class FakeMarks(
+        var progress: Int? = 3,
+        val signedIn: Boolean = true,
+        var works: Boolean = true,
+    ) : WatchedEpisodes {
+        val sent = MutableSharedFlow<ListChange>(extraBufferCapacity = 8)
+        override val changes = sent
+        val calls = mutableListOf<String>()
+
+        override suspend fun entry(animeId: Int) =
+            if (signedIn) OnYourList(1, ShowEntry(12, progress?.let { ListEntry(ListStatus.WATCHING, it, true) })) else null
+
+        override suspend fun changeStatus(
+            animeId: Int,
+            to: ListStatus,
+            forUser: Int,
+        ) = error("Not used here")
+
+        override suspend fun remove(
+            animeId: Int,
+            forUser: Int,
+        ) = error("Not used here")
+
+        override suspend fun markWatched(
+            animeId: Int,
+            upTo: Int,
+            forUser: Int,
+        ): Boolean {
+            calls += "watched $upTo for $forUser"
+            return works
+        }
+
+        override suspend fun markUnwatched(
+            animeId: Int,
+            episode: Int,
+            forUser: Int,
+        ): Boolean {
+            calls += "unwatched $episode for $forUser"
+            return works
+        }
+    }
+
+    private suspend fun TestScope.loaded(viewModel: DetailsViewModel): DetailsState.Loaded {
+        viewModel.settled()
+        advanceUntilIdle()
+        return assertIs<DetailsState.Loaded>(viewModel.state.value)
+    }
+
+    // ADR 0052: signed in, AniList's progress marks the episodes. This TV adds only its part-watched episode past it.
+    @Test
+    fun signedInTheMarksComeFromAniList() =
+        runTest(main) {
+            val here = WatchProgress(6, 24.minutes, 24.minutes, null)
+            val loaded = loaded(detailsViewModel(progress = flowOf(here), marks = FakeMarks()))
+
+            assertEquals(AniListWatched(userId = 1, progress = 3), loaded.aniList)
+            assertEquals(EpisodeMark.Watched, loaded.markFor(3))
+            assertNull(loaded.markFor(4))
+            assertNull(loaded.markFor(6))
+        }
+
+    @Test
+    fun signedInThisTvsPartWatchedEpisodeStillShows() =
+        runTest(main) {
+            val here = WatchProgress(5, 12.minutes, 24.minutes, null)
+            val loaded = loaded(detailsViewModel(progress = flowOf(here), marks = FakeMarks()))
+
+            assertEquals(EpisodeMark.InProgress(here), loaded.markFor(5))
+        }
+
+    @Test
+    fun aShowNotOnTheListHasNoneWatched() =
+        runTest(main) {
+            val here = WatchProgress(2, 24.minutes, 24.minutes, null)
+            val loaded = loaded(detailsViewModel(progress = flowOf(here), marks = FakeMarks(progress = null)))
+
+            assertNull(loaded.markFor(1))
+        }
+
+    @Test
+    fun signedOutTheMarksComeFromThisTv() =
+        runTest(main) {
+            val here = WatchProgress(3, 24.minutes, 24.minutes, null)
+            val loaded = loaded(detailsViewModel(progress = flowOf(here), marks = FakeMarks(signedIn = false)))
+
+            assertNull(loaded.aniList)
+            assertEquals(EpisodeMark.Watched, loaded.markFor(3))
+        }
+
+    @Test
+    fun markingWatchedMovesAniListAndThisTv() =
+        runTest(main) {
+            val marks = FakeMarks()
+            val sides = RecordedSides()
+            var forgotten = 0
+            val here = WatchProgress(2, 24.minutes, 24.minutes, null)
+            val viewModel = detailsViewModel(progress = flowOf(here), sides = sides, marks = marks, marked = { forgotten++ })
+            loaded(viewModel)
+
+            viewModel.markWatched(8)
+            advanceUntilIdle()
+
+            assertEquals(listOf("watched 8 for 1"), marks.calls)
+            assertEquals(8, assertIs<DetailsState.Loaded>(viewModel.state.value).aniList?.progress)
+            assertEquals(listOf(195516 to WatchProgress(8, 24.minutes, 24.minutes, null)), sides.saved)
+            assertEquals(1, forgotten)
+        }
+
+    // This TV further on keeps its place.
+    @Test
+    fun markingWatchedLeavesThisTvFurtherOn() =
+        runTest(main) {
+            val sides = RecordedSides()
+            val here = WatchProgress(9, 12.minutes, 24.minutes, null)
+            val viewModel = detailsViewModel(progress = flowOf(here), sides = sides, marks = FakeMarks())
+            loaded(viewModel)
+
+            viewModel.markWatched(8)
+            advanceUntilIdle()
+
+            assertEquals(emptyList(), sides.saved)
+        }
+
+    @Test
+    fun aMarkAniListDoesntTakeGoesBack() =
+        runTest(main) {
+            val sides = RecordedSides()
+            val viewModel = detailsViewModel(sides = sides, marks = FakeMarks(works = false))
+            loaded(viewModel)
+
+            viewModel.markWatched(8)
+            advanceUntilIdle()
+            viewModel.markUnwatched(2)
+            advanceUntilIdle()
+
+            assertEquals(3, assertIs<DetailsState.Loaded>(viewModel.state.value).aniList?.progress)
+            assertEquals(emptyList(), sides.saved)
+        }
+
+    @Test
+    fun markingUnwatchedGoesBackToTheEpisodeBefore() =
+        runTest(main) {
+            val marks = FakeMarks()
+            val sides = RecordedSides()
+            val here = WatchProgress(5, 10.minutes, 24.minutes, null)
+            val viewModel = detailsViewModel(progress = flowOf(here), sides = sides, marks = marks)
+            loaded(viewModel)
+
+            viewModel.markUnwatched(2)
+            advanceUntilIdle()
+
+            assertEquals(listOf("unwatched 2 for 1"), marks.calls)
+            assertEquals(1, assertIs<DetailsState.Loaded>(viewModel.state.value).aniList?.progress)
+            assertEquals(listOf(195516 to WatchProgress(2, Duration.ZERO, 24.minutes, null)), sides.saved)
+        }
+
+    // Marks that wouldn't change anything aren't sent.
+    @Test
+    fun onlyAnUnwatchedEpisodeCanBeMarkedWatchedAndTheOtherWayRound() =
+        runTest(main) {
+            val marks = FakeMarks()
+            val viewModel = detailsViewModel(marks = marks)
+            loaded(viewModel)
+
+            viewModel.markWatched(3)
+            viewModel.markUnwatched(4)
+            advanceUntilIdle()
+
+            assertEquals(emptyList(), marks.calls)
+        }
+
+    @Test
+    fun aniListsPlaceMovesWithAMark() =
+        runTest(main) {
+            // Four episodes are out.
+            val listed = ListedProgress(195516, 1, 500, 24, userId = 1)
+            val viewModel = detailsViewModel(listed = listed, marks = FakeMarks(progress = 1))
+            loaded(viewModel)
+
+            viewModel.markWatched(3)
+            advanceUntilIdle()
+
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.state.value)
+            assertEquals(3, loaded.listed?.progress)
+            assertIs<PickUp.At>(loaded.pickUp)
+            assertEquals(4, loaded.upNext?.episode)
+        }
+
+    @Test
+    fun aChangeMadeElsewhereOnTheTvMovesTheMarks() =
+        runTest(main) {
+            val marks = FakeMarks()
+            val viewModel = detailsViewModel(marks = marks)
+            loaded(viewModel)
+
+            marks.sent.emit(ListChange(195516, ListStatus.WATCHING, userId = 1, progress = 7))
+            marks.sent.emit(ListChange(195516, ListStatus.WATCHING, userId = 2, progress = 9))
+            marks.sent.emit(ListChange(1, ListStatus.WATCHING, userId = 1, progress = 9))
+            advanceUntilIdle()
+            assertEquals(7, assertIs<DetailsState.Loaded>(viewModel.state.value).aniList?.progress)
+
+            marks.sent.emit(ListChange(195516, null, userId = 1))
+            advanceUntilIdle()
+            assertEquals(0, assertIs<DetailsState.Loaded>(viewModel.state.value).aniList?.progress)
         }
 
     @Test

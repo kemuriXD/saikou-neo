@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.details
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.account.ListedProgress
+import ani.saikou.neo.shared.account.WatchedEpisodes
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
@@ -13,6 +14,7 @@ import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.catalogue.ShowArt
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.home.Logo
+import ani.saikou.neo.shared.home.USUAL_EPISODE
 import ani.saikou.neo.shared.home.PickUp
 import ani.saikou.neo.shared.home.PickUpSides
 import ani.saikou.neo.shared.home.WatchProgress
@@ -25,11 +27,14 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 // On a first visit the art takes about twice as long as AniList's details, so Details waits this long for it.
@@ -53,7 +58,12 @@ public sealed interface DetailsState {
         val progress: WatchProgress? = null,
         /** Where AniList has the signed-in user in the show, if it's on their Watching or Rewatching list. */
         val listed: ListedProgress? = null,
+        /** The signed-in user's AniList progress, whatever the show's status. Null signed out or when it can't be read. */
+        val aniList: AniListWatched? = null,
     ) : DetailsState {
+        /** Whether [episode] is watched, or how much of it is (ADR 0052). */
+        public fun markFor(episode: Int): EpisodeMark? = episodeMark(episode, place, aniList?.progress)
+
         /** Where to pick up from this TV's place and AniList's, and whether to ask (ADR 0050). */
         val pickUp: PickUp? get() = pickUp(progress, listed)
 
@@ -66,6 +76,12 @@ public sealed interface DetailsState {
 
     public data object Failed : DetailsState
 }
+
+/** How many episodes of the show [userId] has watched on AniList: 0 when it isn't on their list. */
+public data class AniListWatched(
+    val userId: Int,
+    val progress: Int,
+)
 
 /**
  * Loads one anime's details from AniList, and its backdrop and logo from [library] at the same time. Art found while the
@@ -89,6 +105,8 @@ public class DetailsViewModel(
     private val progress: Flow<WatchProgress?> = flowOf(null),
     private val listed: suspend () -> ListedProgress? = { null },
     private val sides: PickUpSides? = null,
+    private val marks: WatchedEpisodes? = null,
+    private val marked: suspend () -> Unit = {},
     private val zoneOffsetSeconds: Int = 0,
     warmSources: () -> Unit = {},
 ) : ViewModel() {
@@ -143,10 +161,22 @@ public class DetailsViewModel(
                 onList = listed() ?: return@launch
                 mutableState.update { (it as? DetailsState.Loaded)?.copy(listed = onList) ?: it }
             }
+            // So is the entry the marks come from, which then follows each change the TV makes to it (ADR 0052).
+            var watched: AniListWatched? = null
+            launch {
+                val read = marks?.entry(animeId) ?: return@launch
+                watched = AniListWatched(read.userId, read.show.entry?.progress ?: 0)
+                mutableState.update { (it as? DetailsState.Loaded)?.copy(aniList = watched) ?: it }
+                marks.changes.filter { it.animeId == animeId && it.userId == read.userId }.collect { change ->
+                    val progress = if (change.status == null) 0 else change.progress ?: return@collect
+                    watched = watched?.copy(progress = progress)
+                    mutableState.update { (it as? DetailsState.Loaded)?.withAniList(progress) ?: it }
+                }
+            }
             val found = withTimeoutOrNull(ART_WAIT) { art.await() }
             val saved = progress.stateIn(this)
             launch { saved.collect { now -> mutableState.update { (it as? DetailsState.Loaded)?.copy(progress = now) ?: it } } }
-            val loaded = DetailsState.Loaded(result.value, episodes = episodes, ratings = ratings, progress = saved.value, listed = onList)
+            val loaded = DetailsState.Loaded(result.value, episodes = episodes, ratings = ratings, progress = saved.value, listed = onList, aniList = watched)
             if (found != null) {
                 mutableState.value = loaded.withArt(found)
                 return@launch
@@ -170,10 +200,60 @@ public class DetailsViewModel(
         val asked = loaded.pickUp as? PickUp.Ask ?: return
         val listed = loaded.listed ?: return
         val watched = asked.thisTv.picksUpAt - 1
-        mutableState.update { (it as? DetailsState.Loaded)?.copy(listed = listed.copy(progress = watched)) ?: it }
+        mutableState.update { (it as? DetailsState.Loaded)?.withAniList(watched)?.copy(listed = listed.copy(progress = watched)) ?: it }
         viewModelScope.launch { sides?.moveAniList(animeId, watched, listed) }
     }
+
+    /** Mark watched up to here: AniList, and this TV's place, move to [episode] (ADR 0052). */
+    public fun markWatched(episode: Int): Unit = mark(episode, watched = true)
+
+    /** Mark unwatched: AniList goes back to the episode before [episode], and so does a place here past it. */
+    public fun markUnwatched(episode: Int): Unit = mark(episode, watched = false)
+
+    // Shows straight away, and goes back if AniList doesn't take it.
+    private fun mark(
+        episode: Int,
+        watched: Boolean,
+    ) {
+        val marks = marks ?: return
+        val before = (state.value as? DetailsState.Loaded)?.aniList ?: return
+        if (watched == (episode <= before.progress)) return
+        val to = if (watched) episode else episode - 1
+        mutableState.update { (it as? DetailsState.Loaded)?.withAniList(to) ?: it }
+        viewModelScope.launch {
+            val sent =
+                if (watched) marks.markWatched(animeId, episode, before.userId) else marks.markUnwatched(animeId, episode, before.userId)
+            if (!sent) {
+                // Unless another mark has shown since.
+                mutableState.update { (it as? DetailsState.Loaded)?.takeIf { it.aniList?.progress == to }?.withAniList(before.progress) ?: it }
+                return@launch
+            }
+            moveHere(episode, watched)
+            marked()
+        }
+    }
+
+    // This TV's place moves with a mark, so the two agree and Details doesn't ask where to pick up.
+    private fun moveHere(
+        episode: Int,
+        watched: Boolean,
+    ) {
+        val loaded = state.value as? DetailsState.Loaded ?: return
+        val here = loaded.progress
+        val length = here?.length ?: loaded.details.episodeMinutes?.minutes ?: USUAL_EPISODE
+        val moved =
+            when {
+                watched && (here == null || here.picksUpAt <= episode) -> WatchProgress(episode, length, length, null)
+                !watched && here != null && here.picksUpAt > episode -> WatchProgress(episode, Duration.ZERO, length, null)
+                else -> return
+            }
+        mutableState.update { (it as? DetailsState.Loaded)?.copy(progress = moved) ?: it }
+        sides?.saveHere(animeId, moved)
+    }
 }
+
+private fun DetailsState.Loaded.withAniList(progress: Int) =
+    copy(aniList = aniList?.copy(progress = progress), listed = listed?.copy(progress = progress))
 
 private fun DetailsState.Loaded.withArt(
     art: ShowArt,

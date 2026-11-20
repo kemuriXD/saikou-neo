@@ -101,6 +101,21 @@ public fun progressUpdate(
 }
 
 /**
+ * What Mark watched up to here on [upTo] changes on AniList (ADR 0052): the same as watching it, except that a Completed
+ * show only gets its progress, so marking after Mark unwatched doesn't start a rewatch. Null when AniList is already
+ * there.
+ */
+public fun markedUpdate(
+    show: ShowEntry,
+    upTo: Int,
+    today: ListDate,
+): ProgressUpdate? {
+    val entry = show.entry
+    if (entry?.status != ListStatus.COMPLETED) return progressUpdate(show, upTo, today)
+    return ProgressUpdate(upTo, null, null).takeIf { upTo > entry.progress && (show.episodes == null || upTo <= show.episodes) }
+}
+
+/**
  * What picking [to] for [show] from the list button changes on AniList (ADR 0051). The status, and nothing else, except
  * that Completed watches every episode AniList knows of, fills in empty start and finish dates with [today], and counts
  * a rewatch it finishes. A show that isn't on the list is added at no progress.

@@ -399,7 +399,7 @@ class AniListSyncTest {
 
             assertTrue(sync.changeStatus(101, ListStatus.COMPLETED, forUser = 1))
             assertEquals(listOf(101 to ProgressUpdate(12, ListStatus.COMPLETED, null, completedAt = today)), client.saved)
-            assertEquals(ListChange(101, ListStatus.COMPLETED, userId = 1), told.await())
+            assertEquals(ListChange(101, ListStatus.COMPLETED, userId = 1, progress = 12), told.await())
         }
 
     @Test
@@ -453,6 +453,85 @@ class AniListSyncTest {
             assertEquals(0, client.calls)
             client.failWith = AniListError.Network("offline")
             assertFalse(sync(client, queue).remove(101, forUser = 1))
+            assertEquals(1, queue.all().size)
+        }
+
+    // ADR 0052: Details follows each change the TV makes, so a watched episode tells it the new progress.
+    @Test
+    fun aWatchedEpisodeSaysWhereTheProgressIsNow() =
+        runTest {
+            val sync = sync(FakeClient(), MemoryQueue())
+            val told = async { sync.changes.first() }
+            runCurrent()
+
+            sync.watched(101, 4)
+            runCurrent()
+
+            assertEquals(ListChange(101, ListStatus.WATCHING, userId = 1, progress = 4), told.await())
+        }
+
+    @Test
+    fun markingWatchedMovesTheProgressLikeWatching() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, ListEntry(ListStatus.PLANNING, 0, hasStartDate = false)))
+            val sync = sync(client, MemoryQueue())
+            val told = async { sync.changes.first() }
+            runCurrent()
+
+            assertTrue(sync.markWatched(101, upTo = 8, forUser = 1))
+            assertEquals(listOf(101 to ProgressUpdate(8, ListStatus.WATCHING, today)), client.saved)
+            assertEquals(ListChange(101, ListStatus.WATCHING, userId = 1, progress = 8), told.await())
+        }
+
+    // An update waiting for an episode the mark covers would change nothing; a later one is still worth sending.
+    @Test
+    fun markingWatchedDropsOnlyTheUpdatesItCovers() =
+        runTest {
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 6, userId = 1) }
+            assertTrue(sync(FakeClient(), queue).markWatched(101, upTo = 8, forUser = 1))
+            assertEquals(emptyList(), queue.all())
+
+            queue.items[101] = PendingProgress(101, 10, userId = 1)
+            assertTrue(sync(FakeClient(), queue).markWatched(101, upTo = 8, forUser = 1))
+            assertEquals(listOf(PendingProgress(101, 10, userId = 1)), queue.all())
+        }
+
+    @Test
+    fun markingWatchedWhereAniListIsAlreadySendsNothing() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, ListEntry(ListStatus.WATCHING, 8, hasStartDate = true)))
+
+            assertTrue(sync(client, MemoryQueue()).markWatched(101, upTo = 8, forUser = 1))
+            assertEquals(emptyList(), client.saved)
+        }
+
+    @Test
+    fun markingUnwatchedSetsOnlyTheProgressAndDropsWhatsWaiting() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, ListEntry(ListStatus.COMPLETED, 12, hasStartDate = true), finished = true))
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 4, userId = 1) }
+            val sync = sync(client, queue)
+            val told = async { sync.changes.first() }
+            runCurrent()
+
+            assertTrue(sync.markUnwatched(101, episode = 12, forUser = 1))
+            assertEquals(listOf(101 to ProgressUpdate(11, null, null)), client.saved)
+            assertEquals(emptyList(), queue.all())
+            assertEquals(ListChange(101, ListStatus.COMPLETED, userId = 1, progress = 11), told.await())
+        }
+
+    @Test
+    fun aMarkForSomeoneElseOrThatFailsSendsNothing() =
+        runTest {
+            val client = FakeClient()
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 2, userId = 1) }
+
+            assertFalse(sync(client, queue).markWatched(101, upTo = 8, forUser = 2))
+            assertFalse(sync(client, queue).markUnwatched(101, episode = 2, forUser = 2))
+            assertEquals(0, client.calls)
+            client.failWith = AniListError.Network("offline")
+            assertFalse(sync(client, queue).markWatched(101, upTo = 8, forUser = 1))
+            assertFalse(sync(client, queue).markUnwatched(101, episode = 2, forUser = 1))
             assertEquals(1, queue.all().size)
         }
 }

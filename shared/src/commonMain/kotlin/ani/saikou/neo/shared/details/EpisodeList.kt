@@ -126,6 +126,22 @@ public fun WatchProgress.markFor(episode: Int): EpisodeMark? =
         else -> null
     }
 
+/**
+ * [episode]'s mark on Details (ADR 0052). With [aniList], the signed-in user's progress, it's watched up to there, and
+ * this TV's place [onTv] adds only its part-watched episode past it. Without, it's how far this TV got.
+ */
+public fun episodeMark(
+    episode: Int,
+    onTv: WatchProgress?,
+    aniList: Int?,
+): EpisodeMark? =
+    when {
+        aniList == null -> onTv?.markFor(episode)
+        episode <= aniList -> EpisodeMark.Watched
+        onTv?.resumeAtMs(episode) != null -> EpisodeMark.InProgress(onTv)
+        else -> null
+    }
+
 /** What the player's episodes drawer says of one episode, besides its length and date. */
 public sealed interface EpisodeLine {
     public data object Playing : EpisodeLine

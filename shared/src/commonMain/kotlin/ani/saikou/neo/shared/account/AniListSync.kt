@@ -27,12 +27,33 @@ public data class OnYourList(
     val show: ShowEntry,
 )
 
-/** [animeId] was set to [status] on the list of [userId] from this TV, or taken off it with null. */
+/**
+ * [animeId] was set to [status] on the list of [userId] from this TV, or taken off it with null, and its progress is now
+ * [progress] where that's known.
+ */
 public data class ListChange(
     val animeId: Int,
     val status: ListStatus?,
     val userId: Int,
+    val progress: Int? = null,
 )
+
+/** Marking episodes watched or unwatched from Details (ADR 0052), for the user whose entry was read. */
+public interface WatchedEpisodes : YourListEntries {
+    /** Moves the progress to [upTo], as watching it would. False if it wasn't saved, or someone else is signed in. */
+    public suspend fun markWatched(
+        animeId: Int,
+        upTo: Int,
+        forUser: Int,
+    ): Boolean
+
+    /** Sets the progress to the episode before [episode], and nothing else. */
+    public suspend fun markUnwatched(
+        animeId: Int,
+        episode: Int,
+        forUser: Int,
+    ): Boolean
+}
 
 /** Updates waiting to reach AniList, one per show. */
 public interface SyncQueue {
@@ -57,7 +78,7 @@ public class AniListSync(
     private val today: () -> ListDate,
     /** The time now, in seconds since 1970. */
     private val now: () -> Long = { Clock.System.now().epochSeconds },
-) : YourListEntries {
+) : WatchedEpisodes {
     private val lock = Mutex()
     private val changed = MutableSharedFlow<ListChange>(extraBufferCapacity = CHANGES_KEPT, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
@@ -127,8 +148,9 @@ public class AniListSync(
     ): Boolean =
         once(forUser) { token ->
             val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
-            if (client.saveProgress(token, animeId, statusUpdate(read.value, to, today())) !is AniListResult.Success) return@once false
-            changed.tryEmit(ListChange(animeId, to, forUser))
+            val update = statusUpdate(read.value, to, today())
+            if (client.saveProgress(token, animeId, update) !is AniListResult.Success) return@once false
+            changed.tryEmit(ListChange(animeId, to, forUser, update.progress))
             true
         }
 
@@ -146,6 +168,37 @@ public class AniListSync(
             if (id != null && client.removeEntry(token, id) !is AniListResult.Success) return@once false
             if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
             changed.tryEmit(ListChange(animeId, null, forUser))
+            true
+        }
+
+    override suspend fun markWatched(
+        animeId: Int,
+        upTo: Int,
+        forUser: Int,
+    ): Boolean =
+        once(forUser) { token ->
+            val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
+            val update = markedUpdate(read.value, upTo, today())
+            if (update != null && client.saveProgress(token, animeId, update) !is AniListResult.Success) return@once false
+            // One waiting for an episode the mark covers would change nothing.
+            if (queue.all().any { it.animeId == animeId && it.userId == forUser && it.episode <= upTo }) queue.remove(animeId)
+            val status = update?.status ?: read.value.entry?.status
+            changed.tryEmit(ListChange(animeId, status, forUser, update?.progress ?: read.value.entry?.progress))
+            true
+        }
+
+    override suspend fun markUnwatched(
+        animeId: Int,
+        episode: Int,
+        forUser: Int,
+    ): Boolean =
+        once(forUser) { token ->
+            val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
+            val progress = episode - 1
+            if (client.saveProgress(token, animeId, ProgressUpdate(progress, null, null)) !is AniListResult.Success) return@once false
+            // One still waiting would move it forward again.
+            if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
+            changed.tryEmit(ListChange(animeId, read.value.entry?.status, forUser, progress))
             true
         }
 
@@ -210,6 +263,7 @@ public class AniListSync(
         if (update != null) {
             val saved = client.saveProgress(token, pending.animeId, update)
             if (saved is AniListResult.Failure) return saved.error
+            changed.tryEmit(ListChange(pending.animeId, update.status ?: show.entry?.status, pending.userId, update.progress))
         }
         queue.remove(pending.animeId)
         return null
