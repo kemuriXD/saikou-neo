@@ -16,6 +16,7 @@ import ani.saikou.neo.shared.catalogue.anilist.type.MediaSeason
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaSort
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaStatus
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaType
+import ani.saikou.neo.shared.home.airedEpisodes
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.Optional
 import com.apollographql.apollo.api.Query
@@ -98,12 +99,13 @@ public class AniListClient internal constructor(
             data.Page?.media?.firstNotNullOfOrNull { it?.animeCardFields?.toCard() }
         }.let { (it as? AniListResult.Success)?.value }
 
-    /** The cards of up to 50 anime, in no set order. Adult shows are left out. */
-    public suspend fun cards(ids: List<Int>): AniListResult<List<AnimeCard>> =
+    /** The cards of up to 50 anime, in no set order, with how many episodes are out. Adult shows are left out. */
+    public suspend fun cards(ids: List<Int>): AniListResult<List<AiredCard>> =
         fetch(AnimeCardsQuery(ids = ids)) { data ->
             data.Page
                 ?.media
-                ?.mapNotNull { it?.animeCardFields?.toCard() }
+                ?.filterNotNull()
+                ?.map { AiredCard(it.animeCardFields.toCard(), airedEpisodes(it.animeCardFields.episodes, it.nextAiringEpisode?.episode)) }
         }
 
     /** What Home's spotlight shows of each anime, by id. */

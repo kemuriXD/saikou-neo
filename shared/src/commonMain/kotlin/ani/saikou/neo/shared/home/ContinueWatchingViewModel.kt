@@ -59,9 +59,9 @@ public class ContinueWatchingViewModel(
                     is AniListResult.Success -> {
                         mutableState.update { state ->
                             state.copy(
-                                items = sent.value,
+                                items = sent.value.map { (card) -> card },
                                 more = More.Done,
-                                progress = sent.value.associate { it.id to shows.getValue(it.id) },
+                                progress = sent.value.associate { (card, progress) -> card.id to progress },
                             )
                         }
                     }

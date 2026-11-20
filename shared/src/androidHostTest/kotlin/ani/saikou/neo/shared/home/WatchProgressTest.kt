@@ -2,6 +2,8 @@ package ani.saikou.neo.shared.home
 
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -34,6 +36,33 @@ class WatchProgressTest {
 
     @Test
     fun anEpisodeWatchedToTheCreditsStartsOver() = assertEquals(null, progress(23.minutes).resumeAtMs(7))
+
+    @Test
+    fun anEpisodeNotWatchedToTheEndIsStillUpNext() = assertEquals(progress(12.minutes), progress(12.minutes).upNext(aired = 7))
+
+    @Test
+    fun anEpisodeWatchedToTheEndMovesOnToTheNextFromItsStart() {
+        val watched = progress(23.minutes).copy(still = "still", savedAt = 100)
+
+        assertEquals(WatchProgress(8, Duration.ZERO, 24.minutes, "still", 100), watched.upNext(aired = 12))
+    }
+
+    @Test
+    fun theLastAiredEpisodeWatchedToTheEndLeavesNothingUpNext() {
+        assertNull(progress(23.minutes).upNext(aired = 7))
+        assertNull(progress(23.minutes).upNext(aired = 5))
+    }
+
+    @Test
+    fun withoutAnAiredCountTheNextEpisodeIsUpNext() = assertEquals(8, progress(23.minutes).upNext(aired = null)?.episode)
+
+    @Test
+    fun airedEpisodesAreThoseBeforeTheNextToAirOrElseTheTotal() {
+        assertEquals(4, airedEpisodes(total = 12, nextToAir = 5))
+        assertEquals(4, airedEpisodes(total = null, nextToAir = 5))
+        assertEquals(12, airedEpisodes(total = 12, nextToAir = null))
+        assertNull(airedEpisodes(total = null, nextToAir = null))
+    }
 
     @Test
     fun daysSinceCountsCalendarDaysInTheViewersZone() {

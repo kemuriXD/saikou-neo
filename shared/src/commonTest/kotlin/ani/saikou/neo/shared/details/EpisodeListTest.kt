@@ -185,6 +185,9 @@ class EpisodeListTest {
     }
 
     @Test
+    fun anEpisodeWatchedToTheEndIsWatched() = assertEquals(EpisodeMark.Watched, WatchProgress(7, 24.minutes, 24.minutes, null).markFor(7))
+
+    @Test
     fun episodesBeforeTheOneInProgressAreWatched() {
         val progress = WatchProgress(7, 12.minutes, 24.minutes, null)
 
@@ -201,6 +204,15 @@ class EpisodeListTest {
         assertEquals(1, list.nextToWatch(null))
         // One that isn't listed, such as an upcoming one left out, starts at the first.
         assertEquals(1, list.nextToWatch(WatchProgress(20, 12.minutes, 24.minutes, null)))
+    }
+
+    @Test
+    fun anEpisodeWatchedToTheEndMovesTheNextToWatchOn() {
+        val list = episodeList(details(episodes = 12), null, today)
+
+        assertEquals(8, list.nextToWatch(WatchProgress(7, 24.minutes, 24.minutes, null)))
+        // After the last, the show starts again from the first.
+        assertEquals(1, list.nextToWatch(WatchProgress(12, 24.minutes, 24.minutes, null)))
     }
 
     @Test

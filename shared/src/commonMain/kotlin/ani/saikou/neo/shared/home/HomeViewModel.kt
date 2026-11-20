@@ -52,7 +52,7 @@ public data class HomeState(
     val spotlight: Spotlight? = null,
     /** The logo of the card focus rests on, once found, for the screen to start loading. */
     val restingLogo: Logo.Image? = null,
-    /** How far this TV got into each show in Continue watching, by anime id. */
+    /** Where to carry on with each show in Continue watching, by anime id: the next episode once one is watched to the end. */
     val progress: Map<Int, WatchProgress> = emptyMap(),
     /** True when every AniList row failed because AniList couldn't be reached. */
     val offline: Boolean = false,
@@ -202,8 +202,20 @@ public class HomeViewModel(
                 val items = (sent as? AniListResult.Success)?.value
                 mutableState.update { state ->
                     state.copy(
-                        rows = state.rows + (HomeRow.CONTINUE_WATCHING to (items?.let { RowState.Loaded(it) } ?: RowState.Failed)),
-                        progress = items?.associate { it.id to shows.getValue(it.id) } ?: state.progress,
+                        rows =
+                            state.rows +
+                                (
+                                    HomeRow.CONTINUE_WATCHING to (
+                                        items?.let {
+                                            RowState.Loaded(
+                                                it.map { (card) ->
+                                                    card
+                                                },
+                                            )
+                                        } ?: RowState.Failed
+                                    )
+                                ),
+                        progress = items?.associate { (card, progress) -> card.id to progress } ?: state.progress,
                     )
                 }
             }

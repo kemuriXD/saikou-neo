@@ -56,6 +56,9 @@ query AnimeCards($ids: [Int]!) {
   Page(perPage: 50) {
     media(id_in: $ids, type: ANIME, isAdult: false) {
       ...AnimeCardFields
+      nextAiringEpisode {
+        episode
+      }
     }
   }
 }

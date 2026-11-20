@@ -135,6 +135,12 @@ class HomeViewModelTest {
             val rows = viewModel.settledRows()
             assertEquals(listOf(1000, 1002), assertIs<RowState.Loaded>(rows[HomeRow.CONTINUE_WATCHING]).items.map { it.id })
             assertEquals(setOf(1000, 1002), viewModel.state.value.progress.keys)
+            assertEquals(
+                6,
+                viewModel.state.value.progress
+                    .getValue(1002)
+                    .episode,
+            )
         }
 
     @Test

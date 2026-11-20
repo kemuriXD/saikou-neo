@@ -40,7 +40,7 @@ public data class SeeMoreState(
     val show: AnimeTitle? = null,
     /** Why the last page couldn't load, while [more] is [More.Failed]. */
     val problem: LoadProblem? = null,
-    /** How far this TV got into each show, by anime id, on a list of the shows being watched. */
+    /** Where to carry on with each show, by anime id, on a list of the shows being watched. */
     val progress: Map<Int, WatchProgress> = emptyMap(),
 )
 
