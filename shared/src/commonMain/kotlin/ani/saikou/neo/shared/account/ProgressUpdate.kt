@@ -19,33 +19,44 @@ public data class ListDate(
     val day: Int,
 )
 
-/** A show's entry on the user's list: its [status], how many episodes they've watched, and whether it has a start date. */
+/**
+ * A show's entry on the user's list: its [status], how many episodes they've watched, whether it has a start date, and
+ * how many times they've rewatched it.
+ */
 public data class ListEntry(
     val status: ListStatus,
     val progress: Int,
     val hasStartDate: Boolean,
+    val repeat: Int = 0,
 )
 
-/** A show's episode count, if AniList knows it, and the user's [entry] for it, if it's on their list. */
+/**
+ * A show's episode count, if AniList knows it, the user's [entry] for it, if it's on their list, and whether it has
+ * [finished] airing.
+ */
 public data class ShowEntry(
     val episodes: Int?,
     val entry: ListEntry?,
+    val finished: Boolean = false,
 )
 
-/** What to save on AniList: the new [progress], and the [status] and [startedAt] to set, when they change. */
+/**
+ * What to save on AniList: the new [progress], and the [status], [startedAt], [completedAt] and rewatch count
+ * ([repeat]) to set, when they change.
+ */
 public data class ProgressUpdate(
     val progress: Int,
     val status: ListStatus?,
     val startedAt: ListDate?,
+    val completedAt: ListDate? = null,
+    val repeat: Int? = null,
 )
 
-// A show in one of these moves to Watching once an episode of it is watched.
-private val MOVES_TO_WATCHING = setOf(ListStatus.PLANNING, ListStatus.PAUSED, ListStatus.DROPPED)
-
 /**
- * What watching [episode] of [show] changes on AniList, or null when nothing does (ADR 0047). Progress only goes up and
- * can't pass the show's total. A show that isn't on the list, or is Planning, Paused or Dropped, becomes Watching, with
- * [today] as its start date if it has none. Completed and Rewatching shows are left alone.
+ * What watching [episode] of [show] changes on AniList, or null when nothing does (ADRs 0047 and 0048). Progress only
+ * goes up and can't pass the show's total. A show that isn't on the list, or is Planning, Paused or Dropped, becomes
+ * Watching, with [today] as its start date if it has none. The last episode of a finished show completes it today.
+ * Episode 1 of a Completed show starts a rewatch, and finishing the rewatch completes it again with one more rewatch.
  */
 public fun progressUpdate(
     show: ShowEntry,
@@ -54,9 +65,37 @@ public fun progressUpdate(
 ): ProgressUpdate? {
     if (episode < 1 || (show.episodes != null && episode > show.episodes)) return null
     val entry = show.entry
-    if (entry != null && (entry.progress >= episode || entry.status !in MOVES_TO_WATCHING + ListStatus.WATCHING)) return null
-    if (entry?.status == ListStatus.WATCHING) return ProgressUpdate(episode, null, null)
-    return ProgressUpdate(episode, ListStatus.WATCHING, today.takeUnless { entry?.hasStartDate == true })
+    val last = show.finished && episode == show.episodes
+    if (entry?.status == ListStatus.COMPLETED) {
+        return when {
+            episode != 1 -> null
+
+            // A film watched again is a whole rewatch at once.
+            last -> ProgressUpdate(episode, null, null, repeat = entry.repeat + 1)
+
+            else -> ProgressUpdate(episode, ListStatus.REWATCHING, null)
+        }
+    }
+    if (entry != null && entry.progress >= episode) return null
+    val completed = ListStatus.COMPLETED.takeIf { last }
+    return when (entry?.status) {
+        ListStatus.REWATCHING -> {
+            ProgressUpdate(episode, completed, null, repeat = (entry.repeat + 1).takeIf { last })
+        }
+
+        ListStatus.WATCHING -> {
+            ProgressUpdate(episode, completed, null, completedAt = today.takeIf { last })
+        }
+
+        else -> {
+            ProgressUpdate(
+                episode,
+                if (last) ListStatus.COMPLETED else ListStatus.WATCHING,
+                today.takeUnless { entry?.hasStartDate == true },
+                completedAt = today.takeIf { last },
+            )
+        }
+    }
 }
 
 /** The AniList calls watching makes with the signed-in user's token. */

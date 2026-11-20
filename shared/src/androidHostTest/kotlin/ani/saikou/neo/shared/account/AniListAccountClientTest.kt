@@ -110,7 +110,10 @@ class AniListAccountClientTest {
 
             val result = clientFor(engine).showEntry(token, mediaId = 101)
 
-            assertEquals(AniListResult.Success(ShowEntry(12, ListEntry(ListStatus.PAUSED, 4, hasStartDate = true))), result)
+            assertEquals(
+                AniListResult.Success(ShowEntry(12, ListEntry(ListStatus.PAUSED, 4, hasStartDate = true, repeat = 1), finished = true)),
+                result,
+            )
             assertEquals(listOf("Bearer the-token"), engine.authorizations)
         }
 
@@ -132,7 +135,7 @@ class AniListAccountClientTest {
             assertEquals(AniListResult.Success(Unit), result)
             val body = engine.requestBodies.single()
             assertTrue("\"mediaId\":101" in body && "\"progress\":5" in body, body)
-            assertTrue("\"status\"" !in body && "\"startedAt\"" !in body, body)
+            assertTrue(listOf("status", "startedAt", "completedAt", "repeat").none { "\"$it\"" in body }, body)
         }
 
     @Test
@@ -145,6 +148,23 @@ class AniListAccountClientTest {
             val body = engine.requestBodies.single()
             assertTrue("\"status\":\"CURRENT\"" in body, body)
             assertTrue("\"startedAt\":{\"year\":2026,\"month\":11,\"day\":20}" in body, body)
+        }
+
+    @Test
+    fun saveProgressSetsTheFinishDateAndRewatchCount() =
+        runTest {
+            val engine = RecordedEngine("save-progress")
+
+            clientFor(engine).saveProgress(
+                token,
+                mediaId = 101,
+                ProgressUpdate(12, ListStatus.COMPLETED, null, completedAt = ListDate(2026, 11, 20), repeat = 3),
+            )
+
+            val body = engine.requestBodies.single()
+            assertTrue("\"status\":\"COMPLETED\"" in body && "\"repeat\":3" in body, body)
+            assertTrue("\"completedAt\":{\"year\":2026,\"month\":11,\"day\":20}" in body, body)
+            assertTrue("\"startedAt\"" !in body, body)
         }
 
     @Test
