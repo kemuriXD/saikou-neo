@@ -49,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.test.espresso.Espresso
 import androidx.tv.material3.Button
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.account.ListedProgress
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipEpisode
 import ani.saikou.neo.shared.catalogue.AniZipEpisodes
@@ -626,6 +627,65 @@ class DetailsScreenTest {
         press(Key.DirectionCenter)
 
         compose.onNodeWithTag(episodeTag(9)).assertIsFocused()
+    }
+
+    // ADR 0050: AniList has episode 7 watched, this TV stopped part way through episode 3.
+    private val disagreeing =
+        DetailsState.Loaded(
+            details,
+            episodes = episodeList(details, deathNote, today),
+            progress = WatchProgress(3, 12.minutes, 24.minutes, null),
+            listed = ListedProgress(details.card.id, 7, null, 24),
+        )
+
+    @Test
+    fun resumeAsksWhereToPickUpWithAniListFirst() {
+        show(disagreeing)
+
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithTag(PICK_UP_ANILIST_TAG).assertIsFocused().assert(hasText("Start episode 8"))
+        compose.onNodeWithTag(PICK_UP_ANILIST_TAG).assert(hasText("Episode 7 marked watched on AniList"))
+        compose.onNodeWithTag(PICK_UP_THIS_TV_TAG).assert(hasText("Resume episode 3") and hasText("At 12:00"))
+    }
+
+    @Test
+    fun backClosesTheQuestionWithNothingPicked() {
+        var picked = 0
+        compose.setContent {
+            NeoTheme { DetailsScreen(disagreeing, onKeepAniList = { picked++ }, onKeepThisTv = { picked++ }) }
+        }
+        press(Key.DirectionCenter)
+
+        back()
+
+        compose.onNodeWithTag(PICK_UP_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused()
+        assertEquals(0, picked)
+    }
+
+    @Test
+    fun pickingAPlaceSaysWhichAndGoesToTheEpisodes() {
+        var keptThisTv = false
+        compose.setContent { NeoTheme { DetailsScreen(disagreeing, onKeepThisTv = { keptThisTv = true }) } }
+        press(Key.DirectionCenter)
+
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+
+        assertTrue(keptThisTv)
+        compose.onNodeWithTag(PICK_UP_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(episodeTag(3)).assertIsFocused()
+    }
+
+    @Test
+    fun aniListFurtherOnWithNothingPartWatchedHereDoesntAsk() {
+        show(disagreeing.copy(progress = WatchProgress(3, 23.minutes, 24.minutes, null)))
+
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithTag(PICK_UP_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(episodeTag(8)).assertIsFocused()
     }
 
     @Test

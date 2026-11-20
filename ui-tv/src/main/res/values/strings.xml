@@ -681,4 +681,24 @@
     <string name="schedule_no_token_body">This version of the app can\'t read this week\'s schedule.</string>
     <string name="schedule_cant_open">This show isn\'t on AniList yet, so it can\'t be opened.</string>
     <string name="schedule_cant_open_retry">Couldn\'t find this show on AniList just now. Try again in a moment.</string>
+    <!-- Asking where to pick up when AniList and this TV disagree (ADR 0050). -->
+    <string name="details_pick_up_title">AniList and this TV disagree</string>
+    <string name="details_pick_up_body">Pick where to carry on. The other one is updated to match.</string>
+    <string name="details_pick_up_anilist">AniList · Recommended</string>
+    <string name="details_pick_up_this_tv">This TV</string>
+    <string name="details_pick_up_start">Start episode %1$d</string>
+    <string name="details_pick_up_resume">Resume episode %1$d</string>
+    <string name="details_pick_up_listed" tools:ignore="PluralsCandidate">Episode %1$d marked watched on AniList</string>
+    <string name="details_pick_up_listed_none">Not started on AniList</string>
+    <string name="details_pick_up_at">At %1$s</string>
+    <string name="details_pick_up_watched_here" tools:ignore="PluralsCandidate">Episode %1$d watched on this TV</string>
+    <string name="details_pick_up_watched_here_none">Not started on this TV</string>
+    <!-- What happened, then when: "At 12:04, 2 days ago". -->
+    <string name="details_pick_up_when">%1$s, %2$s</string>
+    <string name="details_pick_up_today">today</string>
+    <string name="details_pick_up_yesterday">yesterday</string>
+    <plurals name="details_pick_up_days_ago">
+        <item quantity="one">%d day ago</item>
+        <item quantity="other">%d days ago</item>
+    </plurals>
 </resources>

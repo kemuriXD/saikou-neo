@@ -213,6 +213,8 @@ class MainActivity : ComponentActivity() {
                                         today(),
                                         settings.showUpcomingEpisodes,
                                         progress = app.history.shows.map { it[animeId] },
+                                        listed = { app.yourList.shows().firstOrNull { it.animeId == animeId } },
+                                        sides = app.pickUpSides,
                                         zoneOffsetSeconds = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000,
                                         warmSources = app.sourceWarmUp::warm,
                                     )
@@ -259,7 +261,7 @@ class MainActivity : ComponentActivity() {
                                                         (state as? DetailsState.Loaded)?.backdrop,
                                                     ).copy(
                                                         episodes = (state as? DetailsState.Loaded)?.episodes,
-                                                        progress = (state as? DetailsState.Loaded)?.progress,
+                                                        progress = (state as? DetailsState.Loaded)?.place,
                                                     ),
                                             )
                                         },
@@ -278,6 +280,8 @@ class MainActivity : ComponentActivity() {
                                 },
                                 openStreams = episodeFromPlayer,
                                 onStreamsOpened = { episodeFromPlayer = null },
+                                onKeepAniList = details::keepAniList,
+                                onKeepThisTv = details::keepThisTv,
                             )
                         },
                         recommendations = { animeId, openDetails ->

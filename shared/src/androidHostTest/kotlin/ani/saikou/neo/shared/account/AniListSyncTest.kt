@@ -2,12 +2,21 @@ package ani.saikou.neo.shared.account
 
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
+import ani.saikou.neo.shared.home.SyncedSides
+import ani.saikou.neo.shared.home.WatchHistory
+import ani.saikou.neo.shared.home.WatchProgress
+import ani.saikou.neo.shared.home.YourList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
+import kotlin.test.assertTrue
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.minutes
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class AniListSyncTest {
@@ -184,4 +193,164 @@ class AniListSyncTest {
 
             assertEquals(listOf(PendingProgress(101, 4, userId = 1)), queue.all())
         }
+
+    // Picking this TV's place when AniList is further on (ADR 0050).
+    @Test
+    fun movingBackSetsOnlyTheProgress() =
+        runTest {
+            val client = FakeClient(entry = ShowEntry(12, ListEntry(ListStatus.WATCHING, 7, hasStartDate = true)))
+
+            assertTrue(sync(client, MemoryQueue()).movedBack(101, 4, forUser = 1))
+            assertEquals(listOf(101 to ProgressUpdate(4, null, null)), client.saved)
+        }
+
+    @Test
+    fun movingBackDropsTheUsersUpdateWaitingForTheShow() =
+        runTest {
+            val queue = MemoryQueue()
+            queue.put(PendingProgress(101, 9, userId = 1))
+
+            sync(FakeClient(), queue).movedBack(101, 4, forUser = 1)
+
+            assertEquals(emptyList(), queue.all())
+        }
+
+    // Details asks again next time, and nothing waiting is lost.
+    @Test
+    fun aMoveBackThatFailsSaysSoAndKeepsWhatsWaiting() =
+        runTest {
+            val queue = MemoryQueue()
+            queue.put(PendingProgress(101, 9, userId = 1))
+
+            assertFalse(sync(FakeClient(failWith = AniListError.Network("offline")), queue).movedBack(101, 4, forUser = 1))
+            assertEquals(listOf(PendingProgress(101, 9, userId = 1)), queue.all())
+        }
+
+    @Test
+    fun movingBackWithAnExpiredTokenSendsNothingAndKeepsWhatsWaiting() =
+        runTest {
+            val client = FakeClient()
+            val queue = MemoryQueue()
+            queue.put(PendingProgress(101, 9, userId = 1))
+            val expired = SignedInAccount(me.profile, AniListToken("old-token", 1_000))
+
+            assertFalse(sync(client, queue, account = expired).movedBack(101, 4, forUser = 1))
+            assertEquals(0, client.calls)
+            assertEquals(1, queue.all().size)
+        }
+
+    @Test
+    fun movingBackSignedOutSendsNothing() =
+        runTest {
+            val client = FakeClient()
+
+            assertFalse(sync(client, MemoryQueue(), account = null).movedBack(101, 4, forUser = 1))
+            assertEquals(0, client.calls)
+        }
+
+    // The list was read for someone else, such as before the TV was paired again.
+    @Test
+    fun movingBackForAnotherUserSendsNothing() =
+        runTest {
+            val client = FakeClient()
+
+            assertFalse(sync(client, MemoryQueue()).movedBack(101, 4, forUser = 2))
+            assertEquals(0, client.calls)
+        }
+
+    @Test
+    fun anEpisodeWatchedForAnotherUserSendsNothing() =
+        runTest {
+            val client = FakeClient()
+            val queue = MemoryQueue()
+
+            sync(client, queue).watched(101, 4, forUser = 2)
+            runCurrent()
+
+            assertEquals(0, client.calls)
+            assertEquals(emptyList(), queue.all())
+        }
+
+    private class RecordedList : YourList {
+        val moved = mutableListOf<Pair<Int, Int>>()
+
+        override suspend fun shows() = emptyList<ListedProgress>()
+
+        override suspend fun moved(
+            animeId: Int,
+            progress: Int,
+        ) {
+            moved += animeId to progress
+        }
+    }
+
+    private fun listed(progress: Int) = ListedProgress(101, progress, null, 24, userId = 1)
+
+    // Picking this TV's place where it's further on goes through the usual rules, so it can complete the show.
+    @Test
+    fun pickingThisTvFurtherOnMovesAniListForward() =
+        runTest {
+            val client = FakeClient()
+            val yourList = RecordedList()
+
+            SyncedSides(NoHistory, sync(client, MemoryQueue()), yourList).moveAniList(101, watched = 5, listed = listed(3))
+            runCurrent()
+
+            assertEquals(listOf(101 to ProgressUpdate(5, null, null)), client.saved)
+            assertEquals(listOf(101 to 5), yourList.moved)
+        }
+
+    @Test
+    fun pickingThisTvBehindMovesAniListBack() =
+        runTest {
+            val client = FakeClient(entry = ShowEntry(12, ListEntry(ListStatus.WATCHING, 7, hasStartDate = true)))
+            val yourList = RecordedList()
+
+            SyncedSides(NoHistory, sync(client, MemoryQueue()), yourList).moveAniList(101, watched = 4, listed = listed(7))
+
+            assertEquals(listOf(101 to ProgressUpdate(4, null, null)), client.saved)
+            assertEquals(listOf(101 to 4), yourList.moved)
+        }
+
+    // The kept list stays as AniList has it, so Details asks again.
+    @Test
+    fun aMoveBackAniListDidntTakeLeavesTheList() =
+        runTest {
+            val yourList = RecordedList()
+            val sync = sync(FakeClient(failWith = AniListError.Network("offline")), MemoryQueue())
+
+            SyncedSides(NoHistory, sync, yourList).moveAniList(101, watched = 4, listed = listed(7))
+
+            assertEquals(emptyList(), yourList.moved)
+        }
+
+    @Test
+    fun pickingAniListSavesItsPlaceHereNow() {
+        val history =
+            object : WatchHistory {
+                val saved = mutableListOf<Pair<Int, WatchProgress>>()
+                override val shows = flowOf(emptyMap<Int, WatchProgress>())
+
+                override fun save(
+                    animeId: Int,
+                    progress: WatchProgress,
+                ) {
+                    saved += animeId to progress
+                }
+            }
+        val place = WatchProgress(8, Duration.ZERO, 24.minutes, null, 500)
+
+        SyncedSides(history, null, null, now = { 900 }).saveHere(101, place)
+
+        assertEquals(listOf(101 to place.copy(savedAt = 900)), history.saved)
+    }
+
+    private object NoHistory : WatchHistory {
+        override val shows = flowOf(emptyMap<Int, WatchProgress>())
+
+        override fun save(
+            animeId: Int,
+            progress: WatchProgress,
+        ) = Unit
+    }
 }

@@ -16,7 +16,7 @@ import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
 // An episode's length when AniList doesn't know it: the usual TV episode.
-private val USUAL_EPISODE = 24.minutes
+internal val USUAL_EPISODE = 24.minutes
 private val LIST_TIMEOUT = 10.seconds
 
 // Home asks again whenever the account may have changed, which at start is more than once.
@@ -26,6 +26,12 @@ private const val KEEP_FOR_SECONDS = 60L
 public fun interface YourList {
     /** Their Watching and Rewatching progress. Empty when signed out or when the list can't be had. */
     public suspend fun shows(): List<ListedProgress>
+
+    /** [animeId]'s AniList progress was just set to [progress] from this TV. */
+    public suspend fun moved(
+        animeId: Int,
+        progress: Int,
+    ) {}
 }
 
 /**
@@ -59,6 +65,17 @@ public class AniListYourList(
             kept = Kept(signedIn.profile.id, at, shows)
             shows
         }
+
+    // Kept for the rest of its minute where it moved, so Details doesn't ask about the same show again.
+    override suspend fun moved(
+        animeId: Int,
+        progress: Int,
+    ): Unit =
+        lock.withLock {
+            val list = kept ?: return@withLock
+            val shows = list.shows.map { if (it.animeId == animeId) it.copy(progress = progress, updatedAt = now()) else it }
+            kept = Kept(list.userId, list.at, shows)
+        }
 }
 
 /**
@@ -87,7 +104,7 @@ internal fun withYourList(
 }
 
 // The episode this place carries on with, whether or not it's out.
-private val WatchProgress.picksUpAt: Int get() = if (watchedToEnd) episode + 1 else episode
+internal val WatchProgress.picksUpAt: Int get() = if (watchedToEnd) episode + 1 else episode
 
 /**
  * This history's shows, with [yourList]'s added once it's read. The list is read again each time [reads] sends. Without

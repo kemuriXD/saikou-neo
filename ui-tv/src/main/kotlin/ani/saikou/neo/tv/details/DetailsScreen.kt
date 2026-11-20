@@ -86,6 +86,7 @@ import ani.saikou.neo.shared.details.Ratings
 import ani.saikou.neo.shared.details.scoreOutOfTen
 import ani.saikou.neo.shared.details.sections
 import ani.saikou.neo.shared.home.Logo
+import ani.saikou.neo.shared.home.PickUp
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.displayTitle
@@ -173,7 +174,8 @@ internal val seasonNames =
  * One anime over its dimmed art: what it is at the top, and an Overview with a short synopsis and the facts below.
  * Selecting the synopsis opens all of it, notes included. With [streams], selecting an episode shows its streams on the
  * lifted page, and Back, or the page's own way back, returns to the episode. [openStreams] is an episode picked in the
- * player's drawer, which opens the same way, and [onStreamsOpened] says it has.
+ * player's drawer, which opens the same way, and [onStreamsOpened] says it has. When AniList and this TV disagree, Resume
+ * first asks where to pick up, and [onKeepAniList] or [onKeepThisTv] says which was picked.
  */
 @Composable
 fun DetailsScreen(
@@ -184,7 +186,11 @@ fun DetailsScreen(
     streams: (@Composable (episode: Int, back: () -> Unit, modifier: Modifier) -> Unit)? = null,
     openStreams: Int? = null,
     onStreamsOpened: () -> Unit = {},
-) = RememberFocus { focus -> DetailsPage(state, focus, modifier, onOpen, onRecommendations, streams, openStreams, onStreamsOpened) }
+    onKeepAniList: () -> Unit = {},
+    onKeepThisTv: () -> Unit = {},
+) = RememberFocus { focus ->
+    DetailsPage(state, focus, modifier, onOpen, onRecommendations, streams, openStreams, onStreamsOpened, onKeepAniList, onKeepThisTv)
+}
 
 @Composable
 private fun DetailsPage(
@@ -196,7 +202,11 @@ private fun DetailsPage(
     streams: (@Composable (episode: Int, back: () -> Unit, modifier: Modifier) -> Unit)?,
     openStreams: Int?,
     onStreamsOpened: () -> Unit,
+    onKeepAniList: () -> Unit,
+    onKeepThisTv: () -> Unit,
 ) {
+    // Set while asking where to pick up.
+    var asking by rememberSaveable { mutableStateOf(false) }
     var reading by rememberSaveable { mutableStateOf(false) }
     var hasRead by rememberSaveable { mutableStateOf(false) }
     var lifted by rememberSaveable { mutableStateOf(false) }
@@ -266,12 +276,17 @@ private fun DetailsPage(
                         details = state.details,
                         logo = state.logo,
                         progress = state.upNext,
-                        // The main button goes to the episodes. Without any, there's nothing for it to do.
+                        // The main button goes to the episodes, asking first where to pick up if AniList and this TV
+                        // disagree. Without any episodes, there's nothing for it to do.
                         onMain =
                             if (hasEpisodes) {
                                 {
-                                    section = DetailsSection.EPISODES
-                                    toEpisodes = true
+                                    if (state.pickUp is PickUp.Ask) {
+                                        asking = true
+                                    } else {
+                                        section = DetailsSection.EPISODES
+                                        toEpisodes = true
+                                    }
                                 }
                             } else {
                                 null
@@ -324,7 +339,7 @@ private fun DetailsPage(
                                     EpisodesSection(
                                         list = episodes,
                                         backdrop = state.backdrop,
-                                        progress = state.progress,
+                                        progress = state.place,
                                         nextFocus = nextEpisodeFocus,
                                         modifier = Modifier.focusRequester(episodesFocus),
                                         onPick = { episode ->
@@ -347,7 +362,7 @@ private fun DetailsPage(
                             DetailsSection.WATCH_ORDER -> {
                                 WatchOrderSection(
                                     details = state.details,
-                                    progress = state.progress,
+                                    progress = state.place,
                                     onOpen = {
                                         opened = true
                                         onOpen(it)
@@ -412,6 +427,26 @@ private fun DetailsPage(
         // Over the page rather than instead of it, so the page keeps its place underneath.
         if (reading && loaded != null) {
             SynopsisReader(loaded.details.card.displayTitle(), loaded.synopsis, onClose = { reading = false })
+        }
+        val asked = loaded?.pickUp as? PickUp.Ask
+        if (asking && asked != null) {
+            fun carryOn(keep: () -> Unit) {
+                keep()
+                asking = false
+                section = DetailsSection.EPISODES
+                toEpisodes = true
+            }
+            PickUpDialog(
+                show = loaded.details.card.displayTitle(),
+                asked = asked,
+                art = loaded.backdrop,
+                onAniList = { carryOn(onKeepAniList) },
+                onThisTv = { carryOn(onKeepThisTv) },
+                onClose = {
+                    asking = false
+                    mainFocus.requestFocus()
+                },
+            )
         }
     }
 }
