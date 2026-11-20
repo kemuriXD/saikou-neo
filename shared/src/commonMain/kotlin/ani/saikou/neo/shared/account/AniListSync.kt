@@ -4,6 +4,9 @@ import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -21,6 +24,13 @@ public data class PendingProgress(
 public data class OnYourList(
     val userId: Int,
     val show: ShowEntry,
+)
+
+/** [animeId] was set to [status] on the list of [userId] from this TV, or taken off it with null. */
+public data class ListChange(
+    val animeId: Int,
+    val status: ListStatus?,
+    val userId: Int,
 )
 
 /** Updates waiting to reach AniList, one per show. */
@@ -48,6 +58,9 @@ public class AniListSync(
     private val now: () -> Long = { Clock.System.now().epochSeconds },
 ) : YourListEntries {
     private val lock = Mutex()
+    private val changed = MutableSharedFlow<ListChange>(extraBufferCapacity = CHANGES_KEPT)
+
+    override val changes: SharedFlow<ListChange> = changed.asSharedFlow()
 
     /**
      * [episode] of [animeId] was watched. With no account on the TV, or one other than [forUser] where that's given,
@@ -113,7 +126,9 @@ public class AniListSync(
     ): Boolean =
         once(forUser) { token ->
             val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
-            client.saveProgress(token, animeId, statusUpdate(read.value, to, today())) is AniListResult.Success
+            if (client.saveProgress(token, animeId, statusUpdate(read.value, to, today())) !is AniListResult.Success) return@once false
+            changed.emit(ListChange(animeId, to, forUser))
+            true
         }
 
     /**
@@ -129,6 +144,7 @@ public class AniListSync(
             val id = read.value.entry?.id
             if (id != null && client.removeEntry(token, id) !is AniListResult.Success) return@once false
             if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
+            changed.emit(ListChange(animeId, null, forUser))
             true
         }
 
@@ -198,6 +214,9 @@ public class AniListSync(
         return null
     }
 }
+
+// Changes from buttons on screens that aren't collecting yet aren't needed: those read the entry when they open.
+private const val CHANGES_KEPT = 8
 
 // A refused token is kept too: signing in again as the same user sends it.
 private val AniListError.worthRetrying: Boolean

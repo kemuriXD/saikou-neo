@@ -49,6 +49,8 @@ import androidx.compose.ui.unit.dp
 import androidx.test.espresso.Espresso
 import androidx.tv.material3.Button
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.account.ListButtonState
+import ani.saikou.neo.shared.account.ListStatus
 import ani.saikou.neo.shared.account.ListedProgress
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipEpisode
@@ -82,13 +84,18 @@ import ani.saikou.neo.tv.home.loaded
 import ani.saikou.neo.tv.theme.NeoColors
 import ani.saikou.neo.tv.theme.NeoDimensions
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.LIST_BUTTON_TAG
+import ani.saikou.neo.tv.ui.LIST_PANEL_TAG
+import ani.saikou.neo.tv.ui.LIST_REMOVE_TAG
 import ani.saikou.neo.tv.ui.fakeImages
 import ani.saikou.neo.tv.ui.fakeImagesNeverArrive
 import ani.saikou.neo.tv.ui.forgetFakeImages
+import ani.saikou.neo.tv.ui.listStatusTag
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -1497,5 +1504,71 @@ class DetailsScreenTest {
                 studios = listOf("OLM"),
                 nextEpisode = null,
             )
+    }
+
+    @Test
+    fun signedOutThereIsNoListButton() {
+        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today)))
+
+        compose.onNodeWithTag(LIST_BUTTON_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun theListPanelOpensOnTheShowsStatusAndOffersToRemoveIt() {
+        val loaded = DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today))
+        compose.setContent { NeoTheme { DetailsScreen(loaded, list = ListButtonState.Shown(ListStatus.PAUSED, 37)) } }
+        compose.onNodeWithTag(LIST_BUTTON_TAG).assert(hasText("Paused"))
+
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithTag(listStatusTag(ListStatus.PAUSED)).assertIsFocused()
+        compose.onNodeWithTag(listStatusTag(ListStatus.COMPLETED)).assert(hasText("Marks all 37 episodes watched"))
+        compose.onNodeWithTag(LIST_REMOVE_TAG).assertIsDisplayed()
+    }
+
+    // One with no episodes out yet can still be planned: focus starts on the tabs, and Up finds the button.
+    @Test
+    fun aShowNotOnTheListCanBeAddedBeforeItsEpisodesAreOut() {
+        val unaired = details.copy(card = details.card.copy(episodes = null), nextEpisode = null)
+        val changes = mutableListOf<ListStatus?>()
+        compose.setContent {
+            NeoTheme {
+                DetailsScreen(DetailsState.Loaded(unaired), list = ListButtonState.Shown(null, null), onListChange = { changes += it })
+            }
+        }
+        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(LIST_BUTTON_TAG).assert(hasText("Add to list"))
+
+        press(Key.DirectionUp)
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(LIST_REMOVE_TAG).assertDoesNotExist()
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf<ListStatus?>(ListStatus.PLANNING), changes)
+    }
+
+    @Test
+    fun backClosesTheListPanelWithNothingChanged() {
+        var changed = false
+        compose.setContent {
+            NeoTheme {
+                DetailsScreen(DetailsState.Loaded(details), list = ListButtonState.Shown(ListStatus.WATCHING, 37), onListChange = {
+                    changed =
+                        true
+                })
+            }
+        }
+        press(Key.DirectionRight)
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+
+        back()
+
+        compose.onNodeWithTag(LIST_PANEL_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(LIST_BUTTON_TAG).assertIsFocused()
+        assertFalse(changed)
     }
 }

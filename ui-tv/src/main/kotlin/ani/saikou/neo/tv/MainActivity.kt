@@ -31,6 +31,8 @@ import androidx.tv.material3.Surface
 import ani.saikou.neo.shared.account.AniListAccountClient
 import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.account.KeystoreAccountStore
+import ani.saikou.neo.shared.account.ListButtonState
+import ani.saikou.neo.shared.account.ListButtonViewModel
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniZipClient
@@ -163,6 +165,12 @@ class MainActivity : ComponentActivity() {
                             // Continue watching adds your AniList list, so signing in or out reads it again.
                             LaunchedEffect(profile?.id) { home.signedInAs(profile?.id) }
                             val state by home.state.collectAsStateWithLifecycle()
+                            // A list button for each featured show, read once, so it's ready as the spotlight moves on.
+                            val lists =
+                                state.spotlight?.shows.orEmpty().associate { card ->
+                                    card.id to listButton(card.id, profile?.id)
+                                }
+                            val listStates = lists.mapValues { (_, list) -> list.state.collectAsStateWithLifecycle().value }
                             HomeScreen(
                                 state = state,
                                 onOpen = openDetails,
@@ -173,6 +181,8 @@ class MainActivity : ComponentActivity() {
                                 onRetry = home::retry,
                                 onNetworkSettings = ::openNetworkSettings,
                                 onOfflineInView = home::watchOffline,
+                                list = { listStates[it] ?: ListButtonState.Hidden },
+                                onListChange = { animeId, status -> lists[animeId]?.change(status) },
                             )
                         },
                         seeMore = { row, openDetails ->
@@ -220,6 +230,8 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
                             val state by details.state.collectAsStateWithLifecycle()
+                            val list = listButton(animeId, profile?.id)
+                            val listState by list.state.collectAsStateWithLifecycle()
                             DetailsScreen(
                                 state,
                                 onOpen = openDetails,
@@ -282,6 +294,8 @@ class MainActivity : ComponentActivity() {
                                 onStreamsOpened = { episodeFromPlayer = null },
                                 onKeepAniList = details::keepAniList,
                                 onKeepThisTv = details::keepThisTv,
+                                list = listState,
+                                onListChange = list::change,
                             )
                         },
                         recommendations = { animeId, openDetails ->
@@ -572,6 +586,14 @@ class MainActivity : ComponentActivity() {
     }
 
     // This season, for the This season row and its page.
+
+    /** [animeId]'s list button, read again for whoever [userId] is signed in now (ADR 0051). */
+    @Composable
+    private fun listButton(
+        animeId: Int,
+        userId: Int?,
+    ): ListButtonViewModel = viewModel(key = "list-$animeId-$userId") { ListButtonViewModel(animeId, app.sync) { app.yourList.forget() } }
+
     private fun season() = AnimeSeason.forMonth(Calendar.getInstance().get(Calendar.MONTH) + 1)
 
     private fun year() = Calendar.getInstance().get(Calendar.YEAR)

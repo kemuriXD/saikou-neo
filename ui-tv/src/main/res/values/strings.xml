@@ -701,4 +701,19 @@
         <item quantity="one">%d day ago</item>
         <item quantity="other">%d days ago</item>
     </plurals>
+
+    <!-- The list button on Home and Details, and its panel for changing the show's status on your AniList list. -->
+    <string name="list_watching">Watching</string>
+    <string name="list_planning">Planning</string>
+    <string name="list_completed">Completed</string>
+    <string name="list_rewatching">Rewatching</string>
+    <string name="list_paused">Paused</string>
+    <string name="list_dropped">Dropped</string>
+    <string name="list_title">Your list on AniList</string>
+    <string name="list_body">Pick a status. AniList changes straight away.</string>
+    <string name="list_remove">Remove from your list</string>
+    <plurals name="list_completed_help">
+        <item quantity="one">Marks the episode watched</item>
+        <item quantity="other">Marks all %d episodes watched</item>
+    </plurals>
 </resources>

@@ -76,6 +76,8 @@ import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.account.ListButtonState
+import ani.saikou.neo.shared.account.ListStatus
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
@@ -93,11 +95,13 @@ import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.formatName
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.ui.FocusMemory
+import ani.saikou.neo.tv.ui.ListButton
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoButtonRow
 import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.RememberFocus
 import ani.saikou.neo.tv.ui.ShowTitle
+import ani.saikou.neo.tv.ui.YourListPanel
 import ani.saikou.neo.tv.ui.logoRequest
 import ani.saikou.neo.tv.ui.outerGlow
 import ani.saikou.neo.tv.ui.remembersFocus
@@ -175,7 +179,8 @@ internal val seasonNames =
  * Selecting the synopsis opens all of it, notes included. With [streams], selecting an episode shows its streams on the
  * lifted page, and Back, or the page's own way back, returns to the episode. [openStreams] is an episode picked in the
  * player's drawer, which opens the same way, and [onStreamsOpened] says it has. When AniList and this TV disagree, Resume
- * first asks where to pick up, and [onKeepAniList] or [onKeepThisTv] says which was picked.
+ * first asks where to pick up, and [onKeepAniList] or [onKeepThisTv] says which was picked. Signed in, the list button
+ * shows the show's [list] status, and picking one in its panel calls [onListChange] with it, or null to remove the show.
  */
 @Composable
 fun DetailsScreen(
@@ -188,8 +193,23 @@ fun DetailsScreen(
     onStreamsOpened: () -> Unit = {},
     onKeepAniList: () -> Unit = {},
     onKeepThisTv: () -> Unit = {},
+    list: ListButtonState = ListButtonState.Hidden,
+    onListChange: (ListStatus?) -> Unit = {},
 ) = RememberFocus { focus ->
-    DetailsPage(state, focus, modifier, onOpen, onRecommendations, streams, openStreams, onStreamsOpened, onKeepAniList, onKeepThisTv)
+    DetailsPage(
+        state,
+        focus,
+        modifier,
+        onOpen,
+        onRecommendations,
+        streams,
+        openStreams,
+        onStreamsOpened,
+        onKeepAniList,
+        onKeepThisTv,
+        list,
+        onListChange,
+    )
 }
 
 @Composable
@@ -204,9 +224,13 @@ private fun DetailsPage(
     onStreamsOpened: () -> Unit,
     onKeepAniList: () -> Unit,
     onKeepThisTv: () -> Unit,
+    list: ListButtonState,
+    onListChange: (ListStatus?) -> Unit,
 ) {
     // Set while asking where to pick up.
     var asking by rememberSaveable { mutableStateOf(false) }
+    var listing by rememberSaveable { mutableStateOf(false) }
+    val listFocus = remember { FocusRequester() }
     var reading by rememberSaveable { mutableStateOf(false) }
     var hasRead by rememberSaveable { mutableStateOf(false) }
     var lifted by rememberSaveable { mutableStateOf(false) }
@@ -293,6 +317,9 @@ private fun DetailsPage(
                             },
                         mainFocus = mainFocus,
                         ratings = state.ratings,
+                        list = list as? ListButtonState.Shown,
+                        listFocus = listFocus,
+                        onList = { listing = true },
                         modifier =
                             margin
                                 .width(HeroWidth)
@@ -428,6 +455,17 @@ private fun DetailsPage(
         if (reading && loaded != null) {
             SynopsisReader(loaded.details.card.displayTitle(), loaded.synopsis, onClose = { reading = false })
         }
+        val listed = list as? ListButtonState.Shown
+        if (listing && loaded != null && listed != null) {
+            fun close() {
+                listing = false
+                listFocus.requestFocus()
+            }
+            YourListPanel(loaded.details.card.displayTitle(), listed, onChange = { status ->
+                onListChange(status)
+                close()
+            }, onClose = ::close)
+        }
         val asked = loaded?.pickUp as? PickUp.Ask
         if (asking && asked != null) {
             fun carryOn(keep: () -> Unit) {
@@ -459,6 +497,9 @@ private fun Hero(
     onMain: (() -> Unit)?,
     mainFocus: FocusRequester,
     ratings: Ratings,
+    list: ListButtonState.Shown?,
+    listFocus: FocusRequester,
+    onList: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
@@ -499,33 +540,36 @@ private fun Hero(
             )
         }
         if (ratings.mean != null) TopRatings(ratings)
-        // Until the player comes, Resume and Play open the episodes too.
-        onMain?.let {
+        // Until the player comes, Resume and Play open the episodes too. A show with none yet can still go on the list.
+        if (onMain != null || list != null) {
             NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
-                // Focus grows it from its middle, so room for that keeps the gap to Episodes.
-                val density = LocalDensity.current
-                val grows = NeoTheme.dimensions.focusScaleButton - 1
-                var width by remember { mutableIntStateOf(0) }
-                Box(Modifier.padding(end = with(density) { (width * grows / 2).toDp() })) {
+                onMain?.let {
+                    // Focus grows it from its middle, so room for that keeps the gap to Episodes.
+                    val density = LocalDensity.current
+                    val grows = NeoTheme.dimensions.focusScaleButton - 1
+                    var width by remember { mutableIntStateOf(0) }
+                    Box(Modifier.padding(end = with(density) { (width * grows / 2).toDp() })) {
+                        NeoButton(
+                            text =
+                                progress?.let { stringResource(R.string.details_resume, it.episode, it.minutesLeft) }
+                                    ?: stringResource(R.string.home_play),
+                            onClick = it,
+                            icon = NeoIcons.Play,
+                            modifier =
+                                Modifier
+                                    .onSizeChanged { size -> width = size.width }
+                                    .focusRequester(mainFocus)
+                                    .remembersFocus("main")
+                                    .testTag(DETAILS_MAIN_BUTTON_TAG),
+                        )
+                    }
                     NeoButton(
-                        text =
-                            progress?.let { stringResource(R.string.details_resume, it.episode, it.minutesLeft) }
-                                ?: stringResource(R.string.home_play),
+                        text = stringResource(R.string.details_episodes),
                         onClick = it,
-                        icon = NeoIcons.Play,
-                        modifier =
-                            Modifier
-                                .onSizeChanged { size -> width = size.width }
-                                .focusRequester(mainFocus)
-                                .remembersFocus("main")
-                                .testTag(DETAILS_MAIN_BUTTON_TAG),
+                        modifier = Modifier.remembersFocus("episodes").testTag(DETAILS_EPISODES_BUTTON_TAG),
                     )
                 }
-                NeoButton(
-                    text = stringResource(R.string.details_episodes),
-                    onClick = it,
-                    modifier = Modifier.remembersFocus("episodes").testTag(DETAILS_EPISODES_BUTTON_TAG),
-                )
+                list?.let { ListButton(it, onClick = onList, modifier = Modifier.focusRequester(listFocus).remembersFocus("list")) }
             }
         }
     }

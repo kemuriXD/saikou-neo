@@ -37,6 +37,8 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.height
 import androidx.compose.ui.unit.width
+import ani.saikou.neo.shared.account.ListButtonState
+import ani.saikou.neo.shared.account.ListStatus
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.home.FeaturedReason
 import ani.saikou.neo.shared.home.HomeRow
@@ -45,9 +47,12 @@ import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.RowState
 import ani.saikou.neo.tv.theme.NeoDimensions
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.LIST_BUTTON_TAG
+import ani.saikou.neo.tv.ui.LIST_PANEL_TAG
 import ani.saikou.neo.tv.ui.Pulsing
 import ani.saikou.neo.tv.ui.fakeImages
 import ani.saikou.neo.tv.ui.forgetFakeImages
+import ani.saikou.neo.tv.ui.listStatusTag
 import kotlinx.coroutines.CompletableDeferred
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -143,7 +148,6 @@ class HomeScreenTest {
             .assertHeightIsEqualTo(38.dp)
         // The buttons end 24 dp above the dots, and the text sits on top of them.
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertLeftPositionInRootIsEqualTo(96.dp).assertTopPositionInRootIsEqualTo(276.dp)
-        compose.onNodeWithContentDescription("Add to list").assertWidthIsEqualTo(44.dp)
         compose.onNodeWithContentDescription("Details").assertWidthIsEqualTo(44.dp)
         compose.onNodeWithTag(SPOTLIGHT_DOTS_TAG).assertTopPositionInRootIsEqualTo(344.dp)
         compose.onNodeWithText("Trending").assertTopPositionInRootIsEqualTo(382.dp)
@@ -821,8 +825,8 @@ class HomeScreenTest {
         // Bounds leave out the focus scale, so the drawn edge is half the growth further right.
         val play = compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).getUnclippedBoundsInRoot()
         val drawnRight = play.right + play.width * (NeoDimensions().focusScaleButton - 1) / 2
-        val add = compose.onNodeWithContentDescription("Add to list").getUnclippedBoundsInRoot()
-        assertEquals(16f, (add.left - drawnRight).value, 0.5f)
+        val next = compose.onNodeWithContentDescription("Details").getUnclippedBoundsInRoot()
+        assertEquals(16f, (next.left - drawnRight).value, 0.5f)
     }
 
     @Test
@@ -950,5 +954,43 @@ class HomeScreenTest {
         state = loaded
         compose.waitForIdle()
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused().assert(!hidden)
+    }
+
+    // Signed out, or before the entry is read.
+    @Test
+    fun withoutAnEntryThereIsNoListButton() {
+        show()
+
+        compose.onNodeWithTag(LIST_BUTTON_TAG).assertDoesNotExist()
+    }
+
+    // ADR 0051: the panel is for the show it opened on, so the spotlight stops moving on.
+    @Test
+    fun theListButtonShowsTheStatusAndOpensThePanelForThatShow() {
+        val picks = mutableListOf<Int>()
+        val changes = mutableListOf<Pair<Int, ListStatus?>>()
+        val shown = loaded.spotlight!!.show
+        compose.setContent {
+            NeoTheme {
+                HomeScreen(
+                    loaded,
+                    onPick = { picks += it },
+                    list = { ListButtonState.Shown(ListStatus.WATCHING, 12) },
+                    onListChange = { id, status -> changes += id to status },
+                )
+            }
+        }
+        compose.onNodeWithTag(LIST_BUTTON_TAG).assert(hasText("Watching"))
+
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(listStatusTag(ListStatus.WATCHING)).assertIsFocused()
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(0), picks)
+        assertEquals(listOf(shown.id to ListStatus.PLANNING), changes)
+        compose.onNodeWithTag(LIST_PANEL_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(LIST_BUTTON_TAG).assertIsFocused()
     }
 }

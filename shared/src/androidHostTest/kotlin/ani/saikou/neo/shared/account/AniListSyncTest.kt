@@ -7,6 +7,8 @@ import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.home.YourList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
@@ -391,8 +393,13 @@ class AniListSyncTest {
         runTest {
             val client = FakeClient()
 
-            assertTrue(sync(client, MemoryQueue()).changeStatus(101, ListStatus.COMPLETED, forUser = 1))
+            val sync = sync(client, MemoryQueue())
+            val told = async { sync.changes.first() }
+            runCurrent()
+
+            assertTrue(sync.changeStatus(101, ListStatus.COMPLETED, forUser = 1))
             assertEquals(listOf(101 to ProgressUpdate(12, ListStatus.COMPLETED, null, completedAt = today)), client.saved)
+            assertEquals(ListChange(101, ListStatus.COMPLETED, userId = 1), told.await())
         }
 
     @Test
@@ -417,9 +424,14 @@ class AniListSyncTest {
             val client = FakeClient(ShowEntry(12, ListEntry(ListStatus.WATCHING, 3, true, id = 555)))
             val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 4, userId = 1) }
 
-            assertTrue(sync(client, queue).remove(101, forUser = 1))
+            val sync = sync(client, queue)
+            val told = async { sync.changes.first() }
+            runCurrent()
+
+            assertTrue(sync.remove(101, forUser = 1))
             assertEquals(listOf(555), client.removed)
             assertEquals(emptyList(), queue.all())
+            assertEquals(ListChange(101, null, userId = 1), told.await())
         }
 
     @Test

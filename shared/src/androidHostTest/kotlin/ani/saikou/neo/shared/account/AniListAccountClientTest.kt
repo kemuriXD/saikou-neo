@@ -111,7 +111,9 @@ class AniListAccountClientTest {
             val result = clientFor(engine).showEntry(token, mediaId = 101)
 
             assertEquals(
-                AniListResult.Success(ShowEntry(12, ListEntry(ListStatus.PAUSED, 4, hasStartDate = true, repeat = 1, id = 555), finished = true)),
+                AniListResult.Success(
+                    ShowEntry(12, ListEntry(ListStatus.PAUSED, 4, hasStartDate = true, repeat = 1, id = 555), finished = true),
+                ),
                 result,
             )
             assertEquals(listOf("Bearer the-token"), engine.authorizations)

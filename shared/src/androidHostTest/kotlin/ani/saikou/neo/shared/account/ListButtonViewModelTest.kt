@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.account
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -24,6 +25,7 @@ class ListButtonViewModelTest {
         var read: OnYourList? = OnYourList(7, ShowEntry(12, ListEntry(ListStatus.WATCHING, 3, true))),
     ) : YourListEntries {
         var answer = CompletableDeferred<Boolean>(true)
+        override val changes = MutableSharedFlow<ListChange>(extraBufferCapacity = 4)
         val sent = mutableListOf<Triple<String, ListStatus?, Int>>()
 
         override suspend fun entry(animeId: Int) = read
@@ -126,5 +128,20 @@ class ListButtonViewModelTest {
             ListButtonViewModel(101, entries).pick(ListStatus.WATCHING)
 
             assertEquals(emptyList<Triple<String, ListStatus?, Int>>(), entries.sent)
+        }
+
+    // Home's button stays behind Details, so a change there shows when Details closes.
+    @Test
+    fun aChangeFromAnotherButtonForTheShowShows() =
+        runTest {
+            val entries = FakeEntries()
+            val model = ListButtonViewModel(101, entries)
+
+            entries.changes.emit(ListChange(202, ListStatus.DROPPED, userId = 7))
+            entries.changes.emit(ListChange(101, ListStatus.PAUSED, userId = 8))
+            assertEquals(ListButtonState.Shown(ListStatus.WATCHING, 12), model.state.value)
+
+            entries.changes.emit(ListChange(101, null, userId = 7))
+            assertEquals(ListButtonState.Shown(null, 12), model.state.value)
         }
 }
