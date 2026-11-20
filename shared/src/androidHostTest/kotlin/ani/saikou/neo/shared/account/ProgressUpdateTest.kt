@@ -39,11 +39,61 @@ class ProgressUpdateTest {
         assertNull(progressUpdate(on(ListStatus.PAUSED, 6), 2, today))
     }
 
+    private fun finished(
+        status: ListStatus?,
+        progress: Int = 0,
+        started: Boolean = false,
+        repeat: Int = 0,
+        episodes: Int = 12,
+    ) = ShowEntry(episodes, status?.let { ListEntry(it, progress, started, repeat) }, finished = true)
+
     @Test
-    fun completedAndRewatchingAreLeftAlone() {
-        assertNull(progressUpdate(on(ListStatus.COMPLETED, 12), 3, today))
-        assertNull(progressUpdate(on(ListStatus.REWATCHING, 1), 3, today))
+    fun theLastEpisodeOfAFinishedShowCompletesItToday() =
+        assertEquals(
+            ProgressUpdate(12, ListStatus.COMPLETED, null, completedAt = today),
+            progressUpdate(finished(ListStatus.WATCHING, 11, started = true), 12, today),
+        )
+
+    @Test
+    fun aShowCompletedStraightFromPlanningGetsBothDates() =
+        assertEquals(
+            ProgressUpdate(1, ListStatus.COMPLETED, today, completedAt = today),
+            progressUpdate(finished(null, episodes = 1), 1, today),
+        )
+
+    @Test
+    fun theNewestEpisodeOfAnAiringShowLeavesItWatching() =
+        assertEquals(ProgressUpdate(12, null, null), progressUpdate(on(ListStatus.WATCHING, 11), 12, today))
+
+    @Test
+    fun episodeOneOfACompletedShowStartsARewatch() =
+        assertEquals(
+            ProgressUpdate(1, ListStatus.REWATCHING, null),
+            progressUpdate(finished(ListStatus.COMPLETED, 12, started = true, repeat = 2), 1, today),
+        )
+
+    @Test
+    fun anotherEpisodeOfACompletedShowChangesNothing() = assertNull(progressUpdate(finished(ListStatus.COMPLETED, 12), 5, today))
+
+    @Test
+    fun aRewatchMovesItsProgressUp() {
+        assertEquals(ProgressUpdate(4, null, null), progressUpdate(finished(ListStatus.REWATCHING, 3), 4, today))
+        assertNull(progressUpdate(finished(ListStatus.REWATCHING, 4), 2, today))
     }
+
+    @Test
+    fun finishingARewatchCompletesItAndCountsTheRewatch() =
+        assertEquals(
+            ProgressUpdate(12, ListStatus.COMPLETED, null, repeat = 3),
+            progressUpdate(finished(ListStatus.REWATCHING, 11, repeat = 2), 12, today),
+        )
+
+    @Test
+    fun watchingACompletedFilmAgainCountsARewatch() =
+        assertEquals(
+            ProgressUpdate(1, null, null, repeat = 1),
+            progressUpdate(finished(ListStatus.COMPLETED, 1, episodes = 1), 1, today),
+        )
 
     @Test
     fun episodeZeroAndEpisodesPastTheTotalNeverCount() {

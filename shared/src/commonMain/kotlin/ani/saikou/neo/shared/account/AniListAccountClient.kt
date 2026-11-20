@@ -122,9 +122,9 @@ public class AniListAccountClient internal constructor(
         val entry =
             media.mediaListEntry?.let { entry ->
                 val status = entry.status?.toListStatus() ?: return@let null
-                ListEntry(status, entry.progress ?: 0, hasStartDate = entry.startedAt?.year != null)
+                ListEntry(status, entry.progress ?: 0, hasStartDate = entry.startedAt?.year != null, repeat = entry.repeat ?: 0)
             }
-        return AniListResult.Success(ShowEntry(media.episodes, entry))
+        return AniListResult.Success(ShowEntry(media.episodes, entry, finished = media.status == MediaStatus.FINISHED))
     }
 
     override suspend fun saveProgress(
@@ -137,12 +137,9 @@ public class AniListAccountClient internal constructor(
                 mediaId = mediaId,
                 progress = update.progress,
                 status = Optional.presentIfNotNull(update.status?.toMediaListStatus()),
-                startedAt =
-                    Optional.presentIfNotNull(
-                        update.startedAt?.let {
-                            FuzzyDateInput(Optional.present(it.year), Optional.present(it.month), Optional.present(it.day))
-                        },
-                    ),
+                startedAt = Optional.presentIfNotNull(update.startedAt?.toFuzzyDate()),
+                completedAt = Optional.presentIfNotNull(update.completedAt?.toFuzzyDate()),
+                repeat = Optional.presentIfNotNull(update.repeat),
             )
         val response =
             apollo
@@ -223,3 +220,5 @@ private fun ListStatus.toMediaListStatus(): MediaListStatus =
         ListStatus.PAUSED -> MediaListStatus.PAUSED
         ListStatus.REWATCHING -> MediaListStatus.REPEATING
     }
+
+private fun ListDate.toFuzzyDate(): FuzzyDateInput = FuzzyDateInput(Optional.present(year), Optional.present(month), Optional.present(day))

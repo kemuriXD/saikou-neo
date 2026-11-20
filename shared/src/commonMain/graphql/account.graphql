@@ -39,13 +39,16 @@ query WatchList($userId: Int!) {
   }
 }
 
-# A show's episode count and the signed-in user's entry for it, asked before watching updates their progress.
+# A show's episode count, whether it has finished airing and the signed-in user's entry for it, asked before watching
+# updates their progress.
 query ListEntry($mediaId: Int!) {
   Media(id: $mediaId, type: ANIME) {
     episodes
+    status
     mediaListEntry {
       status
       progress
+      repeat
       startedAt {
         year
       }
@@ -53,9 +56,23 @@ query ListEntry($mediaId: Int!) {
   }
 }
 
-# Saves the signed-in user's progress in a show, with its status and start date when they change.
-mutation SaveProgress($mediaId: Int!, $progress: Int!, $status: MediaListStatus, $startedAt: FuzzyDateInput) {
-  SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status, startedAt: $startedAt) {
+# Saves the signed-in user's progress in a show, with its status, dates and rewatch count when they change.
+mutation SaveProgress(
+  $mediaId: Int!
+  $progress: Int!
+  $status: MediaListStatus
+  $startedAt: FuzzyDateInput
+  $completedAt: FuzzyDateInput
+  $repeat: Int
+) {
+  SaveMediaListEntry(
+    mediaId: $mediaId
+    progress: $progress
+    status: $status
+    startedAt: $startedAt
+    completedAt: $completedAt
+    repeat: $repeat
+  ) {
     id
   }
 }
