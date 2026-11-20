@@ -231,6 +231,17 @@
     <string name="settings_update_anilist_off_help">AniList stays as it is</string>
     <string name="settings_private_mode">Private mode</string>
     <string name="settings_private_mode_help">Stops all AniList updates, for when others watch</string>
+    <string name="settings_still_watching">Still watching?</string>
+    <string name="settings_still_watching_help">Asks after a run with no button pressed</string>
+    <string name="settings_still_watching_panel_help">When this many episodes play on their own, Up next asks before playing the next one.</string>
+    <string name="settings_still_watching_2">After 2 episodes</string>
+    <string name="settings_still_watching_2_help">About 50 minutes of a TV series</string>
+    <string name="settings_still_watching_3">After 3 episodes</string>
+    <string name="settings_still_watching_3_help">About an hour of a TV series</string>
+    <string name="settings_still_watching_5">After 5 episodes</string>
+    <string name="settings_still_watching_5_help">About two hours</string>
+    <string name="settings_still_watching_never">Never</string>
+    <string name="settings_still_watching_never_help">Plays on to the last episode</string>
     <string name="settings_private_mode_on_help">Nothing goes to AniList until you turn it off</string>
     <string name="home_private_mode">Private mode</string>
     <string name="home_private_mode_detail">· AniList isn’t updated</string>
@@ -495,6 +506,12 @@
     <string name="player_up_next">Up next</string>
     <string name="player_play_episode">Play E%1$d</string>
     <string name="player_watch_credits">Watch credits</string>
+    <string name="player_still_watching">Still watching?</string>
+    <plurals name="player_still_watching_run">
+        <item quantity="one">%1$d episode has played in a row. E%2$d waits until you press Play.</item>
+        <item quantity="other">%1$d episodes have played in a row. E%2$d waits until you press Play.</item>
+    </plurals>
+    <string name="player_stop">Stop</string>
     <!-- Under the shrunk video while Up next shows. -->
     <string name="player_plays_on_here" tools:ignore="PluralsCandidate">E%1$d plays on here</string>
     <string name="player_ending_plays_on_here" tools:ignore="PluralsCandidate">Ending · E%1$d plays on here</string>

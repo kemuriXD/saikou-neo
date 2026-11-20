@@ -201,6 +201,19 @@ class SettingsStoreTest {
         }
 
     @Test
+    fun stillWatchingStartsAfterTwoAndIsKeptAfterARestart() =
+        runBlocking {
+            val (first, scope) = store()
+            assertEquals(StillWatching.AFTER_2, first.settings.first().stillWatching)
+            first.update { it.copy(stillWatching = StillWatching.NEVER) }
+            scope.coroutineContext.job.cancelAndJoin()
+
+            val (second, _) = store()
+
+            assertEquals(Settings(stillWatching = StillWatching.NEVER), second.settings.first())
+        }
+
+    @Test
     fun aShowsAnswerIsKeptForItsUserAfterARestart() =
         runBlocking {
             val (first, scope) = store()

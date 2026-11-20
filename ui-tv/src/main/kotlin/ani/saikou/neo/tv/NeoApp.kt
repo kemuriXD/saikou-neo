@@ -12,6 +12,7 @@ import ani.saikou.neo.shared.catalogue.ShowMatcher
 import ani.saikou.neo.shared.home.AniListYourList
 import ani.saikou.neo.shared.home.SyncedSides
 import ani.saikou.neo.shared.home.WatchHistoryStore
+import ani.saikou.neo.shared.playback.WatchingRun
 import ani.saikou.neo.shared.schedule.AnimeScheduleSource
 import ani.saikou.neo.shared.search.RecentSearchesStore
 import ani.saikou.neo.shared.settings.Settings
@@ -63,6 +64,9 @@ class NeoApp : Application() {
 
     /** How far this TV got in each show. */
     val history by lazy { WatchHistoryStore.at(File(filesDir, "watch_history.preferences_pb").absolutePath, scope) }
+
+    /** How many episodes Up next has played on with no button pressed, which decides when it asks (ADR 0055). */
+    val watchingRun by lazy { WatchingRun { settingsStore.settings.first().stillWatching } }
 
     /** Moves the signed-in user's AniList progress as episodes are watched, and sends what's waiting (ADR 0047). */
     val sync by lazy {

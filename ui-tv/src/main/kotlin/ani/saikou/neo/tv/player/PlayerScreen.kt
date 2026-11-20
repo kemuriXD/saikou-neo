@@ -201,7 +201,15 @@ internal fun PlayerScreen(
             is PlayerPhase.Playing -> {
                 if (upNext != null && next != null) {
                     LaunchedEffect(Unit) { controls.hide() }
-                    UpNextScreen(request, next, upNext, endingPlaying(state, playback), actions.onNext, actions.onWatchCredits)
+                    UpNextScreen(
+                        request,
+                        next,
+                        upNext,
+                        endingPlaying(state, playback),
+                        actions.onNext,
+                        actions.onWatchCredits,
+                        actions.onLeave,
+                    )
                     BackHandler(enabled = state.askAniList == null, onBack = actions.onWatchCredits)
                 } else {
                     PlayerControls(state, phase.answered, request, actions, playback, controls, looks) { subtitlesAbove = it }

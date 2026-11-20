@@ -76,6 +76,7 @@ import ani.saikou.neo.shared.settings.ScheduleRelease
 import ani.saikou.neo.shared.settings.ScheduleSettings
 import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
+import ani.saikou.neo.shared.settings.StillWatching
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.settings.SubtitleSettings
 import ani.saikou.neo.shared.settings.TickList
@@ -134,7 +135,7 @@ enum class SettingsCategory(
         listOf(Setting.CHINESE_ANIMATION, Setting.SHORT_EPISODES),
         listOf(TickList.RELEASES, TickList.FORMATS),
     ),
-    PLAYBACK(R.string.settings_playback, R.string.settings_playback_intro, listOf(Setting.SUB_OR_DUB)),
+    PLAYBACK(R.string.settings_playback, R.string.settings_playback_intro, listOf(Setting.STILL_WATCHING, Setting.SUB_OR_DUB)),
 
     // Opens its own page rather than listing settings.
     SUBTITLES(R.string.settings_subtitles, R.string.settings_subtitles_intro, emptyList()),
@@ -837,6 +838,29 @@ private fun Setting.text() =
                 helpOn = R.string.settings_private_mode_on_help,
                 panel = false,
             ) { if (it == true) R.string.settings_on else R.string.settings_off }
+        }
+
+        Setting.STILL_WATCHING -> {
+            SettingText(
+                R.string.settings_still_watching,
+                R.string.settings_still_watching_help,
+                panelHelp = R.string.settings_still_watching_panel_help,
+                detail = {
+                    when (it as StillWatching) {
+                        StillWatching.AFTER_2 -> R.string.settings_still_watching_2_help
+                        StillWatching.AFTER_3 -> R.string.settings_still_watching_3_help
+                        StillWatching.AFTER_5 -> R.string.settings_still_watching_5_help
+                        StillWatching.NEVER -> R.string.settings_still_watching_never_help
+                    }
+                },
+            ) {
+                when (it as StillWatching) {
+                    StillWatching.AFTER_2 -> R.string.settings_still_watching_2
+                    StillWatching.AFTER_3 -> R.string.settings_still_watching_3
+                    StillWatching.AFTER_5 -> R.string.settings_still_watching_5
+                    StillWatching.NEVER -> R.string.settings_still_watching_never
+                }
+            }
         }
     }
 
