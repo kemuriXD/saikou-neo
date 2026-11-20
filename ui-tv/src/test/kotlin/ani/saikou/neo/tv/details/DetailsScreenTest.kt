@@ -1571,4 +1571,15 @@ class DetailsScreenTest {
         compose.onNodeWithTag(LIST_BUTTON_TAG).assertIsFocused()
         assertFalse(changed)
     }
+
+    // The actions can run past the hero, as in the design, so a long Resume doesn't squeeze the list button.
+    @Test
+    fun theListButtonKeepsItsWidthBesideALongResume() {
+        val progress = WatchProgress(21, 1.minutes, 25.minutes, null)
+        val loaded = DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today), progress = progress)
+        compose.setContent { NeoTheme { DetailsScreen(loaded, list = ListButtonState.Shown(ListStatus.WATCHING, 37)) } }
+
+        val width = compose.onNodeWithTag(LIST_BUTTON_TAG).getUnclippedBoundsInRoot().let { it.right - it.left }
+        assertTrue("$width", width > 100.dp)
+    }
 }

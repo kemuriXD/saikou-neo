@@ -28,6 +28,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentHeight
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -542,7 +543,8 @@ private fun Hero(
         if (ratings.mean != null) TopRatings(ratings)
         // Until the player comes, Resume and Play open the episodes too. A show with none yet can still go on the list.
         if (onMain != null || list != null) {
-            NeoButtonRow(Modifier.padding(top = ButtonsGap)) {
+            // The buttons can run past the hero, as in the design, rather than squeeze the last one.
+            NeoButtonRow(Modifier.padding(top = ButtonsGap).wrapContentWidth(Alignment.Start, unbounded = true)) {
                 onMain?.let {
                     // Focus grows it from its middle, so room for that keeps the gap to Episodes.
                     val density = LocalDensity.current
