@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -86,6 +87,32 @@ class AniListNoticeTest {
     private fun press(key: Key) {
         compose.onRoot().performKeyInput { pressKey(key) }
         compose.waitForIdle()
+    }
+
+    // Leaving the player, the screen underneath arrives with the notice and takes focus a few frames later. Undo still
+    // ends up with it, and moving away goes to what the screen picked.
+    @Test
+    fun undoKeepsFocusFromAScreenThatArrivesWithIt() {
+        shown.value = notice(NoticeChange.Updated(ListStatus.WATCHING, 5, byEpisode = true))
+        compose.setContent {
+            NeoTheme {
+                val screen = remember { FocusRequester() }
+                val first = remember { FocusRequester() }
+                Box(Modifier.fillMaxSize().focusRequester(screen).focusGroup()) {
+                    NeoSurface({}, CircleShape, 1f, Modifier.focusRequester(first).testTag("first")) { Text("First") }
+                    LaunchedEffect(Unit) {
+                        repeat(3) { withFrameNanos {} }
+                        first.requestFocus()
+                    }
+                    NoticeOverScreens(shown.value, NoticeActions(), screen)
+                }
+            }
+        }
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertIsFocused()
+        press(Key.DirectionUp)
+        compose.onNodeWithTag("first").assertIsFocused()
     }
 
     @Test

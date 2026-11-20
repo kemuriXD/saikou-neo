@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -47,6 +48,9 @@ import ani.saikou.neo.tv.theme.NeoTheme
 
 internal const val NOTICE_TAG = "anilist-notice"
 internal const val NOTICE_UNDO_TAG = "anilist-notice-undo"
+
+// About a second at 60 fps.
+private const val SETTLE_FRAMES = 60
 
 /** What the notice's Undo does, and how it tells the notice it has focus, so it stays. */
 internal data class NoticeActions(
@@ -145,19 +149,30 @@ internal fun NoticeOverScreens(
 ) {
     val undo = remember { FocusRequester() }
     var undoFocused by remember { mutableStateOf(false) }
+    // Moved away from Undo on purpose, so it doesn't ask for focus again.
+    var left by remember { mutableStateOf(false) }
     val canUndo = shown != null && !shown.failed
-    // Read as the notice changes, before a closing Undo loses focus. A newer notice keeps where focus came from.
+    // Read as the notice changes, before a closing Undo loses focus.
     val hadFocus = undoFocused
     LaunchedEffect(shown?.notice, canUndo) {
         if (canUndo) {
-            if (!hadFocus) screen.saveFocusedChild()
-            undo.requestFocus()
+            left = false
+            // Leaving the player, the screen underneath arrives with the notice and takes focus a few frames later, so
+            // Undo asks again until things settle. What the screen picked is where focus goes back to.
+            repeat(SETTLE_FRAMES) {
+                if (!undoFocused && !left) {
+                    screen.saveFocusedChild()
+                    undo.requestFocus()
+                }
+                withFrameNanos {}
+            }
         } else if (hadFocus) {
             if (!screen.restoreFocusedChild()) screen.requestFocus()
         }
     }
     shown ?: return
     val back = {
+        left = true
         if (!screen.restoreFocusedChild()) screen.requestFocus()
         true
     }
