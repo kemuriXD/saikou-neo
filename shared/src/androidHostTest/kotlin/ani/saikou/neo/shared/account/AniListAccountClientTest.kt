@@ -124,6 +124,7 @@ class AniListAccountClientTest {
                             score = 85,
                             notes = "Rewatch the finale",
                             private = true,
+                            hidden = true,
                         ),
                         finished = true,
                         title = AnimeTitle("Romaji", "English", null),
@@ -207,6 +208,7 @@ class AniListAccountClientTest {
                     score = 70,
                     notes = "Later",
                     private = true,
+                    hidden = true,
                     completedAt = EntryDate(2024, 3, 9),
                 )
 
@@ -215,7 +217,10 @@ class AniListAccountClientTest {
             assertEquals(AniListResult.Success(Unit), result)
             val body = engine.requestBodies.single()
             assertTrue("\"status\":\"PLANNING\"" in body && "\"progress\":0" in body && "\"repeat\":2" in body, body)
-            assertTrue("\"scoreRaw\":70" in body && "\"notes\":\"Later\"" in body && "\"private\":true" in body, body)
+            assertTrue(
+                "\"scoreRaw\":70" in body && "\"notes\":\"Later\"" in body && "\"private\":true" in body && "\"hidden\":true" in body,
+                body,
+            )
             assertTrue("\"startedAt\":{\"year\":null,\"month\":null,\"day\":null}" in body, body)
             assertTrue("\"completedAt\":{\"year\":2024,\"month\":3,\"day\":9}" in body, body)
         }

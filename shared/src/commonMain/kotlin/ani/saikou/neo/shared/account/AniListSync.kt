@@ -211,8 +211,17 @@ public class AniListSync(
             val now = read.value.entry
             val unchanged =
                 when (change) {
-                    is NoticeChange.Updated -> now?.status == change.status && now.progress == change.progress
-                    else -> now == null
+                    // What the TV never changes must be as it was too, or Undo would put back an old score or note.
+                    is NoticeChange.Updated -> {
+                        val before = notice.before
+                        now?.status == change.status &&
+                            now.progress == change.progress &&
+                            (before == null || (now.score == before.score && now.notes == before.notes && now.private == before.private))
+                    }
+
+                    else -> {
+                        now == null
+                    }
                 }
             if (!unchanged) return@once false
             val before = notice.before

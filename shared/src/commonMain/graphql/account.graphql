@@ -78,6 +78,7 @@ query ListEntry($mediaId: Int!) {
       score(format: POINT_100)
       notes
       private
+      hiddenFromStatusLists
       startedAt {
         year
         month
@@ -129,6 +130,7 @@ mutation RestoreEntry(
   $scoreRaw: Int!
   $notes: String
   $private: Boolean!
+  $hidden: Boolean!
   $startedAt: FuzzyDateInput!
   $completedAt: FuzzyDateInput!
 ) {
@@ -140,6 +142,7 @@ mutation RestoreEntry(
     scoreRaw: $scoreRaw
     notes: $notes
     private: $private
+    hiddenFromStatusLists: $hidden
     startedAt: $startedAt
     completedAt: $completedAt
   ) {

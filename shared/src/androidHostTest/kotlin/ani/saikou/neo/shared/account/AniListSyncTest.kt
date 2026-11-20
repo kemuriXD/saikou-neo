@@ -845,6 +845,24 @@ class AniListSyncTest {
             assertEquals(emptyList(), client.removed)
         }
 
+    // A score, note or private flag set elsewhere while the notice showed would be lost.
+    @Test
+    fun undoSendsNothingOnceSomethingTheTvDidntTouchHasChanged() =
+        runTest {
+            val notice = ListNotice(101, 1, title, NoticeChange.Updated(ListStatus.WATCHING, 4, byEpisode = true), watching3)
+            val client = FakeClient()
+
+            for (now in listOf(
+                watching3.copy(progress = 4, score = 90),
+                watching3.copy(progress = 4, notes = "New"),
+                watching3.copy(progress = 4, private = true),
+            )) {
+                client.entry = ShowEntry(12, now)
+                assertFalse(sync(client, MemoryQueue()).undo(notice))
+            }
+            assertEquals(emptyList(), client.restored)
+        }
+
     @Test
     fun undoForSomeoneElseInPrivateModeOrOfflineSendsNothing() =
         runTest {

@@ -191,6 +191,7 @@ public class AniListAccountClient internal constructor(
                     score = entry.score?.toInt() ?: 0,
                     notes = entry.notes,
                     private = entry.private == true,
+                    hidden = entry.hiddenFromStatusLists == true,
                 )
             }
         val title = media.title?.run { AnimeTitle(romaji, english, native) }
@@ -255,6 +256,7 @@ public class AniListAccountClient internal constructor(
                 scoreRaw = entry.score,
                 notes = Optional.present(entry.notes),
                 private = entry.private,
+                hidden = entry.hidden,
                 startedAt = entry.startedAt.toFuzzyDate(),
                 completedAt = entry.completedAt.toFuzzyDate(),
             )

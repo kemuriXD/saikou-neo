@@ -30,7 +30,8 @@ public data class EntryDate(
 /**
  * A show's entry on the user's list: its [status], how many episodes they've watched, whether it has a start date, how
  * many times they've rewatched it, whether it has a finish date, and the entry's own AniList [id]. The rest is what
- * Undo needs to put it back (ADR 0056): the dates themselves, the [score] out of 100, [notes] and whether it's [private].
+ * Undo needs to put it back (ADR 0056): the dates themselves, the [score] out of 100, [notes], whether it's [private]
+ * and whether it's [hidden] from the status lists.
  */
 public data class ListEntry(
     val status: ListStatus,
@@ -44,7 +45,13 @@ public data class ListEntry(
     val score: Int = 0,
     val notes: String? = null,
     val private: Boolean = false,
-)
+    val hidden: Boolean = false,
+) {
+    // The notes are the user's own words, kept out of logs and crash reports.
+    override fun toString(): String =
+        "ListEntry(status=$status, progress=$progress, repeat=$repeat, id=$id, startedAt=$startedAt, completedAt=$completedAt, " +
+            "score=$score, notes=${notes?.let { "${it.length} chars" }}, private=$private, hidden=$hidden)"
+}
 
 /**
  * A show's episode count, if AniList knows it, the user's [entry] for it, if it's on their list, whether it has
