@@ -25,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
@@ -32,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -171,10 +173,13 @@ internal fun NoticeOverScreens(
         }
     }
     shown ?: return
-    val back = {
+    val focusManager = LocalFocusManager.current
+    // Back to what had focus. That can be gone, such as the player that was fading out as the notice came, so then the
+    // key moves focus on from Undo as it would anyway, and Back moves it up onto the screen.
+    val back = { key: Int ->
         left = true
-        if (!screen.restoreFocusedChild()) screen.requestFocus()
-        true
+        screen.restoreFocusedChild() || (key == KeyEvent.KEYCODE_BACK && focusManager.moveFocus(FocusDirection.Up)) ||
+            key == KeyEvent.KEYCODE_BACK
     }
     Box(Modifier.fillMaxSize()) { NoticeWithFocus(shown, actions, undo, back) { undoFocused = it } }
 }
@@ -184,7 +189,7 @@ private fun BoxScope.NoticeWithFocus(
     shown: ShownNotice,
     actions: NoticeActions,
     undo: FocusRequester,
-    back: () -> Boolean,
+    back: (key: Int) -> Boolean,
     focused: (Boolean) -> Unit,
 ) {
     AniListNotice(
@@ -200,11 +205,11 @@ private fun BoxScope.NoticeWithFocus(
             when (it.nativeKeyEvent.keyCode) {
                 // Back acts as it lifts, so the press doesn't go on to the screen under.
                 KeyEvent.KEYCODE_BACK -> {
-                    if (it.type == KeyEventType.KeyUp) back() else true
+                    if (it.type == KeyEventType.KeyUp) back(KeyEvent.KEYCODE_BACK) else true
                 }
 
                 KeyEvent.KEYCODE_DPAD_UP, KeyEvent.KEYCODE_DPAD_DOWN, KeyEvent.KEYCODE_DPAD_LEFT, KeyEvent.KEYCODE_DPAD_RIGHT -> {
-                    if (it.type == KeyEventType.KeyDown) back() else true
+                    if (it.type == KeyEventType.KeyDown) back(it.nativeKeyEvent.keyCode) else true
                 }
 
                 else -> {

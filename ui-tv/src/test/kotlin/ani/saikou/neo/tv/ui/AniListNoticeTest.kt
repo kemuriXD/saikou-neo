@@ -115,6 +115,38 @@ class AniListNoticeTest {
         compose.onNodeWithTag("first").assertIsFocused()
     }
 
+    // Leaving the player, what had focus as the notice came can be the player itself, gone a moment later. Moving away
+    // from Undo then still lands on the screen, not nowhere.
+    @Test
+    fun withWhatHadFocusGoneMovingAwayStillLandsOnTheScreen() {
+        val playerShowing = mutableStateOf(true)
+        compose.setContent {
+            NeoTheme {
+                val screen = remember { FocusRequester() }
+                val player = remember { FocusRequester() }
+                Box(Modifier.fillMaxSize().focusRequester(screen).focusGroup()) {
+                    if (playerShowing.value) {
+                        NeoSurface({}, CircleShape, 1f, Modifier.focusRequester(player).testTag("player")) { Text("Player") }
+                        LaunchedEffect(Unit) { player.requestFocus() }
+                    } else {
+                        NeoSurface({}, CircleShape, 1f, Modifier.testTag("server")) { Text("Server") }
+                    }
+                    NoticeOverScreens(shown.value, NoticeActions(), screen)
+                }
+            }
+        }
+        compose.waitForIdle()
+        shown.value = notice(NoticeChange.Updated(ListStatus.WATCHING, 5, byEpisode = true))
+        compose.waitForIdle()
+        playerShowing.value = false
+        compose.waitForIdle()
+        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertIsFocused()
+
+        press(Key.Back)
+
+        compose.onNodeWithTag("server").assertIsFocused()
+    }
+
     @Test
     fun undoTakesFocusAndAnyMoveGivesItBack() {
         show()
