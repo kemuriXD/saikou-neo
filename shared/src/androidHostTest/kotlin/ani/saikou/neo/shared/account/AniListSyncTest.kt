@@ -520,6 +520,16 @@ class AniListSyncTest {
             assertEquals(ListChange(101, ListStatus.COMPLETED, userId = 1, progress = 11), told.await())
         }
 
+    // Taken off the list elsewhere since Details read it: a save would add it back.
+    @Test
+    fun markingUnwatchedAShowNoLongerOnTheListSendsNothing() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, null))
+
+            assertFalse(sync(client, MemoryQueue()).markUnwatched(101, episode = 3, forUser = 1))
+            assertEquals(emptyList(), client.saved)
+        }
+
     @Test
     fun aMarkForSomeoneElseOrThatFailsSendsNothing() =
         runTest {

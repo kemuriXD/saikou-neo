@@ -194,11 +194,13 @@ public class AniListSync(
     ): Boolean =
         once(forUser) { token ->
             val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
+            // Taken off the list since Details read it, a save would add it back.
+            if (read.value.entry == null) return@once false
             val progress = episode - 1
             if (client.saveProgress(token, animeId, ProgressUpdate(progress, null, null)) !is AniListResult.Success) return@once false
             // One still waiting would move it forward again.
             if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
-            changed.tryEmit(ListChange(animeId, read.value.entry?.status, forUser, progress))
+            changed.tryEmit(ListChange(animeId, read.value.entry.status, forUser, progress))
             true
         }
 
