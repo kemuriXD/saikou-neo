@@ -29,7 +29,10 @@ private val paragraphBreak = Regex("""\s*\n\s*""")
 private val ROTATE_EVERY = 10.seconds
 internal val RETRY_EVERY = 30.seconds
 
-/** Home's rows, top to bottom. Continue watching comes from this TV's history, the rest from AniList. */
+// Not an AniList user ID, which start at 1.
+private const val UNKNOWN_USER = -1
+
+/** Home's rows, top to bottom. Continue watching comes from this TV's history and your AniList list, the rest from AniList. */
 public enum class HomeRow { CONTINUE_WATCHING, TRENDING, THIS_SEASON, POPULAR }
 
 private val aniListRows = HomeRow.entries - HomeRow.CONTINUE_WATCHING
@@ -104,8 +107,8 @@ public sealed interface Logo {
  * first row that loads, with logos and backdrops from [library]. While it's in view it moves on every 10 seconds,
  * until the viewer picks a show. [now] is the time in seconds, for how soon a show's next episode is out.
  * When the rows fail for the network, Home is offline and tries again every 30 seconds while that's on screen.
- * Continue watching lists the shows in [history] that aren't finished, most recently watched first, with AniList's cards.
- * Without a history it stays empty.
+ * Continue watching lists the shows in [history] and [yourList] that aren't finished, most recently watched first, with
+ * AniList's cards (ADR 0049). Without a history it stays empty.
  */
 public class HomeViewModel(
     private val client: AniListClient,
@@ -113,6 +116,7 @@ public class HomeViewModel(
     private val season: AnimeSeason,
     private val year: Int,
     private val history: WatchHistory? = null,
+    private val yourList: YourList? = null,
     private val now: () -> Long = { Clock.System.now().epochSeconds },
 ) : ViewModel() {
     private val mutableState =
@@ -134,12 +138,15 @@ public class HomeViewModel(
     private val watchedCards = WatchedCards(client)
     private var continuing: Job? = null
 
+    // Who the screen last said is signed in, so your list is read again when that changes. Unknown at first.
+    private val signedIn = MutableStateFlow<Int?>(UNKNOWN_USER)
+
     private val resting = Resting(viewModelScope, library) { logo -> mutableState.update { it.copy(restingLogo = logo) } }
 
     init {
         history?.let { history ->
             viewModelScope.launch {
-                history.shows.collect { shows ->
+                history.withYourList(yourList, signedIn).collect { shows ->
                     saved = shows
                     loadContinueWatching()
                 }
@@ -161,6 +168,11 @@ public class HomeViewModel(
         if (failed.isEmpty()) return
         mutableState.update { state -> state.copy(rows = state.rows + failed.associateWith { RowState.Loading }) }
         failed.forEach(::load)
+    }
+
+    /** Call with the AniList user signed in on this TV, or null, whenever that may have changed. Your list is read again. */
+    public fun signedInAs(userId: Int?) {
+        signedIn.value = userId
     }
 
     /** Call with true while the offline screen is shown, and false once it isn't, so Home only tries again while seen. */

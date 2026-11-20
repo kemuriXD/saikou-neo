@@ -39,6 +39,25 @@ query WatchList($userId: Int!) {
   }
 }
 
+# The signed-in user's Watching and Rewatching progress, asked with their token, for Continue watching. Private entries
+# are asked for so they can be left out.
+query ContinueList($userId: Int!) {
+  MediaListCollection(userId: $userId, type: ANIME, status_in: [CURRENT, REPEATING]) {
+    lists {
+      isCustomList
+      entries {
+        progress
+        private
+        updatedAt
+        media {
+          id
+          duration
+        }
+      }
+    }
+  }
+}
+
 # A show's episode count, whether it has finished airing and the signed-in user's entry for it, asked before watching
 # updates their progress.
 query ListEntry($mediaId: Int!) {

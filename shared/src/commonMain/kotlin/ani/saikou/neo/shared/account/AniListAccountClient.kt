@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.account
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.catalogue.anilist.ContinueListQuery
 import ani.saikou.neo.shared.catalogue.anilist.ListEntryQuery
 import ani.saikou.neo.shared.catalogue.anilist.SaveProgressMutation
 import ani.saikou.neo.shared.catalogue.anilist.ViewerQuery
@@ -38,12 +39,33 @@ public data class WatchListShow(
     val airing: Boolean,
 )
 
+/** Where the signed-in user is in a show on their Watching or Rewatching list. */
+public data class ListedProgress(
+    val animeId: Int,
+    /** The last episode they watched, or 0 before the first. */
+    val progress: Int,
+    /** When the entry last changed, in seconds since 1970, where AniList says. */
+    val updatedAt: Long?,
+    /** How long an episode is, where AniList knows. */
+    val episodeMinutes: Int?,
+)
+
+/** The AniList call Continue watching makes with the signed-in user's token. */
+public interface ContinueListClient {
+    /** The progress on the Watching and Rewatching lists of [userId], the user [token] belongs to, without private entries. */
+    public suspend fun continueList(
+        token: AniListToken,
+        userId: Int,
+    ): AniListResult<List<ListedProgress>>
+}
+
 /** Calls AniList with a signed-in user's token. These are the only calls that send the token, and only to AniList. */
 public class AniListAccountClient internal constructor(
     private val apollo: ApolloClient,
     /** Where the viewer timeout is timed. Tests pass their own clock. */
     private val clock: CoroutineContext = Dispatchers.Default,
-) : ProgressClient {
+) : ProgressClient,
+    ContinueListClient {
     // AniList's error body tells a refused token apart from a bad query, as both are 400s.
     public constructor() : this(
         ApolloClient
@@ -103,6 +125,34 @@ public class AniListAccountClient internal constructor(
                 .mapNotNull { it.toShow() }
                 .distinctBy { it.id }
                 .sortedBy { it.status }
+        return AniListResult.Success(shows)
+    }
+
+    override suspend fun continueList(
+        token: AniListToken,
+        userId: Int,
+    ): AniListResult<List<ListedProgress>> {
+        val response =
+            apollo
+                .query(ContinueListQuery(userId))
+                .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
+                .execute()
+        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+        val collection =
+            response.data?.MediaListCollection
+                ?: return AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+        // A show on a custom list is also on its status list, so custom lists only repeat shows.
+        val shows =
+            collection.lists
+                .orEmpty()
+                .filterNotNull()
+                .filter { it.isCustomList != true }
+                .flatMap { it.entries.orEmpty().filterNotNull() }
+                .filter { it.private != true }
+                .mapNotNull { entry ->
+                    val media = entry.media ?: return@mapNotNull null
+                    ListedProgress(media.id, entry.progress ?: 0, entry.updatedAt?.toLong(), media.duration)
+                }.distinctBy { it.animeId }
         return AniListResult.Success(shows)
     }
 
