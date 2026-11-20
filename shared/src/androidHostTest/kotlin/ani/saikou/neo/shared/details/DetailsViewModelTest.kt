@@ -92,6 +92,7 @@ class DetailsViewModelTest {
         animeId: Int = 195516,
         zoneOffsetSeconds: Int = 0,
         warmSources: () -> Unit = {},
+        asksWhereToPickUp: Boolean = true,
     ) = DetailsViewModel(
         clientFor(engine, main),
         library,
@@ -107,6 +108,7 @@ class DetailsViewModelTest {
         marked = marked,
         zoneOffsetSeconds = zoneOffsetSeconds,
         warmSources = warmSources,
+        asksWhereToPickUp = asksWhereToPickUp,
     )
 
     private fun library(
@@ -230,6 +232,17 @@ class DetailsViewModelTest {
 
             assertEquals(listOf(195516 to asked.aniList), sides.saved)
             assertEquals(PickUp.At(asked.aniList), assertIs<DetailsState.Loaded>(viewModel.state.value).pickUp)
+        }
+
+    // Private mode (ADR 0053): this TV's place wins, so nothing is asked and nothing goes to AniList.
+    @Test
+    fun inPrivateModeThisTvsPlaceWinsWithoutAsking() =
+        runTest(main) {
+            val here = WatchProgress(1, 12.minutes, 24.minutes, null, 300)
+            val viewModel =
+                detailsViewModel(progress = flowOf(here), listed = ListedProgress(195516, 2, 500, 24), asksWhereToPickUp = false)
+
+            assertEquals(PickUp.At(here), assertIs<DetailsState.Loaded>(viewModel.settled()).pickUp)
         }
 
     @Test

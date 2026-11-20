@@ -2,6 +2,7 @@ package ani.saikou.neo.shared.playback
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ani.saikou.neo.shared.account.WatchingUpdates
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.details.EpisodeList
@@ -151,6 +152,10 @@ public data class PlayerState<out S>(
     val pickedHeight: Int? = null,
     /** Which of the stream's separate audio tracks plays. */
     val pickedAudio: Int = 0,
+    /** The episode waiting on "Update AniList as you watch?", asked as the viewer leaves (ADR 0053). */
+    val askAniList: Int? = null,
+    /** An episode is waiting on that answer, so leaving asks first. */
+    val holdsForAniList: Boolean = false,
 ) {
     /** The height playing out of [answered]. */
     public fun height(answered: FoundStream<*>): Int = pickedHeight ?: answered.height
@@ -161,7 +166,8 @@ public data class PlayerState<out S>(
  * starts, the next server listed is tried, once per request. An expired link is refreshed once, carrying on from the
  * same spot, before it counts as stopped. A part-watched episode first asks whether to resume. Where the video got to is
  * saved to [history] while it plays and when it stops, with the time [now] gives in seconds. Once the episode counts as
- * watched, or the viewer moves on to the next one, [watched] is told, once.
+ * watched, or the viewer moves on to the next one, [updates] is told, once, unless it asks first. Then the episode is
+ * held, and the question is asked as the viewer leaves.
  */
 public class PlayerViewModel<S>(
     private val finder: StreamFinder<S>,
@@ -169,13 +175,20 @@ public class PlayerViewModel<S>(
     private val answerWithin: Duration = ANSWER_WITHIN,
     private val history: WatchHistory? = null,
     private val now: () -> Long = { Clock.System.now().epochSeconds },
-    private val watched: ((animeId: Int, episode: Int) -> Unit)? = null,
+    private val updates: WatchingUpdates? = null,
 ) : ViewModel() {
     private var index = request.picked
     private var triedNext = false
     private var refreshed = false
     private var asking: Job? = null
     private var counted = false
+
+    // The user to ask, once an episode is held for an answer.
+    private var held: Int? = null
+
+    // Whether watching this show asks first, and who, read as the player opens.
+    private var askFor: Int? = null
+    private val askRead = updates?.let { updates -> viewModelScope.launch { askFor = updates.asksFirst(request.show.card.id) } }
 
     // The episode's length, once the player knows it.
     private var lengthMs = 0L
@@ -231,7 +244,47 @@ public class PlayerViewModel<S>(
     private fun count() {
         if (counted) return
         counted = true
-        watched?.invoke(request.show.card.id, request.episode)
+        val updates = updates ?: return
+        val read = askRead ?: return
+        // Read when the player opened, so moving on straight after this knows whether to ask.
+        if (read.isCompleted) {
+            decide(updates)
+        } else {
+            viewModelScope.launch {
+                read.join()
+                decide(updates)
+            }
+        }
+    }
+
+    private fun decide(updates: WatchingUpdates) {
+        val ask = askFor
+        if (ask == null) {
+            updates.watching(request.show.card.id, request.episode)
+        } else {
+            held = ask
+            mutableState.update { it.copy(holdsForAniList = true) }
+        }
+    }
+
+    /** The viewer is leaving. True when "Update AniList as you watch?" asks first, so the player stays until it's answered. */
+    public fun leave(): Boolean {
+        if (held == null) return false
+        mutableState.update { it.copy(askAniList = request.episode) }
+        return true
+    }
+
+    /** Answers the question: AniList is updated for this show from now on, or never, and the held episode goes with yes. */
+    public fun answer(update: Boolean) {
+        val user = held ?: return
+        updates?.answer(request.show.card.id, user, update, request.episode)
+        noAnswer()
+    }
+
+    /** Back on the question: nothing is sent, and it's asked again next time. */
+    public fun noAnswer() {
+        held = null
+        mutableState.update { it.copy(askAniList = null, holdsForAniList = false) }
     }
 
     /** The video started playing. */

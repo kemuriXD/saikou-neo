@@ -14,7 +14,14 @@ public data class Settings(
     val subOrDub: SubOrDub = SubOrDub.BOTH,
     /** Which shows Schedule leaves out. */
     val schedule: ScheduleSettings = ScheduleSettings(),
+    /** What watching on this TV does to the signed-in user's AniList progress (ADR 0053). */
+    val updateAniList: UpdateAniList = UpdateAniList.ALWAYS,
+    /** Nothing goes to AniList from this TV while it's on, whatever [updateAniList] says. */
+    val privateMode: Boolean = false,
 )
+
+/** Whether finishing an episode here moves AniList: always, once the show's been answered yes, or never. */
+public enum class UpdateAniList { ALWAYS, ASK, OFF }
 
 /** Which shows Schedule lists. Filtering uses the week already loaded, so a change asks for nothing new. */
 public data class ScheduleSettings(

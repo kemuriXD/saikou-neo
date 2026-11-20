@@ -35,6 +35,7 @@ import ani.saikou.neo.shared.settings.Setting
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.settings.TickList
+import ani.saikou.neo.shared.settings.UpdateAniList
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -139,6 +140,69 @@ class SettingsScreenTest {
         compose.onNodeWithText("Hikari", useUnmergedTree = true).assertExists()
         // Like Add a source, Sign in stays on top to switch accounts.
         compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).assertExists()
+    }
+
+    // Signed in, Account ends with Watching on this TV (ADR 0053). Update AniList opens its panel; Private mode
+    // switches on OK, with no panel.
+    @Test
+    fun signedInAccountChoosesHowWatchingUpdatesAniList() {
+        val account = AccountSettings(AniListProfile(7, "Hikari", null))
+        compose.setContent {
+            NeoTheme {
+                SettingsScreen(
+                    Settings(),
+                    onChoose = { setting, value -> chosen += setting to value },
+                    start = SettingsCategory.ACCOUNT,
+                    account = account,
+                )
+            }
+        }
+        compose.onNodeWithText("WATCHING ON THIS TV").assertExists()
+        press(Key.DirectionRight)
+        press(Key.DirectionDown, times = 2)
+        setting(Setting.UPDATE_ANILIST).assertIsFocused()
+
+        press(Key.DirectionCenter)
+        compose.onNodeWithText("Asks once per show, then remembers").assertExists()
+        choice(Setting.UPDATE_ANILIST, UpdateAniList.ALWAYS).assertIsFocused()
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+        panel().assertDoesNotExist()
+        setting(Setting.UPDATE_ANILIST).assertIsFocused()
+
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(Setting.UPDATE_ANILIST to UpdateAniList.ASK, Setting.PRIVATE_MODE to true), chosen)
+        panel().assertDoesNotExist()
+    }
+
+    @Test
+    fun privateModeOnSaysNothingGoesToAniList() {
+        compose.setContent {
+            NeoTheme {
+                SettingsScreen(
+                    Settings(privateMode = true, updateAniList = UpdateAniList.OFF),
+                    onChoose = { _, _ -> },
+                    start = SettingsCategory.ACCOUNT,
+                    account = AccountSettings(AniListProfile(7, "Hikari", null)),
+                )
+            }
+        }
+
+        compose.onNodeWithText("Nothing goes to AniList until you turn it off", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("On", useUnmergedTree = true).assertExists()
+        compose.onNodeWithText("Off", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun signedOutAccountHasNoWatchingSettings() {
+        compose.setContent {
+            NeoTheme { SettingsScreen(Settings(), onChoose = { _, _ -> }, start = SettingsCategory.ACCOUNT) }
+        }
+
+        setting(Setting.UPDATE_ANILIST).assertDoesNotExist()
+        setting(Setting.PRIVATE_MODE).assertDoesNotExist()
     }
 
     private fun signedIn(onSignOut: () -> Unit) {

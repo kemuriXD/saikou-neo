@@ -93,6 +93,19 @@ class SettingsViewModelTest {
             assertEquals(SubOrDub.SUB, store.settings.first().subOrDub)
         }
 
+    @Test
+    fun choosingHowWatchingUpdatesAniListSavesIt() =
+        withinSeconds {
+            val viewModel = viewModel()
+            viewModel.state.filterNotNull().first()
+
+            viewModel.choose(Setting.UPDATE_ANILIST, UpdateAniList.OFF)
+            viewModel.choose(Setting.PRIVATE_MODE, true)
+
+            viewModel.state.filterNotNull().first { it.privateMode && it.updateAniList == UpdateAniList.OFF }
+            assertEquals(Settings(updateAniList = UpdateAniList.OFF, privateMode = true), store.settings.first())
+        }
+
     // Picking the value a setting already has leaves it as it is, rather than switching it.
     @Test
     fun choosingTheCurrentValueKeepsIt() =

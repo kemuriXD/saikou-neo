@@ -6,9 +6,12 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
+import ani.saikou.neo.shared.account.ShowAnswers
 import ani.saikou.neo.shared.catalogue.ShowFormat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import okio.Path.Companion.toPath
 
@@ -21,6 +24,11 @@ private val ScheduleDubs = booleanPreferencesKey("schedule_dubs")
 private val ScheduleFormats = stringPreferencesKey("schedule_formats")
 private val ScheduleChinese = booleanPreferencesKey("schedule_chinese_animation")
 private val ScheduleShort = booleanPreferencesKey("schedule_short_episodes")
+private val UpdateAniListKey = stringPreferencesKey("update_anilist")
+private val PrivateMode = booleanPreferencesKey("private_mode")
+
+// Each "user:show=yes" or "user:show=no", one per show and user.
+private val ShowAnswersKey = stringSetPreferencesKey("anilist_show_answers")
 
 /**
  * Keeps [Settings] in a file, so they're there after the app restarts. Only one store may have a file open at a time,
@@ -28,7 +36,7 @@ private val ScheduleShort = booleanPreferencesKey("schedule_short_episodes")
  */
 public class SettingsStore private constructor(
     private val dataStore: DataStore<Preferences>,
-) {
+) : ShowAnswers {
     /** The settings now, and again each time one changes. A setting never changed reads as its default. */
     public val settings: Flow<Settings> =
         dataStore.data.map { it.toSettings() }
@@ -46,6 +54,29 @@ public class SettingsStore private constructor(
             saved[ScheduleFormats] = changed.schedule.formats.joinToString(",") { it.name }
             saved[ScheduleChinese] = changed.schedule.chineseAnimation
             saved[ScheduleShort] = changed.schedule.shortEpisodes
+            saved[UpdateAniListKey] = changed.updateAniList.name
+            saved[PrivateMode] = changed.privateMode
+        }
+    }
+
+    override suspend fun answer(
+        userId: Int,
+        animeId: Int,
+    ): Boolean? {
+        val key = "$userId:$animeId="
+        val kept = dataStore.data.first()[ShowAnswersKey]?.firstOrNull { it.startsWith(key) } ?: return null
+        return kept.removePrefix(key) == YES
+    }
+
+    override suspend fun save(
+        userId: Int,
+        animeId: Int,
+        update: Boolean,
+    ) {
+        val key = "$userId:$animeId="
+        dataStore.edit { saved ->
+            val others = saved[ShowAnswersKey].orEmpty().filterNot { it.startsWith(key) }
+            saved[ShowAnswersKey] = others.toSet() + (key + if (update) YES else NO)
         }
     }
 
@@ -75,8 +106,13 @@ private fun Preferences.toSettings(): Settings {
         slowTv = this[SlowTv] ?: defaults.slowTv,
         subOrDub = SubOrDub.entries.firstOrNull { it.name == this[SubOrDubKey] } ?: defaults.subOrDub,
         schedule = toScheduleSettings(),
+        updateAniList = UpdateAniList.entries.firstOrNull { it.name == this[UpdateAniListKey] } ?: defaults.updateAniList,
+        privateMode = this[PrivateMode] ?: defaults.privateMode,
     )
 }
+
+private const val YES = "yes"
+private const val NO = "no"
 
 private fun Preferences.toScheduleSettings(): ScheduleSettings {
     val defaults = ScheduleSettings()

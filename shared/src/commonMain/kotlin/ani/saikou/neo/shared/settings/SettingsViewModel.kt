@@ -19,6 +19,8 @@ public enum class Setting(
     SUB_OR_DUB(SubOrDub.entries),
     CHINESE_ANIMATION(OffOn),
     SHORT_EPISODES(OffOn),
+    UPDATE_ANILIST(UpdateAniList.entries),
+    PRIVATE_MODE(OffOn),
 }
 
 /** The value [setting] has now, one of its [Setting.choices]. */
@@ -30,6 +32,8 @@ public operator fun Settings.get(setting: Setting): Any =
         Setting.SUB_OR_DUB -> subOrDub
         Setting.CHINESE_ANIMATION -> schedule.chineseAnimation
         Setting.SHORT_EPISODES -> schedule.shortEpisodes
+        Setting.UPDATE_ANILIST -> updateAniList
+        Setting.PRIVATE_MODE -> privateMode
     }
 
 internal fun Settings.with(
@@ -43,6 +47,8 @@ internal fun Settings.with(
         Setting.SUB_OR_DUB -> copy(subOrDub = value as SubOrDub)
         Setting.CHINESE_ANIMATION -> copy(schedule = schedule.withChineseAnimation(value as Boolean))
         Setting.SHORT_EPISODES -> copy(schedule = schedule.withShortEpisodes(value as Boolean))
+        Setting.UPDATE_ANILIST -> copy(updateAniList = value as UpdateAniList)
+        Setting.PRIVATE_MODE -> copy(privateMode = value as Boolean)
     }
 
 /** The Settings screen's state: the saved settings, or null until they're read. */

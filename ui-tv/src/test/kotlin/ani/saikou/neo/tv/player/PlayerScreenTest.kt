@@ -3,6 +3,7 @@ package ani.saikou.neo.tv.player
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -91,6 +92,53 @@ class PlayerScreenTest {
     }
 
     private fun press(key: Key) = compose.onRoot().performKeyInput { pressKey(key) }
+
+    // ADR 0053: an episode waiting on an answer asks before the player goes, with Update AniList focused first.
+    @Test
+    fun backWithAnEpisodeHeldAsksWhetherToUpdateAniList() {
+        val answers = mutableListOf<Boolean?>()
+        state.value = state.value.copy(phase = PlayerPhase.Playing(answered), holdsForAniList = true)
+        compose.setContent {
+            NeoTheme {
+                PlayerScreen(
+                    state.value,
+                    request,
+                    PlayerActions(onLeave = { pressed += "leave" }, onAnswer = { answers += it }),
+                    playback,
+                    controls,
+                    video = {},
+                )
+            }
+        }
+
+        back()
+        assertEquals(listOf("leave"), pressed)
+
+        state.value = state.value.copy(askAniList = 7)
+        compose.waitForIdle()
+        compose.onNodeWithTag(ASK_ANILIST_TAG).assertIsDisplayed()
+        compose.onNodeWithText("DEATH NOTE").assertExists()
+        compose
+            .onNodeWithText(
+                "You finished episode 7. Should finishing episodes here move your progress for this show? This TV remembers your answer.",
+            ).assertExists()
+        compose.onNodeWithTag(ASK_ANILIST_UPDATE_TAG).assertIsFocused()
+        assertEquals(false, playback.playing)
+
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(ASK_ANILIST_NOT_TAG).assertIsFocused()
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(ASK_ANILIST_NOT_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+        back()
+
+        assertEquals(listOf(false, null), answers)
+    }
+
+    private fun back() {
+        compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
+        compose.waitForIdle()
+    }
 
     @Test
     fun startingSaysWhereItFoundTheServerAndWhoItsAsking() {

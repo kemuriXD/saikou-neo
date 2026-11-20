@@ -14,6 +14,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHeightIsEqualTo
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTextEquals
@@ -134,6 +135,22 @@ class HomeScreenTest {
         show()
 
         compose.onNodeWithTag(SPOTLIGHT_PLAY_TAG).assertIsFocused().assertTextEquals("Play")
+    }
+
+    // ADR 0053: private mode puts a sign at the top right, which never takes focus.
+    @Test
+    fun privateModeShowsASignThatFocusSkips() {
+        compose.setContent { NeoTheme { HomeScreen(loaded, privateMode = true) } }
+
+        compose.onNodeWithTag(PRIVATE_MODE_SIGN_TAG).assertIsDisplayed().assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.Focused))
+        compose.onNodeWithText("Private mode", useUnmergedTree = true).assertExists()
+    }
+
+    @Test
+    fun thereIsNoSignWithPrivateModeOff() {
+        show()
+
+        compose.onNodeWithTag(PRIVATE_MODE_SIGN_TAG).assertDoesNotExist()
     }
 
     @Test

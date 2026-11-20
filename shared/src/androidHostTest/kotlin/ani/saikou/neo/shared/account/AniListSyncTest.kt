@@ -6,6 +6,8 @@ import ani.saikou.neo.shared.home.SyncedSides
 import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.home.YourList
+import ani.saikou.neo.shared.settings.Settings
+import ani.saikou.neo.shared.settings.UpdateAniList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.first
@@ -83,7 +85,9 @@ class AniListSyncTest {
         client: ProgressClient,
         queue: SyncQueue,
         account: SignedInAccount? = me,
-    ) = AniListSync(backgroundScope, { account }, client, queue, { today }, now = { 1_800_000_000 })
+        settings: Settings = Settings(),
+        answers: ShowAnswers? = null,
+    ) = AniListSync(backgroundScope, { account }, client, queue, { today }, now = { 1_800_000_000 }, { settings }, answers)
 
     @Test
     fun aWatchedEpisodeMovesTheProgress() =
@@ -543,5 +547,163 @@ class AniListSyncTest {
             assertFalse(sync(client, queue).markWatched(101, upTo = 8, forUser = 1))
             assertFalse(sync(client, queue).markUnwatched(101, episode = 2, forUser = 1))
             assertEquals(1, queue.all().size)
+        }
+
+    private class MemoryAnswers : ShowAnswers {
+        val kept = mutableMapOf<Pair<Int, Int>, Boolean>()
+
+        override suspend fun answer(
+            userId: Int,
+            animeId: Int,
+        ) = kept[userId to animeId]
+
+        override suspend fun save(
+            userId: Int,
+            animeId: Int,
+            update: Boolean,
+        ) {
+            kept[userId to animeId] = update
+        }
+    }
+
+    @Test
+    fun alwaysSendsWhatsWatchedWithoutAsking() =
+        runTest {
+            val client = FakeClient()
+            val sync = sync(client, MemoryQueue(), answers = MemoryAnswers())
+
+            assertNull(sync.asksFirst(101))
+            sync.watching(101, 4)
+            runCurrent()
+
+            assertEquals(listOf(101 to ProgressUpdate(4, null, null)), client.saved)
+        }
+
+    @Test
+    fun offSendsNothingWatchedButMarksStillGo() =
+        runTest {
+            val client = FakeClient()
+            val queue = MemoryQueue()
+            val sync = sync(client, queue, settings = Settings(updateAniList = UpdateAniList.OFF), answers = MemoryAnswers())
+
+            assertNull(sync.asksFirst(101))
+            sync.watching(101, 4)
+            runCurrent()
+            assertEquals(emptyList(), client.saved)
+            assertEquals(emptyList(), queue.all())
+
+            assertTrue(sync.markWatched(101, upTo = 5, forUser = 1))
+            assertEquals(
+                5,
+                client.saved
+                    .single()
+                    .second.progress,
+            )
+        }
+
+    @Test
+    fun askHoldsAShowsFirstEpisodeUntilAnswered() =
+        runTest {
+            val client = FakeClient()
+            val queue = MemoryQueue()
+            val sync = sync(client, queue, settings = Settings(updateAniList = UpdateAniList.ASK), answers = MemoryAnswers())
+
+            assertEquals(1, sync.asksFirst(101))
+            sync.watching(101, 4)
+            runCurrent()
+
+            assertEquals(emptyList(), client.saved)
+            assertEquals(emptyList(), queue.all())
+        }
+
+    @Test
+    fun answeringYesSendsTheEpisodeAndStopsAsking() =
+        runTest {
+            val client = FakeClient()
+            val answers = MemoryAnswers()
+            val sync = sync(client, MemoryQueue(), settings = Settings(updateAniList = UpdateAniList.ASK), answers = answers)
+
+            sync.answer(101, forUser = 1, update = true, episode = 4)
+            runCurrent()
+            assertNull(sync.asksFirst(101))
+            sync.watching(101, 5)
+            runCurrent()
+
+            assertEquals(mapOf((1 to 101) to true), answers.kept)
+            assertEquals(listOf(4, 5), client.saved.map { it.second.progress })
+        }
+
+    @Test
+    fun answeringNoSendsNothingNowOrLater() =
+        runTest {
+            val client = FakeClient()
+            val answers = MemoryAnswers()
+            val sync = sync(client, MemoryQueue(), settings = Settings(updateAniList = UpdateAniList.ASK), answers = answers)
+
+            sync.answer(101, forUser = 1, update = false, episode = 4)
+            runCurrent()
+            assertNull(sync.asksFirst(101))
+            sync.watching(101, 5)
+            runCurrent()
+
+            assertEquals(mapOf((1 to 101) to false), answers.kept)
+            assertEquals(emptyList(), client.saved)
+        }
+
+    @Test
+    fun anAnswerIsOnlyForTheUserWhoGaveIt() =
+        runTest {
+            val client = FakeClient()
+            val answers = MemoryAnswers().apply { kept[2 to 101] = true }
+            val sync = sync(client, MemoryQueue(), settings = Settings(updateAniList = UpdateAniList.ASK), answers = answers)
+
+            assertEquals(1, sync.asksFirst(101))
+            sync.answer(101, forUser = 2, update = true, episode = 4)
+            runCurrent()
+
+            assertEquals(emptyList(), client.saved)
+            assertEquals(1, sync.asksFirst(101))
+        }
+
+    @Test
+    fun thereIsNothingToAskSignedOut() =
+        runTest {
+            val sync = sync(FakeClient(), MemoryQueue(), account = null, settings = Settings(updateAniList = UpdateAniList.ASK))
+
+            assertNull(sync.asksFirst(101))
+        }
+
+    @Test
+    fun privateModeSendsAndQueuesNothing() =
+        runTest {
+            val client = FakeClient()
+            val queue = MemoryQueue().apply { items[202] = PendingProgress(202, 2, userId = 1) }
+            val sync =
+                sync(client, queue, settings = Settings(privateMode = true, updateAniList = UpdateAniList.ASK), answers = MemoryAnswers())
+
+            assertNull(sync.asksFirst(101))
+            sync.watching(101, 4)
+            sync.watched(101, 4)
+            sync.answer(101, forUser = 1, update = true, episode = 4)
+            sync.flush()
+            runCurrent()
+
+            assertEquals(emptyList(), client.saved)
+            assertEquals(listOf(PendingProgress(202, 2, userId = 1)), queue.all())
+        }
+
+    @Test
+    fun privateModeRefusesEveryOtherWriteAndHidesTheEntry() =
+        runTest {
+            val client = FakeClient()
+            val sync = sync(client, MemoryQueue(), settings = Settings(privateMode = true))
+
+            assertNull(sync.entry(101))
+            assertFalse(sync.changeStatus(101, ListStatus.COMPLETED, forUser = 1))
+            assertFalse(sync.remove(101, forUser = 1))
+            assertFalse(sync.markWatched(101, upTo = 5, forUser = 1))
+            assertFalse(sync.markUnwatched(101, episode = 2, forUser = 1))
+            assertFalse(sync.movedBack(101, 2, forUser = 1))
+            assertEquals(0, client.calls)
         }
 }
