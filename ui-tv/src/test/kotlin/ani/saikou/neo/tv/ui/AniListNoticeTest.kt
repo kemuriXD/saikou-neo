@@ -147,6 +147,19 @@ class AniListNoticeTest {
         compose.onNodeWithTag("server").assertIsFocused()
     }
 
+    // Once pressed, Undo has done its job, so focus goes back to the screen straight away.
+    @Test
+    fun pressingUndoGivesFocusBack() {
+        show()
+        shown.value = notice(NoticeChange.Updated(ListStatus.WATCHING, 5, byEpisode = true))
+        compose.waitForIdle()
+
+        press(Key.DirectionCenter)
+
+        compose.onNodeWithTag("first").assertIsFocused()
+        assertEquals(listOf("undo"), pressed)
+    }
+
     @Test
     fun undoTakesFocusAndAnyMoveGivesItBack() {
         show()
@@ -154,12 +167,11 @@ class AniListNoticeTest {
         compose.waitForIdle()
 
         compose.onNodeWithTag(NOTICE_UNDO_TAG).assertIsFocused()
-        press(Key.DirectionCenter)
         press(Key.DirectionRight)
 
         compose.onNodeWithTag("first").assertIsFocused()
         compose.onNodeWithTag(NOTICE_TAG).assertExists()
-        assertEquals(listOf("undo"), pressed)
+        assertEquals(emptyList<String>(), pressed)
     }
 
     @Test

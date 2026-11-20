@@ -195,6 +195,11 @@ private fun BoxScope.NoticeWithFocus(
     AniListNotice(
         shown,
         actions.copy(
+            // Pressed, Undo has done its job, so focus goes back to the screen before the notice closes or says it failed.
+            onUndo = {
+                back(KeyEvent.KEYCODE_BACK)
+                actions.onUndo()
+            },
             onUndoFocused = {
                 focused(it)
                 actions.onUndoFocused(it)
