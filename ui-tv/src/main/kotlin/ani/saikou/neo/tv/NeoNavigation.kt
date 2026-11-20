@@ -160,7 +160,7 @@ fun NeoNavigation(
     // The AniList account signed in on this TV, for the rail's profile. Null while signed out.
     profile: AniListProfile? = null,
     signedOutProfile: @Composable (openSignIn: () -> Unit, back: () -> Unit) -> Unit = { _, _ -> },
-    player: @Composable (request: PlayRequest, back: () -> Unit) -> Unit = { _, _ -> },
+    player: @Composable (request: PlayRequest, back: () -> Unit, playNext: (PlayRequest) -> Unit) -> Unit = { _, _, _ -> },
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
     // Takes focus back from the rail to what last had it on Home.
@@ -251,7 +251,14 @@ fun NeoNavigation(
                         }
                     }
                 }
-                entry<Screen.Player> { it.TakesKeysOnTop { player(it.request) { backStack.removeLastOrNull() } } }
+                entry<Screen.Player> {
+                    it.TakesKeysOnTop {
+                        player(it.request, { backStack.removeLastOrNull() }) { next ->
+                            // The next episode takes this one's place, so Back still returns to Details.
+                            if (backStack.lastOrNull() is Screen.Player) backStack[backStack.lastIndex] = Screen.Player(next)
+                        }
+                    }
+                }
                 entry<Screen.Recommendations> { it.TakesKeysOnTop { recommendations(it.animeId, openDetails) } }
             },
     )

@@ -57,6 +57,7 @@ import ani.saikou.neo.shared.pairing.TvSignInViewModel
 import ani.saikou.neo.shared.pairing.openTvPairing
 import ani.saikou.neo.shared.pairing.thisTv
 import ani.saikou.neo.shared.playback.ControlsViewModel
+import ani.saikou.neo.shared.playback.NextPlay
 import ani.saikou.neo.shared.playback.PlayerViewModel
 import ani.saikou.neo.shared.playback.ServersViewModel
 import ani.saikou.neo.shared.playback.playRequest
@@ -425,10 +426,33 @@ class MainActivity : ComponentActivity() {
                             // Leaving clears the ViewModel, which closes the listener and any phone without signing in.
                             SignInScreen(state, onNewCode = signIn::newCode, onLeave = leave, onHome = goHome)
                         },
-                        player = { request, back ->
+                        player = { request, back, playNext ->
                             val player =
-                                viewModel { PlayerViewModel(app.streamFinder, request, history = app.history, updates = app.sync) }
+                                viewModel {
+                                    PlayerViewModel(
+                                        app.streamFinder,
+                                        request,
+                                        history = app.history,
+                                        updates = app.sync,
+                                        servers = app.serverFinder,
+                                    )
+                                }
                             val state by player.state.collectAsStateWithLifecycle()
+                            // On to the next episode, or its servers page when the same server or audio isn't there (ADR 0054).
+                            LaunchedEffect(state.going) {
+                                when (val going = state.going) {
+                                    is NextPlay.Play -> {
+                                        playNext(going.request)
+                                    }
+
+                                    is NextPlay.Choose -> {
+                                        episodeFromPlayer = going.episode
+                                        back()
+                                    }
+
+                                    null -> {}
+                                }
+                            }
                             // Where to go once "Update AniList as you watch?" is answered (ADR 0053).
                             var leaving by remember { mutableStateOf<(() -> Unit)?>(null) }
                             val leaveThen = { go: () -> Unit -> if (player.leave()) leaving = go else go() }
@@ -459,7 +483,11 @@ class MainActivity : ComponentActivity() {
                                     onFailed = player::failed,
                                     onTryNext = player::tryNext,
                                     onTryAgain = player::tryAgain,
-                                    onChooseAnother = back,
+                                    // The servers page for the episode playing, which after Next isn't the one Details opened.
+                                    onChooseAnother = {
+                                        episodeFromPlayer = request.episode
+                                        back()
+                                    },
                                     onQuality = player::changeQuality,
                                     onAudio = player::changeAudio,
                                     onServer = player::changeServer,
@@ -476,6 +504,9 @@ class MainActivity : ComponentActivity() {
                                         leaving?.invoke()
                                         leaving = null
                                     },
+                                    onNext = player::playNext,
+                                    onUpNext = player::reachedUpNext,
+                                    onWatchCredits = player::watchCredits,
                                 ),
                                 playback,
                                 controls,
@@ -489,7 +520,7 @@ class MainActivity : ComponentActivity() {
                                         app.sourceHost.client,
                                         looks.drawing,
                                         onPlayed = player::played,
-                                        onEnded = { if (player.leave()) leaving = back },
+                                        onEnded = { if (player.ended()) leaving = back },
                                         sample = sample.takeIf { shown.looks },
                                         subtitlesAbove = subtitlesAbove,
                                         online = ::isOnline,

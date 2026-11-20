@@ -492,6 +492,12 @@
     <string name="player_quality">%1$dp</string>
     <string name="player_speed">%1$s×</string>
     <string name="player_next">Next</string>
+    <string name="player_up_next">Up next</string>
+    <string name="player_play_episode">Play E%1$d</string>
+    <string name="player_watch_credits">Watch credits</string>
+    <!-- Under the shrunk video while Up next shows. -->
+    <string name="player_plays_on_here" tools:ignore="PluralsCandidate">E%1$d plays on here</string>
+    <string name="player_ending_plays_on_here" tools:ignore="PluralsCandidate">Ending · E%1$d plays on here</string>
     <string name="player_panel_quality">Quality</string>
     <string name="player_panel_server_tab">Server</string>
     <string name="player_panel_speed">Speed</string>

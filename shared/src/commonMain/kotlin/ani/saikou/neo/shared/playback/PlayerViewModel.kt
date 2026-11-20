@@ -12,6 +12,7 @@ import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,7 +63,8 @@ public data class PlayServer(
 /**
  * What the player opens with: the episode, and the [servers] the streams page listed, in its order, with the one [picked].
  * [backdrop] is the artwork Details showed, if it had any. The [episodes] Details listed, and the [progress] it showed
- * them with, fill the player's episodes drawer.
+ * them with, fill the player's episodes drawer. Going on from the episode before, [audio] is the separate audio track it
+ * played, which this one plays too.
  */
 public data class PlayRequest(
     val show: AnimeDetails,
@@ -73,6 +75,7 @@ public data class PlayRequest(
     val backdrop: String? = null,
     val episodes: EpisodeList? = null,
     val progress: WatchProgress? = null,
+    val audio: String? = null,
 ) {
     /** The artwork behind the player while it starts: the one Details showed, or else the show's banner or cover. */
     val art: String? get() = backdrop ?: show.card.art
@@ -156,6 +159,12 @@ public data class PlayerState<out S>(
     val askAniList: Int? = null,
     /** An episode is waiting on that answer, so leaving asks first. */
     val holdsForAniList: Boolean = false,
+    /** The episode after this one, or null when there's none to go on to (ADR 0054). */
+    val next: UpNextEpisode? = null,
+    /** Up next, while it shows. */
+    val upNext: UpNext? = null,
+    /** Where to go on to, once it's known. */
+    val going: NextPlay? = null,
 ) {
     /** The height playing out of [answered]. */
     public fun height(answered: FoundStream<*>): Int = pickedHeight ?: answered.height
@@ -167,7 +176,8 @@ public data class PlayerState<out S>(
  * same spot, before it counts as stopped. A part-watched episode first asks whether to resume. Where the video got to is
  * saved to [history] while it plays and when it stops, with the time [now] gives in seconds. Once the episode counts as
  * watched, or the viewer moves on to the next one, [updates] is told, once, unless it asks first. Then the episode is
- * held, and the question is asked as the viewer leaves.
+ * held, and the question is asked as the viewer leaves, or over Up next. Going on to the next episode asks [servers] for
+ * it on the same source (ADR 0054).
  */
 public class PlayerViewModel<S>(
     private val finder: StreamFinder<S>,
@@ -176,12 +186,27 @@ public class PlayerViewModel<S>(
     private val history: WatchHistory? = null,
     private val now: () -> Long = { Clock.System.now().epochSeconds },
     private val updates: WatchingUpdates? = null,
+    private val servers: ServerFinder? = null,
 ) : ViewModel() {
     private var index = request.picked
     private var triedNext = false
     private var refreshed = false
     private var asking: Job? = null
     private var counted = false
+    private var countdown: Job? = null
+    private var goingOn: Job? = null
+
+    // Play was pressed, so another press waits for it.
+    private var startingNext: Job? = null
+
+    // Watch credits was pressed, so Up next waits for the end.
+    private var credits = false
+
+    // Going on waits for the answer to "Update AniList as you watch?".
+    private var playsOnAfterAnswer = false
+
+    // The audio the request wants is still to be picked from the first stream.
+    private var wantsAudio = request.audio
 
     // The user to ask, once an episode is held for an answer.
     private var held: Int? = null
@@ -196,7 +221,13 @@ public class PlayerViewModel<S>(
     private val resumeAt = request.progress?.resumeAtMs(request.episode)
 
     private val mutableState =
-        MutableStateFlow(PlayerState<S>(request.servers[index], resumeAt?.let { PlayerPhase.Resume(it) } ?: PlayerPhase.Starting(null)))
+        MutableStateFlow(
+            PlayerState<S>(
+                request.servers[index],
+                resumeAt?.let { PlayerPhase.Resume(it) } ?: PlayerPhase.Starting(null),
+                next = request.nextEpisode(),
+            ),
+        )
     public val state: StateFlow<PlayerState<S>> = mutableState.asStateFlow()
 
     init {
@@ -285,6 +316,90 @@ public class PlayerViewModel<S>(
     public fun noAnswer() {
         held = null
         mutableState.update { it.copy(askAniList = null, holdsForAniList = false) }
+        if (playsOnAfterAnswer) {
+            playsOnAfterAnswer = false
+            goOn()
+        } else if (state.value.upNext != null) {
+            countDown()
+        }
+    }
+
+    /** The video reached where Up next shows. It shows once, unless Watch credits waits for the end. */
+    public fun reachedUpNext() {
+        if (!credits && state.value.upNext == null) showUpNext()
+    }
+
+    /** The video ended. Up next shows again, or with no next episode, true when leaving asks first. */
+    public fun ended(): Boolean {
+        if (state.value.next == null) return leave()
+        credits = false
+        if (state.value.upNext == null) showUpNext()
+        return false
+    }
+
+    /** Hides Up next and keeps the video full screen until it ends. */
+    public fun watchCredits() {
+        if (state.value.going != null) return
+        countdown?.cancel()
+        startingNext?.cancel()
+        goingOn?.cancel()
+        credits = true
+        mutableState.update { it.copy(upNext = null) }
+    }
+
+    private fun showUpNext() {
+        if (state.value.next == null || state.value.going != null) return
+        mutableState.update { it.copy(upNext = UpNext(secondsLeft = null)) }
+        if (held != null) {
+            mutableState.update { it.copy(askAniList = request.episode) }
+        } else {
+            countDown()
+        }
+    }
+
+    private fun countDown() {
+        countdown?.cancel()
+        countdown =
+            viewModelScope.launch {
+                for (left in UP_NEXT_SECONDS downTo 1) {
+                    mutableState.update { it.copy(upNext = UpNext(left)) }
+                    delay(1000)
+                }
+                playNext()
+            }
+    }
+
+    /** Goes on to the next episode, which counts this one, asking first when an episode waits on an answer. */
+    public fun playNext() {
+        if (state.value.next == null || state.value.going != null || goingOn?.isActive == true) return
+        if (startingNext?.isActive == true || playsOnAfterAnswer) return
+        countdown?.cancel()
+        startingNext =
+            viewModelScope.launch {
+                askRead?.join()
+                count()
+                if (held == null) {
+                    goOn()
+                } else {
+                    playsOnAfterAnswer = true
+                    mutableState.update { it.copy(upNext = UpNext(secondsLeft = null), askAniList = request.episode) }
+                }
+            }
+    }
+
+    private fun goOn() {
+        val next = state.value.next ?: return
+        val finder = servers ?: return
+        val playing = state.value.server
+        val answered = (state.value.phase as? PlayerPhase.Playing)?.answered
+        val audio = answered?.audio?.getOrNull(state.value.pickedAudio)
+        mutableState.update { it.copy(upNext = UpNext(secondsLeft = null)) }
+        // Kept, so a second press waits for this one and Watch credits stops it.
+        goingOn =
+            viewModelScope.launch {
+                val going = withTimeoutOrNull(answerWithin) { request.next(next, playing, audio, finder) } ?: NextPlay.Choose(next.number)
+                mutableState.update { it.copy(going = going) }
+            }
     }
 
     /** The video started playing. */
@@ -422,7 +537,18 @@ public class PlayerViewModel<S>(
                     } catch (_: Exception) {
                         return@launch stop(FailReason.SourceDown)
                     }
-                mutableState.update { it.copy(phase = PlayerPhase.Starting(found, quiet), load = it.load + 1) }
+                val wanted = wantsAudio
+                wantsAudio = null
+                val audio = wanted?.let { found.audio.indexOf(it) }
+                // The episode before played audio this stream doesn't have, so the viewer picks a server.
+                if (audio == -1) return@launch mutableState.update { it.copy(going = NextPlay.Choose(request.episode)) }
+                mutableState.update {
+                    it.copy(
+                        phase = PlayerPhase.Starting(found, quiet),
+                        load = it.load + 1,
+                        pickedAudio = audio ?: it.pickedAudio,
+                    )
+                }
             }
     }
 

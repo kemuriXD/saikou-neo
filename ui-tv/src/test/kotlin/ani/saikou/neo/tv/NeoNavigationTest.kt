@@ -149,7 +149,7 @@ class NeoNavigationTest {
                         Button(onClick = goHome) { Text("Home from Schedule") }
                     }
                 },
-                player = { request, _ -> Text("Playing E${request.episode}") },
+                player = { request, _, _ -> Text("Playing E${request.episode}") },
                 signIn = { _, _ -> Text("Sign in with your phone") },
                 signedIn = { signedIn },
                 profile = profile,

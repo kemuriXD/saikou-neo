@@ -21,6 +21,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -49,7 +50,9 @@ import ani.saikou.neo.shared.playback.PlayServer
 import ani.saikou.neo.shared.playback.PlayerError
 import ani.saikou.neo.shared.playback.PlayerPhase
 import ani.saikou.neo.shared.playback.PlayerState
+import ani.saikou.neo.shared.playback.SegmentKind
 import ani.saikou.neo.shared.playback.formatPlaybackTime
+import ani.saikou.neo.shared.playback.upNextAtMs
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.details.editionName
 import ani.saikou.neo.tv.details.failReasonText
@@ -65,6 +68,7 @@ import coil3.compose.AsyncImage
 import coil3.compose.LocalPlatformContext
 import coil3.request.ImageRequest
 import coil3.request.transformations
+import kotlinx.coroutines.delay
 import java.util.TimeZone
 
 internal const val PLAYER_STARTING_TAG = "player-starting"
@@ -94,6 +98,11 @@ internal data class PlayerActions(
     val onLeave: () -> Unit = {},
     // Its answer, or null for Back on it.
     val onAnswer: (update: Boolean?) -> Unit = {},
+    // The Next card, or Play on Up next (ADR 0054).
+    val onNext: () -> Unit = {},
+    // The video got to where Up next shows.
+    val onUpNext: () -> Unit = {},
+    val onWatchCredits: () -> Unit = {},
 )
 
 // From the design.
@@ -120,6 +129,7 @@ private val ResumeStillHeight = 160.dp
 private val ResumeStillRadius = 14.dp
 private const val RESUME_SCRIM = 0.85f
 private const val SUBTITLE_ALPHA = 0.72f
+private const val UP_NEXT_CHECK_MS = 500L
 
 // The art is blurred at this size and stretched to fill the screen, which stays soft and costs little.
 private const val BACKDROP_WIDTH = 320
@@ -148,8 +158,25 @@ internal fun PlayerScreen(
     var subtitlesAbove by remember { mutableStateOf<Float?>(null) }
     // First, so the controls' own Back still closes them first.
     BackHandler(enabled = state.holdsForAniList && state.askAniList == null, onBack = actions.onLeave)
+    val upNext = state.upNext.takeIf { state.phase is PlayerPhase.Playing }
+    val next = state.next
+    if (next != null && state.phase is PlayerPhase.Playing) {
+        WatchForUpNext(state, playback, actions.onUpNext)
+    }
     Box(modifier.fillMaxSize().background(scrim)) {
-        video(subtitlesAbove.takeIf { state.phase is PlayerPhase.Playing })
+        // One place for the video, so shrinking it for Up next keeps the same player view.
+        Box(
+            if (upNext == null) {
+                Modifier.fillMaxSize()
+            } else {
+                Modifier
+                    .padding(start = UpNextVideoLeft, top = UpNextVideoTop)
+                    .size(UpNextVideoWidth, UpNextVideoHeight)
+                    .clip(RoundedCornerShape(UpNextVideoRadius))
+            },
+        ) {
+            video(subtitlesAbove.takeIf { state.phase is PlayerPhase.Playing && upNext == null })
+        }
         when (val phase = state.phase) {
             is PlayerPhase.Resume -> {
                 Backdrop(request, SolidColor(scrim.copy(alpha = RESUME_SCRIM)))
@@ -172,7 +199,13 @@ internal fun PlayerScreen(
             }
 
             is PlayerPhase.Playing -> {
-                PlayerControls(state, phase.answered, request, actions, playback, controls, looks) { subtitlesAbove = it }
+                if (upNext != null && next != null) {
+                    LaunchedEffect(Unit) { controls.hide() }
+                    UpNextScreen(request, next, upNext, endingPlaying(state, playback), actions.onNext, actions.onWatchCredits)
+                    BackHandler(enabled = state.askAniList == null, onBack = actions.onWatchCredits)
+                } else {
+                    PlayerControls(state, phase.answered, request, actions, playback, controls, looks) { subtitlesAbove = it }
+                }
             }
         }
         state.askAniList?.let { episode ->
@@ -182,6 +215,30 @@ internal fun PlayerScreen(
         }
     }
 }
+
+/** Tells [onReached] once the video gets to where Up next shows, checking a few times a second. */
+@Composable
+private fun WatchForUpNext(
+    state: PlayerState<Stream>,
+    playback: Playback,
+    onReached: () -> Unit,
+) {
+    val reached by rememberUpdatedState(onReached)
+    LaunchedEffect(state.segments, state.upNext == null) {
+        if (state.upNext != null) return@LaunchedEffect
+        while (true) {
+            val at = upNextAtMs(state.segments, playback.durationMs)
+            if (at != null && playback.positionMs >= at) reached()
+            delay(UP_NEXT_CHECK_MS)
+        }
+    }
+}
+
+/** Whether the ending is what's playing, as far as the episode's parts are known. */
+private fun endingPlaying(
+    state: PlayerState<Stream>,
+    playback: Playback,
+) = state.segments.any { it.kind == SegmentKind.Ending && playback.positionMs in it.startMs until it.endMs }
 
 /** The show's art, blurred, under [scrim]. */
 @Composable
