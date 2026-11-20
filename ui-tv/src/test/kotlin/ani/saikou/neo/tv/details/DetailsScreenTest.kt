@@ -589,9 +589,9 @@ class DetailsScreenTest {
         showEpisodes(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today), progress = progress))
 
         // The list opens on the episode in progress, with the one before it watched.
-        compose.onNodeWithTag(episodeTag(2)).assert(hasText("✓ Watched"))
+        compose.onNodeWithTag(episodeTag(2)).assert(hasText("Watched"))
         compose.onNodeWithTag(episodeTag(3)).assert(hasText("12 min left"))
-        compose.onNodeWithTag(episodeTag(4)).assert(!hasText("✓ Watched") and !hasText("12 min left"))
+        compose.onNodeWithTag(episodeTag(4)).assert(!hasText("Watched") and !hasText("12 min left"))
     }
 
     @Test
@@ -611,7 +611,7 @@ class DetailsScreenTest {
         showEpisodes(DetailsState.Loaded(details, episodes = episodes, progress = progress))
 
         // How far this TV got comes first.
-        compose.onNodeWithTag(episodeTag(2)).assert(hasText("✓ Watched") and !hasText("Filler"))
+        compose.onNodeWithTag(episodeTag(2)).assert(hasText("Watched") and !hasText("Filler"))
         compose.onNodeWithTag(episodeTag(3)).assert(hasText("12 min left") and !hasText("Filler"))
         compose.onNodeWithTag(episodeTag(4)).assert(hasText("Recap"))
         compose.onNodeWithTag(episodeTag(5)).assert(hasText("Filler"))

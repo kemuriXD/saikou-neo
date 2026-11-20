@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
+import androidx.tv.material3.Icon
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AniZipEpisode
@@ -66,6 +67,7 @@ import ani.saikou.neo.tv.details.thumb
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.home.parseColour
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.NeoTab
 import ani.saikou.neo.tv.ui.keepsArrowsIn
 import coil3.compose.AsyncImage
@@ -272,25 +274,31 @@ private fun EpisodeRow(
                     overflow = TextOverflow.Ellipsis,
                 )
                 lineText(episode, line)?.let {
-                    Text(
-                        it,
-                        style = NeoTheme.typography.caption.copy(fontSize = 12.sp, lineHeight = 16.sp),
-                        color =
-                            when {
-                                focused -> colors.onFocusMuted
-                                playing -> colors.pink
-                                else -> colors.textMuted
-                            },
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                    val tint =
+                        when {
+                            focused -> colors.onFocusMuted
+                            playing -> colors.pink
+                            else -> colors.textMuted
+                        }
+                    Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                        if (line == EpisodeLine.Marked(EpisodeMark.Watched)) {
+                            Icon(NeoIcons.Tick, contentDescription = null, tint = tint, modifier = Modifier.size(11.dp))
+                        }
+                        Text(
+                            it,
+                            style = NeoTheme.typography.caption.copy(fontSize = 12.sp, lineHeight = 16.sp),
+                            color = tint,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
                 }
             }
         }
     }
 }
 
-/** "Playing now", "✓ Watched", "12 min left", "Filler · 24 min", or else its length and when it aired or airs. */
+/** "Playing now", "Watched" (with a tick beside it), "12 min left", "Filler · 24 min", or else its length and when it aired or airs. */
 @Composable
 private fun lineText(
     episode: AniZipEpisode,

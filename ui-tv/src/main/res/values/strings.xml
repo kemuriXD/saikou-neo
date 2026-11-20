@@ -109,7 +109,7 @@
     <string name="details_aired_on">Aired %1$s</string>
     <string name="details_airs_on">Airs %1$s</string>
     <string name="details_released_on">Released %1$s</string>
-    <string name="details_episode_watched">✓ Watched</string>
+    <string name="details_episode_watched">Watched</string>
     <string name="details_episode_left">%1$d min left</string>
     <string name="details_position_saved">Position saved on this TV · %1$s</string>
     <!-- MAL marks the episode as one outside the main story. -->

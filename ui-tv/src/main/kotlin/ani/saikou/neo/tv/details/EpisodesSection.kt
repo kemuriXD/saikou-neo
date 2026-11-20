@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.offset
 import androidx.tv.material3.ClickableSurfaceDefaults
 import androidx.tv.material3.Glow
+import androidx.tv.material3.Icon
 import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
@@ -78,6 +79,7 @@ import ani.saikou.neo.shared.playback.formatPlaybackTime
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
 import ani.saikou.neo.tv.theme.WindowScrolling
+import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.NeoTab
 import ani.saikou.neo.tv.ui.outToTheScreenEdge
 import ani.saikou.neo.tv.ui.remembersFocus
@@ -430,7 +432,7 @@ internal fun BoxScope.WatchedLine(watched: Float) {
 }
 
 /**
- * "✓ Watched", or how much is left in pink. An episode not started here says whether it's filler or a recap, if MAL
+ * Watched with a tick, or how much is left in pink. An episode not started here says whether it's filler or a recap, if MAL
  * says so.
  */
 @Composable
@@ -449,16 +451,22 @@ private fun Badge(
             kind == EpisodeKind.Recap -> stringResource(R.string.details_episode_recap)
             else -> return
         }
-    Text(
-        text = text,
-        style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Bold),
-        color = if (resume) colors.ink else content.copy(alpha = BADGE_TEXT),
-        maxLines = 1,
-        modifier =
-            Modifier
-                .background(if (resume) colors.pink else content.copy(alpha = BADGE_FILL), RoundedCornerShape(50))
-                .padding(horizontal = 10.dp, vertical = 4.dp),
-    )
+    val tint = if (resume) colors.ink else content.copy(alpha = BADGE_TEXT)
+    Row(
+        Modifier
+            .background(if (resume) colors.pink else content.copy(alpha = BADGE_FILL), RoundedCornerShape(50))
+            .padding(horizontal = 10.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (mark == EpisodeMark.Watched) Icon(NeoIcons.Tick, contentDescription = null, tint = tint, modifier = Modifier.size(12.dp))
+        Text(
+            text = text,
+            style = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Bold),
+            color = tint,
+            maxLines = 1,
+        )
+    }
 }
 
 /** A row with no still: the title and length. */
