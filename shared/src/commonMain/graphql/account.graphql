@@ -38,3 +38,24 @@ query WatchList($userId: Int!) {
     }
   }
 }
+
+# A show's episode count and the signed-in user's entry for it, asked before watching updates their progress.
+query ListEntry($mediaId: Int!) {
+  Media(id: $mediaId, type: ANIME) {
+    episodes
+    mediaListEntry {
+      status
+      progress
+      startedAt {
+        year
+      }
+    }
+  }
+}
+
+# Saves the signed-in user's progress in a show, with its status and start date when they change.
+mutation SaveProgress($mediaId: Int!, $progress: Int!, $status: MediaListStatus, $startedAt: FuzzyDateInput) {
+  SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status, startedAt: $startedAt) {
+    id
+  }
+}

@@ -7,8 +7,8 @@ import kotlin.time.Duration.Companion.seconds
 // Less than this in, the episode starts from the beginning without asking.
 private val RESUME_FROM = 10.seconds
 
-// From this far through, the episode was watched to the credits, so it starts over.
-private const val WATCHED_TO = 0.95f
+// From this far through, the episode counts as watched, here and on AniList, so it starts over.
+private const val WATCHED_TO = 0.80f
 
 private const val SECONDS_PER_DAY = 86_400L
 
@@ -29,7 +29,7 @@ public data class WatchProgress(
     /** How much was watched, from 0 to 1. */
     val fraction: Float get() = (watched / length).toFloat().coerceIn(0f, 1f)
 
-    /** True once [episode] was watched to the credits. */
+    /** True once enough of [episode] played for it to count as watched. */
     val watchedToEnd: Boolean get() = fraction >= WATCHED_TO
 
     /** Where [episode] picks up, if this is that episode and it's worth asking: not just begun, not watched to the end. */

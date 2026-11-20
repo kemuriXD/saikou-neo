@@ -128,6 +128,8 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // Opened again after a long time away, the app starts on Home rather than where it was left.
         super.onCreate(absence.restore(savedInstanceState))
+        // AniList updates that couldn't be sent before go now. Only the TV does this, so the phone never opens the queue.
+        if (savedInstanceState == null) app.sync.flush()
         // Where the system splash shows, it goes with a plain cut to the same lockup in the window background (ADR 0018).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             splashScreen.setOnExitAnimationListener { it.remove() }
@@ -396,7 +398,8 @@ class MainActivity : ComponentActivity() {
                             SignInScreen(state, onNewCode = signIn::newCode, onLeave = leave, onHome = goHome)
                         },
                         player = { request, back ->
-                            val player = viewModel { PlayerViewModel(app.streamFinder, request, history = app.history) }
+                            val player =
+                                viewModel { PlayerViewModel(app.streamFinder, request, history = app.history, watched = app.sync::watched) }
                             val state by player.state.collectAsStateWithLifecycle()
                             val playback = rememberExoPlayback()
                             val subtitles =
@@ -430,6 +433,7 @@ class MainActivity : ComponentActivity() {
                                     onAudio = player::changeAudio,
                                     onServer = player::changeServer,
                                     onEpisode = { episode ->
+                                        player.movingOn(episode)
                                         episodeFromPlayer = episode
                                         back()
                                     },
