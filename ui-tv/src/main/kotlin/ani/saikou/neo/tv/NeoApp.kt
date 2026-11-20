@@ -72,11 +72,6 @@ class NeoApp : Application() {
         )
     }
 
-    override fun onCreate() {
-        super.onCreate()
-        sync.flush()
-    }
-
     /** This week's timetable and show matches for Schedule (ADR 0041). The week it fetched lasts 15 minutes. */
     val schedule by lazy {
         val client = AnimeScheduleClient(BuildConfig.ANIMESCHEDULE_TOKEN.ifBlank { null })
