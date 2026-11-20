@@ -104,6 +104,58 @@ class AniListAccountClientTest {
         }
 
     @Test
+    fun showEntryReadsTheEpisodesAndTheUsersEntry() =
+        runTest {
+            val engine = HeaderEngine(RecordedEngine("list-entry"))
+
+            val result = clientFor(engine).showEntry(token, mediaId = 101)
+
+            assertEquals(AniListResult.Success(ShowEntry(12, ListEntry(ListStatus.PAUSED, 4, hasStartDate = true))), result)
+            assertEquals(listOf("Bearer the-token"), engine.authorizations)
+        }
+
+    @Test
+    fun aShowNotOnTheListHasNoEntry() =
+        runTest {
+            val result = clientFor(RecordedEngine("list-entry-none")).showEntry(token, mediaId = 101)
+
+            assertEquals(AniListResult.Success(ShowEntry(null, null)), result)
+        }
+
+    @Test
+    fun saveProgressSendsOnlyWhatChanges() =
+        runTest {
+            val engine = RecordedEngine("save-progress")
+
+            val result = clientFor(engine).saveProgress(token, mediaId = 101, ProgressUpdate(5, null, null))
+
+            assertEquals(AniListResult.Success(Unit), result)
+            val body = engine.requestBodies.single()
+            assertTrue("\"mediaId\":101" in body && "\"progress\":5" in body, body)
+            assertTrue("\"status\"" !in body && "\"startedAt\"" !in body, body)
+        }
+
+    @Test
+    fun saveProgressSetsTheStatusAndStartDate() =
+        runTest {
+            val engine = RecordedEngine("save-progress")
+
+            clientFor(engine).saveProgress(token, mediaId = 101, ProgressUpdate(1, ListStatus.WATCHING, ListDate(2026, 11, 20)))
+
+            val body = engine.requestBodies.single()
+            assertTrue("\"status\":\"CURRENT\"" in body, body)
+            assertTrue("\"startedAt\":{\"year\":2026,\"month\":11,\"day\":20}" in body, body)
+        }
+
+    @Test
+    fun aTokenAniListRefusesForAnUpdateIsSignedOut() =
+        runTest {
+            val result = clientFor(RecordedEngine("viewer-invalid-token", status = 401)).saveProgress(token, 101, ProgressUpdate(5, null, null))
+
+            assertEquals(AniListResult.Failure(AniListError.SignedOut), result)
+        }
+
+    @Test
     fun watchListReadsWatchingAndPlanningShows() =
         runTest {
             val result = clientFor(RecordedEngine("watch-list")).watchList(token, userId = 5412345)

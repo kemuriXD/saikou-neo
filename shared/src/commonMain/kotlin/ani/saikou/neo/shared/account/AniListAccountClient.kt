@@ -3,12 +3,16 @@ package ani.saikou.neo.shared.account
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.catalogue.anilist.ListEntryQuery
+import ani.saikou.neo.shared.catalogue.anilist.SaveProgressMutation
 import ani.saikou.neo.shared.catalogue.anilist.ViewerQuery
 import ani.saikou.neo.shared.catalogue.anilist.WatchListQuery
+import ani.saikou.neo.shared.catalogue.anilist.type.FuzzyDateInput
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaListStatus
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaStatus
 import ani.saikou.neo.shared.catalogue.toAniListError
 import com.apollographql.apollo.ApolloClient
+import com.apollographql.apollo.api.Optional
 import com.apollographql.apollo.exception.ApolloException
 import com.apollographql.apollo.exception.ApolloHttpException
 import kotlinx.coroutines.Dispatchers
@@ -39,7 +43,7 @@ public class AniListAccountClient internal constructor(
     private val apollo: ApolloClient,
     /** Where the viewer timeout is timed. Tests pass their own clock. */
     private val clock: CoroutineContext = Dispatchers.Default,
-) {
+) : ProgressClient {
     // AniList's error body tells a refused token apart from a bad query, as both are 400s.
     public constructor() : this(
         ApolloClient
@@ -102,6 +106,57 @@ public class AniListAccountClient internal constructor(
         return AniListResult.Success(shows)
     }
 
+    override suspend fun showEntry(
+        token: AniListToken,
+        mediaId: Int,
+    ): AniListResult<ShowEntry> {
+        val response =
+            apollo
+                .query(ListEntryQuery(mediaId))
+                .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
+                .execute()
+        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+        val media =
+            response.data?.Media
+                ?: return AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+        val entry =
+            media.mediaListEntry?.let { entry ->
+                val status = entry.status?.toListStatus() ?: return@let null
+                ListEntry(status, entry.progress ?: 0, hasStartDate = entry.startedAt?.year != null)
+            }
+        return AniListResult.Success(ShowEntry(media.episodes, entry))
+    }
+
+    override suspend fun saveProgress(
+        token: AniListToken,
+        mediaId: Int,
+        update: ProgressUpdate,
+    ): AniListResult<Unit> {
+        val mutation =
+            SaveProgressMutation(
+                mediaId = mediaId,
+                progress = update.progress,
+                status = Optional.presentIfNotNull(update.status?.toMediaListStatus()),
+                startedAt =
+                    Optional.presentIfNotNull(
+                        update.startedAt?.let {
+                            FuzzyDateInput(Optional.present(it.year), Optional.present(it.month), Optional.present(it.day))
+                        },
+                    ),
+            )
+        val response =
+            apollo
+                .mutation(mutation)
+                .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
+                .execute()
+        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+        return if (response.data?.SaveMediaListEntry != null) {
+            AniListResult.Success(Unit)
+        } else {
+            AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+        }
+    }
+
     private companion object {
         const val ANILIST_URL = "https://graphql.anilist.co"
         val VIEWER_TIMEOUT = 10.seconds
@@ -147,3 +202,24 @@ private fun WatchListQuery.Entry.toShow(): WatchListShow? {
         airing = airing,
     )
 }
+
+private fun MediaListStatus.toListStatus(): ListStatus? =
+    when (this) {
+        MediaListStatus.CURRENT -> ListStatus.WATCHING
+        MediaListStatus.PLANNING -> ListStatus.PLANNING
+        MediaListStatus.COMPLETED -> ListStatus.COMPLETED
+        MediaListStatus.DROPPED -> ListStatus.DROPPED
+        MediaListStatus.PAUSED -> ListStatus.PAUSED
+        MediaListStatus.REPEATING -> ListStatus.REWATCHING
+        else -> null
+    }
+
+private fun ListStatus.toMediaListStatus(): MediaListStatus =
+    when (this) {
+        ListStatus.WATCHING -> MediaListStatus.CURRENT
+        ListStatus.PLANNING -> MediaListStatus.PLANNING
+        ListStatus.COMPLETED -> MediaListStatus.COMPLETED
+        ListStatus.DROPPED -> MediaListStatus.DROPPED
+        ListStatus.PAUSED -> MediaListStatus.PAUSED
+        ListStatus.REWATCHING -> MediaListStatus.REPEATING
+    }
