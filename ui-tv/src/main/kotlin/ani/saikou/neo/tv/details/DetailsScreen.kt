@@ -341,8 +341,8 @@ private fun DetailsPage(
                         sections = sections,
                         selected = { section.takeIf { it in sections } ?: sections.first() },
                         onSelect = { section = it },
-                        // The reader and another show's Details take focus from the page without lowering it.
-                        onInside = { inside -> if (!reading && !opened && streamsFor == null) lifted = inside },
+                        // The reader, the episode menu and another show's Details take focus from the page without lowering it.
+                        onInside = { inside -> if (!reading && !opened && streamsFor == null && menuFor == null) lifted = inside },
                         // Measured at full height, so it runs past the bottom of the screen until the page lifts.
                         modifier =
                             margin

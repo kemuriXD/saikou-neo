@@ -1655,6 +1655,8 @@ class DetailsScreenTest {
 
         compose.onNodeWithTag(MARK_WATCHED_TAG).assertIsFocused()
         assertEquals(emptyList<Pair<Int, Boolean>>(), marked)
+        // The page stays lifted under the menu, so the row it opened beside stays put.
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertTopPositionInRootIsEqualTo(76.dp)
         press(Key.DirectionCenter)
         assertEquals(listOf(1 to true), marked)
     }
