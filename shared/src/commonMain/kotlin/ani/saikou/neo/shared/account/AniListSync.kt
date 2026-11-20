@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.account
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.async
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -42,19 +43,48 @@ public class AniListSync(
 ) {
     private val lock = Mutex()
 
-    /** [episode] of [animeId] was watched. With no account on the TV, nothing happens. */
+    /**
+     * [episode] of [animeId] was watched. With no account on the TV, or one other than [forUser] where that's given,
+     * nothing happens.
+     */
     public fun watched(
         animeId: Int,
         episode: Int,
+        forUser: Int? = null,
     ) {
         locked {
             val signedIn = account() ?: return@locked
+            if (forUser != null && signedIn.profile.id != forUser) return@locked
             val waiting = queue.all().firstOrNull { it.animeId == animeId && it.userId == signedIn.profile.id }
             // Watching an earlier episode again doesn't replace a later one still waiting.
             if (waiting == null || waiting.episode < episode) queue.put(PendingProgress(animeId, episode, signedIn.profile.id))
             send(signedIn)
         }
     }
+
+    /**
+     * Sets [animeId]'s progress back to [progress], as asked for where AniList is further on than this TV (ADR 0050).
+     * It's sent once, progress only, and only while [forUser], whose list was read, is signed in. Once AniList takes it,
+     * an update waiting for the show is dropped so it can't undo this. False if it wasn't saved, so Details asks again.
+     */
+    public suspend fun movedBack(
+        animeId: Int,
+        progress: Int,
+        forUser: Int?,
+    ): Boolean =
+        scope
+            .async {
+                lock.withLock {
+                    val signedIn = account()
+                    if (signedIn == null || signedIn.profile.id != forUser || signedIn.token.expiresAtEpochSeconds <= now()) {
+                        return@withLock false
+                    }
+                    val saved = client.saveProgress(signedIn.token, animeId, ProgressUpdate(progress, null, null))
+                    if (saved !is AniListResult.Success) return@withLock false
+                    if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
+                    true
+                }
+            }.await()
 
     /** Sends the updates still waiting, such as when the app starts. */
     public fun flush() {

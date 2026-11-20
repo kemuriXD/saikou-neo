@@ -2,6 +2,7 @@ package ani.saikou.neo.shared.details
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import ani.saikou.neo.shared.account.ListedProgress
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniListClient
 import ani.saikou.neo.shared.catalogue.AniListResult
@@ -12,8 +13,12 @@ import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.catalogue.ShowArt
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.home.Logo
+import ani.saikou.neo.shared.home.PickUp
+import ani.saikou.neo.shared.home.PickUpSides
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.home.airedEpisodes
+import ani.saikou.neo.shared.home.pickUp
+import ani.saikou.neo.shared.home.picksUpAt
 import ani.saikou.neo.shared.home.upNext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
@@ -46,9 +51,17 @@ public sealed interface DetailsState {
         val ratings: Ratings = Ratings(details.card.averageScore),
         /** How far this TV got in the show, or null if it hasn't been watched here. */
         val progress: WatchProgress? = null,
+        /** Where AniList has the signed-in user in the show, if it's on their Watching or Rewatching list. */
+        val listed: ListedProgress? = null,
     ) : DetailsState {
-        /** Where to carry on: [progress], or the next episode once it's watched to the end. Null with nothing left that's out. */
-        val upNext: WatchProgress? get() = progress?.upNext(airedEpisodes(details.card.episodes, details.nextEpisode?.number))
+        /** Where to pick up from this TV's place and AniList's, and whether to ask (ADR 0050). */
+        val pickUp: PickUp? get() = pickUp(progress, listed)
+
+        /** The place Details carries on from until the viewer picks another. */
+        val place: WatchProgress? get() = pickUp?.place
+
+        /** Where to carry on: [place], or the next episode once it's watched to the end. Null with nothing left that's out. */
+        val upNext: WatchProgress? get() = place?.upNext(airedEpisodes(details.card.episodes, details.nextEpisode?.number))
     }
 
     public data object Failed : DetailsState
@@ -74,6 +87,8 @@ public class DetailsViewModel(
     private val today: AirDate,
     private val showUpcomingEpisodes: Boolean = true,
     private val progress: Flow<WatchProgress?> = flowOf(null),
+    private val listed: suspend () -> ListedProgress? = { null },
+    private val sides: PickUpSides? = null,
     private val zoneOffsetSeconds: Int = 0,
     warmSources: () -> Unit = {},
 ) : ViewModel() {
@@ -122,10 +137,16 @@ public class DetailsViewModel(
                 val omdb = aniZipEpisodes?.imdbId?.let { raters.omdb(result.value, it) } ?: return@launch
                 rate { it.copy(imdb = omdb.imdb, rottenTomatoes = omdb.rottenTomatoes) }
             }
+            // The list is read while the art is found. It can come before or after Details shows.
+            var onList: ListedProgress? = null
+            launch {
+                onList = listed() ?: return@launch
+                mutableState.update { (it as? DetailsState.Loaded)?.copy(listed = onList) ?: it }
+            }
             val found = withTimeoutOrNull(ART_WAIT) { art.await() }
             val saved = progress.stateIn(this)
             launch { saved.collect { now -> mutableState.update { (it as? DetailsState.Loaded)?.copy(progress = now) ?: it } } }
-            val loaded = DetailsState.Loaded(result.value, episodes = episodes, ratings = ratings, progress = saved.value)
+            val loaded = DetailsState.Loaded(result.value, episodes = episodes, ratings = ratings, progress = saved.value, listed = onList)
             if (found != null) {
                 mutableState.value = loaded.withArt(found)
                 return@launch
@@ -134,6 +155,23 @@ public class DetailsViewModel(
             val shown = art.await()
             mutableState.update { (it as DetailsState.Loaded).withArt(shown, logo = Logo.None) }
         }
+    }
+
+    /** AniList's place was picked: this TV carries on there. */
+    public fun keepAniList() {
+        val asked = (state.value as? DetailsState.Loaded)?.pickUp as? PickUp.Ask ?: return
+        mutableState.update { (it as? DetailsState.Loaded)?.copy(progress = asked.aniList) ?: it }
+        sides?.saveHere(animeId, asked.aniList)
+    }
+
+    /** This TV's place was picked: AniList moves to the episodes watched here. */
+    public fun keepThisTv() {
+        val loaded = state.value as? DetailsState.Loaded ?: return
+        val asked = loaded.pickUp as? PickUp.Ask ?: return
+        val listed = loaded.listed ?: return
+        val watched = asked.thisTv.picksUpAt - 1
+        mutableState.update { (it as? DetailsState.Loaded)?.copy(listed = listed.copy(progress = watched)) ?: it }
+        viewModelScope.launch { sides?.moveAniList(animeId, watched, listed) }
     }
 }
 

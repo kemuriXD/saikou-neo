@@ -187,9 +187,9 @@ class AniListAccountClientTest {
             assertEquals(
                 AniListResult.Success(
                     listOf(
-                        ListedProgress(animeId = 201, progress = 3, updatedAt = 1_700_000_300, episodeMinutes = 24),
-                        ListedProgress(animeId = 203, progress = 5, updatedAt = null, episodeMinutes = null),
-                        ListedProgress(animeId = 204, progress = 2, updatedAt = 1_700_000_200, episodeMinutes = 45),
+                        ListedProgress(animeId = 201, progress = 3, updatedAt = 1_700_000_300, episodeMinutes = 24, userId = 5412345),
+                        ListedProgress(animeId = 203, progress = 5, updatedAt = null, episodeMinutes = null, userId = 5412345),
+                        ListedProgress(animeId = 204, progress = 2, updatedAt = 1_700_000_200, episodeMinutes = 45, userId = 5412345),
                     ),
                 ),
                 result,

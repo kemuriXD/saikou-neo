@@ -48,6 +48,8 @@ public data class ListedProgress(
     val updatedAt: Long?,
     /** How long an episode is, where AniList knows. */
     val episodeMinutes: Int?,
+    /** The AniList user whose list this came from. */
+    val userId: Int? = null,
 )
 
 /** The AniList call Continue watching makes with the signed-in user's token. */
@@ -151,7 +153,7 @@ public class AniListAccountClient internal constructor(
                 .filter { it.private != true }
                 .mapNotNull { entry ->
                     val media = entry.media ?: return@mapNotNull null
-                    ListedProgress(media.id, entry.progress ?: 0, entry.updatedAt?.toLong(), media.duration)
+                    ListedProgress(media.id, entry.progress ?: 0, entry.updatedAt?.toLong(), media.duration, userId)
                 }.distinctBy { it.animeId }
         return AniListResult.Success(shows)
     }

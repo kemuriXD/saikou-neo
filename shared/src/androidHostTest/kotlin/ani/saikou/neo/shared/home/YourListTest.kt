@@ -209,4 +209,18 @@ class AniListYourListTest {
             assertEquals(emptyList(), AniListYourList({ me }, client, now = { 1_000 }).shows())
             assertEquals(10_000, currentTime)
         }
+
+    // Picking this TV's place moves AniList, so the kept list mustn't ask the same question again (ADR 0050).
+    @Test
+    fun aMovedShowIsKeptWhereItMoved() =
+        runTest {
+            val client = FakeClient { AniListResult.Success(shows) }
+            val yourList = AniListYourList({ me }, client, now = { 1_000 })
+
+            yourList.shows()
+            yourList.moved(201, 1)
+
+            assertEquals(listOf(ListedProgress(201, 1, 1_000, 24)), yourList.shows())
+            assertEquals(1, client.asked.size)
+        }
 }

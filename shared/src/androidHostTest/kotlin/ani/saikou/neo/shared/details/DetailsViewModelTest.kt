@@ -1,5 +1,6 @@
 package ani.saikou.neo.shared.details
 
+import ani.saikou.neo.shared.account.ListedProgress
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
@@ -19,6 +20,8 @@ import ani.saikou.neo.shared.catalogue.TmdbClient
 import ani.saikou.neo.shared.catalogue.card
 import ani.saikou.neo.shared.catalogue.clientFor
 import ani.saikou.neo.shared.home.Logo
+import ani.saikou.neo.shared.home.PickUp
+import ani.saikou.neo.shared.home.PickUpSides
 import ani.saikou.neo.shared.home.WatchProgress
 import com.apollographql.apollo.api.http.HttpRequest
 import com.apollographql.apollo.api.http.HttpResponse
@@ -74,6 +77,8 @@ class DetailsViewModelTest {
         omdb: OmdbClient = OmdbClient(null, OfflineEngine, main),
         showUpcomingEpisodes: Boolean = true,
         progress: Flow<WatchProgress?> = flowOf(null),
+        listed: ListedProgress? = null,
+        sides: PickUpSides? = null,
         animeId: Int = 195516,
         zoneOffsetSeconds: Int = 0,
         warmSources: () -> Unit = {},
@@ -86,6 +91,8 @@ class DetailsViewModelTest {
         today = AirDate(2026, 10, 26),
         showUpcomingEpisodes = showUpcomingEpisodes,
         progress = progress,
+        listed = { listed },
+        sides = sides,
         zoneOffsetSeconds = zoneOffsetSeconds,
         warmSources = warmSources,
     )
@@ -165,6 +172,67 @@ class DetailsViewModelTest {
             val viewModel = detailsViewModel(progress = flowOf(WatchProgress(4, 24.minutes, 24.minutes, null)))
 
             assertEquals(null, assertIs<DetailsState.Loaded>(viewModel.settled()).upNext)
+        }
+
+    private class RecordedSides : PickUpSides {
+        val saved = mutableListOf<Pair<Int, WatchProgress>>()
+        val moved = mutableListOf<Triple<Int, Int, Int>>()
+
+        override fun saveHere(
+            animeId: Int,
+            place: WatchProgress,
+        ) {
+            saved += animeId to place
+        }
+
+        override suspend fun moveAniList(
+            animeId: Int,
+            watched: Int,
+            listed: ListedProgress,
+        ) {
+            moved += Triple(animeId, watched, listed.progress)
+        }
+    }
+
+    // A show only on AniList gets Resume too (ADR 0050).
+    @Test
+    fun aniListsPlaceIsUsedWithNoneHere() =
+        runTest(main) {
+            val viewModel = detailsViewModel(listed = ListedProgress(195516, 2, 500, 24))
+
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.settled())
+            assertEquals(WatchProgress(2, 24.minutes, 24.minutes, null, 500), loaded.place)
+            assertEquals(WatchProgress(3, Duration.ZERO, 24.minutes, null, 500), loaded.upNext)
+        }
+
+    @Test
+    fun pickingAniListCarriesOnThereAndSavesItHere() =
+        runTest(main) {
+            val sides = RecordedSides()
+            val here = WatchProgress(1, 12.minutes, 24.minutes, null, 300)
+            val viewModel = detailsViewModel(progress = flowOf(here), listed = ListedProgress(195516, 2, 500, 24), sides = sides)
+            val asked = assertIs<PickUp.Ask>(assertIs<DetailsState.Loaded>(viewModel.settled()).pickUp)
+
+            viewModel.keepAniList()
+            advanceUntilIdle()
+
+            assertEquals(listOf(195516 to asked.aniList), sides.saved)
+            assertEquals(PickUp.At(asked.aniList), assertIs<DetailsState.Loaded>(viewModel.state.value).pickUp)
+        }
+
+    @Test
+    fun pickingThisTvMovesAniListAndStopsAsking() =
+        runTest(main) {
+            val sides = RecordedSides()
+            val here = WatchProgress(3, 22.minutes, 24.minutes, null, 300)
+            val viewModel = detailsViewModel(progress = flowOf(here), listed = ListedProgress(195516, 1, 500, 24), sides = sides)
+            assertIs<PickUp.Ask>(assertIs<DetailsState.Loaded>(viewModel.settled()).pickUp)
+
+            viewModel.keepThisTv()
+            advanceUntilIdle()
+
+            assertEquals(listOf(Triple(195516, 3, 1)), sides.moved)
+            assertEquals(PickUp.At(here), assertIs<DetailsState.Loaded>(viewModel.state.value).pickUp)
         }
 
     @Test

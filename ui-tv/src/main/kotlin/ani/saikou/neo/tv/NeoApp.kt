@@ -10,6 +10,7 @@ import ani.saikou.neo.shared.catalogue.AnimeScheduleClient
 import ani.saikou.neo.shared.catalogue.PrefsShowMatchStore
 import ani.saikou.neo.shared.catalogue.ShowMatcher
 import ani.saikou.neo.shared.home.AniListYourList
+import ani.saikou.neo.shared.home.SyncedSides
 import ani.saikou.neo.shared.home.WatchHistoryStore
 import ani.saikou.neo.shared.schedule.AnimeScheduleSource
 import ani.saikou.neo.shared.search.RecentSearchesStore
@@ -81,6 +82,9 @@ class NeoApp : Application() {
             client = AniListAccountClient(),
         )
     }
+
+    /** What answering Details' "where to pick up" changes on this TV and AniList (ADR 0050). */
+    val pickUpSides by lazy { SyncedSides(history, sync, yourList) }
 
     /** This week's timetable and show matches for Schedule (ADR 0041). The week it fetched lasts 15 minutes. */
     val schedule by lazy {
