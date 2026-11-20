@@ -2,6 +2,10 @@ package ani.saikou.neo.tv
 
 import android.app.Application
 import ani.saikou.neo.shared.account.AniListAccountClient
+import ani.saikou.neo.shared.account.AniListSync
+import ani.saikou.neo.shared.account.KeystoreAccountStore
+import ani.saikou.neo.shared.account.ListDate
+import ani.saikou.neo.shared.account.SyncQueueStore
 import ani.saikou.neo.shared.catalogue.AnimeScheduleClient
 import ani.saikou.neo.shared.catalogue.PrefsShowMatchStore
 import ani.saikou.neo.shared.catalogue.ShowMatcher
@@ -22,6 +26,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import java.io.File
+import java.util.Calendar
 
 /**
  * Holds what lives as long as the app: the settings, recent searches, sources and last servers, each of which only one
@@ -54,6 +59,23 @@ class NeoApp : Application() {
 
     /** How far this TV got in each show. */
     val history by lazy { WatchHistoryStore.at(File(filesDir, "watch_history.preferences_pb").absolutePath, scope) }
+
+    /** Moves the signed-in user's AniList progress as episodes are watched, and sends what's waiting (ADR 0047). */
+    val sync by lazy {
+        AniListSync(
+            scope,
+            account = { KeystoreAccountStore(this).readAccount() },
+            client = AniListAccountClient(),
+            queue = SyncQueueStore.at(File(filesDir, "anilist_queue.preferences_pb").absolutePath, scope),
+            // Calendar rather than java.time, which older Fire TVs don't have.
+            today = { Calendar.getInstance().run { ListDate(get(Calendar.YEAR), get(Calendar.MONTH) + 1, get(Calendar.DAY_OF_MONTH)) } },
+        )
+    }
+
+    override fun onCreate() {
+        super.onCreate()
+        sync.flush()
+    }
 
     /** This week's timetable and show matches for Schedule (ADR 0041). The week it fetched lasts 15 minutes. */
     val schedule by lazy {

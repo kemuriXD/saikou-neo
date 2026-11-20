@@ -396,7 +396,8 @@ class MainActivity : ComponentActivity() {
                             SignInScreen(state, onNewCode = signIn::newCode, onLeave = leave, onHome = goHome)
                         },
                         player = { request, back ->
-                            val player = viewModel { PlayerViewModel(app.streamFinder, request, history = app.history) }
+                            val player =
+                                viewModel { PlayerViewModel(app.streamFinder, request, history = app.history, watched = app.sync::watched) }
                             val state by player.state.collectAsStateWithLifecycle()
                             val playback = rememberExoPlayback()
                             val subtitles =
@@ -430,6 +431,7 @@ class MainActivity : ComponentActivity() {
                                     onAudio = player::changeAudio,
                                     onServer = player::changeServer,
                                     onEpisode = { episode ->
+                                        player.movingOn(episode)
                                         episodeFromPlayer = episode
                                         back()
                                     },

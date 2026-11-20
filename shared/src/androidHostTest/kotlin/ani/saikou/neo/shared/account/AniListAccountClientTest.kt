@@ -150,7 +150,10 @@ class AniListAccountClientTest {
     @Test
     fun aTokenAniListRefusesForAnUpdateIsSignedOut() =
         runTest {
-            val result = clientFor(RecordedEngine("viewer-invalid-token", status = 401)).saveProgress(token, 101, ProgressUpdate(5, null, null))
+            val result =
+                clientFor(
+                    RecordedEngine("viewer-invalid-token", status = 401),
+                ).saveProgress(token, 101, ProgressUpdate(5, null, null))
 
             assertEquals(AniListResult.Failure(AniListError.SignedOut), result)
         }

@@ -6,6 +6,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import okio.IOException
 
 /** An episode of [animeId] watched while signed in as [userId], waiting to reach AniList. */
 public data class PendingProgress(
@@ -43,20 +44,29 @@ public class AniListSync(
         animeId: Int,
         episode: Int,
     ) {
-        scope.launch {
-            lock.withLock {
-                val signedIn = account() ?: return@withLock
-                val waiting = queue.all().firstOrNull { it.animeId == animeId && it.userId == signedIn.profile.id }
-                // Watching an earlier episode again doesn't replace a later one still waiting.
-                if (waiting == null || waiting.episode < episode) queue.put(PendingProgress(animeId, episode, signedIn.profile.id))
-                send(signedIn)
-            }
+        locked {
+            val signedIn = account() ?: return@locked
+            val waiting = queue.all().firstOrNull { it.animeId == animeId && it.userId == signedIn.profile.id }
+            // Watching an earlier episode again doesn't replace a later one still waiting.
+            if (waiting == null || waiting.episode < episode) queue.put(PendingProgress(animeId, episode, signedIn.profile.id))
+            send(signedIn)
         }
     }
 
     /** Sends the updates still waiting, such as when the app starts. */
     public fun flush() {
-        scope.launch { lock.withLock { account()?.let { send(it) } } }
+        locked { account()?.let { send(it) } }
+    }
+
+    // One at a time.
+    private fun locked(work: suspend () -> Unit) {
+        scope.launch {
+            try {
+                lock.withLock { work() }
+            } catch (_: IOException) {
+                // A queue file that can't be read or written waits for next time, rather than crashing the app.
+            }
+        }
     }
 
     private suspend fun send(signedIn: SignedInAccount) {

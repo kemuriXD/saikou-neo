@@ -53,5 +53,8 @@ class ProgressUpdateTest {
 
     @Test
     fun withoutAKnownTotalAnyLaterEpisodeCounts() =
-        assertEquals(ProgressUpdate(1100, null, null), progressUpdate(ShowEntry(null, ListEntry(ListStatus.WATCHING, 1099, true)), 1100, today))
+        assertEquals(
+            ProgressUpdate(1100, null, null),
+            progressUpdate(ShowEntry(null, ListEntry(ListStatus.WATCHING, 1099, true)), 1100, today),
+        )
 }

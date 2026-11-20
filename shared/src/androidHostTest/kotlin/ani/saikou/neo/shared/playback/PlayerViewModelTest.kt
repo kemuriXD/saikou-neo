@@ -584,6 +584,38 @@ class PlayerViewModelTest {
             assertEquals(0, player.state.value.startAtMs)
         }
 
+    private fun counting(watched: MutableList<Pair<Int, Int>>) =
+        PlayerViewModel(FakeStreams(), request(), history = FakeHistory(), watched = { id, episode -> watched += id to episode })
+
+    @Test
+    fun fourFifthsThroughCountsTheEpisodeOnce() =
+        test {
+            val watched = mutableListOf<Pair<Int, Int>>()
+            val player = counting(watched).also { it.started() }
+
+            player.played(positionMs = 19.minutes.inWholeMilliseconds, durationMs = LENGTH)
+            assertEquals(emptyList(), watched)
+            player.played(positionMs = 19.minutes.inWholeMilliseconds + 12_000, durationMs = LENGTH)
+            player.played(positionMs = LENGTH, durationMs = LENGTH)
+
+            assertEquals(listOf(1535 to 7), watched)
+        }
+
+    @Test
+    fun movingOnToTheNextEpisodeCountsThisOne() =
+        test {
+            val watched = mutableListOf<Pair<Int, Int>>()
+            val player = counting(watched).also { it.started() }
+            player.played(positionMs = 60_000, durationMs = LENGTH)
+
+            player.movingOn(5)
+            assertEquals(emptyList(), watched)
+            player.movingOn(8)
+            player.played(positionMs = LENGTH, durationMs = LENGTH)
+
+            assertEquals(listOf(1535 to 7), watched)
+        }
+
     @Test
     fun theSpotIsSavedWhilePlaying() =
         test {

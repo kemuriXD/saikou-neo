@@ -160,7 +160,8 @@ public data class PlayerState<out S>(
  * Plays the server [request] picked. A server gets [answerWithin] to give its stream. If one fails before the video
  * starts, the next server listed is tried, once per request. An expired link is refreshed once, carrying on from the
  * same spot, before it counts as stopped. A part-watched episode first asks whether to resume. Where the video got to is
- * saved to [history] while it plays and when it stops, with the time [now] gives in seconds.
+ * saved to [history] while it plays and when it stops, with the time [now] gives in seconds. Once the episode counts as
+ * watched, or the viewer moves on to the next one, [watched] is told, once.
  */
 public class PlayerViewModel<S>(
     private val finder: StreamFinder<S>,
@@ -168,11 +169,13 @@ public class PlayerViewModel<S>(
     private val answerWithin: Duration = ANSWER_WITHIN,
     private val history: WatchHistory? = null,
     private val now: () -> Long = { Clock.System.now().epochSeconds },
+    private val watched: ((animeId: Int, episode: Int) -> Unit)? = null,
 ) : ViewModel() {
     private var index = request.picked
     private var triedNext = false
     private var refreshed = false
     private var asking: Job? = null
+    private var counted = false
 
     // The episode's length, once the player knows it.
     private var lengthMs = 0L
@@ -215,7 +218,20 @@ public class PlayerViewModel<S>(
                 ?.episodes
                 ?.firstOrNull { it.number == request.episode }
                 ?.thumbnail
-        history.save(request.show.card.id, WatchProgress(request.episode, positionMs.milliseconds, lengthMs.milliseconds, still, now()))
+        val progress = WatchProgress(request.episode, positionMs.milliseconds, lengthMs.milliseconds, still, now())
+        history.save(request.show.card.id, progress)
+        if (progress.watchedToEnd) count()
+    }
+
+    /** The viewer picked [episode] to play next. Moving on to the one after this counts this one as watched. */
+    public fun movingOn(episode: Int) {
+        if (episode == request.episode + 1) count()
+    }
+
+    private fun count() {
+        if (counted) return
+        counted = true
+        watched?.invoke(request.show.card.id, request.episode)
     }
 
     /** The video started playing. */
