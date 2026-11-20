@@ -9,6 +9,7 @@ import ani.saikou.neo.shared.account.SyncQueueStore
 import ani.saikou.neo.shared.catalogue.AnimeScheduleClient
 import ani.saikou.neo.shared.catalogue.PrefsShowMatchStore
 import ani.saikou.neo.shared.catalogue.ShowMatcher
+import ani.saikou.neo.shared.home.AniListYourList
 import ani.saikou.neo.shared.home.WatchHistoryStore
 import ani.saikou.neo.shared.schedule.AnimeScheduleSource
 import ani.saikou.neo.shared.search.RecentSearchesStore
@@ -25,6 +26,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Calendar
 
@@ -69,6 +71,14 @@ class NeoApp : Application() {
             queue = SyncQueueStore.at(File(filesDir, "anilist_queue.preferences_pb").absolutePath, scope),
             // Calendar rather than java.time, which older Fire TVs don't have.
             today = { Calendar.getInstance().run { ListDate(get(Calendar.YEAR), get(Calendar.MONTH) + 1, get(Calendar.DAY_OF_MONTH)) } },
+        )
+    }
+
+    /** The signed-in user's Watching and Rewatching progress, which Continue watching adds to the history (ADR 0049). */
+    val yourList by lazy {
+        AniListYourList(
+            account = { withContext(Dispatchers.IO) { KeystoreAccountStore(this@NeoApp).readAccount() } },
+            client = AniListAccountClient(),
         )
     }
 

@@ -158,8 +158,10 @@ class MainActivity : ComponentActivity() {
                             // Showing unaired anime or not changes the rows, so Home loads them again.
                             val home =
                                 viewModel(key = "home-${settings.showUnairedAnime}") {
-                                    HomeViewModel(client, library, season(), year(), app.history)
+                                    HomeViewModel(client, library, season(), year(), app.history, app.yourList)
                                 }
+                            // Continue watching adds your AniList list, so signing in or out reads it again.
+                            LaunchedEffect(profile?.id) { home.signedInAs(profile?.id) }
                             val state by home.state.collectAsStateWithLifecycle()
                             HomeScreen(
                                 state = state,
@@ -174,9 +176,9 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                         seeMore = { row, openDetails ->
-                            // Continue watching comes from this TV's history, the other rows from AniList.
+                            // Continue watching comes from this TV's history and your AniList list, the other rows from AniList.
                             if (row == HomeRow.CONTINUE_WATCHING) {
-                                val watching = viewModel { ContinueWatchingViewModel(client, library, app.history) }
+                                val watching = viewModel { ContinueWatchingViewModel(client, library, app.history, app.yourList) }
                                 val state by watching.state.collectAsStateWithLifecycle()
                                 SeeMoreScreen(
                                     row,

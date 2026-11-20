@@ -1,5 +1,6 @@
 package ani.saikou.neo.shared.home
 
+import ani.saikou.neo.shared.account.ListedProgress
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.ArtLibrary
@@ -43,6 +44,7 @@ class ContinueWatchingViewModelTest {
     private fun continueWatching(
         history: WatchHistory,
         engine: HttpEngine = RecordedEngine("cards"),
+        yourList: YourList? = null,
     ): ContinueWatchingViewModel {
         val client = clientFor(engine, main)
         val sources =
@@ -52,7 +54,7 @@ class ContinueWatchingViewModelTest {
                 FanartTvClient(null, OfflineEngine, main),
                 TmdbClient(null, OfflineEngine, main),
             )
-        return ContinueWatchingViewModel(client, ArtLibrary(sources, CoroutineScope(main)), history)
+        return ContinueWatchingViewModel(client, ArtLibrary(sources, CoroutineScope(main)), history, yourList)
     }
 
     private fun progress(
@@ -81,6 +83,36 @@ class ContinueWatchingViewModelTest {
             assertEquals(listOf(1002, 1000), state.items.map { it.id })
             assertEquals(mapOf(1002 to progress(5, savedAt = 200), 1000 to progress(3, savedAt = 100)), state.progress)
             assertEquals(More.Done, state.more)
+        }
+
+    // Show 1001's last episode is watched, and 1003's next one hasn't aired, so neither takes a place.
+    @Test
+    fun yourListJoinsTheRowNewestFirst() =
+        runTest(main) {
+            val yourList =
+                YourList {
+                    listOf(
+                        ListedProgress(1002, progress = 4, updatedAt = 200, episodeMinutes = 24),
+                        ListedProgress(1001, progress = 10, updatedAt = 300, episodeMinutes = 24),
+                        ListedProgress(1003, progress = 5, updatedAt = 400, episodeMinutes = 24),
+                    )
+                }
+
+            val state = continueWatching(FakeHistory(mapOf(1000 to progress(3, savedAt = 100))), yourList = yourList).settled()
+
+            assertEquals(listOf(1002, 1000), state.items.map { it.id })
+            assertEquals(5, state.progress.getValue(1002).episode)
+        }
+
+    @Test
+    fun aShowOnTheTvAndYourListAppearsOnce() =
+        runTest(main) {
+            val yourList = YourList { listOf(ListedProgress(1000, progress = 6, updatedAt = 200, episodeMinutes = 24)) }
+
+            val state = continueWatching(FakeHistory(mapOf(1000 to progress(3, savedAt = 100))), yourList = yourList).settled()
+
+            assertEquals(listOf(1000), state.items.map { it.id })
+            assertEquals(7, state.progress.getValue(1000).episode)
         }
 
     // Show 1000 has 12 episodes, so after the third comes the fourth, from its start.

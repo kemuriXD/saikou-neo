@@ -15,13 +15,14 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /**
- * Every show in [history] that isn't finished, most recently watched first, with AniList's cards: all of Continue
- * watching. It follows the history, so a show watched again moves to the front.
+ * Every show in [history] and [yourList] that isn't finished, most recently watched first, with AniList's cards: all of
+ * Continue watching. It follows the history, so a show watched again moves to the front.
  */
 public class ContinueWatchingViewModel(
     client: AniListClient,
     library: ArtLibrary,
     history: WatchHistory,
+    yourList: YourList? = null,
 ) : ViewModel() {
     private val mutableState = MutableStateFlow(SeeMoreState())
     public val state: StateFlow<SeeMoreState> = mutableState.asStateFlow()
@@ -32,7 +33,7 @@ public class ContinueWatchingViewModel(
 
     init {
         viewModelScope.launch {
-            history.shows.collect { shows ->
+            history.withYourList(yourList).collect { shows ->
                 saved = shows
                 load()
             }

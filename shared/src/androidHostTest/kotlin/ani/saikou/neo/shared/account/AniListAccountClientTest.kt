@@ -178,6 +178,46 @@ class AniListAccountClientTest {
             assertEquals(AniListResult.Failure(AniListError.SignedOut), result)
         }
 
+    // The private entry, the entry without a show and the custom list's copy are left out.
+    @Test
+    fun continueListReadsWatchingAndRewatchingProgress() =
+        runTest {
+            val result = clientFor(RecordedEngine("continue-list")).continueList(token, userId = 5412345)
+
+            assertEquals(
+                AniListResult.Success(
+                    listOf(
+                        ListedProgress(animeId = 201, progress = 3, updatedAt = 1_700_000_300, episodeMinutes = 24),
+                        ListedProgress(animeId = 203, progress = 5, updatedAt = null, episodeMinutes = null),
+                        ListedProgress(animeId = 204, progress = 2, updatedAt = 1_700_000_200, episodeMinutes = 45),
+                    ),
+                ),
+                result,
+            )
+        }
+
+    @Test
+    fun continueListAsksForTheUsersWatchingAndRewatchingAnime() =
+        runTest {
+            val recorded = RecordedEngine("continue-list")
+            val engine = HeaderEngine(recorded)
+
+            clientFor(engine).continueList(token, userId = 5412345)
+
+            val body = recorded.requestBodies.single()
+            assertTrue("\"userId\":5412345" in body, body)
+            assertTrue("CURRENT" in body && "REPEATING" in body && "PLANNING" !in body, body)
+            assertEquals(listOf("Bearer the-token"), engine.authorizations)
+        }
+
+    @Test
+    fun aTokenAniListRefusesForTheContinueListIsSignedOut() =
+        runTest {
+            val result = clientFor(RecordedEngine("viewer-invalid-token", status = 401)).continueList(token, userId = 5412345)
+
+            assertEquals(AniListResult.Failure(AniListError.SignedOut), result)
+        }
+
     @Test
     fun watchListReadsWatchingAndPlanningShows() =
         runTest {

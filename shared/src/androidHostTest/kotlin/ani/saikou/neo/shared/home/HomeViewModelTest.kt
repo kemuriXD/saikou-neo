@@ -1,5 +1,6 @@
 package ani.saikou.neo.shared.home
 
+import ani.saikou.neo.shared.account.ListedProgress
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
 import ani.saikou.neo.shared.catalogue.AnimeSeason
@@ -65,10 +66,11 @@ class HomeViewModelTest {
         tmdb: TmdbClient = TmdbClient(null, OfflineEngine, main),
         now: Long = 1_793_300_000,
         history: WatchHistory? = null,
+        yourList: YourList? = null,
     ): HomeViewModel {
         val client = clientFor(engine, main)
         val library = ArtLibrary(ArtSources(client, aniZip, fanartTv, tmdb), CoroutineScope(main))
-        return HomeViewModel(client, library, AnimeSeason.FALL, 2026, history) { now }
+        return HomeViewModel(client, library, AnimeSeason.FALL, 2026, history, yourList) { now }
     }
 
     private val aniListRows = listOf(HomeRow.TRENDING, HomeRow.THIS_SEASON, HomeRow.POPULAR)
@@ -116,6 +118,55 @@ class HomeViewModelTest {
             val rows = viewModel.settledRows()
             assertEquals(listOf(1001, 1000), assertIs<RowState.Loaded>(rows[HomeRow.CONTINUE_WATCHING]).items.map { it.id })
             assertEquals(mapOf(1000 to progress(3, savedAt = 100), 1001 to progress(2, savedAt = 200)), viewModel.state.value.progress)
+        }
+
+    @Test
+    fun yourListShowsJoinContinueWatching() =
+        runTest(main) {
+            val history = FakeHistory(mapOf(1000 to progress(3, savedAt = 100)))
+            val yourList = YourList { listOf(ListedProgress(1002, progress = 4, updatedAt = 200, episodeMinutes = 24)) }
+            val viewModel = homeViewModel(history = history, yourList = yourList)
+
+            val rows = viewModel.settledRows()
+            assertEquals(listOf(1002, 1000), assertIs<RowState.Loaded>(rows[HomeRow.CONTINUE_WATCHING]).items.map { it.id })
+            assertEquals(
+                5,
+                viewModel.state.value.progress
+                    .getValue(1002)
+                    .episode,
+            )
+        }
+
+    @Test
+    fun signingInReadsYourListAgain() =
+        runTest(main) {
+            var listed = emptyList<ListedProgress>()
+            val viewModel = homeViewModel(history = FakeHistory(mapOf(1000 to progress(3, savedAt = 100))), yourList = YourList { listed })
+            viewModel.settledRows()
+
+            listed = listOf(ListedProgress(1002, progress = 4, updatedAt = 200, episodeMinutes = 24))
+            viewModel.signedInAs(7)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(1002, 1000),
+                assertIs<RowState.Loaded>(viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING]).items.map { it.id },
+            )
+        }
+
+    @Test
+    fun signingOutLeavesOnlyThisTvsShows() =
+        runTest(main) {
+            var listed = listOf(ListedProgress(1002, progress = 4, updatedAt = 200, episodeMinutes = 24))
+            val viewModel = homeViewModel(history = FakeHistory(mapOf(1000 to progress(3, savedAt = 100))), yourList = YourList { listed })
+            viewModel.signedInAs(7)
+            viewModel.settledRows()
+
+            listed = emptyList()
+            viewModel.signedInAs(null)
+            advanceUntilIdle()
+
+            assertEquals(listOf(1000), assertIs<RowState.Loaded>(viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING]).items.map { it.id })
         }
 
     // Show 1001 has 10 episodes and 1000 has 12. Watching an episode that isn't the last to the end leaves more to watch.

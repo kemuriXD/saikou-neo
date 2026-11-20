@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.catalogue.AnimeCard
+import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -41,6 +42,12 @@ private val ProgressBottom = 10.dp
 // The title and time left sit 8 dp above the progress line.
 private val TextBottom = ProgressBottom + ProgressHeight + 8.dp
 
+/** What a [ContinueCard] shows: the episode's still, or the show's art for one from your AniList list, which has none. */
+internal fun continueArt(
+    card: AnimeCard,
+    progress: WatchProgress,
+): String? = progress.still ?: card.art
+
 /** A show to carry on with: the episode's still, the title, the episode and time left, and how far in it is. */
 @Composable
 internal fun ContinueCard(
@@ -50,12 +57,13 @@ internal fun ContinueCard(
     modifier: Modifier = Modifier,
 ) {
     val colors = NeoTheme.colors
-    // The card pulses until its still is in, or until it can't come.
-    var loading by remember(progress.still) { mutableStateOf(progress.still != null) }
+    // The card pulses until its art is in, or until it can't come.
+    val art = continueArt(card, progress)
+    var loading by remember(art) { mutableStateOf(art != null) }
     WideCard(onClick, modifier) {
         Box(Modifier.fillMaxSize().placeholder(colors.surfaceRaised, RectangleShape, rememberPulse(loading))) {
             AsyncImage(
-                model = progress.still,
+                model = art,
                 onSuccess = { loading = false },
                 onError = { loading = false },
                 contentDescription = null,
