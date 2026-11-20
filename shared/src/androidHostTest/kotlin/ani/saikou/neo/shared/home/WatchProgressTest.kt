@@ -38,6 +38,13 @@ class WatchProgressTest {
     fun anEpisodeWatchedToTheCreditsStartsOver() = assertEquals(null, progress(23.minutes).resumeAtMs(7))
 
     @Test
+    fun fourFifthsThroughCountsAsWatchedToTheEnd() {
+        assertEquals(false, progress(19.minutes).watchedToEnd)
+        assertEquals(true, progress(19.minutes + 12.seconds).watchedToEnd)
+        assertEquals(null, progress(20.minutes).resumeAtMs(7))
+    }
+
+    @Test
     fun anEpisodeNotWatchedToTheEndIsStillUpNext() = assertEquals(progress(12.minutes), progress(12.minutes).upNext(aired = 7))
 
     @Test
