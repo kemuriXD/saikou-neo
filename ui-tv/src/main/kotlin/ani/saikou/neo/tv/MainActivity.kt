@@ -225,6 +225,8 @@ class MainActivity : ComponentActivity() {
                                         progress = app.history.shows.map { it[animeId] },
                                         listed = { app.yourList.shows().firstOrNull { it.animeId == animeId } },
                                         sides = app.pickUpSides,
+                                        marks = app.sync,
+                                        marked = { app.yourList.forget() },
                                         zoneOffsetSeconds = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000,
                                         warmSources = app.sourceWarmUp::warm,
                                     )
@@ -296,6 +298,9 @@ class MainActivity : ComponentActivity() {
                                 onKeepThisTv = details::keepThisTv,
                                 list = listState,
                                 onListChange = list::change,
+                                onMark = { episode, watched ->
+                                    if (watched) details.markWatched(episode) else details.markUnwatched(episode)
+                                },
                             )
                         },
                         recommendations = { animeId, openDetails ->

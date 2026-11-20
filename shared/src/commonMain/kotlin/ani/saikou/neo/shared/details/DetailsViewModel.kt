@@ -14,9 +14,9 @@ import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.catalogue.ShowArt
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.home.Logo
-import ani.saikou.neo.shared.home.USUAL_EPISODE
 import ani.saikou.neo.shared.home.PickUp
 import ani.saikou.neo.shared.home.PickUpSides
+import ani.saikou.neo.shared.home.USUAL_EPISODE
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.home.airedEpisodes
 import ani.saikou.neo.shared.home.pickUp
@@ -176,7 +176,15 @@ public class DetailsViewModel(
             val found = withTimeoutOrNull(ART_WAIT) { art.await() }
             val saved = progress.stateIn(this)
             launch { saved.collect { now -> mutableState.update { (it as? DetailsState.Loaded)?.copy(progress = now) ?: it } } }
-            val loaded = DetailsState.Loaded(result.value, episodes = episodes, ratings = ratings, progress = saved.value, listed = onList, aniList = watched)
+            val loaded =
+                DetailsState.Loaded(
+                    result.value,
+                    episodes = episodes,
+                    ratings = ratings,
+                    progress = saved.value,
+                    listed = onList,
+                    aniList = watched,
+                )
             if (found != null) {
                 mutableState.value = loaded.withArt(found)
                 return@launch
@@ -225,7 +233,10 @@ public class DetailsViewModel(
                 if (watched) marks.markWatched(animeId, episode, before.userId) else marks.markUnwatched(animeId, episode, before.userId)
             if (!sent) {
                 // Unless another mark has shown since.
-                mutableState.update { (it as? DetailsState.Loaded)?.takeIf { it.aniList?.progress == to }?.withAniList(before.progress) ?: it }
+                mutableState.update {
+                    (it as? DetailsState.Loaded)?.takeIf { it.aniList?.progress == to }?.withAniList(before.progress)
+                        ?: it
+                }
                 return@launch
             }
             moveHere(episode, watched)

@@ -241,6 +241,13 @@ object NeoIcons {
         }
     }
 
+    /** A cross, for Mark unwatched. */
+    val Cross: ImageVector by lazy {
+        icon("Cross") {
+            svgStroke(2.7f, "M6 6l12 12M18 6L6 18")
+        }
+    }
+
     /** A bin, for Remove. */
     val Remove: ImageVector by lazy {
         icon("Remove") {

@@ -45,6 +45,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
@@ -79,12 +80,14 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.account.ListButtonState
 import ani.saikou.neo.shared.account.ListStatus
+import ani.saikou.neo.shared.catalogue.AniZipEpisode
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeSeason
 import ani.saikou.neo.shared.catalogue.Relation
 import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
+import ani.saikou.neo.shared.details.EpisodeMark
 import ani.saikou.neo.shared.details.Ratings
 import ani.saikou.neo.shared.details.scoreOutOfTen
 import ani.saikou.neo.shared.details.sections
@@ -182,6 +185,7 @@ internal val seasonNames =
  * player's drawer, which opens the same way, and [onStreamsOpened] says it has. When AniList and this TV disagree, Resume
  * first asks where to pick up, and [onKeepAniList] or [onKeepThisTv] says which was picked. Signed in, the list button
  * shows the show's [list] status, and picking one in its panel calls [onListChange] with it, or null to remove the show.
+ * Signed in, holding OK on an episode opens its menu, and [onMark] gets the episode and whether it was marked watched.
  */
 @Composable
 fun DetailsScreen(
@@ -196,6 +200,7 @@ fun DetailsScreen(
     onKeepThisTv: () -> Unit = {},
     list: ListButtonState = ListButtonState.Hidden,
     onListChange: (ListStatus?) -> Unit = {},
+    onMark: (episode: Int, watched: Boolean) -> Unit = { _, _ -> },
 ) = RememberFocus { focus ->
     DetailsPage(
         state,
@@ -210,6 +215,7 @@ fun DetailsScreen(
         onKeepThisTv,
         list,
         onListChange,
+        onMark,
     )
 }
 
@@ -227,6 +233,7 @@ private fun DetailsPage(
     onKeepThisTv: () -> Unit,
     list: ListButtonState,
     onListChange: (ListStatus?) -> Unit,
+    onMark: (episode: Int, watched: Boolean) -> Unit,
 ) {
     // Set while asking where to pick up.
     var asking by rememberSaveable { mutableStateOf(false) }
@@ -244,6 +251,8 @@ private fun DetailsPage(
     var streamsFor by rememberSaveable { mutableStateOf<Int?>(null) }
     var picked by rememberSaveable { mutableStateOf<Int?>(null) }
     val pickedFocus = remember { FocusRequester() }
+    // The episode whose menu is open, and where its row is (ADR 0052).
+    var menuFor by remember { mutableStateOf<Pair<AniZipEpisode, Rect>?>(null) }
     LaunchedEffect(openStreams) {
         val episode = openStreams ?: return@LaunchedEffect
         picked = episode
@@ -378,6 +387,17 @@ private fun DetailsPage(
                                         },
                                         picked = picked,
                                         pickedFocus = pickedFocus,
+                                        aniList = state.aniList?.progress,
+                                        onMenu =
+                                            if (state.aniList == null) {
+                                                null
+                                            } else {
+                                                { episode, row ->
+                                                    // So focus comes back to it.
+                                                    picked = episode.number
+                                                    menuFor = episode to row
+                                                }
+                                            },
                                     )
                                     LaunchedEffect(toEpisodes) {
                                         // On the next episode to watch, or into the section if it's out of sight.
@@ -455,6 +475,29 @@ private fun DetailsPage(
         // Over the page rather than instead of it, so the page keeps its place underneath.
         if (reading && loaded != null) {
             SynopsisReader(loaded.details.card.displayTitle(), loaded.synopsis, onClose = { reading = false })
+        }
+        val menu = menuFor
+        if (menu != null && loaded != null) {
+            val (episode, row) = menu
+
+            fun close() {
+                menuFor = null
+                pickedFocus.requestFocus()
+            }
+            EpisodeMenu(
+                show = loaded.details.card.displayTitle(),
+                title =
+                    episode.title?.let { stringResource(R.string.details_episode_titled, episode.number, it) }
+                        ?: stringResource(R.string.details_episode_number, episode.number),
+                episode = episode.number,
+                watched = loaded.markFor(episode.number) == EpisodeMark.Watched,
+                row = row,
+                onMark = { watched ->
+                    onMark(episode.number, watched)
+                    close()
+                },
+                onClose = ::close,
+            )
         }
         val listed = list as? ListButtonState.Shown
         if (listing && loaded != null && listed != null) {

@@ -116,6 +116,15 @@
     <string name="details_episode_filler">Filler</string>
     <!-- MAL marks the episode as a look back at earlier ones. -->
     <string name="details_episode_recap">Recap</string>
+    <!-- "Hold [OK] to mark watched", above the episodes. -->
+    <string name="details_mark_hint_hold">Hold</string>
+    <string name="details_mark_hint_key">OK</string>
+    <string name="details_mark_hint_after">to mark watched</string>
+    <string name="details_mark_watched">Mark watched up to here</string>
+    <string name="details_mark_watched_help">AniList moves to episode %1$d</string>
+    <string name="details_mark_unwatched">Mark unwatched</string>
+    <string name="details_mark_unwatched_help">AniList goes back to episode %1$d</string>
+    <string name="details_mark_unwatched_help_none">AniList goes back to none watched</string>
     <string name="details_watch_order_note">Release order from AniList relations.</string>
     <string name="details_you_are_here">You are here</string>
     <string name="details_on_episode">E%1$d</string>
