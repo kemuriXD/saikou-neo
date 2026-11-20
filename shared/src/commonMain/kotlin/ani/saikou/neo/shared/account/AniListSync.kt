@@ -6,7 +6,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import okio.IOException
+import kotlin.coroutines.cancellation.CancellationException
+import kotlin.time.Clock
 
 /** An episode of [animeId] watched while signed in as [userId], waiting to reach AniList. */
 public data class PendingProgress(
@@ -36,6 +37,8 @@ public class AniListSync(
     private val client: ProgressClient,
     private val queue: SyncQueue,
     private val today: () -> ListDate,
+    /** The time now, in seconds since 1970. */
+    private val now: () -> Long = { Clock.System.now().epochSeconds },
 ) {
     private val lock = Mutex()
 
@@ -63,13 +66,18 @@ public class AniListSync(
         scope.launch {
             try {
                 lock.withLock { work() }
-            } catch (_: IOException) {
-                // A queue file that can't be read or written waits for next time, rather than crashing the app.
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // Such as a queue file that can't be read or written. What's waiting is tried next time, rather than
+                // crashing the app.
             }
         }
     }
 
     private suspend fun send(signedIn: SignedInAccount) {
+        // AniList would refuse an expired token. What's waiting stays, for when this user signs in again.
+        if (signedIn.token.expiresAtEpochSeconds <= now()) return
         for (pending in queue.all()) {
             if (pending.userId != signedIn.profile.id) {
                 queue.remove(pending.animeId)

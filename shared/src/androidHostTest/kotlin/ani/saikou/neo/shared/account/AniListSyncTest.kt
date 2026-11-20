@@ -59,7 +59,7 @@ class AniListSyncTest {
         client: ProgressClient,
         queue: SyncQueue,
         account: SignedInAccount? = me,
-    ) = AniListSync(backgroundScope, { account }, client, queue, { today })
+    ) = AniListSync(backgroundScope, { account }, client, queue, { today }, now = { 1_800_000_000 })
 
     @Test
     fun aWatchedEpisodeMovesTheProgress() =
@@ -157,6 +157,20 @@ class AniListSyncTest {
             runCurrent()
 
             assertEquals(emptyList(), queue.all())
+        }
+
+    @Test
+    fun anExpiredTokenIsNotSentAndTheUpdateWaits() =
+        runTest {
+            val client = FakeClient()
+            val queue = MemoryQueue()
+            val expired = SignedInAccount(me.profile, AniListToken("old-token", 1_000))
+
+            sync(client, queue, account = expired).watched(101, 4)
+            runCurrent()
+
+            assertEquals(0, client.calls)
+            assertEquals(listOf(PendingProgress(101, 4, userId = 1)), queue.all())
         }
 
     @Test
