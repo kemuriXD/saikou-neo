@@ -63,8 +63,8 @@ import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.catalogue.NextEpisode
 import ani.saikou.neo.shared.catalogue.RelatedAnime
 import ani.saikou.neo.shared.catalogue.Relation
-import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.AniListWatched
+import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.Ratings
 import ani.saikou.neo.shared.details.episodeList
