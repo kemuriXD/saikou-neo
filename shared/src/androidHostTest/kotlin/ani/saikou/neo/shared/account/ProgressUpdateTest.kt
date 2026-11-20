@@ -107,4 +107,21 @@ class ProgressUpdateTest {
             ProgressUpdate(1100, null, null),
             progressUpdate(ShowEntry(null, ListEntry(ListStatus.WATCHING, 1099, true)), 1100, today),
         )
+
+    // ADR 0052: marking works like watching, except that a Completed show only gets its progress.
+    @Test
+    fun markingWatchedMovesProgressLikeWatching() {
+        assertEquals(ProgressUpdate(8, ListStatus.WATCHING, today), markedUpdate(on(ListStatus.PLANNING, 0), 8, today))
+        assertEquals(ProgressUpdate(8, null, null), markedUpdate(on(ListStatus.WATCHING, 3), 8, today))
+    }
+
+    @Test
+    fun markingACompletedShowWatchedOnlyMovesItsProgress() =
+        assertEquals(ProgressUpdate(12, null, null), markedUpdate(finished(ListStatus.COMPLETED, 11), 12, today))
+
+    @Test
+    fun markingWatchedWhereAniListIsAlreadyChangesNothing() {
+        assertNull(markedUpdate(on(ListStatus.WATCHING, 8), 8, today))
+        assertNull(markedUpdate(finished(ListStatus.COMPLETED, 12), 12, today))
+    }
 }

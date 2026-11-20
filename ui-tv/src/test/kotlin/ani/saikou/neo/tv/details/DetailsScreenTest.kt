@@ -63,6 +63,7 @@ import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.catalogue.NextEpisode
 import ani.saikou.neo.shared.catalogue.RelatedAnime
 import ani.saikou.neo.shared.catalogue.Relation
+import ani.saikou.neo.shared.details.AniListWatched
 import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.shared.details.DetailsState
 import ani.saikou.neo.shared.details.Ratings
@@ -1581,5 +1582,95 @@ class DetailsScreenTest {
 
         val width = compose.onNodeWithTag(LIST_BUTTON_TAG).getUnclippedBoundsInRoot().let { it.right - it.left }
         assertTrue("$width", width > 100.dp)
+    }
+
+    private fun showMarks(
+        aniList: AniListWatched?,
+        onMark: (Int, Boolean) -> Unit = { _, _ -> },
+    ) {
+        val loaded = DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today), aniList = aniList)
+        compose.setContent { NeoTheme { DetailsScreen(loaded, onMark = onMark) } }
+        // The main button goes to the first episode.
+        press(Key.DirectionCenter)
+    }
+
+    // ADR 0052: signed in, the marks come from AniList's progress, and a hint says how to change them.
+    @Test
+    fun signedInTheEpisodesUpToAniListsProgressAreWatched() {
+        showMarks(AniListWatched(userId = 1, progress = 2))
+
+        compose.onNodeWithTag(episodeTag(2)).assert(hasText("Watched"))
+        compose.onNodeWithTag(episodeTag(3)).assert(!hasText("Watched"))
+        compose.onNodeWithText("to mark watched").assertExists()
+    }
+
+    @Test
+    fun signedOutThereIsNoHintOrMenu() {
+        showMarks(aniList = null)
+
+        press(Key.Menu)
+
+        compose.onNodeWithText("to mark watched").assertDoesNotExist()
+        compose.onNodeWithTag(EPISODE_MENU_TAG).assertDoesNotExist()
+    }
+
+    @Test
+    fun anUnwatchedEpisodesMenuMarksItWatchedUpToThere() {
+        val marked = mutableListOf<Pair<Int, Boolean>>()
+        showMarks(AniListWatched(userId = 1, progress = 0)) { episode, watched -> marked += episode to watched }
+
+        press(Key.Menu)
+        compose.onNodeWithTag(MARK_WATCHED_TAG).assertIsFocused().assert(hasText("AniList moves to episode 1"))
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(1 to true), marked)
+        compose.onNodeWithTag(EPISODE_MENU_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
+    }
+
+    @Test
+    fun aWatchedEpisodesMenuMarksItUnwatched() {
+        val marked = mutableListOf<Pair<Int, Boolean>>()
+        showMarks(AniListWatched(userId = 1, progress = 3)) { episode, watched -> marked += episode to watched }
+
+        // Focus lands on the first episode, watched.
+        press(Key.Menu)
+        compose.onNodeWithTag(MARK_UNWATCHED_TAG).assertIsFocused().assert(hasText("AniList goes back to none watched"))
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(1 to false), marked)
+    }
+
+    // Letting go of the OK held to open the menu doesn't pick the row it opens on.
+    @Test
+    fun holdingOkOpensTheMenuWithoutMarkingAnything() {
+        val marked = mutableListOf<Pair<Int, Boolean>>()
+        showMarks(AniListWatched(userId = 1, progress = 0)) { episode, watched -> marked += episode to watched }
+
+        compose.onRoot().performKeyInput {
+            keyDown(Key.DirectionCenter)
+            advanceEventTime(1_500)
+            keyUp(Key.DirectionCenter)
+        }
+
+        compose.onNodeWithTag(MARK_WATCHED_TAG).assertIsFocused()
+        assertEquals(emptyList<Pair<Int, Boolean>>(), marked)
+        // The page stays lifted under the menu, so the row it opened beside stays put.
+        compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertTopPositionInRootIsEqualTo(76.dp)
+        press(Key.DirectionCenter)
+        assertEquals(listOf(1 to true), marked)
+    }
+
+    @Test
+    fun backClosesTheEpisodeMenuWithNothingMarked() {
+        val marked = mutableListOf<Pair<Int, Boolean>>()
+        showMarks(AniListWatched(userId = 1, progress = 0)) { episode, watched -> marked += episode to watched }
+
+        press(Key.Menu)
+        back()
+
+        compose.onNodeWithTag(EPISODE_MENU_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
+        assertEquals(emptyList<Pair<Int, Boolean>>(), marked)
     }
 }

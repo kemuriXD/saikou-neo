@@ -40,6 +40,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -51,7 +52,9 @@ import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -71,8 +74,8 @@ import ani.saikou.neo.shared.catalogue.AniZipEpisode
 import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.details.EpisodeList
 import ani.saikou.neo.shared.details.EpisodeMark
+import ani.saikou.neo.shared.details.episodeMark
 import ani.saikou.neo.shared.details.episodeRanges
-import ani.saikou.neo.shared.details.markFor
 import ani.saikou.neo.shared.details.nextToWatch
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.playback.formatPlaybackTime
@@ -121,6 +124,9 @@ private const val RANGE_REST_MILLIS = 150L
  *
  * The section opens on the range with the next episode to watch, which [nextFocus] focuses. Up or down into the list
  * lands on it too, while it's shown.
+ *
+ * Signed in, [aniList] is how many episodes AniList has watched, and the marks come from it (ADR 0052). With [onMenu],
+ * holding OK or pressing Menu on an episode opens its menu, given where its row is on the screen.
  */
 @Composable
 internal fun EpisodesSection(
@@ -132,6 +138,8 @@ internal fun EpisodesSection(
     onPick: (AniZipEpisode) -> Unit = {},
     picked: Int? = null,
     pickedFocus: FocusRequester? = null,
+    aniList: Int? = null,
+    onMenu: ((AniZipEpisode, Rect) -> Unit)? = null,
 ) {
     val dimensions = NeoTheme.dimensions
     val ranges = remember(list.episodes.size) { episodeRanges(list.episodes.size) }
@@ -168,11 +176,16 @@ internal fun EpisodesSection(
         if (!listState.isVisible(episode - first)) listState.scrollToItem(episode - first)
     }
     Column(modifier.heightIn(max = SectionHeight), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = list.header(),
-            style = NeoTheme.typography.label.copy(fontWeight = FontWeight.Normal),
-            color = NeoTheme.colors.textMuted,
-        )
+        // As wide as the rows, so the hint ends on their right edge.
+        Row(Modifier.width(RowWidth), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = list.header(),
+                style = NeoTheme.typography.label.copy(fontWeight = FontWeight.Normal),
+                color = NeoTheme.colors.textMuted,
+                modifier = Modifier.weight(1f),
+            )
+            if (onMenu != null) MarkHint()
+        }
         if (ranges.isNotEmpty()) {
             // Resting on a range shows it, with nothing to press. Up or down into them lands on the one shown.
             val chips = remember(ranges.size) { List(ranges.size) { FocusRequester() } }
@@ -236,16 +249,21 @@ internal fun EpisodesSection(
             contentPadding = PaddingValues(vertical = dimensions.space4),
         ) {
             items(shown, key = { it.number }) { episode ->
-                val mark = progress?.markFor(episode.number)
+                val mark = episodeMark(episode.number, progress, aniList)
                 val kind = list.kinds[episode.number]
+                // Kept without recomposing, for the menu to open beside the row.
+                val row = remember { RowBounds() }
+                val menu = onMenu?.let { open -> { open(episode, row.rect) } }
                 val rowModifier =
                     Modifier
+                        .onGloballyPositioned { row.rect = it.boundsInRoot() }
+                        .opensMenu(menu)
                         .then(if (episode.number == next) Modifier.focusRequester(nextFocus) else Modifier)
                         .then(if (episode.number == picked && pickedFocus != null) Modifier.focusRequester(pickedFocus) else Modifier)
                         .remembersFocus(episodeTag(episode.number))
                         .testTag(episodeTag(episode.number))
                 if (rich) {
-                    EpisodeRow(episode, backdrop, mark, kind, rowModifier, onClick = { onPick(episode) })
+                    EpisodeRow(episode, backdrop, mark, kind, rowModifier, onClick = { onPick(episode) }, onLongClick = menu)
                 } else {
                     TextRow(
                         title = episode.title ?: stringResource(R.string.details_episode_number, episode.number),
@@ -254,6 +272,7 @@ internal fun EpisodesSection(
                         mark = mark,
                         kind = kind,
                         onClick = { onPick(episode) },
+                        onLongClick = menu,
                     )
                 }
             }
@@ -273,6 +292,22 @@ internal fun EpisodesSection(
         }
     }
 }
+
+private class RowBounds {
+    var rect: Rect = Rect.Zero
+}
+
+// Remotes with a Menu key open the episode menu with it, for anyone who finds holding OK hard.
+private fun Modifier.opensMenu(menu: (() -> Unit)?) =
+    if (menu == null) {
+        this
+    } else {
+        onPreviewKeyEvent { event ->
+            if (event.key != Key.Menu) return@onPreviewKeyEvent false
+            if (event.type == KeyEventType.KeyUp) menu()
+            true
+        }
+    }
 
 private fun LazyListState.isVisible(index: Int) = layoutInfo.visibleItemsInfo.any { it.index == index }
 
@@ -351,9 +386,10 @@ private fun EpisodeRow(
     kind: EpisodeKind?,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
 ) {
     val dimensions = NeoTheme.dimensions
-    RowSurface(modifier, onClick) {
+    RowSurface(modifier, onClick, onLongClick) {
         Row(
             Modifier.padding(start = dimensions.space2, top = dimensions.space2, end = dimensions.space4, bottom = dimensions.space2),
             horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
@@ -478,9 +514,10 @@ private fun TextRow(
     mark: EpisodeMark? = null,
     kind: EpisodeKind? = null,
     onClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
 ) {
     val dimensions = NeoTheme.dimensions
-    RowSurface(modifier.heightIn(min = TextRowHeight), onClick) {
+    RowSurface(modifier.heightIn(min = TextRowHeight), onClick, onLongClick) {
         Row(
             Modifier.heightIn(min = TextRowHeight).padding(horizontal = dimensions.space4, vertical = dimensions.space2),
             horizontalArrangement = Arrangement.spacedBy(dimensions.space4),
@@ -504,12 +541,14 @@ private fun Meta(text: String) =
 private fun RowSurface(
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {},
+    onLongClick: (() -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     val colors = NeoTheme.colors
     val dimensions = NeoTheme.dimensions
     Surface(
         onClick = onClick,
+        onLongClick = onLongClick,
         modifier = modifier.width(RowWidth),
         shape = ClickableSurfaceDefaults.shape(RoundedCornerShape(dimensions.radiusLg)),
         colors =

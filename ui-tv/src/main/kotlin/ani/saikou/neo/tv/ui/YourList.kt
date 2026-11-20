@@ -163,9 +163,9 @@ fun YourListPanel(
     }
 }
 
-/** A row in the panel: a radio that's filled when [ticked], or an [icon] for an action such as Remove. */
+/** A row in a side panel or menu: a radio that's filled when [ticked], or an [icon] for an action such as Remove. */
 @Composable
-private fun ChoiceRow(
+internal fun ChoiceRow(
     name: String,
     onClick: () -> Unit,
     modifier: Modifier,
