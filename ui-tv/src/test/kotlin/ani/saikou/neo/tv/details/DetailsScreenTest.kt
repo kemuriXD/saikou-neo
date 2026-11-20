@@ -527,7 +527,7 @@ class DetailsScreenTest {
                             onStreamsOpened = { fromPlayer = null },
                         )
                     },
-                    player = { _, back ->
+                    player = { _, back, _ ->
                         val drawer = remember { FocusRequester() }
                         LaunchedEffect(Unit) { drawer.requestFocus() }
                         Button(

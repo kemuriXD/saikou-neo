@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
@@ -62,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.tv.material3.Icon
+import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Text
 import ani.saikou.neo.extension.api.Stream
 import ani.saikou.neo.shared.playback.ControlsViewModel
@@ -71,6 +73,7 @@ import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.SegmentKind
 import ani.saikou.neo.shared.playback.Stretch
+import ani.saikou.neo.shared.playback.UpNextEpisode
 import ani.saikou.neo.shared.playback.at
 import ani.saikou.neo.shared.playback.endsAtMs
 import ani.saikou.neo.shared.playback.formatJump
@@ -93,6 +96,7 @@ internal const val PLAYER_BAR_TAG = "player-bar"
 internal const val PLAYER_PLAY_PAUSE_TAG = "player-play-pause"
 internal const val PLAYER_SCRUB_TAG = "player-scrub"
 internal const val PLAYER_NUDGE_TAG = "player-nudge"
+internal const val PLAYER_NEXT_TAG = "player-next"
 
 // From the design.
 private val SideMargin = 48.dp
@@ -110,6 +114,8 @@ private val FromMark = 20.dp
 private val ButtonsHeight = 52.dp
 private val NextThumbWidth = 78.dp
 private val NextThumbHeight = 44.dp
+private val NextTitleWidth = 220.dp
+private const val NEXT_LABEL_ALPHA = 0.72f
 private val ScrubAbove = 132.dp
 private val ScrubWidth = 240.dp
 private val PillHeight = 44.dp
@@ -372,6 +378,8 @@ internal fun BoxScope.PlayerControls(
                     Buttons(
                         state.height(answered),
                         request,
+                        state.next,
+                        actions.onNext,
                         playback,
                         controls,
                         playPause,
@@ -632,11 +640,13 @@ private fun partName(kind: SegmentKind?) =
         },
     )
 
-/** Play or pause, what opens the side panel, and the buttons later issues bring to life, dimmed and passed over by focus. */
+/** Play or pause, the episodes drawer, what opens the side panel, and the Next card when there's an episode after this. */
 @Composable
 private fun Buttons(
     height: Int,
     request: PlayRequest,
+    next: UpNextEpisode?,
+    onNext: () -> Unit,
     playback: Playback,
     controls: ControlsViewModel,
     playPause: FocusRequester,
@@ -685,8 +695,7 @@ private fun Buttons(
             Modifier.focusRequester(pills.getValue(PanelTab.Speed)),
         )
         Spacer(Modifier.weight(1f))
-        val episodes = request.show.card.episodes
-        if (episodes == null || request.episode < episodes) NextCard(request)
+        next?.let { NextCard(request, it, onNext) }
     }
 }
 
@@ -729,36 +738,35 @@ private fun DimmedPill(
     }
 }
 
-/** The next episode, dimmed until #77 plays it. */
+/** The next episode's still and title. Pressing it plays the episode (ADR 0054). */
 @Composable
-private fun NextCard(request: PlayRequest) {
-    val colors = NeoTheme.colors
-    val tint = parseColour(request.show.card.coverColor) ?: colors.pink
-    Row(
-        Modifier
-            .alpha(DIMMED_ALPHA)
-            .height(ButtonsHeight)
-            .background(colors.fillTonal, RoundedCornerShape(12.dp))
-            .padding(start = 4.dp, end = 16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Box(
-            Modifier
-                .size(NextThumbWidth, NextThumbHeight)
-                .background(Brush.linearGradient(listOf(colors.surface, tint)), RoundedCornerShape(8.dp)),
-        )
-        Column {
-            Text(
-                stringResource(R.string.player_next).uppercase(),
-                style = NeoTheme.typography.caption.copy(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold),
-                color = colors.textMuted,
-            )
-            Text(
-                stringResource(R.string.streams_episode, request.episode + 1),
-                style = NeoTheme.typography.label.copy(fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold),
-                color = colors.paper,
-            )
+private fun NextCard(
+    request: PlayRequest,
+    next: UpNextEpisode,
+    onNext: () -> Unit,
+) {
+    NeoSurface(onNext, RoundedCornerShape(12.dp), NeoTheme.dimensions.focusScaleButton, Modifier.testTag(PLAYER_NEXT_TAG)) {
+        Row(
+            Modifier.height(ButtonsHeight).padding(start = 4.dp, end = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Art(request, next, Modifier.size(NextThumbWidth, NextThumbHeight), radius = 8, ghost = false)
+            Column {
+                Text(
+                    stringResource(R.string.player_next).uppercase(),
+                    style = NeoTheme.typography.caption.copy(fontSize = 11.sp, lineHeight = 14.sp, fontWeight = FontWeight.Bold),
+                    color = LocalContentColor.current.copy(alpha = NEXT_LABEL_ALPHA),
+                )
+                Text(
+                    next.title?.let { stringResource(R.string.streams_episode_titled, next.number, it) }
+                        ?: stringResource(R.string.streams_episode, next.number),
+                    style = NeoTheme.typography.label.copy(fontSize = 14.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = NextTitleWidth),
+                )
+            }
         }
     }
 }

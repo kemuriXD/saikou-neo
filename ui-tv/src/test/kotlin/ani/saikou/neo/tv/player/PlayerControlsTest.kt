@@ -30,6 +30,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.test.requestFocus
 import androidx.tv.material3.Button
 import androidx.tv.material3.Text
 import ani.saikou.neo.extension.api.Quality
@@ -54,6 +55,7 @@ import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.Segment
 import ani.saikou.neo.shared.playback.SegmentKind
 import ani.saikou.neo.shared.playback.ServerEdition
+import ani.saikou.neo.shared.playback.UpNextEpisode
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.tv.theme.NeoColors
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -175,6 +177,36 @@ class PlayerControlsTest {
     private fun back() {
         compose.runOnUiThread { compose.activity.onBackPressedDispatcher.onBackPressed() }
         compose.waitForIdle()
+    }
+
+    // #77: the Next card shows the next episode and plays it. With none, there's no card.
+    @Test
+    fun theNextCardShowsTheNextEpisodeAndPlaysIt() {
+        var next by mutableStateOf<UpNextEpisode?>(UpNextEpisode(8, "The Cleanup Crew", null, null))
+        val pressed = mutableListOf<String>()
+        compose.setContent {
+            NeoTheme {
+                PlayerScreen(
+                    PlayerState(sub, PlayerPhase.Playing(answered), next = next),
+                    request,
+                    PlayerActions(onNext = { pressed += "next" }),
+                    playback,
+                    controls,
+                    video = {},
+                )
+            }
+        }
+        press(Key.DirectionDown)
+
+        compose.onNodeWithText("NEXT").assertExists()
+        compose.onNodeWithText("E8 · The Cleanup Crew").assertExists()
+        compose.onNodeWithTag(PLAYER_NEXT_TAG).requestFocus()
+        press(Key.DirectionCenter)
+        assertEquals(listOf("next"), pressed)
+
+        next = null
+        compose.waitForIdle()
+        compose.onNodeWithTag(PLAYER_NEXT_TAG).assertDoesNotExist()
     }
 
     private fun controlsShown() = compose.onAllNodes(hasTestTag(PLAYER_CONTROLS_TAG)).fetchSemanticsNodes().isNotEmpty()

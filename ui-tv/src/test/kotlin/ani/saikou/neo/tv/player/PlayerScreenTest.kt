@@ -27,6 +27,8 @@ import ani.saikou.neo.shared.playback.PlayServer
 import ani.saikou.neo.shared.playback.PlayerPhase
 import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.ServerEdition
+import ani.saikou.neo.shared.playback.UpNext
+import ani.saikou.neo.shared.playback.UpNextEpisode
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
@@ -133,6 +135,74 @@ class PlayerScreenTest {
         back()
 
         assertEquals(listOf(false, null), answers)
+    }
+
+    private val next = UpNextEpisode(8, "The Cleanup Crew", "A delivery job turns out to be a trap.", null)
+
+    private fun showUpNext(upNext: UpNext?) {
+        state.value = state.value.copy(phase = PlayerPhase.Playing(answered), next = next, upNext = upNext)
+        compose.setContent {
+            NeoTheme {
+                PlayerScreen(
+                    state.value,
+                    request,
+                    PlayerActions(
+                        onNext = { pressed += "play" },
+                        onUpNext = { pressed += "up next" },
+                        onWatchCredits = { pressed += "credits" },
+                    ),
+                    playback,
+                    controls,
+                    video = {},
+                )
+            }
+        }
+        compose.waitForIdle()
+    }
+
+    // #77: Up next shows the next episode beside the shrunk video, with Play focused and counting down.
+    @Test
+    fun upNextOffersTheNextEpisodeWithPlayFocused() {
+        showUpNext(UpNext(secondsLeft = 8))
+
+        compose.onNodeWithTag(UP_NEXT_TAG).assertIsDisplayed()
+        compose.onNodeWithText("UP NEXT").assertExists()
+        compose.onNodeWithText("E8 · The Cleanup Crew").assertExists()
+        compose.onNodeWithText("A delivery job turns out to be a trap.").assertExists()
+        compose.onNodeWithText("E7 plays on here").assertExists()
+        compose.onNodeWithText("8").assertExists()
+        compose.onNodeWithTag(UP_NEXT_PLAY_TAG).assertIsFocused()
+
+        press(Key.DirectionCenter)
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(UP_NEXT_CREDITS_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+        back()
+
+        assertEquals(listOf("play", "credits", "credits"), pressed)
+    }
+
+    @Test
+    fun upNextShowsThirtySecondsBeforeTheEnd() {
+        playback.positionMs = playback.durationMs - 40_000
+        showUpNext(upNext = null)
+        compose.mainClock.advanceTimeBy(1_000)
+        assertEquals(emptyList<String>(), pressed)
+
+        playback.positionMs = playback.durationMs - 30_000
+        compose.mainClock.advanceTimeBy(1_000)
+        assertEquals("up next", pressed.firstOrNull())
+    }
+
+    // ADR 0053, moved by 0054: the AniList question shows over Up next, and the countdown waits.
+    @Test
+    fun theAniListQuestionShowsOverUpNext() {
+        state.value = state.value.copy(askAniList = 7)
+        showUpNext(UpNext(secondsLeft = null))
+
+        compose.onNodeWithTag(UP_NEXT_TAG).assertExists()
+        compose.onNodeWithTag(ASK_ANILIST_UPDATE_TAG).assertIsFocused()
+        compose.onNodeWithText("8").assertDoesNotExist()
     }
 
     private fun back() {
