@@ -19,7 +19,8 @@
           "episodes": 12,
           "averageScore": 85,
           "season": "FALL",
-          "seasonYear": 2026
+          "seasonYear": 2026,
+          "nextAiringEpisode": null
         },
         {
           "__typename": "Media",
@@ -38,7 +39,8 @@
           "episodes": 10,
           "averageScore": 84,
           "season": "FALL",
-          "seasonYear": 2026
+          "seasonYear": 2026,
+          "nextAiringEpisode": null
         },
         {
           "__typename": "Media",
@@ -57,7 +59,31 @@
           "episodes": 12,
           "averageScore": 85,
           "season": "FALL",
-          "seasonYear": 2026
+          "seasonYear": 2026,
+          "nextAiringEpisode": null
+        },
+        {
+          "__typename": "Media",
+          "id": 1003,
+          "title": {
+            "romaji": "Kusuriya no Hitorigoto 3rd Season",
+            "english": "The Apothecary Diaries Season 3",
+            "native": "薬屋のひとりごと 第3期"
+          },
+          "coverImage": {
+            "extraLarge": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx195516-MJpUZlOberqH.jpg",
+            "color": "#e4a128"
+          },
+          "bannerImage": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/195516-B5M0cPaQbQXI.jpg",
+          "format": "TV",
+          "episodes": null,
+          "averageScore": 85,
+          "season": "FALL",
+          "seasonYear": 2026,
+          "nextAiringEpisode": {
+            "__typename": "AiringSchedule",
+            "episode": 6
+          }
         }
       ]
     }

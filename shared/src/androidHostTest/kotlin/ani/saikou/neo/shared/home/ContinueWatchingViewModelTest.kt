@@ -83,6 +83,45 @@ class ContinueWatchingViewModelTest {
             assertEquals(More.Done, state.more)
         }
 
+    // Show 1000 has 12 episodes, so after the third comes the fourth, from its start.
+    @Test
+    fun anEpisodeWatchedToTheEndMovesOnToTheNext() =
+        runTest(main) {
+            val history = FakeHistory(mapOf(1000 to progress(3, savedAt = 100, watched = 24.minutes)))
+
+            val state = continueWatching(history).settled()
+
+            assertEquals(listOf(1000), state.items.map { it.id })
+            assertEquals(progress(4, savedAt = 100, watched = Duration.ZERO), state.progress.getValue(1000))
+        }
+
+    // AniList doesn't know how many episodes show 1003 has, but its sixth airs next, so five are out.
+    @Test
+    fun aShowWithoutATotalLeavesOnceEveryAiredEpisodeIsWatched() =
+        runTest(main) {
+            val history =
+                FakeHistory(
+                    mapOf(
+                        1003 to progress(5, savedAt = 100, watched = 24.minutes),
+                        1000 to progress(3, savedAt = 50),
+                    ),
+                )
+
+            val state = continueWatching(history).settled()
+
+            assertEquals(listOf(1000), state.items.map { it.id })
+        }
+
+    @Test
+    fun aShowWithoutATotalStaysWhileAiredEpisodesAreLeft() =
+        runTest(main) {
+            val history = FakeHistory(mapOf(1003 to progress(4, savedAt = 100, watched = 24.minutes)))
+
+            val state = continueWatching(history).settled()
+
+            assertEquals(5, state.progress.getValue(1003).episode)
+        }
+
     // AniList sends 50 cards at most, so 51 shows take two requests.
     @Test
     fun asksForMoreThanFiftyShowsInTurn() =

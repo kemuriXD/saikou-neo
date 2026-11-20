@@ -43,3 +43,21 @@ public fun daysSince(
     now: Long,
     zoneOffsetSeconds: Int,
 ): Int = ((now + zoneOffsetSeconds).floorDiv(SECONDS_PER_DAY) - (savedAt + zoneOffsetSeconds).floorDiv(SECONDS_PER_DAY)).toInt()
+
+/**
+ * What to carry on with. An episode not watched to the end is carried on with. One watched to the end moves on to the
+ * next episode from its start, with this one's length and still until it's played. Past the last of [aired] episodes
+ * there's nothing to carry on with. Without [aired], the next episode is always there.
+ */
+public fun WatchProgress.upNext(aired: Int?): WatchProgress? =
+    when {
+        !watchedToEnd -> this
+        aired != null && episode >= aired -> null
+        else -> copy(episode = episode + 1, watched = Duration.ZERO)
+    }
+
+/** How many episodes are out: those before [nextToAir], or else all [total] of them. Null when AniList knows neither. */
+public fun airedEpisodes(
+    total: Int?,
+    nextToAir: Int?,
+): Int? = nextToAir?.minus(1) ?: total

@@ -7,6 +7,7 @@ import ani.saikou.neo.shared.catalogue.AniZipExtra
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.EpisodeKind
 import ani.saikou.neo.shared.home.WatchProgress
+import ani.saikou.neo.shared.home.upNext
 
 private const val RANGE = 50
 
@@ -114,10 +115,13 @@ public sealed interface EpisodeMark {
     ) : EpisodeMark
 }
 
-/** Episodes before the one in progress count as watched. Those after it aren't started. */
+/**
+ * Episodes before the one in progress count as watched, and so does that one once it's watched to the end. Those after
+ * it aren't started.
+ */
 public fun WatchProgress.markFor(episode: Int): EpisodeMark? =
     when {
-        episode < this.episode -> EpisodeMark.Watched
+        episode < this.episode || (episode == this.episode && watchedToEnd) -> EpisodeMark.Watched
         episode == this.episode -> EpisodeMark.InProgress(this)
         else -> null
     }
@@ -148,6 +152,11 @@ public fun EpisodeList.lineFor(
     return kinds[episode]?.let { EpisodeLine.Kind(it) } ?: EpisodeLine.Plain
 }
 
-/** The episode to watch next: the one in [progress] if it's listed, or else the first. */
-public fun EpisodeList.nextToWatch(progress: WatchProgress?): Int? =
-    episodes.firstOrNull { it.number == progress?.episode }?.number ?: episodes.firstOrNull()?.number
+/**
+ * The episode to watch next: the one in [progress], or the one after it once it's watched to the end, if that's listed.
+ * Otherwise the first.
+ */
+public fun EpisodeList.nextToWatch(progress: WatchProgress?): Int? {
+    val next = progress?.upNext(aired = null)?.episode
+    return episodes.firstOrNull { it.number == next }?.number ?: episodes.firstOrNull()?.number
+}

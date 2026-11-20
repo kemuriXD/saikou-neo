@@ -13,6 +13,8 @@ import ani.saikou.neo.shared.catalogue.ShowArt
 import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.WatchProgress
+import ani.saikou.neo.shared.home.airedEpisodes
+import ani.saikou.neo.shared.home.upNext
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -44,7 +46,10 @@ public sealed interface DetailsState {
         val ratings: Ratings = Ratings(details.card.averageScore),
         /** How far this TV got in the show, or null if it hasn't been watched here. */
         val progress: WatchProgress? = null,
-    ) : DetailsState
+    ) : DetailsState {
+        /** Where to carry on: [progress], or the next episode once it's watched to the end. Null with nothing left that's out. */
+        val upNext: WatchProgress? get() = progress?.upNext(airedEpisodes(details.card.episodes, details.nextEpisode?.number))
+    }
 
     public data object Failed : DetailsState
 }

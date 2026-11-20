@@ -45,6 +45,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -146,6 +147,24 @@ class DetailsViewModelTest {
             advanceUntilIdle()
 
             assertEquals(saved.value, assertIs<DetailsState.Loaded>(viewModel.state.value).progress)
+        }
+
+    // The show's fifth episode airs next, so four are out.
+    @Test
+    fun upNextIsTheEpisodeAfterOneWatchedToTheEnd() =
+        runTest(main) {
+            val viewModel = detailsViewModel(progress = flowOf(WatchProgress(3, 24.minutes, 24.minutes, null)))
+
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.settled())
+            assertEquals(WatchProgress(4, Duration.ZERO, 24.minutes, null), loaded.upNext)
+        }
+
+    @Test
+    fun nothingIsUpNextOnceEveryAiredEpisodeIsWatched() =
+        runTest(main) {
+            val viewModel = detailsViewModel(progress = flowOf(WatchProgress(4, 24.minutes, 24.minutes, null)))
+
+            assertEquals(null, assertIs<DetailsState.Loaded>(viewModel.settled()).upNext)
         }
 
     @Test

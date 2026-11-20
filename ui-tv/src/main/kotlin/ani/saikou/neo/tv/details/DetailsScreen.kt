@@ -265,7 +265,7 @@ private fun DetailsPage(
                     Hero(
                         details = state.details,
                         logo = state.logo,
-                        progress = state.progress,
+                        progress = state.upNext,
                         // The main button goes to the episodes. Without any, there's nothing for it to do.
                         onMain =
                             if (hasEpisodes) {

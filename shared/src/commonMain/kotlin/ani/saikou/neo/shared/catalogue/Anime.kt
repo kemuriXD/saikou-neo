@@ -27,6 +27,12 @@ public data class AnimeCard(
     val country: String? = null,
 )
 
+/** A card, with how many of its episodes are out. See [ani.saikou.neo.shared.home.airedEpisodes]. */
+public data class AiredCard(
+    val card: AnimeCard,
+    val aired: Int?,
+)
+
 /** The banner, or the cover where there's none. */
 public val AnimeCard.art: String? get() = bannerImageUrl ?: coverImageUrl
 
