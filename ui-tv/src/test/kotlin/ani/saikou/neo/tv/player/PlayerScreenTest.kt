@@ -146,6 +146,22 @@ class PlayerScreenTest {
         assertEquals(listOf(false, null), answers)
     }
 
+    // #481: Back leaves the same way with nothing held, so the app can go back to the servers of the episode playing.
+    @Test
+    fun backLeavesThroughTheWayOut() {
+        state.value = state.value.copy(phase = PlayerPhase.Playing(answered))
+        compose.setContent {
+            NeoTheme {
+                PlayerScreen(state.value, request, PlayerActions(onLeave = { pressed += "leave" }), playback, controls, video = {})
+            }
+        }
+        compose.waitForIdle()
+
+        back()
+
+        assertEquals(listOf("leave"), pressed)
+    }
+
     private val next = UpNextEpisode(8, "The Cleanup Crew", "A delivery job turns out to be a trap.", null)
 
     private val notice = mutableStateOf<ShownNotice?>(null)
