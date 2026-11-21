@@ -4,10 +4,15 @@ import ani.saikou.neo.shared.account.ContinueListClient
 import ani.saikou.neo.shared.account.ListedProgress
 import ani.saikou.neo.shared.account.SignedInAccount
 import ani.saikou.neo.shared.catalogue.AniListResult
+import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
@@ -35,6 +40,9 @@ public fun interface YourList {
 
     /** The list changed on AniList from this TV, so it's read again next time. */
     public suspend fun forget() {}
+
+    /** Sends each time the list is forgotten, so a screen showing it reads it again. */
+    public val forgotten: Flow<Unit> get() = emptyFlow()
 }
 
 /**
@@ -56,6 +64,9 @@ public class AniListYourList(
 
     private val lock = Mutex()
     private var kept: Kept? = null
+    private val forgets = MutableSharedFlow<Unit>(extraBufferCapacity = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    override val forgotten: Flow<Unit> = forgets.asSharedFlow()
 
     override suspend fun shows(): List<ListedProgress> =
         lock.withLock {
@@ -80,7 +91,10 @@ public class AniListYourList(
             kept = Kept(list.userId, list.at, shows)
         }
 
-    override suspend fun forget(): Unit = lock.withLock { kept = null }
+    override suspend fun forget() {
+        lock.withLock { kept = null }
+        forgets.tryEmit(Unit)
+    }
 }
 
 /**
@@ -112,13 +126,13 @@ internal fun withYourList(
 internal val WatchProgress.picksUpAt: Int get() = if (watchedToEnd) episode + 1 else episode
 
 /**
- * This history's shows, with [yourList]'s added once it's read. The list is read again each time [reads] sends. Without
- * a list, just the history.
+ * This history's shows, with [yourList]'s added once it's read. The list is read again each time [reads] sends, and each
+ * time it's forgotten. Without a list, just the history.
  */
 internal fun WatchHistory.withYourList(
     yourList: YourList?,
     reads: Flow<Any?> = flowOf(Unit),
 ): Flow<Map<Int, WatchProgress>> {
     if (yourList == null) return shows
-    return combine(shows, reads.map { yourList.shows() }) { history, listed -> withYourList(history, listed) }
+    return combine(shows, merge(reads, yourList.forgotten).map { yourList.shows() }) { history, listed -> withYourList(history, listed) }
 }

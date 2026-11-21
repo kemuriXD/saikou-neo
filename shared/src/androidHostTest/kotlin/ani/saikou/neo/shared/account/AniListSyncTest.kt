@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -102,7 +103,8 @@ class AniListSyncTest {
         account: SignedInAccount? = me,
         settings: Settings = Settings(),
         answers: ShowAnswers? = null,
-    ) = AniListSync(backgroundScope, { account }, client, queue, { today }, now = { 1_800_000_000 }, { settings }, answers)
+        yourList: YourList? = null,
+    ) = AniListSync(backgroundScope, { account }, client, queue, { today }, now = { 1_800_000_000 }, { settings }, answers, yourList)
 
     @Test
     fun aWatchedEpisodeMovesTheProgress() =
@@ -549,6 +551,18 @@ class AniListSyncTest {
             assertEquals(emptyList(), client.saved)
         }
 
+    // Details read 10, then the phone set 2: unmarking episode 8 would move AniList up to 7.
+    @Test
+    fun markingUnwatchedAboveAniListsProgressNowSendsNothing() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, ListEntry(ListStatus.WATCHING, 2, hasStartDate = true)))
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 9, userId = 1) }
+
+            assertFalse(sync(client, queue).markUnwatched(101, episode = 8, forUser = 1))
+            assertEquals(emptyList(), client.saved)
+            assertEquals(listOf(PendingProgress(101, 9, userId = 1)), queue.all())
+        }
+
     @Test
     fun aMarkForSomeoneElseOrThatFailsSendsNothing() =
         runTest {
@@ -903,5 +917,244 @@ class AniListSyncTest {
             val notice = ListNotice(101, 1, title, NoticeChange.SavedForLater(PendingProgress(101, 4, 1), null), null)
 
             assertFalse(sync(FakeClient(), MemoryQueue()).undo(notice))
+        }
+
+    private class ForgetfulList : YourList {
+        var forgot = 0
+
+        override suspend fun shows() = emptyList<ListedProgress>()
+
+        override suspend fun forget() {
+            forgot++
+        }
+    }
+
+    // Home and Details keep the list for a minute, and would otherwise work from the progress before (#478).
+    @Test
+    fun watchingAndUndoDropTheKeptList() =
+        runTest {
+            val list = ForgetfulList()
+            val client = FakeClient(ShowEntry(12, watching3))
+            val sync = sync(client, MemoryQueue(), yourList = list)
+            val told = async { sync.notices.first() }
+            runCurrent()
+
+            sync.watching(101, 4, title)
+            runCurrent()
+            assertEquals(1, list.forgot)
+
+            client.entry = ShowEntry(12, watching3.copy(progress = 4))
+            assertTrue(sync.undo(told.await()))
+            assertEquals(2, list.forgot)
+        }
+
+    @Test
+    fun theListButtonAndMarksDropTheKeptListToo() =
+        runTest {
+            val list = ForgetfulList()
+            val sync = sync(FakeClient(ShowEntry(12, watching3)), MemoryQueue(), yourList = list)
+
+            sync.changeStatus(101, ListStatus.PAUSED, forUser = 1)
+            sync.markWatched(101, upTo = 5, forUser = 1)
+            sync.markUnwatched(101, episode = 3, forUser = 1)
+            sync.remove(101, forUser = 1)
+
+            assertEquals(4, list.forgot)
+        }
+
+    // Keeps one entry as AniList does, including the rewatch AniList adds itself when Rewatching becomes Completed,
+    // whatever rewatch count the save sends.
+    private class AniListLikeClient(
+        var entry: ListEntry?,
+        private val episodes: Int = 26,
+    ) : ProgressClient {
+        override suspend fun showEntry(
+            token: AniListToken,
+            mediaId: Int,
+        ): AniListResult<ShowEntry> =
+            AniListResult.Success(ShowEntry(episodes, entry, finished = true, title = AnimeTitle("Romaji", null, null)))
+
+        override suspend fun saveProgress(
+            token: AniListToken,
+            mediaId: Int,
+            update: ProgressUpdate,
+        ): AniListResult<Unit> {
+            val was = entry ?: ListEntry(ListStatus.WATCHING, 0, hasStartDate = false, id = 555)
+            save(
+                was.copy(
+                    status = update.status ?: was.status,
+                    progress = update.progress,
+                    repeat = update.repeat ?: was.repeat,
+                    hasStartDate = was.hasStartDate || update.startedAt != null,
+                    hasFinishDate = was.hasFinishDate || update.completedAt != null,
+                ),
+            )
+            return AniListResult.Success(Unit)
+        }
+
+        override suspend fun removeEntry(
+            token: AniListToken,
+            entryId: Int,
+        ): AniListResult<Unit> {
+            entry = null
+            return AniListResult.Success(Unit)
+        }
+
+        override suspend fun restoreEntry(
+            token: AniListToken,
+            mediaId: Int,
+            entry: ListEntry,
+        ): AniListResult<Unit> {
+            save(entry.copy(id = this.entry?.id ?: entry.id))
+            return AniListResult.Success(Unit)
+        }
+
+        private fun save(new: ListEntry) {
+            val finishesRewatch = entry?.status == ListStatus.REWATCHING && new.status == ListStatus.COMPLETED
+            entry = if (finishesRewatch) new.copy(repeat = entry!!.repeat + 1) else new
+        }
+    }
+
+    private suspend fun TestScope.watchAndUndo(
+        client: AniListLikeClient,
+        episode: Int,
+    ): Boolean {
+        val sync = sync(client, MemoryQueue())
+        val told = async { sync.notices.first() }
+        runCurrent()
+        sync.watching(101, episode)
+        runCurrent()
+        return sync.undo(told.await())
+    }
+
+    // ADR 0048: episode 1 of a Completed show starts a rewatch. Undo puts it back to Completed, with its count as it was.
+    @Test
+    fun undoingARewatchStartKeepsTheRewatchCount() =
+        runTest {
+            val completed =
+                ListEntry(
+                    ListStatus.COMPLETED,
+                    26,
+                    hasStartDate = true,
+                    repeat = 0,
+                    hasFinishDate = true,
+                    id = 555,
+                    startedAt = EntryDate(2026, 1, 5),
+                    completedAt = EntryDate(2026, 3, 30),
+                )
+            val client = AniListLikeClient(completed)
+
+            assertTrue(watchAndUndo(client, episode = 1))
+            assertEquals(completed, client.entry)
+        }
+
+    @Test
+    fun undoingAFinishedRewatchKeepsTheRewatchCount() =
+        runTest {
+            val rewatching =
+                ListEntry(
+                    ListStatus.REWATCHING,
+                    25,
+                    hasStartDate = true,
+                    repeat = 1,
+                    hasFinishDate = true,
+                    id = 555,
+                    startedAt = EntryDate(2026, 1, 5),
+                    completedAt = EntryDate(2026, 3, 30),
+                )
+            val client = AniListLikeClient(rewatching)
+
+            assertTrue(watchAndUndo(client, episode = 26))
+            assertEquals(rewatching, client.entry)
+        }
+
+    // Such as a queue file that can't be read.
+    private class BrokenQueue : SyncQueue {
+        override suspend fun all(): List<PendingProgress> = throw IOException("unreadable")
+
+        override suspend fun put(pending: PendingProgress): Unit = throw IOException("unreadable")
+
+        override suspend fun remove(animeId: Int): Unit = throw IOException("unreadable")
+    }
+
+    @Test
+    fun aStorageErrorFailsAChangeInsteadOfThrowing() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, watching3.copy(progress = 4)))
+            val sync = sync(client, BrokenQueue())
+            val updated = ListNotice(101, 1, title, NoticeChange.Updated(ListStatus.WATCHING, 4, byEpisode = true), watching3)
+            val savedForLater = ListNotice(101, 1, title, NoticeChange.SavedForLater(PendingProgress(101, 4, 1), null), null)
+
+            assertFalse(sync.remove(101, forUser = 1))
+            assertFalse(sync.markWatched(101, upTo = 5, forUser = 1))
+            assertFalse(sync.markUnwatched(101, episode = 3, forUser = 1))
+            assertFalse(sync.movedBack(101, 2, forUser = 1))
+            assertFalse(sync.undo(updated))
+            assertFalse(sync.undo(savedForLater))
+        }
+
+    // ADR 0056: what can't go yet is saved for later and says so, an expired token included.
+    @Test
+    fun anUpdateQueuedForAnExpiredTokenIsSavedForLater() =
+        runTest {
+            val expired = SignedInAccount(me.profile, AniListToken("old-token", 1_000))
+            val sync = sync(FakeClient(), MemoryQueue(), account = expired)
+            val told = async { sync.notices.first() }
+            runCurrent()
+
+            sync.watching(101, 4, title)
+            runCurrent()
+
+            assertEquals(NoticeChange.SavedForLater(PendingProgress(101, 4, 1), replaced = null), told.await().change)
+        }
+
+    // ADR 0053: updates queued before Off, or before Ask was answered, still go.
+    @Test
+    fun offAndAskStillSendWhatsAlreadyQueued() =
+        runTest {
+            for (setting in listOf(UpdateAniList.OFF, UpdateAniList.ASK)) {
+                val client = FakeClient()
+                val queue = MemoryQueue().apply { items[202] = PendingProgress(202, 4, userId = 1) }
+                val sync = sync(client, queue, settings = Settings(updateAniList = setting), answers = MemoryAnswers())
+
+                sync.watching(101, 2)
+                runCurrent()
+
+                assertEquals(listOf(202 to ProgressUpdate(4, null, null)), client.saved)
+                assertEquals(emptyList(), queue.all())
+            }
+        }
+
+    // Each try could time out while the list button, marks and Undo wait for the lock.
+    @Test
+    fun aNetworkFailureStopsTheRestOfTheQueueForThatTry() =
+        runTest {
+            val client = FakeClient(failWith = AniListError.Network("offline"))
+            val waiting =
+                listOf(PendingProgress(201, 2, userId = 1), PendingProgress(202, 3, userId = 1), PendingProgress(203, 4, userId = 1))
+            val queue = MemoryQueue().apply { waiting.forEach { items[it.animeId] = it } }
+
+            sync(client, queue).flush()
+            runCurrent()
+
+            assertEquals(1, client.calls)
+            assertEquals(waiting, queue.all())
+        }
+
+    // The episode just watched goes first, so it can say it was saved for later.
+    @Test
+    fun theEpisodeJustWatchedIsTriedFirst() =
+        runTest {
+            val client = FakeClient(failWith = AniListError.Network("offline"))
+            val queue = MemoryQueue().apply { items[201] = PendingProgress(201, 2, userId = 1) }
+            val sync = sync(client, queue)
+            val told = async { sync.notices.first() }
+            runCurrent()
+
+            sync.watching(101, 4, title)
+            runCurrent()
+
+            assertEquals(1, client.calls)
+            assertEquals(NoticeChange.SavedForLater(PendingProgress(101, 4, 1), replaced = null), told.await().change)
         }
 }

@@ -8,11 +8,15 @@ import ani.saikou.neo.shared.account.SignedInAccount
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.currentTime
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertTrue
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.minutes
 
@@ -236,5 +240,19 @@ class AniListYourListTest {
             yourList.shows()
 
             assertEquals(2, client.asked.size)
+        }
+
+    // So Continue watching reads it again while Home is open.
+    @Test
+    fun forgettingTheListSaysSo() =
+        runTest {
+            val yourList = AniListYourList({ me }, FakeClient { AniListResult.Success(shows) }, now = { 1_000 })
+            val heard = async { yourList.forgotten.first() }
+            runCurrent()
+
+            yourList.forget()
+            runCurrent()
+
+            assertTrue(heard.isCompleted)
         }
 }

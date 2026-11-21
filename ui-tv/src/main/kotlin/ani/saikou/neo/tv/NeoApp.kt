@@ -81,6 +81,8 @@ class NeoApp : Application() {
             // Update AniList and private mode gate it (ADR 0053).
             settings = { settingsStore.settings.first() },
             answers = settingsStore,
+            // Every change drops the list Home and Details keep, so they follow it.
+            yourList = yourList,
         )
     }
 

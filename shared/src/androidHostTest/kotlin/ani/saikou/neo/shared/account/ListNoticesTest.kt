@@ -1,6 +1,7 @@
 package ani.saikou.neo.shared.account
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
@@ -125,6 +126,33 @@ class ListNoticesTest {
             notices.undo()
             advanceTimeBy(8_001)
             assertEquals(listOf(marked), undone)
+            assertNull(notices.shown.value)
+        }
+
+    // Outside the player, pressing Undo takes focus off it first, which starts the 8 s again.
+    @Test
+    fun aSlowUndoThatFailsStillSaysSo() =
+        runTest {
+            val notices =
+                ListNotices(backgroundScope, incoming) {
+                    delay(20_000)
+                    false
+                }
+            runCurrent()
+
+            tell(marked)
+            notices.undoFocused(true)
+            runCurrent()
+            notices.undoFocused(false)
+            notices.undo()
+            advanceTimeBy(19_000)
+            assertEquals(ShownNotice(marked), notices.shown.value)
+
+            advanceTimeBy(1_001)
+            assertEquals(ShownNotice(marked, failed = true), notices.shown.value)
+            advanceTimeBy(7_999)
+            assertEquals(ShownNotice(marked, failed = true), notices.shown.value)
+            advanceTimeBy(2)
             assertNull(notices.shown.value)
         }
 }
