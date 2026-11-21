@@ -256,7 +256,17 @@ class PlayerUpNextTest {
             player.playNext()
             assertNull(player.state.value.upNext)
             assertNull(player.going)
-            assertFalse(player.ended())
+        }
+
+    // #474: with Update AniList on Always, the end of the newest episode stayed on its last frame.
+    @Test
+    fun theEndOfTheLastEpisodeLeavesThePlayer() =
+        test {
+            val player = player(episode = 12)
+
+            assertTrue(player.ended())
+            assertNull(player.state.value.upNext)
+            assertNull(player.state.value.askAniList)
         }
 
     @Test
