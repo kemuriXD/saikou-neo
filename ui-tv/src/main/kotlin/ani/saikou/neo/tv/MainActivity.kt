@@ -61,6 +61,7 @@ import ani.saikou.neo.shared.pairing.openTvPairing
 import ani.saikou.neo.shared.pairing.thisTv
 import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.NextPlay
+import ani.saikou.neo.shared.playback.PlayServer
 import ani.saikou.neo.shared.playback.PlayerViewModel
 import ani.saikou.neo.shared.playback.ServersViewModel
 import ani.saikou.neo.shared.playback.playRequest
@@ -151,6 +152,8 @@ class MainActivity : ComponentActivity() {
             val settings = app.settings.collectAsStateWithLifecycle().value ?: return@setContent
             // An episode picked in the player, for the Details under it to open as the player goes.
             var episodeFromPlayer by remember { mutableStateOf<Int?>(null) }
+            // The show, episode and server the player played last, for that episode's servers page to focus the server.
+            var played by remember { mutableStateOf<Triple<Int, Int, PlayServer>?>(null) }
             // The AniList account on this TV, for Profile and Settings > Account. Read again once Sign in saves one.
             val account = viewModel { TvAccountViewModel(KeystoreAccountStore(applicationContext)) }
             val profile by account.profile.collectAsStateWithLifecycle()
@@ -311,6 +314,7 @@ class MainActivity : ComponentActivity() {
                                                 onOpen = servers::retry,
                                             ),
                                         modifier = modifier,
+                                        played = played?.takeIf { it.first == animeId && it.second == episode }?.third,
                                     )
                                 },
                                 openStreams = episodeFromPlayer,
@@ -526,7 +530,15 @@ class MainActivity : ComponentActivity() {
                                             back()
                                         }
                                     },
-                                    onLeave = { leaveThen(back) },
+                                    // Back to the servers of the episode playing, which after Up next or Next isn't the one
+                                    // Details opened, with the server playing focused.
+                                    onLeave = {
+                                        leaveThen {
+                                            episodeFromPlayer = request.episode
+                                            played = Triple(request.show.card.id, request.episode, state.server)
+                                            back()
+                                        }
+                                    },
                                     onAnswer = { update ->
                                         if (update == null) player.noAnswer() else player.answer(update)
                                         leaving?.invoke()

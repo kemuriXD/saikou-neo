@@ -160,8 +160,9 @@ internal fun PlayerScreen(
     val scrim = NeoTheme.colors.scrimPlayer
     // Where the open controls start, in the window, for subtitles to stay above.
     var subtitlesAbove by remember { mutableStateOf<Float?>(null) }
-    // First, so the controls' own Back still closes them first.
-    BackHandler(enabled = state.holdsForAniList && state.askAniList == null, onBack = actions.onLeave)
+    // Back leaves through onLeave, which can ask first and knows the episode playing. First, so the controls' own Back
+    // still closes them first.
+    BackHandler(enabled = state.askAniList == null, onBack = actions.onLeave)
     val upNext = state.upNext.takeIf { state.phase is PlayerPhase.Playing }
     val next = state.next
     if (next != null && state.phase is PlayerPhase.Playing) {
