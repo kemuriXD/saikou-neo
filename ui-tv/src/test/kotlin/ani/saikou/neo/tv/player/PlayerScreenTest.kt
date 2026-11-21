@@ -128,6 +128,8 @@ class PlayerScreenTest {
         state.value = state.value.copy(askAniList = 7)
         compose.waitForIdle()
         compose.onNodeWithTag(ASK_ANILIST_TAG).assertIsDisplayed()
+        // #482: Settings can't change one show's answer, only Update AniList for every show.
+        compose.onNodeWithText("To stop asking for every show, change Update AniList in Settings › Account.").assertExists()
         compose.onNodeWithText("DEATH NOTE").assertExists()
         compose
             .onNodeWithText(
