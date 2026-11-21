@@ -642,6 +642,27 @@ class DetailsScreenTest {
         compose.onNodeWithTag(serverTag(demoSource.id, subServer.id)).assertIsFocused()
     }
 
+    // #480: the list opened before this TV's place was read, on 1–12, and Resume E25 landed on the ranges instead.
+    @Test
+    fun theMainButtonOpensTheRangeWithTheNextEpisode() {
+        val long = details.copy(card = details.card.copy(episodes = 64))
+        var state by mutableStateOf(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
+        compose.setContent { NeoTheme { DetailsScreen(state) } }
+        compose.waitForIdle()
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
+        back()
+
+        state = state.copy(progress = WatchProgress(25, 2.minutes, 24.minutes, null))
+        compose.waitForIdle()
+        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(episodeTag(25)).assertIsFocused()
+        compose.onNodeWithText("25–36").assertIsSelected()
+    }
+
     @Test
     fun downFromTheMainButtonReachesTheTabs() {
         show(DetailsState.Loaded(details))

@@ -140,6 +140,8 @@ internal fun EpisodesSection(
     pickedFocus: FocusRequester? = null,
     aniList: Int? = null,
     onMenu: ((AniZipEpisode, Rect) -> Unit)? = null,
+    toNext: Boolean = false,
+    onToNext: (focused: Boolean) -> Unit = {},
 ) {
     val dimensions = NeoTheme.dimensions
     val ranges = remember(list.episodes.size) { episodeRanges(list.episodes.size) }
@@ -174,6 +176,21 @@ internal fun EpisodesSection(
         if (into >= 0) range = into
         val first = ranges.getOrNull(into)?.first ?: 1
         if (!listState.isVisible(episode - first)) listState.scrollToItem(episode - first)
+    }
+    // The main button asks for the next episode. Its range opens first, as the one open can be another, and then the
+    // episode takes focus once its row is laid out. [onToNext] says whether it did.
+    LaunchedEffect(toNext) {
+        if (!toNext) return@LaunchedEffect
+        val into = ranges.indexOfFirst { next in it }
+        if (into >= 0) {
+            range = into
+            focusedRange = null
+        }
+        val at = list.episodes.indexOfFirst { it.number == next } - ((ranges.getOrNull(into)?.first ?: 1) - 1)
+        withFrameNanos {}
+        if (at >= 0 && !listState.isVisible(at)) listState.scrollToItem(at)
+        withFrameNanos {}
+        onToNext(nextFocus.requestFocus())
     }
     Column(modifier.heightIn(max = SectionHeight), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // As wide as the rows, so the hint ends on their right edge.
