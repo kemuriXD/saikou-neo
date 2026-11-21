@@ -21,6 +21,8 @@ import com.apollographql.apollo.network.http.HttpEngine
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
@@ -146,6 +148,31 @@ class HomeViewModelTest {
 
             listed = listOf(ListedProgress(1002, progress = 4, updatedAt = 200, episodeMinutes = 24))
             viewModel.signedInAs(7)
+            advanceUntilIdle()
+
+            assertEquals(
+                listOf(1002, 1000),
+                assertIs<RowState.Loaded>(viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING]).items.map { it.id },
+            )
+        }
+
+    // Undo put a show back on the list from this TV (#478).
+    @Test
+    fun aForgottenListIsReadAgain() =
+        runTest(main) {
+            var listed = emptyList<ListedProgress>()
+            val forgets = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+            val yourList =
+                object : YourList {
+                    override suspend fun shows() = listed
+
+                    override val forgotten: Flow<Unit> = forgets
+                }
+            val viewModel = homeViewModel(history = FakeHistory(mapOf(1000 to progress(3, savedAt = 100))), yourList = yourList)
+            viewModel.settledRows()
+
+            listed = listOf(ListedProgress(1002, progress = 4, updatedAt = 200, episodeMinutes = 24))
+            forgets.tryEmit(Unit)
             advanceUntilIdle()
 
             assertEquals(
