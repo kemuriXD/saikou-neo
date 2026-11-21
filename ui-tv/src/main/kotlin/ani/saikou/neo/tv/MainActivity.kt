@@ -250,7 +250,6 @@ class MainActivity : ComponentActivity() {
                                         listed = { app.yourList.shows().firstOrNull { it.animeId == animeId } },
                                         sides = app.pickUpSides,
                                         marks = app.sync,
-                                        marked = { app.yourList.forget() },
                                         zoneOffsetSeconds = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000,
                                         warmSources = app.sourceWarmUp::warm,
                                         asksWhereToPickUp = !settings.privateMode,
@@ -683,8 +682,7 @@ class MainActivity : ComponentActivity() {
         animeId: Int,
         userId: Int?,
         privateMode: Boolean,
-    ): ListButtonViewModel =
-        viewModel(key = "list-$animeId-$userId-$privateMode") { ListButtonViewModel(animeId, app.sync) { app.yourList.forget() } }
+    ): ListButtonViewModel = viewModel(key = "list-$animeId-$userId-$privateMode") { ListButtonViewModel(animeId, app.sync) }
 
     private fun season() = AnimeSeason.forMonth(Calendar.getInstance().get(Calendar.MONTH) + 1)
 

@@ -107,20 +107,6 @@ class ListButtonViewModelTest {
         }
 
     @Test
-    fun theListIsReadAgainOnlyAfterAChangeAniListTook() =
-        runTest {
-            val entries = FakeEntries()
-            var changes = 0
-            val model = ListButtonViewModel(101, entries) { changes++ }
-
-            model.pick(ListStatus.PAUSED)
-            entries.answer = CompletableDeferred<Boolean>(false)
-            model.pick(ListStatus.DROPPED)
-
-            assertEquals(1, changes)
-        }
-
-    @Test
     fun theSameStatusAgainSendsNothing() =
         runTest {
             val entries = FakeEntries()
