@@ -249,7 +249,7 @@
     <string name="player_ask_anilist_body">You finished episode %1$d. Should finishing episodes here move your progress for this show? This TV remembers your answer.</string>
     <string name="player_ask_anilist_update">Update AniList</string>
     <string name="player_ask_anilist_not">Not for this show</string>
-    <string name="player_ask_anilist_note">Change it any time in Settings › Account.</string>
+    <string name="player_ask_anilist_note">To stop asking for every show, change Update AniList in Settings › Account.</string>
 
     <!-- Profile while the TV is signed out: the way in to Sign in (#116). -->
     <string name="profile_signed_out_eyebrow">Library and profile</string>
@@ -772,6 +772,8 @@
     <string name="notice_episode_on_anilist">%1$s · episode %2$d on AniList</string>
     <!-- %2$s is a list status, such as "Completed on AniList". -->
     <string name="notice_status_on_anilist">%1$s · %2$s on AniList</string>
+    <!-- An episode that changed the status, such as "Rewatching, episode 1 on AniList". -->
+    <string name="notice_status_episode_on_anilist">%1$s · %2$s, episode %3$d on AniList</string>
     <string name="notice_off_your_list">%1$s · off your list</string>
     <string name="notice_saved_for_later" tools:ignore="PluralsCandidate">%1$s · episode %2$d saved for later</string>
     <string name="notice_sent_when_online">Sent to AniList when this TV is back online</string>

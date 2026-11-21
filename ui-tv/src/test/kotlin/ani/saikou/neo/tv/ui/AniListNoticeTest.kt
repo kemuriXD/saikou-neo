@@ -190,8 +190,20 @@ class AniListNoticeTest {
         shown.value = notice(NoticeChange.Updated(ListStatus.WATCHING, 1, byEpisode = true), before = null)
         compose.waitForIdle()
 
-        compose.onNodeWithText("English · episode 1 on AniList").assertExists()
+        compose.onNodeWithText("English · Watching, episode 1 on AniList").assertExists()
         compose.onNodeWithText("It wasn\'t on your list").assertExists()
+    }
+
+    // #482: watching episode 1 of a completed show starts a rewatch, and the notice says so.
+    @Test
+    fun anEpisodeThatChangesTheStatusNamesTheNewOne() {
+        show()
+        shown.value =
+            notice(NoticeChange.Updated(ListStatus.REWATCHING, 1, byEpisode = true), before = ListEntry(ListStatus.COMPLETED, 26, true))
+        compose.waitForIdle()
+
+        compose.onNodeWithText("English · Rewatching, episode 1 on AniList").assertExists()
+        compose.onNodeWithText("It was Completed, episode 26").assertExists()
     }
 
     @Test

@@ -235,11 +235,20 @@ private fun words(shown: ShownNotice): Pair<String, String> {
         }
 
         is NoticeChange.Updated -> {
+            // An episode that changed the status, such as one starting a rewatch, names the new status too.
             val title =
-                if (change.byEpisode && change.status != ListStatus.COMPLETED) {
-                    stringResource(R.string.notice_episode_on_anilist, show, change.progress)
-                } else {
-                    stringResource(R.string.notice_status_on_anilist, show, statusName(change.status))
+                when {
+                    !change.byEpisode || change.status == ListStatus.COMPLETED -> {
+                        stringResource(R.string.notice_status_on_anilist, show, statusName(change.status))
+                    }
+
+                    before?.status != change.status -> {
+                        stringResource(R.string.notice_status_episode_on_anilist, show, statusName(change.status), change.progress)
+                    }
+
+                    else -> {
+                        stringResource(R.string.notice_episode_on_anilist, show, change.progress)
+                    }
                 }
             val detail =
                 when {
