@@ -550,6 +550,18 @@ class AniListSyncTest {
             assertEquals(emptyList(), client.saved)
         }
 
+    // Details read 10, then the phone set 2: unmarking episode 8 would move AniList up to 7.
+    @Test
+    fun markingUnwatchedAboveAniListsProgressNowSendsNothing() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, ListEntry(ListStatus.WATCHING, 2, hasStartDate = true)))
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 9, userId = 1) }
+
+            assertFalse(sync(client, queue).markUnwatched(101, episode = 8, forUser = 1))
+            assertEquals(emptyList(), client.saved)
+            assertEquals(listOf(PendingProgress(101, 9, userId = 1)), queue.all())
+        }
+
     @Test
     fun aMarkForSomeoneElseOrThatFailsSendsNothing() =
         runTest {

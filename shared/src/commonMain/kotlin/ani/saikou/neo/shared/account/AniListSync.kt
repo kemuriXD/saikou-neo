@@ -334,8 +334,9 @@ public class AniListSync(
     ): Boolean =
         once(forUser) { token ->
             val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
-            // Taken off the list since Details read it, a save would add it back.
-            if (read.value.entry == null) return@once false
+            // Taken off the list since Details read it, a save would add it back. Moved below the episode since, it would
+            // move the progress up.
+            if (read.value.entry == null || read.value.entry.progress < episode) return@once false
             val progress = episode - 1
             if (client.saveProgress(token, animeId, ProgressUpdate(progress, null, null)) !is AniListResult.Success) return@once false
             // One still waiting would move it forward again.
