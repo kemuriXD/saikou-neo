@@ -401,12 +401,13 @@ private fun DetailsPage(
                                                     menuFor = episode to row
                                                 }
                                             },
+                                        // On the next episode to watch, in its range, or into the section if it isn't listed.
+                                        toNext = toEpisodes,
+                                        onToNext = { focused ->
+                                            if (!focused) episodesFocus.requestFocus()
+                                            toEpisodes = false
+                                        },
                                     )
-                                    LaunchedEffect(toEpisodes) {
-                                        // On the next episode to watch, or into the section if it's out of sight.
-                                        if (toEpisodes && !nextEpisodeFocus.requestFocus()) episodesFocus.requestFocus()
-                                        toEpisodes = false
-                                    }
                                 }
                             }
 
