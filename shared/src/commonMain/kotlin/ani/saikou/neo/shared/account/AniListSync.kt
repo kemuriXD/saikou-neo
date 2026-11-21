@@ -198,16 +198,13 @@ public class AniListSync(
     public suspend fun undo(notice: ListNotice): Boolean {
         val change = notice.change
         if (change is NoticeChange.SavedForLater) {
-            return scope
-                .async {
-                    lock.withLock {
-                        if (account()?.profile?.id != notice.userId || settings().privateMode) return@withLock false
-                        // Sent since, it's on AniList and no longer here to take back.
-                        if (change.pending !in queue.all()) return@withLock false
-                        change.replaced?.let { queue.put(it) } ?: queue.remove(notice.animeId)
-                        true
-                    }
-                }.await()
+            return failsSafely {
+                if (account()?.profile?.id != notice.userId || settings().privateMode) return@failsSafely false
+                // Sent since, it's on AniList and no longer here to take back.
+                if (change.pending !in queue.all()) return@failsSafely false
+                change.replaced?.let { queue.put(it) } ?: queue.remove(notice.animeId)
+                true
+            }
         }
         return once(notice.userId) { token ->
             val read = client.showEntry(token, notice.animeId) as? AniListResult.Success ?: return@once false
@@ -232,7 +229,7 @@ public class AniListSync(
                 if (before == null) {
                     now?.id?.let { client.removeEntry(token, it) is AniListResult.Success } ?: true
                 } else {
-                    client.restoreEntry(token, notice.animeId, before) is AniListResult.Success
+                    restore(token, notice.animeId, now, before)
                 }
             if (!putBack) return@once false
             // One still waiting would change it again.
@@ -252,20 +249,17 @@ public class AniListSync(
         progress: Int,
         forUser: Int?,
     ): Boolean =
-        scope
-            .async {
-                lock.withLock {
-                    val signedIn = account()
-                    if (signedIn == null || signedIn.profile.id != forUser || signedIn.token.expiresAtEpochSeconds <= now()) {
-                        return@withLock false
-                    }
-                    if (settings().privateMode) return@withLock false
-                    val saved = client.saveProgress(signedIn.token, animeId, ProgressUpdate(progress, null, null))
-                    if (saved !is AniListResult.Success) return@withLock false
-                    if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
-                    true
-                }
-            }.await()
+        failsSafely {
+            val signedIn = account()
+            if (signedIn == null || signedIn.profile.id != forUser || signedIn.token.expiresAtEpochSeconds <= now()) {
+                return@failsSafely false
+            }
+            if (settings().privateMode) return@failsSafely false
+            val saved = client.saveProgress(signedIn.token, animeId, ProgressUpdate(progress, null, null))
+            if (saved !is AniListResult.Success) return@failsSafely false
+            if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
+            true
+        }
 
     /**
      * [animeId] and the signed-in user's entry for it, for the list button. Null when signed out, with an expired token,
@@ -343,8 +337,9 @@ public class AniListSync(
     ): Boolean =
         once(forUser) { token ->
             val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
-            // Taken off the list since Details read it, a save would add it back.
-            if (read.value.entry == null) return@once false
+            // Taken off the list since Details read it, a save would add it back. Moved below the episode since, it would
+            // move the progress up.
+            if (read.value.entry == null || read.value.entry.progress < episode) return@once false
             val progress = episode - 1
             if (client.saveProgress(token, animeId, ProgressUpdate(progress, null, null)) !is AniListResult.Success) return@once false
             // One still waiting would move it forward again.
@@ -395,16 +390,41 @@ public class AniListSync(
         }
     }
 
+    // Puts [animeId]'s entry back from [now] to [before]. AniList adds a rewatch itself when a Rewatching entry becomes
+    // Completed, whatever count the save sends, so then the count is saved again once it's Completed.
+    private suspend fun restore(
+        token: AniListToken,
+        animeId: Int,
+        now: ListEntry?,
+        before: ListEntry,
+    ): Boolean {
+        if (client.restoreEntry(token, animeId, before) !is AniListResult.Success) return false
+        if (now?.status != ListStatus.REWATCHING || before.status != ListStatus.COMPLETED) return true
+        val rewatches = ProgressUpdate(before.progress, null, null, repeat = before.repeat)
+        return client.saveProgress(token, animeId, rewatches) is AniListResult.Success
+    }
+
     // Runs in [scope], so it finishes once the screen has gone, after any update ahead of it, while [forUser] is signed in.
     private suspend fun once(
         forUser: Int,
         work: suspend (AniListToken) -> Boolean,
     ): Boolean =
+        failsSafely {
+            val signedIn = liveAccount()
+            if (signedIn == null || signedIn.profile.id != forUser || settings().privateMode) false else work(signedIn.token)
+        }
+
+    // One at a time, in [scope]. An error such as a queue file that can't be read fails the change, as AniList refusing
+    // it would, rather than crashing the screen that asked for it.
+    private suspend fun failsSafely(work: suspend () -> Boolean): Boolean =
         scope
             .async {
-                lock.withLock {
-                    val signedIn = liveAccount()
-                    if (signedIn == null || signedIn.profile.id != forUser || settings().privateMode) false else work(signedIn.token)
+                try {
+                    lock.withLock { work() }
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (_: Exception) {
+                    false
                 }
             }.await()
 
