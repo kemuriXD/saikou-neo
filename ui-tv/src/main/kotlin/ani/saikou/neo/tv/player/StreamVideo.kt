@@ -1,5 +1,6 @@
 package ani.saikou.neo.tv.player
 
+import android.os.SystemClock
 import android.view.ViewGroup
 import androidx.annotation.OptIn
 import androidx.compose.foundation.layout.fillMaxSize
@@ -7,6 +8,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -24,6 +26,7 @@ import ani.saikou.neo.shared.playback.PlayerError
 import ani.saikou.neo.shared.playback.PlayerPhase
 import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.ServerEdition
+import ani.saikou.neo.shared.playback.VideoEnd
 import ani.saikou.neo.shared.settings.SubtitleDrawing
 import kotlinx.coroutines.delay
 import okhttp3.Call
@@ -31,6 +34,9 @@ import kotlin.time.Duration.Companion.seconds
 
 // How often where the video got to is saved while it plays.
 private val SAVE_EVERY = 10.seconds
+
+// How often a video near its end is checked for having stopped there.
+private val END_CHECK_EVERY = 0.5.seconds
 
 /**
  * Plays each stream [state] hands over, from its start position, and says when the video [onStarted] or the player
@@ -66,12 +72,14 @@ internal fun StreamVideo(
     val started by rememberUpdatedState(onStarted)
     val failed by rememberUpdatedState(onFailed)
     val ended by rememberUpdatedState(onEnded)
+    // The end is told once, whether the player says so or the video stops at its end without it (#474).
+    val end = remember(player) { VideoEnd() }
     DisposableEffect(player) {
         val listener =
             object : Player.Listener {
                 override fun onPlaybackStateChanged(playbackState: Int) {
                     if (playbackState == Player.STATE_READY) started()
-                    if (playbackState == Player.STATE_ENDED) ended()
+                    if (playbackState == Player.STATE_ENDED && end.ended()) ended()
                 }
 
                 override fun onPlayerError(error: PlaybackException) {
@@ -89,6 +97,12 @@ internal fun StreamVideo(
         while (playing) {
             delay(SAVE_EVERY)
             report()
+        }
+    }
+    LaunchedEffect(playing) {
+        while (playing) {
+            delay(END_CHECK_EVERY)
+            if (end.check(player.currentPosition, player.duration, player.playWhenReady, SystemClock.elapsedRealtime())) ended()
         }
     }
     // A new stream: a new server, the same one again, or a fresh link.
