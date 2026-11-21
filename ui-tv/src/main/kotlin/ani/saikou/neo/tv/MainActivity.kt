@@ -541,7 +541,7 @@ class MainActivity : ComponentActivity() {
                                         app.sourceHost.client,
                                         looks.drawing,
                                         onPlayed = player::played,
-                                        onEnded = { if (player.ended()) leaving = back },
+                                        onEnded = { if (player.ended()) leaveThen(back) },
                                         sample = sample.takeIf { shown.looks },
                                         subtitlesAbove = subtitlesAbove,
                                         online = ::isOnline,
