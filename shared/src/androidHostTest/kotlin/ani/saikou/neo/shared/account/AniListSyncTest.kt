@@ -102,7 +102,8 @@ class AniListSyncTest {
         account: SignedInAccount? = me,
         settings: Settings = Settings(),
         answers: ShowAnswers? = null,
-    ) = AniListSync(backgroundScope, { account }, client, queue, { today }, now = { 1_800_000_000 }, { settings }, answers)
+        yourList: YourList? = null,
+    ) = AniListSync(backgroundScope, { account }, client, queue, { today }, now = { 1_800_000_000 }, { settings }, answers, yourList)
 
     @Test
     fun aWatchedEpisodeMovesTheProgress() =
@@ -903,5 +904,48 @@ class AniListSyncTest {
             val notice = ListNotice(101, 1, title, NoticeChange.SavedForLater(PendingProgress(101, 4, 1), null), null)
 
             assertFalse(sync(FakeClient(), MemoryQueue()).undo(notice))
+        }
+
+    private class ForgetfulList : YourList {
+        var forgot = 0
+
+        override suspend fun shows() = emptyList<ListedProgress>()
+
+        override suspend fun forget() {
+            forgot++
+        }
+    }
+
+    // Home and Details keep the list for a minute, and would otherwise work from the progress before (#478).
+    @Test
+    fun watchingAndUndoDropTheKeptList() =
+        runTest {
+            val list = ForgetfulList()
+            val client = FakeClient(ShowEntry(12, watching3))
+            val sync = sync(client, MemoryQueue(), yourList = list)
+            val told = async { sync.notices.first() }
+            runCurrent()
+
+            sync.watching(101, 4, title)
+            runCurrent()
+            assertEquals(1, list.forgot)
+
+            client.entry = ShowEntry(12, watching3.copy(progress = 4))
+            assertTrue(sync.undo(told.await()))
+            assertEquals(2, list.forgot)
+        }
+
+    @Test
+    fun theListButtonAndMarksDropTheKeptListToo() =
+        runTest {
+            val list = ForgetfulList()
+            val sync = sync(FakeClient(ShowEntry(12, watching3)), MemoryQueue(), yourList = list)
+
+            sync.changeStatus(101, ListStatus.PAUSED, forUser = 1)
+            sync.markWatched(101, upTo = 5, forUser = 1)
+            sync.markUnwatched(101, episode = 3, forUser = 1)
+            sync.remove(101, forUser = 1)
+
+            assertEquals(4, list.forgot)
         }
 }

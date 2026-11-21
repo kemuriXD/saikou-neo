@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.account
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.home.YourList
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.UpdateAniList
 import kotlinx.coroutines.CoroutineScope
@@ -140,6 +141,7 @@ public interface SyncQueue {
  * [queue] until AniList takes it, so one that fails is sent later, and only while the same user is signed in. Work runs
  * in [scope], one update at a time, so it carries on once the player has gone. The [settings] gate it (ADR 0053):
  * Update AniList decides what watching sends, with [answers] for Ask for each show, and private mode stops every write.
+ * Each change it makes drops the [yourList] kept for Home and Details, so they read it again.
  */
 public class AniListSync(
     private val scope: CoroutineScope,
@@ -151,6 +153,7 @@ public class AniListSync(
     private val now: () -> Long = { Clock.System.now().epochSeconds },
     private val settings: suspend () -> Settings = { Settings() },
     private val answers: ShowAnswers? = null,
+    private val yourList: YourList? = null,
 ) : WatchedEpisodes,
     WatchingUpdates {
     private val lock = Mutex()
@@ -234,7 +237,7 @@ public class AniListSync(
             if (!putBack) return@once false
             // One still waiting would change it again.
             if (queue.all().any { it.animeId == notice.animeId && it.userId == notice.userId }) queue.remove(notice.animeId)
-            changed.tryEmit(ListChange(notice.animeId, before?.status, notice.userId, before?.progress))
+            listChanged(ListChange(notice.animeId, before?.status, notice.userId, before?.progress))
             true
         }
     }
@@ -289,7 +292,7 @@ public class AniListSync(
             val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
             val update = statusUpdate(read.value, to, today())
             if (client.saveProgress(token, animeId, update) !is AniListResult.Success) return@once false
-            changed.tryEmit(ListChange(animeId, to, forUser, update.progress))
+            listChanged(ListChange(animeId, to, forUser, update.progress))
             tell(read.value, animeId, forUser, NoticeChange.Updated(to, update.progress, byEpisode = false))
             true
         }
@@ -307,7 +310,7 @@ public class AniListSync(
             val id = read.value.entry?.id
             if (id != null && client.removeEntry(token, id) !is AniListResult.Success) return@once false
             if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
-            changed.tryEmit(ListChange(animeId, null, forUser))
+            listChanged(ListChange(animeId, null, forUser))
             if (id != null) tell(read.value, animeId, forUser, NoticeChange.Removed)
             true
         }
@@ -324,7 +327,7 @@ public class AniListSync(
             // One waiting for an episode the mark covers would change nothing.
             if (queue.all().any { it.animeId == animeId && it.userId == forUser && it.episode <= upTo }) queue.remove(animeId)
             val status = update?.status ?: read.value.entry?.status
-            changed.tryEmit(ListChange(animeId, status, forUser, update?.progress ?: read.value.entry?.progress))
+            listChanged(ListChange(animeId, status, forUser, update?.progress ?: read.value.entry?.progress))
             if (update != null &&
                 status != null
             ) {
@@ -346,7 +349,7 @@ public class AniListSync(
             if (client.saveProgress(token, animeId, ProgressUpdate(progress, null, null)) !is AniListResult.Success) return@once false
             // One still waiting would move it forward again.
             if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
-            changed.tryEmit(ListChange(animeId, read.value.entry.status, forUser, progress))
+            listChanged(ListChange(animeId, read.value.entry.status, forUser, progress))
             tell(read.value, animeId, forUser, NoticeChange.Updated(read.value.entry.status, progress, byEpisode = true))
             true
         }
@@ -406,6 +409,12 @@ public class AniListSync(
             }.await()
 
     private suspend fun liveAccount(): SignedInAccount? = account()?.takeIf { it.token.expiresAtEpochSeconds > now() }
+
+    // The kept list goes first, so a screen that hears of the change reads the new one.
+    private suspend fun listChanged(change: ListChange) {
+        yourList?.forget()
+        changed.tryEmit(change)
+    }
 
     private fun tell(
         show: ShowEntry,
@@ -483,7 +492,7 @@ public class AniListSync(
             val saved = client.saveProgress(token, pending.animeId, update)
             if (saved is AniListResult.Failure) return saved.error
             val status = update.status ?: show.entry?.status ?: ListStatus.WATCHING
-            changed.tryEmit(ListChange(pending.animeId, status, pending.userId, update.progress))
+            listChanged(ListChange(pending.animeId, status, pending.userId, update.progress))
             if (told != null) {
                 val notice =
                     ListNotice(
