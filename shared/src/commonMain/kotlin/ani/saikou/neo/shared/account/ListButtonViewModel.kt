@@ -45,13 +45,11 @@ public sealed interface ListButtonState {
 /**
  * The list button on Home's spotlight and Details, for one show (ADR 0051). It reads the signed-in user's entry, and a
  * status picked or a remove shows straight away, goes to AniList for that user, and goes back if AniList doesn't take
- * it. [changed] runs once AniList has, so the kept list is read again. A change from another button for the show shows
- * here too.
+ * it. A change from another button for the show shows here too.
  */
 public class ListButtonViewModel(
     private val animeId: Int,
     private val entries: YourListEntries,
-    private val changed: suspend () -> Unit = {},
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<ListButtonState>(ListButtonState.Hidden)
     public val state: StateFlow<ListButtonState> = mutableState.asStateFlow()
@@ -88,12 +86,8 @@ public class ListButtonViewModel(
         mutableState.value = before.copy(status = to)
         viewModelScope.launch {
             lock.withLock {
-                if (send(user)) {
-                    changed()
-                } else {
-                    // Unless another pick has shown since.
-                    mutableState.update { if ((it as? ListButtonState.Shown)?.status == to) before else it }
-                }
+                // Unless another pick has shown since.
+                if (!send(user)) mutableState.update { if ((it as? ListButtonState.Shown)?.status == to) before else it }
             }
         }
     }

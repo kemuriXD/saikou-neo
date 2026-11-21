@@ -88,7 +88,6 @@ class DetailsViewModelTest {
         listed: ListedProgress? = null,
         sides: PickUpSides? = null,
         marks: WatchedEpisodes? = null,
-        marked: suspend () -> Unit = {},
         animeId: Int = 195516,
         zoneOffsetSeconds: Int = 0,
         warmSources: () -> Unit = {},
@@ -105,7 +104,6 @@ class DetailsViewModelTest {
         listed = { listed },
         sides = sides,
         marks = marks,
-        marked = marked,
         zoneOffsetSeconds = zoneOffsetSeconds,
         warmSources = warmSources,
         asksWhereToPickUp = asksWhereToPickUp,
@@ -355,9 +353,8 @@ class DetailsViewModelTest {
         runTest(main) {
             val marks = FakeMarks()
             val sides = RecordedSides()
-            var forgotten = 0
             val here = WatchProgress(2, 24.minutes, 24.minutes, null)
-            val viewModel = detailsViewModel(progress = flowOf(here), sides = sides, marks = marks, marked = { forgotten++ })
+            val viewModel = detailsViewModel(progress = flowOf(here), sides = sides, marks = marks)
             loaded(viewModel)
 
             viewModel.markWatched(8)
@@ -366,7 +363,6 @@ class DetailsViewModelTest {
             assertEquals(listOf("watched 8 for 1"), marks.calls)
             assertEquals(8, assertIs<DetailsState.Loaded>(viewModel.state.value).aniList?.progress)
             assertEquals(listOf(195516 to WatchProgress(8, 24.minutes, 24.minutes, null)), sides.saved)
-            assertEquals(1, forgotten)
         }
 
     // This TV further on keeps its place.

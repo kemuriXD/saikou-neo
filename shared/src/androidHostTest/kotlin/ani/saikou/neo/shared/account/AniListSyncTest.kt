@@ -962,6 +962,20 @@ class AniListSyncTest {
             assertEquals(4, list.forgot)
         }
 
+    // A change AniList didn't take leaves the kept list alone (#494).
+    @Test
+    fun aChangeAniListRefusedKeepsTheList() =
+        runTest {
+            val list = ForgetfulList()
+            val client = FakeClient(ShowEntry(12, watching3), failWith = AniListError.Network("offline"))
+            val sync = sync(client, MemoryQueue(), yourList = list)
+
+            assertFalse(sync.changeStatus(101, ListStatus.PAUSED, forUser = 1))
+            assertFalse(sync.markWatched(101, upTo = 5, forUser = 1))
+
+            assertEquals(0, list.forgot)
+        }
+
     // Keeps one entry as AniList does, including the rewatch AniList adds itself when Rewatching becomes Completed,
     // whatever rewatch count the save sends.
     private class AniListLikeClient(

@@ -109,7 +109,6 @@ public class DetailsViewModel(
     private val listed: suspend () -> ListedProgress? = { null },
     private val sides: PickUpSides? = null,
     private val marks: WatchedEpisodes? = null,
-    private val marked: suspend () -> Unit = {},
     private val zoneOffsetSeconds: Int = 0,
     warmSources: () -> Unit = {},
     private val asksWhereToPickUp: Boolean = true,
@@ -245,7 +244,6 @@ public class DetailsViewModel(
                 return@launch
             }
             moveHere(episode, watched)
-            marked()
         }
     }
 
