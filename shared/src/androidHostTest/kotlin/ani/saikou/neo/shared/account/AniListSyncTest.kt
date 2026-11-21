@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import java.io.IOException
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -903,5 +904,30 @@ class AniListSyncTest {
             val notice = ListNotice(101, 1, title, NoticeChange.SavedForLater(PendingProgress(101, 4, 1), null), null)
 
             assertFalse(sync(FakeClient(), MemoryQueue()).undo(notice))
+        }
+
+    // Such as a queue file that can't be read.
+    private class BrokenQueue : SyncQueue {
+        override suspend fun all(): List<PendingProgress> = throw IOException("unreadable")
+
+        override suspend fun put(pending: PendingProgress): Unit = throw IOException("unreadable")
+
+        override suspend fun remove(animeId: Int): Unit = throw IOException("unreadable")
+    }
+
+    @Test
+    fun aStorageErrorFailsAChangeInsteadOfThrowing() =
+        runTest {
+            val client = FakeClient(ShowEntry(12, watching3.copy(progress = 4)))
+            val sync = sync(client, BrokenQueue())
+            val updated = ListNotice(101, 1, title, NoticeChange.Updated(ListStatus.WATCHING, 4, byEpisode = true), watching3)
+            val savedForLater = ListNotice(101, 1, title, NoticeChange.SavedForLater(PendingProgress(101, 4, 1), null), null)
+
+            assertFalse(sync.remove(101, forUser = 1))
+            assertFalse(sync.markWatched(101, upTo = 5, forUser = 1))
+            assertFalse(sync.markUnwatched(101, episode = 3, forUser = 1))
+            assertFalse(sync.movedBack(101, 2, forUser = 1))
+            assertFalse(sync.undo(updated))
+            assertFalse(sync.undo(savedForLater))
         }
 }
