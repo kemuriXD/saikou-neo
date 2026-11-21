@@ -70,6 +70,8 @@ import ani.saikou.neo.tv.ui.NeoIcons
 import ani.saikou.neo.tv.ui.NeoTab
 import ani.saikou.neo.tv.ui.SourceLogo
 import ani.saikou.neo.tv.ui.keepsArrowsIn
+import ani.saikou.neo.tv.ui.remembersFocus
+import ani.saikou.neo.tv.ui.restoringFocus
 import java.io.File
 
 internal const val STREAMS_RETRY_TAG = "streams-retry"
@@ -120,17 +122,19 @@ internal fun StreamsPage(
         StreamsOutcome.NoSources -> NoSources(episode, actions.onAddSource, page)
         StreamsOutcome.NothingPlays -> NothingPlays(state, title, actions, page)
         is StreamsOutcome.MissingEdition -> MissingEdition(episode, outcome.missing, outcome.have, actions.onBack, page)
-        null -> SourcesAndServers(state, title, onPick, onEdition, onRetry, page)
+        null -> SourcesAndServers(state, episode, title, onPick, onEdition, onRetry, page)
     }
 }
 
 /**
- * The sources on the left and the focused one's servers on the right. Focus starts on the first source. After Retry,
- * focus waits on the source and moves to its first server once it has one, unless the viewer has moved by then.
+ * The sources on the left and the focused one's servers on the right. Focus starts on the first source, or coming back
+ * from the player, on the server played. After Retry, focus waits on the source and moves to its first server once it
+ * has one, unless the viewer has moved by then.
  */
 @Composable
 private fun SourcesAndServers(
     state: ServersState,
+    episode: Int,
     title: String,
     onPick: (InstalledSource, FoundServer) -> Unit,
     onEdition: (SubOrDub) -> Unit,
@@ -147,9 +151,11 @@ private fun SourcesAndServers(
     var retried by remember { mutableStateOf<String?>(null) }
     var inPanel by remember { mutableStateOf(false) }
     val sourcesDescription = stringResource(R.string.streams_sources)
+    // Coming back, the row that had focus takes it back itself.
+    val restoring = restoringFocus()
 
     LaunchedEffect(current != null) {
-        if (!moved) current?.let { focusOf(it.source.id).requestFocus() }
+        if (!moved && !restoring) current?.let { focusOf(it.source.id).requestFocus() }
     }
     val shown = current?.let { state.groups(it).all }.orEmpty()
     LaunchedEffect(retried, shown.isNotEmpty()) {
@@ -194,6 +200,7 @@ private fun SourcesAndServers(
                             Modifier
                                 .focusRequester(focusOf(id))
                                 .onFocusChanged { if (it.isFocused) currentId = id }
+                                .remembersFocus("${sourceTag(id)}-$episode")
                                 .testTag(sourceTag(id)),
                     )
                 }
@@ -219,6 +226,7 @@ private fun SourcesAndServers(
                 Panel(
                     current,
                     state,
+                    episode,
                     title,
                     panelFocus,
                     onPick,
@@ -239,6 +247,7 @@ private fun SourcesAndServers(
 private fun Panel(
     entry: SourceServers,
     state: ServersState,
+    episode: Int,
     title: String,
     first: FocusRequester,
     onPick: (InstalledSource, FoundServer) -> Unit,
@@ -264,7 +273,7 @@ private fun Panel(
             if (answer.servers.isEmpty()) {
                 Trouble(source.name, stringResource(R.string.streams_no_servers), canRetry = true, first, onRetry)
             } else {
-                Servers(entry, state, title, first, onPick, onEdition)
+                Servers(entry, state, episode, title, first, onPick, onEdition)
             }
         }
     }
@@ -304,6 +313,7 @@ private fun Trouble(
 private fun Servers(
     entry: SourceServers,
     state: ServersState,
+    episode: Int,
     title: String,
     first: FocusRequester,
     onPick: (InstalledSource, FoundServer) -> Unit,
@@ -335,7 +345,8 @@ private fun Servers(
             if (servers.isEmpty()) return
             if (state.subOrDub == SubOrDub.BOTH) item(key = "heading-$edition") { GroupHeading(edition, servers.size) }
             items(servers, key = { "server-$edition-${it.id}" }) { server ->
-                val tag = Modifier.testTag(serverTag(source.id, server.id))
+                // Remembered, so leaving the player comes back to the server played.
+                val tag = Modifier.remembersFocus("${serverTag(source.id, server.id)}-$episode").testTag(serverTag(source.id, server.id))
                 ServerRow(server, onClick = { onPick(source, server) }, if (server == firstServer) tag.focusRequester(first) else tag)
             }
         }

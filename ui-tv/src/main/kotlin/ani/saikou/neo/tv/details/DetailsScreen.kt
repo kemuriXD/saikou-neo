@@ -265,16 +265,19 @@ private fun DetailsPage(
     val synopsisFocus = remember { FocusRequester() }
     val episodesFocus = remember { FocusRequester() }
     val nextEpisodeFocus = remember { FocusRequester() }
+    val streamsFocus = remember { FocusRequester() }
     // Set by the main button, for the Episodes section to take focus once it's shown.
     var toEpisodes by remember { mutableStateOf(false) }
     val hasEpisodes = loaded != null && DetailsSection.EPISODES in loaded.sections
     // Coming back to Details, focus returns to what had it. Otherwise it starts on the main button, or on the tabs for a
     // show with no episodes yet, and returns to the synopsis when the reader closes. The page stays composed under the
-    // reader, so the synopsis is listening when focus comes back.
+    // reader, so the synopsis is listening when focus comes back. With an episode's streams open, they take it, as the
+    // rest of the page is out of sight under them.
     LaunchedEffect(loaded != null, reading) {
         if (loaded == null || reading) return@LaunchedEffect
         focus.restoreOr {
             when {
+                streamsFor != null && streams != null -> streamsFocus.requestFocus()
                 hasRead -> synopsisFocus.requestFocus()
                 hasEpisodes -> mainFocus.requestFocus()
                 else -> tabFocus.requestFocus()
@@ -455,7 +458,7 @@ private fun DetailsPage(
                                 ?.title,
                         )
                         // Its own page for each episode, as coming back from the player can change it in place.
-                        key(episode) { streams(episode, { streamsFor = null }, Modifier) }
+                        key(episode) { streams(episode, { streamsFor = null }, Modifier.focusRequester(streamsFocus)) }
                     }
                 }
                 AnimatedVisibility(visible = lifted, enter = fadeIn(), exit = fadeOut()) {
