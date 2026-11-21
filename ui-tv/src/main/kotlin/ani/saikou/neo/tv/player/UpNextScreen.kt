@@ -15,11 +15,15 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -33,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.LocalContentColor
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.account.ShownNotice
 import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.playback.UP_NEXT_SECONDS
 import ani.saikou.neo.shared.playback.UpNext
@@ -40,7 +45,9 @@ import ani.saikou.neo.shared.playback.UpNextEpisode
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.home.parseColour
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.AniListNotice
 import ani.saikou.neo.tv.ui.NeoSurface
+import ani.saikou.neo.tv.ui.NoticeActions
 import coil3.compose.AsyncImage
 
 internal const val UP_NEXT_TAG = "player-up-next"
@@ -65,7 +72,8 @@ private const val RING_TRACK_ALPHA = 0.2f
 /**
  * Up next over the shrunk video: [next]'s still, title and synopsis, with Play counting down [upNext]'s seconds and Watch
  * credits. Play has focus. [ending] says the ending is what's playing. After a run of episodes it asks if you're still
- * watching instead (204:172): Play has no countdown, and Stop calls [onStop] in place of Watch credits.
+ * watching instead (204:172): Play has no countdown, and Stop calls [onStop] in place of Watch credits. The AniList
+ * [notice] shows bottom left (199:2495). It doesn't take focus: Down from the buttons reaches its Undo.
  */
 @Composable
 internal fun BoxScope.UpNextScreen(
@@ -76,12 +84,22 @@ internal fun BoxScope.UpNextScreen(
     onPlay: () -> Unit,
     onCredits: () -> Unit,
     onStop: () -> Unit = {},
+    notice: ShownNotice? = null,
+    noticeActions: NoticeActions = NoticeActions(),
 ) {
     val run = upNext.stillWatching
     val colors = NeoTheme.colors
     val typography = NeoTheme.typography
     val play = remember { FocusRequester() }
+    val undo = remember { FocusRequester() }
+    var undoFocused by remember { mutableStateOf(false) }
+    val canUndo = notice != null && !notice.failed
     LaunchedEffect(Unit) { play.requestFocus() }
+    // Undo gone while it had focus, focus goes back to Play. Read as Undo goes, before it loses focus.
+    val hadFocus = undoFocused
+    LaunchedEffect(canUndo) {
+        if (!canUndo && hadFocus) play.requestFocus()
+    }
     Text(
         stringResource(if (ending) R.string.player_ending_plays_on_here else R.string.player_plays_on_here, request.episode),
         style = typography.caption.copy(fontSize = 13.sp, lineHeight = 18.sp, fontWeight = FontWeight.SemiBold),
@@ -116,7 +134,10 @@ internal fun BoxScope.UpNextScreen(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        Row(Modifier.padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(22.dp)) {
+        Row(
+            Modifier.padding(top = 4.dp).focusProperties { if (canUndo) down = undo },
+            horizontalArrangement = Arrangement.spacedBy(22.dp),
+        ) {
             NeoSurface(onPlay, CircleShape, NeoTheme.dimensions.focusScaleButton, Modifier.focusRequester(play).testTag(UP_NEXT_PLAY_TAG)) {
                 Row(
                     Modifier.height(44.dp).padding(start = if (upNext.secondsLeft != null) 8.dp else 18.dp, end = 18.dp),
@@ -138,6 +159,13 @@ internal fun BoxScope.UpNextScreen(
                 }
             }
         }
+    }
+    if (notice != null) {
+        val focused = { it: Boolean ->
+            undoFocused = it
+            noticeActions.onUndoFocused(it)
+        }
+        AniListNotice(notice, noticeActions.copy(onUndoFocused = focused), undo, Modifier.focusProperties { up = play })
     }
 }
 

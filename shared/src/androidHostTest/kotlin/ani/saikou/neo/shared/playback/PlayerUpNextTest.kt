@@ -85,6 +85,7 @@ private class Updates(
     override fun watching(
         animeId: Int,
         episode: Int,
+        title: AnimeTitle?,
     ) {
         watched += episode
     }
@@ -96,6 +97,7 @@ private class Updates(
         forUser: Int,
         update: Boolean,
         episode: Int,
+        title: AnimeTitle?,
     ) {
         answers += update
     }

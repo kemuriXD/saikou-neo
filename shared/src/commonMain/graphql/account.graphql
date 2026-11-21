@@ -60,20 +60,34 @@ query ContinueList($userId: Int!) {
 
 # A show's episode count, whether it has finished airing and the signed-in user's entry for it, asked before watching
 # or the list button updates their list.
+# The rest of the entry is read so Undo can put it back.
 query ListEntry($mediaId: Int!) {
   Media(id: $mediaId, type: ANIME) {
     episodes
     status
+    title {
+      romaji
+      english
+      native
+    }
     mediaListEntry {
       id
       status
       progress
       repeat
+      score(format: POINT_100)
+      notes
+      private
+      hiddenFromStatusLists
       startedAt {
         year
+        month
+        day
       }
       completedAt {
         year
+        month
+        day
       }
     }
   }
@@ -104,5 +118,34 @@ mutation SaveProgress(
 mutation DeleteEntry($id: Int!) {
   DeleteMediaListEntry(id: $id) {
     deleted
+  }
+}
+
+# Puts an entry back as it was before a change from the TV, for Undo. A date with no parts clears it.
+mutation RestoreEntry(
+  $mediaId: Int!
+  $status: MediaListStatus!
+  $progress: Int!
+  $repeat: Int!
+  $scoreRaw: Int!
+  $notes: String
+  $private: Boolean!
+  $hidden: Boolean!
+  $startedAt: FuzzyDateInput!
+  $completedAt: FuzzyDateInput!
+) {
+  SaveMediaListEntry(
+    mediaId: $mediaId
+    status: $status
+    progress: $progress
+    repeat: $repeat
+    scoreRaw: $scoreRaw
+    notes: $notes
+    private: $private
+    hiddenFromStatusLists: $hidden
+    startedAt: $startedAt
+    completedAt: $completedAt
+  ) {
+    id
   }
 }

@@ -297,7 +297,7 @@ public class PlayerViewModel<S>(
     private fun decide(updates: WatchingUpdates) {
         val ask = askFor
         if (ask == null) {
-            updates.watching(request.show.card.id, request.episode)
+            updates.watching(request.show.card.id, request.episode, request.show.card.title)
         } else {
             held = ask
             mutableState.update { it.copy(holdsForAniList = true) }
@@ -314,7 +314,7 @@ public class PlayerViewModel<S>(
     /** Answers the question: AniList is updated for this show from now on, or never, and the held episode goes with yes. */
     public fun answer(update: Boolean) {
         val user = held ?: return
-        updates?.answer(request.show.card.id, user, update, request.episode)
+        updates?.answer(request.show.card.id, user, update, request.episode, request.show.card.title)
         noAnswer()
     }
 

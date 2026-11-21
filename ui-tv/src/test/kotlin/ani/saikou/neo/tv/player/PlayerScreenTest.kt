@@ -14,6 +14,12 @@ import androidx.compose.ui.test.pressKey
 import ani.saikou.neo.extension.api.Quality
 import ani.saikou.neo.extension.api.Stream
 import ani.saikou.neo.extension.api.StreamFormat
+import ani.saikou.neo.shared.account.ListEntry
+import ani.saikou.neo.shared.account.ListNotice
+import ani.saikou.neo.shared.account.ListStatus
+import ani.saikou.neo.shared.account.NoticeChange
+import ani.saikou.neo.shared.account.PendingProgress
+import ani.saikou.neo.shared.account.ShownNotice
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
@@ -31,6 +37,9 @@ import ani.saikou.neo.shared.playback.UpNext
 import ani.saikou.neo.shared.playback.UpNextEpisode
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.ui.NOTICE_TAG
+import ani.saikou.neo.tv.ui.NOTICE_UNDO_TAG
+import ani.saikou.neo.tv.ui.NoticeActions
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -139,6 +148,8 @@ class PlayerScreenTest {
 
     private val next = UpNextEpisode(8, "The Cleanup Crew", "A delivery job turns out to be a trap.", null)
 
+    private val notice = mutableStateOf<ShownNotice?>(null)
+
     private fun showUpNext(upNext: UpNext?) {
         state.value = state.value.copy(phase = PlayerPhase.Playing(answered), next = next, upNext = upNext)
         compose.setContent {
@@ -155,10 +166,69 @@ class PlayerScreenTest {
                     playback,
                     controls,
                     video = {},
+                    notice = notice.value,
+                    noticeActions = NoticeActions(onUndo = { pressed += "undo" }, onUndoFocused = { if (it) pressed += "undo focused" }),
                 )
             }
         }
         compose.waitForIdle()
+    }
+
+    private val watched =
+        ListNotice(
+            1535,
+            1,
+            show.card.title,
+            NoticeChange.Updated(ListStatus.WATCHING, 7, byEpisode = true),
+            ListEntry(ListStatus.WATCHING, 6, hasStartDate = true),
+            fromWatching = true,
+        )
+
+    // ADR 0056: the AniList notice shows bottom left of Up next. Focus stays on Play, and Down reaches Undo.
+    @Test
+    fun upNextShowsTheAniListNoticeAndDownReachesUndo() {
+        notice.value = ShownNotice(watched)
+        showUpNext(UpNext(secondsLeft = 8))
+
+        compose.onNodeWithTag(NOTICE_TAG).assertIsDisplayed()
+        compose.onNodeWithText("Death Note · episode 7 on AniList").assertExists()
+        compose.onNodeWithText("It was episode 6").assertExists()
+        compose.onNodeWithTag(UP_NEXT_PLAY_TAG).assertIsFocused()
+
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+        press(Key.DirectionUp)
+        compose.onNodeWithTag(UP_NEXT_PLAY_TAG).assertIsFocused()
+
+        assertEquals(listOf("undo focused", "undo"), pressed)
+    }
+
+    @Test
+    fun anUpdateSavedForLaterSaysItWillBeSent() {
+        val pending = PendingProgress(1535, 7, 1)
+        notice.value = ShownNotice(watched.copy(change = NoticeChange.SavedForLater(pending, null), before = null))
+        showUpNext(UpNext(secondsLeft = 8))
+
+        compose.onNodeWithText("Death Note · episode 7 saved for later").assertExists()
+        compose.onNodeWithText("Sent to AniList when this TV is back online").assertExists()
+        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertExists()
+    }
+
+    // Undo gone from under focus, focus goes back to Play.
+    @Test
+    fun anUndoThatFailsSaysSoAndFocusGoesBackToPlay() {
+        notice.value = ShownNotice(watched)
+        showUpNext(UpNext(secondsLeft = 8))
+        press(Key.DirectionDown)
+
+        notice.value = ShownNotice(watched, failed = true)
+        compose.waitForIdle()
+
+        compose.onNodeWithText("Couldn't undo Death Note").assertExists()
+        compose.onNodeWithText("AniList changed since, or can't be reached").assertExists()
+        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertDoesNotExist()
+        compose.onNodeWithTag(UP_NEXT_PLAY_TAG).assertIsFocused()
     }
 
     // #77: Up next shows the next episode beside the shrunk video, with Play focused and counting down.

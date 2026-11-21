@@ -5,6 +5,7 @@ import ani.saikou.neo.shared.account.AniListAccountClient
 import ani.saikou.neo.shared.account.AniListSync
 import ani.saikou.neo.shared.account.KeystoreAccountStore
 import ani.saikou.neo.shared.account.ListDate
+import ani.saikou.neo.shared.account.ListNotices
 import ani.saikou.neo.shared.account.SyncQueueStore
 import ani.saikou.neo.shared.catalogue.AnimeScheduleClient
 import ani.saikou.neo.shared.catalogue.PrefsShowMatchStore
@@ -82,6 +83,9 @@ class NeoApp : Application() {
             answers = settingsStore,
         )
     }
+
+    /** The notice with Undo after each change the TV makes to the AniList list (ADR 0056). */
+    val notices by lazy { ListNotices(scope, sync.notices) { sync.undo(it) } }
 
     /** The signed-in user's Watching and Rewatching progress, which Continue watching adds to the history (ADR 0049). */
     val yourList by lazy {
