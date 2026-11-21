@@ -137,10 +137,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // Opened again after a long time away, the app starts on Home rather than where it was left.
         super.onCreate(absence.restore(savedInstanceState))
-        // AniList updates that couldn't be sent before go now. Only the TV does this, so the phone never opens the queue.
-        // The notice listens from the start, so no change the TV makes goes unsaid (ADR 0056).
+        // AniList updates that couldn't be sent before go now, on every start, restored or not. Only the TV does this, so
+        // the phone never opens the queue. The notice listens from the start, so no change the TV makes goes unsaid (ADR 0056).
         app.notices
-        if (savedInstanceState == null) app.sync.flush()
+        app.sync.flush()
         // Where the system splash shows, it goes with a plain cut to the same lockup in the window background (ADR 0018).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             splashScreen.setOnExitAnimationListener { it.remove() }

@@ -904,4 +904,69 @@ class AniListSyncTest {
 
             assertFalse(sync(FakeClient(), MemoryQueue()).undo(notice))
         }
+
+    // ADR 0056: what can't go yet is saved for later and says so, an expired token included.
+    @Test
+    fun anUpdateQueuedForAnExpiredTokenIsSavedForLater() =
+        runTest {
+            val expired = SignedInAccount(me.profile, AniListToken("old-token", 1_000))
+            val sync = sync(FakeClient(), MemoryQueue(), account = expired)
+            val told = async { sync.notices.first() }
+            runCurrent()
+
+            sync.watching(101, 4, title)
+            runCurrent()
+
+            assertEquals(NoticeChange.SavedForLater(PendingProgress(101, 4, 1), replaced = null), told.await().change)
+        }
+
+    // ADR 0053: updates queued before Off, or before Ask was answered, still go.
+    @Test
+    fun offAndAskStillSendWhatsAlreadyQueued() =
+        runTest {
+            for (setting in listOf(UpdateAniList.OFF, UpdateAniList.ASK)) {
+                val client = FakeClient()
+                val queue = MemoryQueue().apply { items[202] = PendingProgress(202, 4, userId = 1) }
+                val sync = sync(client, queue, settings = Settings(updateAniList = setting), answers = MemoryAnswers())
+
+                sync.watching(101, 2)
+                runCurrent()
+
+                assertEquals(listOf(202 to ProgressUpdate(4, null, null)), client.saved)
+                assertEquals(emptyList(), queue.all())
+            }
+        }
+
+    // Each try could time out while the list button, marks and Undo wait for the lock.
+    @Test
+    fun aNetworkFailureStopsTheRestOfTheQueueForThatTry() =
+        runTest {
+            val client = FakeClient(failWith = AniListError.Network("offline"))
+            val waiting =
+                listOf(PendingProgress(201, 2, userId = 1), PendingProgress(202, 3, userId = 1), PendingProgress(203, 4, userId = 1))
+            val queue = MemoryQueue().apply { waiting.forEach { items[it.animeId] = it } }
+
+            sync(client, queue).flush()
+            runCurrent()
+
+            assertEquals(1, client.calls)
+            assertEquals(waiting, queue.all())
+        }
+
+    // The episode just watched goes first, so it can say it was saved for later.
+    @Test
+    fun theEpisodeJustWatchedIsTriedFirst() =
+        runTest {
+            val client = FakeClient(failWith = AniListError.Network("offline"))
+            val queue = MemoryQueue().apply { items[201] = PendingProgress(201, 2, userId = 1) }
+            val sync = sync(client, queue)
+            val told = async { sync.notices.first() }
+            runCurrent()
+
+            sync.watching(101, 4, title)
+            runCurrent()
+
+            assertEquals(1, client.calls)
+            assertEquals(NoticeChange.SavedForLater(PendingProgress(101, 4, 1), replaced = null), told.await().change)
+        }
 }
