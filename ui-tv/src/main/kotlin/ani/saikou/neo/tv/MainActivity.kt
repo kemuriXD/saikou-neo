@@ -12,7 +12,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -87,8 +86,10 @@ import ani.saikou.neo.tv.home.SeeMoreScreen
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.player.LookActions
 import ani.saikou.neo.tv.player.Looks
+import ani.saikou.neo.tv.player.OnScreen
 import ani.saikou.neo.tv.player.PlayerActions
 import ani.saikou.neo.tv.player.PlayerScreen
+import ani.saikou.neo.tv.player.PlayersOnScreen
 import ani.saikou.neo.tv.player.Sample
 import ani.saikou.neo.tv.player.StreamVideo
 import ani.saikou.neo.tv.player.rememberExoPlayback
@@ -157,7 +158,7 @@ class MainActivity : ComponentActivity() {
             // The AniList notice (ADR 0056): Up next shows it in the player, and it shows over every other screen.
             val notice by app.notices.shown.collectAsStateWithLifecycle()
             val noticeActions = remember { NoticeActions(app.notices::undo, app.notices::undoFocused) }
-            var inPlayer by remember { mutableStateOf(false) }
+            val players = remember { PlayersOnScreen(app.notices::playing) }
             val noticeKeys = remember { NoticeKeys() }
             NeoTheme(light = settings.slowTv) {
                 // Every key passes through HeldKeys before it can move focus, and tells the run of episodes someone's
@@ -457,15 +458,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             val state by player.state.collectAsStateWithLifecycle()
                             // A notice from watching waits while the video is full screen, for Up next or the way out.
-                            val fullScreen = state.upNext == null
-                            LaunchedEffect(fullScreen) { app.notices.playing(fullScreen) }
-                            DisposableEffect(Unit) {
-                                inPlayer = true
-                                onDispose {
-                                    inPlayer = false
-                                    app.notices.playing(fullScreen = false)
-                                }
-                            }
+                            OnScreen(players, fullScreen = state.upNext == null)
                             // On to the next episode, or its servers page when the same server or audio isn't there (ADR 0054).
                             LaunchedEffect(state.going) {
                                 when (val going = state.going) {
@@ -570,7 +563,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                     )
-                    if (!inPlayer) NoticeOverScreens(notice, noticeActions, noticeKeys)
+                    if (!players.inPlayer) NoticeOverScreens(notice, noticeActions, noticeKeys)
                 }
             }
         }
