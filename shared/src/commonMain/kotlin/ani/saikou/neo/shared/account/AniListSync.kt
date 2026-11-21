@@ -349,7 +349,7 @@ public class AniListSync(
             true
         }
 
-    /** Off sends nothing, and Ask only sends once the show is answered yes. */
+    /** Off sends nothing, and Ask only sends once the show is answered yes. Updates already queued go either way. */
     override fun watching(
         animeId: Int,
         episode: Int,
@@ -364,7 +364,7 @@ public class AniListSync(
                     UpdateAniList.ASK -> answers?.answer(signedIn.profile.id, animeId) == true
                     UpdateAniList.OFF -> false
                 }
-            if (send) watched(animeId, episode, signedIn.profile.id, title, inPlayer = true)
+            if (send) watched(animeId, episode, signedIn.profile.id, title, inPlayer = true) else send(signedIn)
         }
     }
 
@@ -470,8 +470,12 @@ public class AniListSync(
         told: Told? = null,
     ) {
         // AniList would refuse an expired token. What's waiting stays, for when this user signs in again.
-        if (signedIn.token.expiresAtEpochSeconds <= now()) return
-        for (pending in queue.all()) {
+        if (signedIn.token.expiresAtEpochSeconds <= now()) {
+            told?.let { savedForLater(it) }
+            return
+        }
+        // The update just watched goes first, so it says what happened to it whatever happens to the rest.
+        for (pending in queue.all().sortedByDescending { it == told?.pending }) {
             // Updates made before private mode, or left when it's turned on part way through, wait until it's off.
             if (settings().privateMode) return
             if (pending.userId != signedIn.profile.id) {
@@ -481,19 +485,26 @@ public class AniListSync(
             val failure = sendOne(signedIn.token, pending, told?.takeIf { it.pending == pending }) ?: continue
             if (!failure.worthRetrying) {
                 queue.remove(pending.animeId)
-            } else if (told?.pending == pending) {
-                noticed.tryEmit(
-                    ListNotice(
-                        pending.animeId,
-                        pending.userId,
-                        told.title,
-                        NoticeChange.SavedForLater(pending, told.replaced),
-                        null,
-                        fromWatching = true,
-                    ),
-                )
+                continue
             }
+            if (told?.pending == pending) savedForLater(told)
+            // AniList can't be reached, or won't take more now, so the rest would only wait to fail too.
+            return
         }
+    }
+
+    private fun savedForLater(told: Told) {
+        val pending = told.pending
+        noticed.tryEmit(
+            ListNotice(
+                pending.animeId,
+                pending.userId,
+                told.title,
+                NoticeChange.SavedForLater(pending, told.replaced),
+                null,
+                fromWatching = true,
+            ),
+        )
     }
 
     // Null once the update needs nothing more: it was saved, or AniList is already there. Otherwise why it failed.

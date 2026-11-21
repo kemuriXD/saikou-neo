@@ -335,9 +335,9 @@ public class PlayerViewModel<S>(
         if (!credits && state.value.upNext == null) showUpNext()
     }
 
-    /** The video ended. Up next shows again, or with no next episode, true when leaving asks first. */
+    /** The video ended. Up next shows again, or with no next episode, true, as the player leaves (ADR 0054). */
     public fun ended(): Boolean {
-        if (state.value.next == null) return leave()
+        if (state.value.next == null) return true
         credits = false
         if (state.value.upNext == null) showUpNext()
         return false

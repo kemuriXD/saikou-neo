@@ -2,6 +2,7 @@ package ani.saikou.neo.tv.details
 
 import android.graphics.Color
 import androidx.activity.ComponentActivity
+import androidx.compose.foundation.layout.Column
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -73,6 +74,7 @@ import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.playback.FoundServer
 import ani.saikou.neo.shared.playback.PlayRequest
+import ani.saikou.neo.shared.playback.PlayServer
 import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.shared.playback.ServersState
 import ani.saikou.neo.shared.playback.SourceAnswer
@@ -640,6 +642,109 @@ class DetailsScreenTest {
         compose.onNodeWithTag(sourceTag(demoSource.id)).assertIsFocused()
         press(Key.DirectionRight)
         compose.onNodeWithTag(serverTag(demoSource.id, subServer.id)).assertIsFocused()
+    }
+
+    // #480: the list opened before this TV's place was read, on 1–12, and Resume E25 landed on the ranges instead.
+    @Test
+    fun theMainButtonOpensTheRangeWithTheNextEpisode() {
+        val long = details.copy(card = details.card.copy(episodes = 64))
+        var state by mutableStateOf(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
+        compose.setContent { NeoTheme { DetailsScreen(state) } }
+        compose.waitForIdle()
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
+        back()
+
+        state = state.copy(progress = WatchProgress(25, 2.minutes, 24.minutes, null))
+        compose.waitForIdle()
+        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(episodeTag(25)).assertIsFocused()
+        compose.onNodeWithText("25–36").assertIsSelected()
+    }
+
+    // #481: Up next played on from episode 1 to episode 2. Back shows episode 2's servers, with the server played focused once
+    // the source has answered, as MainActivity wires it.
+    @Test
+    fun backFromAPlayerThatMovedOnShowsTheServersOfTheEpisodePlaying() {
+        var fromPlayer by mutableStateOf<Int?>(null)
+        var played by mutableStateOf<Pair<Int, PlayServer>?>(null)
+        var episode2 by mutableStateOf<SourceAnswer>(SourceAnswer.Looking)
+        val state = DetailsState.Loaded(details, episodes = episodeList(details, null, today))
+        compose.setContent {
+            NeoTheme {
+                NeoNavigation(
+                    home = { openDetails, _ -> HomeScreen(loaded, onOpen = openDetails) },
+                    seeMore = { _, _ -> },
+                    details = { _, _, _, _, openPlayer ->
+                        DetailsScreen(
+                            state,
+                            streams = { episode, back, modifier ->
+                                val answer = if (episode == 1) SourceAnswer.Found(listOf(subServer, dubServer)) else episode2
+                                StreamsPage(
+                                    ServersState(listOf(SourceServers(demoSource, answer)), SubOrDub.BOTH),
+                                    episode,
+                                    "Show 7",
+                                    onPick = { source, server ->
+                                        openPlayer(PlayRequest(details, episode, null, listOf(PlayServer(source, server, 2)), picked = 0))
+                                    },
+                                    onEdition = {},
+                                    onRetry = {},
+                                    actions = StreamsActions(onRetry = {}, onBack = back, onAddSource = {}),
+                                    modifier = modifier,
+                                    played = played?.takeIf { it.first == episode }?.second,
+                                )
+                            },
+                            openStreams = fromPlayer,
+                            onStreamsOpened = { fromPlayer = null },
+                        )
+                    },
+                    player = { request, back, playNext ->
+                        val next = remember { FocusRequester() }
+                        LaunchedEffect(Unit) { next.requestFocus() }
+                        Column {
+                            Text("Playing E${request.episode}")
+                            Button(
+                                onClick = { playNext(request.copy(episode = request.episode + 1)) },
+                                modifier = Modifier.focusRequester(next),
+                            ) { Text("Next") }
+                            Button(
+                                onClick = {
+                                    fromPlayer = request.episode
+                                    played = request.episode to request.servers[request.picked]
+                                    back()
+                                },
+                            ) { Text("Leave") }
+                        }
+                    },
+                )
+            }
+        }
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
+        press(Key.DirectionCenter)
+        press(Key.DirectionRight)
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(serverTag(demoSource.id, dubServer.id)).assertIsFocused()
+        press(Key.DirectionCenter)
+        compose.onNodeWithText("Next").assertIsFocused()
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+        compose.onNodeWithText("Playing E2").assertExists()
+        press(Key.DirectionDown)
+        compose.onNodeWithText("Leave").assertIsFocused()
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(DETAILS_STREAMS_CRUMB_TAG).assert(hasText("E2", substring = true))
+        compose.onNodeWithTag(sourceTag(demoSource.id)).assertIsFocused()
+        episode2 = SourceAnswer.Found(listOf(subServer, dubServer))
+        compose.waitForIdle()
+        compose.onNodeWithTag(serverTag(demoSource.id, dubServer.id)).assertIsFocused()
     }
 
     @Test

@@ -26,6 +26,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
@@ -56,6 +57,7 @@ import androidx.tv.material3.Surface
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.playback.FailReason
 import ani.saikou.neo.shared.playback.FoundServer
+import ani.saikou.neo.shared.playback.PlayServer
 import ani.saikou.neo.shared.playback.ServerEdition
 import ani.saikou.neo.shared.playback.ServersState
 import ani.saikou.neo.shared.playback.SourceAnswer
@@ -103,7 +105,8 @@ private const val ROW_FOCUS_SCALE = 1.02f
  * An episode's streams: every installed source on the left, in the order they're installed, with how it's doing, and
  * the servers of the one focused on the right, under All, Sub and Dub. A source that failed can be asked again with
  * [onRetry]. When nothing can play, it says why and offers the next step through [actions]. [title] names the show
- * where a source couldn't find it. Focus stays on the page.
+ * where a source couldn't find it. Focus stays on the page. [played] is the server the player played last for this
+ * episode, which takes focus once it shows.
  */
 @Composable
 internal fun StreamsPage(
@@ -115,6 +118,7 @@ internal fun StreamsPage(
     onRetry: (InstalledSource) -> Unit,
     actions: StreamsActions,
     modifier: Modifier = Modifier,
+    played: PlayServer? = null,
 ) {
     LaunchedEffect(Unit) { actions.onOpen() }
     val page = modifier.keepsArrowsIn()
@@ -122,7 +126,7 @@ internal fun StreamsPage(
         StreamsOutcome.NoSources -> NoSources(episode, actions.onAddSource, page)
         StreamsOutcome.NothingPlays -> NothingPlays(state, title, actions, page)
         is StreamsOutcome.MissingEdition -> MissingEdition(episode, outcome.missing, outcome.have, actions.onBack, page)
-        null -> SourcesAndServers(state, episode, title, onPick, onEdition, onRetry, page)
+        null -> SourcesAndServers(state, episode, title, onPick, onEdition, onRetry, page, played)
     }
 }
 
@@ -140,8 +144,9 @@ private fun SourcesAndServers(
     onEdition: (SubOrDub) -> Unit,
     onRetry: (InstalledSource) -> Unit,
     modifier: Modifier,
+    played: PlayServer?,
 ) {
-    var currentId by rememberSaveable { mutableStateOf<String?>(null) }
+    var currentId by rememberSaveable { mutableStateOf(played?.source?.id) }
     val current = state.sources.firstOrNull { it.source.id == currentId } ?: state.sources.firstOrNull()
     val sourceFocus = remember { mutableMapOf<String, FocusRequester>() }
 
@@ -158,6 +163,23 @@ private fun SourcesAndServers(
         if (!moved && !restoring) current?.let { focusOf(it.source.id).requestFocus() }
     }
     val shown = current?.let { state.groups(it).all }.orEmpty()
+    // Coming back from the player, the server it played takes focus, also once the player had moved on to this episode
+    // and its source is still looking. Until then its source has focus, unless the viewer has moved.
+    var toPlayed by remember(played) { mutableStateOf(played != null) }
+    val playedFocus = remember { FocusRequester() }
+    val playedId = played?.server?.id?.takeIf { played.source.id == current?.source?.id }
+    val playedShown = playedId != null && shown.any { it.id == playedId }
+    LaunchedEffect(playedShown, restoring) {
+        if (!toPlayed || moved || restoring || played == null) return@LaunchedEffect
+        if (playedShown) {
+            // The list lays its rows out a frame after it's composed.
+            withFrameNanos {}
+            playedFocus.requestFocus()
+            toPlayed = false
+        } else {
+            focusOf(played.source.id).requestFocus()
+        }
+    }
     LaunchedEffect(retried, shown.isNotEmpty()) {
         if (retried != null && retried == current?.source?.id && shown.isNotEmpty()) {
             retried = null
@@ -229,6 +251,7 @@ private fun SourcesAndServers(
                     episode,
                     title,
                     panelFocus,
+                    playedId to playedFocus,
                     onPick,
                     onEdition,
                     onRetry = {
@@ -250,6 +273,7 @@ private fun Panel(
     episode: Int,
     title: String,
     first: FocusRequester,
+    played: Pair<String?, FocusRequester>,
     onPick: (InstalledSource, FoundServer) -> Unit,
     onEdition: (SubOrDub) -> Unit,
     onRetry: () -> Unit,
@@ -273,7 +297,7 @@ private fun Panel(
             if (answer.servers.isEmpty()) {
                 Trouble(source.name, stringResource(R.string.streams_no_servers), canRetry = true, first, onRetry)
             } else {
-                Servers(entry, state, episode, title, first, onPick, onEdition)
+                Servers(entry, state, episode, title, first, played, onPick, onEdition)
             }
         }
     }
@@ -316,10 +340,12 @@ private fun Servers(
     episode: Int,
     title: String,
     first: FocusRequester,
+    played: Pair<String?, FocusRequester>,
     onPick: (InstalledSource, FoundServer) -> Unit,
     onEdition: (SubOrDub) -> Unit,
 ) {
     val source = entry.source
+    val (playedId, playedFocus) = played
     val groups = state.groups(entry)
     val firstServer = groups.all.firstOrNull()
     LazyColumn(
@@ -346,7 +372,11 @@ private fun Servers(
             if (state.subOrDub == SubOrDub.BOTH) item(key = "heading-$edition") { GroupHeading(edition, servers.size) }
             items(servers, key = { "server-$edition-${it.id}" }) { server ->
                 // Remembered, so leaving the player comes back to the server played.
-                val tag = Modifier.remembersFocus("${serverTag(source.id, server.id)}-$episode").testTag(serverTag(source.id, server.id))
+                val tag =
+                    Modifier
+                        .remembersFocus("${serverTag(source.id, server.id)}-$episode")
+                        .then(if (server.id == playedId) Modifier.focusRequester(playedFocus) else Modifier)
+                        .testTag(serverTag(source.id, server.id))
                 ServerRow(server, onClick = { onPick(source, server) }, if (server == firstServer) tag.focusRequester(first) else tag)
             }
         }

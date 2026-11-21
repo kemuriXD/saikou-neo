@@ -12,7 +12,6 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -61,6 +60,7 @@ import ani.saikou.neo.shared.pairing.openTvPairing
 import ani.saikou.neo.shared.pairing.thisTv
 import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.NextPlay
+import ani.saikou.neo.shared.playback.PlayServer
 import ani.saikou.neo.shared.playback.PlayerViewModel
 import ani.saikou.neo.shared.playback.ServersViewModel
 import ani.saikou.neo.shared.playback.playRequest
@@ -87,8 +87,10 @@ import ani.saikou.neo.tv.home.SeeMoreScreen
 import ani.saikou.neo.tv.home.displayTitle
 import ani.saikou.neo.tv.player.LookActions
 import ani.saikou.neo.tv.player.Looks
+import ani.saikou.neo.tv.player.OnScreen
 import ani.saikou.neo.tv.player.PlayerActions
 import ani.saikou.neo.tv.player.PlayerScreen
+import ani.saikou.neo.tv.player.PlayersOnScreen
 import ani.saikou.neo.tv.player.Sample
 import ani.saikou.neo.tv.player.StreamVideo
 import ani.saikou.neo.tv.player.rememberExoPlayback
@@ -137,10 +139,10 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         // Opened again after a long time away, the app starts on Home rather than where it was left.
         super.onCreate(absence.restore(savedInstanceState))
-        // AniList updates that couldn't be sent before go now. Only the TV does this, so the phone never opens the queue.
-        // The notice listens from the start, so no change the TV makes goes unsaid (ADR 0056).
+        // AniList updates that couldn't be sent before go now, on every start, restored or not. Only the TV does this, so
+        // the phone never opens the queue. The notice listens from the start, so no change the TV makes goes unsaid (ADR 0056).
         app.notices
-        if (savedInstanceState == null) app.sync.flush()
+        app.sync.flush()
         // Where the system splash shows, it goes with a plain cut to the same lockup in the window background (ADR 0018).
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             splashScreen.setOnExitAnimationListener { it.remove() }
@@ -151,13 +153,15 @@ class MainActivity : ComponentActivity() {
             val settings = app.settings.collectAsStateWithLifecycle().value ?: return@setContent
             // An episode picked in the player, for the Details under it to open as the player goes.
             var episodeFromPlayer by remember { mutableStateOf<Int?>(null) }
+            // The show, episode and server the player played last, for that episode's servers page to focus the server.
+            var played by remember { mutableStateOf<Triple<Int, Int, PlayServer>?>(null) }
             // The AniList account on this TV, for Profile and Settings > Account. Read again once Sign in saves one.
             val account = viewModel { TvAccountViewModel(KeystoreAccountStore(applicationContext)) }
             val profile by account.profile.collectAsStateWithLifecycle()
             // The AniList notice (ADR 0056): Up next shows it in the player, and it shows over every other screen.
             val notice by app.notices.shown.collectAsStateWithLifecycle()
             val noticeActions = remember { NoticeActions(app.notices::undo, app.notices::undoFocused) }
-            var inPlayer by remember { mutableStateOf(false) }
+            val players = remember { PlayersOnScreen(app.notices::playing) }
             val noticeKeys = remember { NoticeKeys() }
             NeoTheme(light = settings.slowTv) {
                 // Every key passes through HeldKeys before it can move focus, and tells the run of episodes someone's
@@ -310,6 +314,7 @@ class MainActivity : ComponentActivity() {
                                                 onOpen = servers::retry,
                                             ),
                                         modifier = modifier,
+                                        played = played?.takeIf { it.first == animeId && it.second == episode }?.third,
                                     )
                                 },
                                 openStreams = episodeFromPlayer,
@@ -456,15 +461,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             val state by player.state.collectAsStateWithLifecycle()
                             // A notice from watching waits while the video is full screen, for Up next or the way out.
-                            val fullScreen = state.upNext == null
-                            LaunchedEffect(fullScreen) { app.notices.playing(fullScreen) }
-                            DisposableEffect(Unit) {
-                                inPlayer = true
-                                onDispose {
-                                    inPlayer = false
-                                    app.notices.playing(fullScreen = false)
-                                }
-                            }
+                            OnScreen(players, fullScreen = state.upNext == null)
                             // On to the next episode, or its servers page when the same server or audio isn't there (ADR 0054).
                             LaunchedEffect(state.going) {
                                 when (val going = state.going) {
@@ -525,7 +522,15 @@ class MainActivity : ComponentActivity() {
                                             back()
                                         }
                                     },
-                                    onLeave = { leaveThen(back) },
+                                    // Back to the servers of the episode playing, which after Up next or Next isn't the one
+                                    // Details opened, with the server playing focused.
+                                    onLeave = {
+                                        leaveThen {
+                                            episodeFromPlayer = request.episode
+                                            played = Triple(request.show.card.id, request.episode, state.server)
+                                            back()
+                                        }
+                                    },
                                     onAnswer = { update ->
                                         if (update == null) player.noAnswer() else player.answer(update)
                                         leaving?.invoke()
@@ -547,7 +552,7 @@ class MainActivity : ComponentActivity() {
                                         app.sourceHost.client,
                                         looks.drawing,
                                         onPlayed = player::played,
-                                        onEnded = { if (player.ended()) leaving = back },
+                                        onEnded = { if (player.ended()) leaveThen(back) },
                                         sample = sample.takeIf { shown.looks },
                                         subtitlesAbove = subtitlesAbove,
                                         online = ::isOnline,
@@ -569,7 +574,7 @@ class MainActivity : ComponentActivity() {
                             )
                         },
                     )
-                    if (!inPlayer) NoticeOverScreens(notice, noticeActions, noticeKeys)
+                    if (!players.inPlayer) NoticeOverScreens(notice, noticeActions, noticeKeys)
                 }
             }
         }
