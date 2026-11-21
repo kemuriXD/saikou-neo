@@ -58,6 +58,13 @@ fun RememberFocus(content: @Composable (FocusMemory) -> Unit) {
     CompositionLocalProvider(LocalFocusMemory provides memory) { content(memory) }
 }
 
+/**
+ * Whether the screen came back with an item to take focus back, so a part of it that would start focus somewhere
+ * should leave it to that item, or to the screen if the item doesn't show.
+ */
+@Composable
+fun restoringFocus(): Boolean = LocalFocusMemory.current?.restoring != null
+
 /** Remembers when this item has focus, as [key], and takes focus back when the screen comes back to it. */
 @Composable
 fun Modifier.remembersFocus(key: String): Modifier {

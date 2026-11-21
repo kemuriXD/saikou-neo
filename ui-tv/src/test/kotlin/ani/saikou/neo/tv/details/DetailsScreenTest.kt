@@ -3,6 +3,7 @@ package ani.saikou.neo.tv.details
 import android.graphics.Color
 import androidx.activity.ComponentActivity
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -558,6 +559,87 @@ class DetailsScreenTest {
         compose.onNodeWithTag(sourceTag(source.id)).assertIsFocused()
         back()
         compose.onNodeWithTag(episodeTag(3)).assertIsFocused()
+    }
+
+    private val demoSource = InstalledSource("com.example.demo", "Demo source", "1.0.0")
+    private val subServer = FoundServer("a", "Demo, Sub", ServerEdition.SUB, 24)
+    private val dubServer = FoundServer("b", "Demo, Dub", ServerEdition.DUB, 24)
+
+    /**
+     * Opens episode 1's servers from Details, plays the Dub server, and leaves the player after [whilePlaying] changes
+     * what's underneath, as an episode that counts does.
+     */
+    private fun playTheDubServerAndLeave(whilePlaying: (MutableState<DetailsState.Loaded>, MutableState<List<FoundServer>>) -> Unit) {
+        val state =
+            mutableStateOf(DetailsState.Loaded(details, episodes = episodeList(details, null, today), aniList = AniListWatched(1, 0)))
+        val servers = mutableStateOf(listOf(subServer, dubServer))
+        compose.setContent {
+            NeoTheme {
+                NeoNavigation(
+                    home = { openDetails, _ -> HomeScreen(loaded, onOpen = openDetails) },
+                    seeMore = { _, _ -> },
+                    details = { _, _, _, _, openPlayer ->
+                        DetailsScreen(
+                            state.value,
+                            streams = { episode, back, modifier ->
+                                StreamsPage(
+                                    ServersState(listOf(SourceServers(demoSource, SourceAnswer.Found(servers.value))), SubOrDub.BOTH),
+                                    episode,
+                                    "Show 7",
+                                    onPick = { _, _ -> openPlayer(PlayRequest(details, episode, null, emptyList(), picked = 0)) },
+                                    onEdition = {},
+                                    onRetry = {},
+                                    actions = StreamsActions(onRetry = {}, onBack = back, onAddSource = {}),
+                                    modifier = modifier,
+                                )
+                            },
+                        )
+                    },
+                    player = { _, back, _ ->
+                        val leave = remember { FocusRequester() }
+                        LaunchedEffect(Unit) { leave.requestFocus() }
+                        Button(
+                            onClick = {
+                                whilePlaying(state, servers)
+                                back()
+                            },
+                            modifier = Modifier.focusRequester(leave),
+                        ) { Text("Leave") }
+                    },
+                )
+            }
+        }
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+        press(Key.DirectionCenter)
+        compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
+        press(Key.DirectionCenter)
+        press(Key.DirectionRight)
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(serverTag(demoSource.id, dubServer.id)).assertIsFocused()
+        press(Key.DirectionCenter)
+        compose.onNodeWithText("Leave").assertIsFocused()
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+    }
+
+    // #464: the episodes stay composed under the servers, and the one picked used to take focus back from them.
+    @Test
+    fun leavingThePlayerFocusesTheServerPlayedEvenWhenTheEpisodeCounted() {
+        playTheDubServerAndLeave { state, _ -> state.value = state.value.copy(aniList = AniListWatched(1, 1)) }
+
+        compose.onNodeWithTag(serverTag(demoSource.id, dubServer.id)).assertIsFocused()
+        press(Key.DirectionUp)
+        compose.onNodeWithTag(serverTag(demoSource.id, subServer.id)).assertIsFocused()
+    }
+
+    @Test
+    fun leavingThePlayerFocusesTheSourceWhenTheServerPlayedIsGone() {
+        playTheDubServerAndLeave { _, servers -> servers.value = listOf(subServer) }
+
+        compose.onNodeWithTag(sourceTag(demoSource.id)).assertIsFocused()
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(serverTag(demoSource.id, subServer.id)).assertIsFocused()
     }
 
     @Test
