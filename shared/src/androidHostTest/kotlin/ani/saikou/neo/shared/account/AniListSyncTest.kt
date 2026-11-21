@@ -904,4 +904,110 @@ class AniListSyncTest {
 
             assertFalse(sync(FakeClient(), MemoryQueue()).undo(notice))
         }
+
+    // Keeps one entry as AniList does, including the rewatch AniList adds itself when Rewatching becomes Completed,
+    // whatever rewatch count the save sends.
+    private class AniListLikeClient(
+        var entry: ListEntry?,
+        private val episodes: Int = 26,
+    ) : ProgressClient {
+        override suspend fun showEntry(
+            token: AniListToken,
+            mediaId: Int,
+        ): AniListResult<ShowEntry> =
+            AniListResult.Success(ShowEntry(episodes, entry, finished = true, title = AnimeTitle("Romaji", null, null)))
+
+        override suspend fun saveProgress(
+            token: AniListToken,
+            mediaId: Int,
+            update: ProgressUpdate,
+        ): AniListResult<Unit> {
+            val was = entry ?: ListEntry(ListStatus.WATCHING, 0, hasStartDate = false, id = 555)
+            save(
+                was.copy(
+                    status = update.status ?: was.status,
+                    progress = update.progress,
+                    repeat = update.repeat ?: was.repeat,
+                    hasStartDate = was.hasStartDate || update.startedAt != null,
+                    hasFinishDate = was.hasFinishDate || update.completedAt != null,
+                ),
+            )
+            return AniListResult.Success(Unit)
+        }
+
+        override suspend fun removeEntry(
+            token: AniListToken,
+            entryId: Int,
+        ): AniListResult<Unit> {
+            entry = null
+            return AniListResult.Success(Unit)
+        }
+
+        override suspend fun restoreEntry(
+            token: AniListToken,
+            mediaId: Int,
+            entry: ListEntry,
+        ): AniListResult<Unit> {
+            save(entry.copy(id = this.entry?.id ?: entry.id))
+            return AniListResult.Success(Unit)
+        }
+
+        private fun save(new: ListEntry) {
+            val finishesRewatch = entry?.status == ListStatus.REWATCHING && new.status == ListStatus.COMPLETED
+            entry = if (finishesRewatch) new.copy(repeat = entry!!.repeat + 1) else new
+        }
+    }
+
+    private suspend fun TestScope.watchAndUndo(
+        client: AniListLikeClient,
+        episode: Int,
+    ): Boolean {
+        val sync = sync(client, MemoryQueue())
+        val told = async { sync.notices.first() }
+        runCurrent()
+        sync.watching(101, episode)
+        runCurrent()
+        return sync.undo(told.await())
+    }
+
+    // ADR 0048: episode 1 of a Completed show starts a rewatch. Undo puts it back to Completed, with its count as it was.
+    @Test
+    fun undoingARewatchStartKeepsTheRewatchCount() =
+        runTest {
+            val completed =
+                ListEntry(
+                    ListStatus.COMPLETED,
+                    26,
+                    hasStartDate = true,
+                    repeat = 0,
+                    hasFinishDate = true,
+                    id = 555,
+                    startedAt = EntryDate(2026, 1, 5),
+                    completedAt = EntryDate(2026, 3, 30),
+                )
+            val client = AniListLikeClient(completed)
+
+            assertTrue(watchAndUndo(client, episode = 1))
+            assertEquals(completed, client.entry)
+        }
+
+    @Test
+    fun undoingAFinishedRewatchKeepsTheRewatchCount() =
+        runTest {
+            val rewatching =
+                ListEntry(
+                    ListStatus.REWATCHING,
+                    25,
+                    hasStartDate = true,
+                    repeat = 1,
+                    hasFinishDate = true,
+                    id = 555,
+                    startedAt = EntryDate(2026, 1, 5),
+                    completedAt = EntryDate(2026, 3, 30),
+                )
+            val client = AniListLikeClient(rewatching)
+
+            assertTrue(watchAndUndo(client, episode = 26))
+            assertEquals(rewatching, client.entry)
+        }
 }

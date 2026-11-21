@@ -229,7 +229,7 @@ public class AniListSync(
                 if (before == null) {
                     now?.id?.let { client.removeEntry(token, it) is AniListResult.Success } ?: true
                 } else {
-                    client.restoreEntry(token, notice.animeId, before) is AniListResult.Success
+                    restore(token, notice.animeId, now, before)
                 }
             if (!putBack) return@once false
             // One still waiting would change it again.
@@ -390,6 +390,20 @@ public class AniListSync(
             answers?.save(forUser, animeId, update)
             if (update) watched(animeId, episode, forUser, title, inPlayer = true)
         }
+    }
+
+    // Puts [animeId]'s entry back from [now] to [before]. AniList adds a rewatch itself when a Rewatching entry becomes
+    // Completed, whatever count the save sends, so then the count is saved again once it's Completed.
+    private suspend fun restore(
+        token: AniListToken,
+        animeId: Int,
+        now: ListEntry?,
+        before: ListEntry,
+    ): Boolean {
+        if (client.restoreEntry(token, animeId, before) !is AniListResult.Success) return false
+        if (now?.status != ListStatus.REWATCHING || before.status != ListStatus.COMPLETED) return true
+        val rewatches = ProgressUpdate(before.progress, null, null, repeat = before.repeat)
+        return client.saveProgress(token, animeId, rewatches) is AniListResult.Success
     }
 
     // Runs in [scope], so it finishes once the screen has gone, after any update ahead of it, while [forUser] is signed in.
