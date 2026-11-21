@@ -107,8 +107,9 @@ public class ListNotices(
                     if (event.at == shownAt && now != null) show(if (event.putBack) null else now.copy(failed = true))
                 }
 
+                // An Undo still running ends it, closing it or saying it couldn't.
                 is Event.Expired -> {
-                    if (event.at == shownAt && !focused) show(null)
+                    if (event.at == shownAt && !focused && !undoing) show(null)
                 }
             }
         }
