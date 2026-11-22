@@ -97,3 +97,12 @@ private fun SubOrDub.shows(edition: ServerEdition): Boolean =
         SubOrDub.SUB -> edition != ServerEdition.DUB
         SubOrDub.DUB -> edition == ServerEdition.DUB
     }
+
+/**
+ * The name to show for a server under [sourceName], or null when [serverName] is blank or only repeats the source's
+ * name, ignoring case and spaces at the ends. Saved choices and comparisons keep using the raw name.
+ */
+public fun shownServerName(
+    serverName: String,
+    sourceName: String,
+): String? = serverName.takeUnless { it.isBlank() || it.trim().equals(sourceName.trim(), ignoreCase = true) }

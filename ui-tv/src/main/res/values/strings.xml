@@ -419,6 +419,7 @@
     <string name="streams_sub">Sub</string>
     <string name="streams_dub">Dub</string>
     <string name="streams_hard_sub">Hard Sub</string>
+    <string name="server_default">Default server</string>
     <!-- A video height on a server row, such as "1080p". -->
     <string name="streams_quality">%1$dp</string>
     <!-- Between a server's qualities and its runtime, as in "1080p · 720p · 24 min". -->
@@ -473,6 +474,7 @@
     <string name="player_server_edition">%1$s, %2$s</string>
     <string name="player_footer">%1$s · %2$s</string>
     <string name="player_footer_code">%1$s · %2$s · error %3$d</string>
+    <string name="player_footer_source_code">%1$s · error %2$d</string>
     <!-- Resuming where this TV stopped (#115). -->
     <string name="player_resume_from">Resume from %1$s</string>
     <string name="player_start_over">Start from the beginning</string>
@@ -486,6 +488,7 @@
     <string name="player_starts_at">Starts at %1$s, where you stopped.</string>
     <!-- The controls over the video: source · server · quality · edition. -->
     <string name="player_stream_line">%1$s · %2$s · %3$dp · %4$s</string>
+    <string name="player_stream_line_source">%1$s · %2$dp · %3$s</string>
     <string name="player_time">%1$s / %2$s</string>
     <string name="player_time_part">%1$s / %2$s · %3$s</string>
     <string name="player_ends">Ends %1$s</string>
