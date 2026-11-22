@@ -275,9 +275,13 @@ internal fun BoxScope.PlayerControls(
                         }
 
                         // Hidden, OK only shows them, so you can see where you are before choosing (#500).
-                        !shown.shown -> controls.show(playback.playing)
+                        !shown.shown -> {
+                            controls.show(playback.playing)
+                        }
 
-                        else -> toggle()
+                        else -> {
+                            toggle()
+                        }
                     }
                 }
                 true
