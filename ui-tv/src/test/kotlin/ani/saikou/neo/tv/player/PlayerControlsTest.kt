@@ -602,22 +602,47 @@ class PlayerControlsTest {
         assertFalse(controlsShown())
     }
 
+    // #500: OK with the controls hidden shows them and the video keeps playing.
     @Test
-    fun okPausesAndShowsTheControlsOnTheBar() {
+    fun okShowsTheControlsOnTheBarWithoutPausing() {
         show()
         press(Key.DirectionCenter)
 
-        assertEquals(listOf("pause"), playback.calls)
+        assertEquals(emptyList<String>(), playback.calls)
+        assertTrue(playback.playing)
         assertTrue(controlsShown())
         compose.onNodeWithTag(PLAYER_BAR_TAG).assertIsFocused()
     }
 
     @Test
-    fun okOnTheBarPlaysAgain() {
+    fun okOnTheBarPausesAndPlaysAgain() {
         show()
         press(Key.DirectionCenter)
         press(Key.DirectionCenter)
+        press(Key.DirectionCenter)
 
+        assertEquals(listOf("pause", "play"), playback.calls)
+    }
+
+    @Test
+    fun okOnPlayPauses() {
+        show()
+        press(Key.DirectionDown)
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(PLAYER_PLAY_PAUSE_TAG).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf("pause"), playback.calls)
+    }
+
+    @Test
+    fun playPauseWorksWithTheControlsHiddenOrShown() {
+        show()
+        press(Key.MediaPlayPause)
+        assertEquals(listOf("pause"), playback.calls)
+        assertTrue(controlsShown())
+
+        press(Key.MediaPlayPause)
         assertEquals(listOf("pause", "play"), playback.calls)
     }
 

@@ -135,7 +135,7 @@ private const val TICK_MS = 250L
 private val VideoKeys = setOf(Key.MediaFastForward, Key.MediaRewind, Key.MediaPlayPause, Key.MediaPlay, Key.MediaPause)
 
 /**
- * The remote's controls over the playing video. Hidden, OK pauses and shows them, Down shows them, and Left or Right
+ * The remote's controls over the playing video. Hidden, OK or Down shows them without pausing, and Left or Right
  * seek 10 s with a slim line. Shown, they sit on the bar. Holding Left or Right picks a spot to jump to: OK jumps there
  * and Back stays. Back hides them. Menu, or a button for it, opens the side panel over the video. Up, from the video
  * or the bar, or the Episodes button, opens the episodes drawer.
@@ -268,11 +268,16 @@ internal fun BoxScope.PlayerControls(
                 if (shown.shown && !onBar && !scrubbing) return false
                 if (event.type == KeyEventType.KeyDown && native.repeatCount == 0) {
                     val target = controls.jump()
-                    if (target != null) {
-                        playback.seekTo(target)
-                        read()
-                    } else {
-                        toggle()
+                    when {
+                        target != null -> {
+                            playback.seekTo(target)
+                            read()
+                        }
+
+                        // Hidden, OK only shows them, so you can see where you are before choosing (#500).
+                        !shown.shown -> controls.show(playback.playing)
+
+                        else -> toggle()
                     }
                 }
                 true
