@@ -79,6 +79,7 @@ import ani.saikou.neo.shared.playback.endsAtMs
 import ani.saikou.neo.shared.playback.formatJump
 import ani.saikou.neo.shared.playback.formatPlaybackTime
 import ani.saikou.neo.shared.playback.formatSpeed
+import ani.saikou.neo.shared.playback.shownServerName
 import ani.saikou.neo.shared.playback.stretches
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.details.editionName
@@ -508,14 +509,24 @@ private fun TopStrip(
                 color = colors.paper,
             )
             val server = state.server
+            val serverName = shownServerName(server.server.name, server.source.name)
             Text(
-                stringResource(
-                    R.string.player_stream_line,
-                    server.source.name,
-                    server.server.name,
-                    state.height(answered),
-                    editionName(server.server.edition),
-                ),
+                if (serverName == null) {
+                    stringResource(
+                        R.string.player_stream_line_source,
+                        server.source.name,
+                        state.height(answered),
+                        editionName(server.server.edition),
+                    )
+                } else {
+                    stringResource(
+                        R.string.player_stream_line,
+                        server.source.name,
+                        serverName,
+                        state.height(answered),
+                        editionName(server.server.edition),
+                    )
+                },
                 style = typography.caption.copy(fontSize = 12.sp, lineHeight = 16.sp),
                 color = colors.textMuted,
             )
