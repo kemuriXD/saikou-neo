@@ -17,7 +17,10 @@ import kotlin.time.Duration.Companion.seconds
 public data class ShownNotice(
     val notice: ListNotice,
     val failed: Boolean = false,
-)
+) {
+    /** Undo shows, unless it has failed or there's nothing to put back. */
+    val canUndo: Boolean get() = !failed && notice.change !is NoticeChange.NotSaved
+}
 
 /**
  * The AniList notice with Undo (ADR 0056), for as long as the app runs, so it outlives the player that made it. One shows
@@ -103,7 +106,7 @@ public class ListNotices(
 
                 Event.Undo -> {
                     val now = showing.value
-                    if (now == null || now.failed || undoing) continue
+                    if (now == null || !now.canUndo || undoing) continue
                     undoing = true
                     val at = shownAt
                     scope.launch { events.send(Event.Undone(at, putBack(now.notice))) }

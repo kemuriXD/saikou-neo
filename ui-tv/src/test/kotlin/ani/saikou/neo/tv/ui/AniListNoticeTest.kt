@@ -157,6 +157,24 @@ class AniListNoticeTest {
         compose.onNodeWithTag("second").assertIsFocused()
     }
 
+    // #512: a mark that went back says it wasn't saved, with nothing to undo.
+    @Test
+    fun aMarkThatWasntSavedSaysSoWithNoUndo() {
+        show()
+        shown.value = notice(NoticeChange.NotSaved(5, watched = true), before = null)
+        compose.waitForIdle()
+
+        compose.onNodeWithText("English · episode 5 not marked watched").assertExists()
+        compose.onNodeWithText("Not saved. AniList changed since, or can\'t be reached").assertExists()
+        compose.onNodeWithTag(NOTICE_UNDO_TAG).assertDoesNotExist()
+        press(Key.DirectionRight)
+        compose.onNodeWithTag("second").assertIsFocused()
+
+        shown.value = notice(NoticeChange.NotSaved(3, watched = false), before = null)
+        compose.waitForIdle()
+        compose.onNodeWithText("English · episode 3 not marked unwatched").assertExists()
+    }
+
     // The app's root Surface stretches its children to the screen; the notice keeps its own size, bottom left.
     @Test
     fun insideTheAppsSurfaceTheNoticeKeepsItsOwnSize() {

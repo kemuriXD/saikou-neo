@@ -10,6 +10,7 @@ import ani.saikou.neo.shared.account.WatchedEpisodes
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AniZipClient
 import ani.saikou.neo.shared.catalogue.AniZipEngine
+import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.catalogue.ArtLibrary
 import ani.saikou.neo.shared.catalogue.ArtSources
 import ani.saikou.neo.shared.catalogue.EpisodeKind
@@ -403,6 +404,7 @@ class DetailsViewModelTest {
         val sent = MutableSharedFlow<ListChange>(extraBufferCapacity = 8)
         override val changes = sent
         val calls = mutableListOf<String>()
+        val titles = mutableListOf<AnimeTitle?>()
 
         override suspend fun entry(animeId: Int) =
             if (signedIn) OnYourList(1, ShowEntry(12, progress?.let { ListEntry(ListStatus.WATCHING, it, true) })) else null
@@ -422,7 +424,9 @@ class DetailsViewModelTest {
             animeId: Int,
             upTo: Int,
             forUser: Int,
+            title: AnimeTitle?,
         ): Boolean {
+            titles += title
             calls += "watched $upTo for $forUser"
             return works
         }
@@ -431,7 +435,9 @@ class DetailsViewModelTest {
             animeId: Int,
             episode: Int,
             forUser: Int,
+            title: AnimeTitle?,
         ): Boolean {
+            titles += title
             calls += "unwatched $episode for $forUser"
             return works
         }
@@ -516,12 +522,14 @@ class DetailsViewModelTest {
             assertEquals(emptyList(), sides.saved)
         }
 
+    // #512: the show's title goes with each mark, so a notice can say which one wasn't saved.
     @Test
     fun aMarkAniListDoesntTakeGoesBack() =
         runTest(main) {
             val sides = RecordedSides()
-            val viewModel = detailsViewModel(sides = sides, marks = FakeMarks(works = false))
-            loaded(viewModel)
+            val marks = FakeMarks(works = false)
+            val viewModel = detailsViewModel(sides = sides, marks = marks)
+            val title = loaded(viewModel).details.card.title
 
             viewModel.markWatched(8)
             advanceUntilIdle()
@@ -530,6 +538,7 @@ class DetailsViewModelTest {
 
             assertEquals(3, assertIs<DetailsState.Loaded>(viewModel.state.value).aniList?.progress)
             assertEquals(emptyList(), sides.saved)
+            assertEquals(listOf<AnimeTitle?>(title, title), marks.titles)
         }
 
     @Test

@@ -851,6 +851,28 @@ class AniListSyncTest {
             assertTrue(told.all { it.before == watching3 && it.title == title && !it.fromWatching })
         }
 
+    // #512: a mark AniList didn't take went back on Details with nothing to say why.
+    @Test
+    fun aMarkThatWasntSavedSaysSo() =
+        runTest {
+            val sync = sync(FakeClient(failWith = AniListError.Network("offline")), MemoryQueue())
+            val told = mutableListOf<ListNotice>()
+            val collecting = launch { sync.notices.collect { told += it } }
+            runCurrent()
+
+            assertFalse(sync.markWatched(101, upTo = 5, forUser = 1, title = title))
+            assertFalse(sync.markUnwatched(101, episode = 3, forUser = 1, title = title))
+            runCurrent()
+            collecting.cancel()
+
+            assertEquals(
+                listOf(NoticeChange.NotSaved(5, watched = true), NoticeChange.NotSaved(3, watched = false)),
+                told.map { it.change },
+            )
+            assertTrue(told.all { it.title == title && it.animeId == 101 && it.userId == 1 && !it.fromWatching })
+            assertFalse(sync.undo(told.first()))
+        }
+
     @Test
     fun undoPutsTheEntryBackAsItWas() =
         runTest {

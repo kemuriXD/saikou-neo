@@ -93,7 +93,7 @@ internal fun BoxScope.UpNextScreen(
     val play = remember { FocusRequester() }
     val undo = remember { FocusRequester() }
     var undoFocused by remember { mutableStateOf(false) }
-    val canUndo = notice != null && !notice.failed
+    val canUndo = notice?.canUndo == true
     LaunchedEffect(Unit) { play.requestFocus() }
     // Undo gone while it had focus, focus goes back to Play. Read as Undo goes, before it loses focus.
     val hadFocus = undoFocused

@@ -135,7 +135,7 @@ internal fun BoxScope.AniListNotice(
         val change = shown.notice.change
         val icon =
             when {
-                shown.failed -> NeoIcons.Warning
+                shown.failed || change is NoticeChange.NotSaved -> NeoIcons.Warning
                 change is NoticeChange.SavedForLater -> NeoIcons.WifiOff
                 else -> NeoIcons.Passed
             }
@@ -150,7 +150,7 @@ internal fun BoxScope.AniListNotice(
             )
             Text(detail, style = typography.caption.copy(fontSize = 12.sp, lineHeight = 16.sp), color = colors.textMuted, maxLines = 1)
         }
-        if (shown.failed) return@Row
+        if (!shown.canUndo) return@Row
         Box(Modifier.width(4.dp))
         val label = stringResource(R.string.notice_undo)
         if (undo != null) {
@@ -208,7 +208,7 @@ internal fun NoticeOverScreens(
     keys: NoticeKeys,
 ) {
     keys.onUndo = actions.onUndo
-    val canUndo = shown != null && !shown.failed
+    val canUndo = shown?.canUndo == true
     LaunchedEffect(shown?.notice, canUndo) { keys.focused = canUndo }
     // Undo showing focused keeps the notice up, as real focus would.
     LaunchedEffect(keys) { snapshotFlow { keys.focused }.collect { actions.onUndoFocused(it) } }
@@ -224,6 +224,12 @@ private fun words(shown: ShownNotice): Pair<String, String> {
     if (shown.failed) return stringResource(R.string.notice_couldnt_undo, show) to stringResource(R.string.notice_couldnt_undo_why)
     val before = notice.before
     return when (val change = notice.change) {
+        // A mark from Details that went back (#512).
+        is NoticeChange.NotSaved -> {
+            val title = if (change.watched) R.string.notice_not_marked_watched else R.string.notice_not_marked_unwatched
+            stringResource(title, show, change.episode) to stringResource(R.string.notice_not_saved_why)
+        }
+
         is NoticeChange.SavedForLater -> {
             stringResource(R.string.notice_saved_for_later, show, change.pending.episode) to
                 stringResource(R.string.notice_sent_when_online)

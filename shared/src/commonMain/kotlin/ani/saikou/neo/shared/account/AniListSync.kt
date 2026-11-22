@@ -58,6 +58,12 @@ public sealed interface NoticeChange {
         val pending: PendingProgress,
         val replaced: PendingProgress?,
     ) : NoticeChange
+
+    /** Marking [episode] [watched] or unwatched from Details wasn't saved, so the marks went back. There's no Undo. */
+    public data class NotSaved(
+        val episode: Int,
+        val watched: Boolean,
+    ) : NoticeChange
 }
 
 /**
@@ -75,11 +81,15 @@ public data class ListNotice(
 
 /** Marking episodes watched or unwatched from Details (ADR 0052), for the user whose entry was read. */
 public interface WatchedEpisodes : YourListEntries {
-    /** Moves the progress to [upTo], as watching it would. False if it wasn't saved, or someone else is signed in. */
+    /**
+     * Moves the progress to [upTo], as watching it would. False if it wasn't saved, or someone else is signed in, and then
+     * a notice names [title].
+     */
     public suspend fun markWatched(
         animeId: Int,
         upTo: Int,
         forUser: Int,
+        title: AnimeTitle? = null,
     ): Boolean
 
     /** Sets the progress to the episode before [episode], and nothing else. */
@@ -87,6 +97,7 @@ public interface WatchedEpisodes : YourListEntries {
         animeId: Int,
         episode: Int,
         forUser: Int,
+        title: AnimeTitle? = null,
     ): Boolean
 }
 
@@ -200,6 +211,7 @@ public class AniListSync(
      */
     public suspend fun undo(notice: ListNotice): Boolean {
         val change = notice.change
+        if (change is NoticeChange.NotSaved) return false
         if (change is NoticeChange.SavedForLater) {
             return failsSafely {
                 if (account()?.profile?.id != notice.userId || settings().privateMode) return@failsSafely false
@@ -316,11 +328,12 @@ public class AniListSync(
         animeId: Int,
         upTo: Int,
         forUser: Int,
+        title: AnimeTitle?,
     ): Boolean =
-        once(forUser) { token ->
-            val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
+        marked(animeId, forUser, title, NoticeChange.NotSaved(upTo, watched = true)) { token ->
+            val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@marked false
             val update = markedUpdate(read.value, upTo, today())
-            if (update != null && client.saveProgress(token, animeId, update) !is AniListResult.Success) return@once false
+            if (update != null && client.saveProgress(token, animeId, update) !is AniListResult.Success) return@marked false
             // One waiting for an episode the mark covers would change nothing.
             if (queue.all().any { it.animeId == animeId && it.userId == forUser && it.episode <= upTo }) queue.remove(animeId)
             val status = update?.status ?: read.value.entry?.status
@@ -337,14 +350,15 @@ public class AniListSync(
         animeId: Int,
         episode: Int,
         forUser: Int,
+        title: AnimeTitle?,
     ): Boolean =
-        once(forUser) { token ->
-            val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@once false
+        marked(animeId, forUser, title, NoticeChange.NotSaved(episode, watched = false)) { token ->
+            val read = client.showEntry(token, animeId) as? AniListResult.Success ?: return@marked false
             // Taken off the list since Details read it, a save would add it back. Moved below the episode since, it would
             // move the progress up.
-            if (read.value.entry == null || read.value.entry.progress < episode) return@once false
+            if (read.value.entry == null || read.value.entry.progress < episode) return@marked false
             val progress = episode - 1
-            if (client.saveProgress(token, animeId, ProgressUpdate(progress, null, null)) !is AniListResult.Success) return@once false
+            if (client.saveProgress(token, animeId, ProgressUpdate(progress, null, null)) !is AniListResult.Success) return@marked false
             // One still waiting would move it forward again.
             if (queue.all().any { it.animeId == animeId && it.userId == forUser }) queue.remove(animeId)
             listChanged(ListChange(animeId, read.value.entry.status, forUser, progress))
@@ -406,6 +420,18 @@ public class AniListSync(
         val rewatches = ProgressUpdate(before.progress, null, null, repeat = before.repeat)
         return client.saveProgress(token, animeId, rewatches) is AniListResult.Success
     }
+
+    // A mark goes back on Details when it isn't saved (ADR 0052), so the notice says why (#512).
+    private suspend fun marked(
+        animeId: Int,
+        forUser: Int,
+        title: AnimeTitle?,
+        notSaved: NoticeChange.NotSaved,
+        work: suspend (AniListToken) -> Boolean,
+    ): Boolean =
+        once(forUser, work).also { saved ->
+            if (!saved) noticed.tryEmit(ListNotice(animeId, forUser, title, notSaved, before = null))
+        }
 
     // Runs in [scope], so it finishes once the screen has gone, after any update ahead of it, while [forUser] is signed in.
     private suspend fun once(
