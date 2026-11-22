@@ -253,6 +253,8 @@ class MainActivity : ComponentActivity() {
                                         zoneOffsetSeconds = TimeZone.getDefault().getOffset(System.currentTimeMillis()) / 1000,
                                         warmSources = app.sourceWarmUp::warm,
                                         asksWhereToPickUp = !settings.privateMode,
+                                        lastServer = app.history.lastServers.map { it[animeId] },
+                                        installed = app.sources.installed,
                                     )
                                 }
                             val state by details.state.collectAsStateWithLifecycle()
@@ -316,6 +318,20 @@ class MainActivity : ComponentActivity() {
                                         modifier = modifier,
                                         played = played?.takeIf { it.first == animeId && it.second == episode }?.third,
                                     )
+                                },
+                                // The episode plays on the show's last server, or its servers open (#499).
+                                onPlay = {
+                                    when (val play = details.play()) {
+                                        is NextPlay.Play -> {
+                                            openPlayer(play.request)
+                                        }
+
+                                        is NextPlay.Choose -> {
+                                            episodeFromPlayer = play.episode
+                                        }
+
+                                        null -> {}
+                                    }
                                 },
                                 openStreams = episodeFromPlayer,
                                 onStreamsOpened = { episodeFromPlayer = null },
@@ -457,6 +473,7 @@ class MainActivity : ComponentActivity() {
                                         updates = app.sync,
                                         servers = app.serverFinder,
                                         run = app.watchingRun,
+                                        lastServers = app.history,
                                     )
                                 }
                             val state by player.state.collectAsStateWithLifecycle()

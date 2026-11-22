@@ -29,6 +29,14 @@ import ani.saikou.neo.shared.home.Logo
 import ani.saikou.neo.shared.home.PickUp
 import ani.saikou.neo.shared.home.PickUpSides
 import ani.saikou.neo.shared.home.WatchProgress
+import ani.saikou.neo.shared.playback.FoundServer
+import ani.saikou.neo.shared.playback.LastServer
+import ani.saikou.neo.shared.playback.NextPlay
+import ani.saikou.neo.shared.playback.PlayRequest
+import ani.saikou.neo.shared.playback.PlayServer
+import ani.saikou.neo.shared.playback.ServerEdition
+import ani.saikou.neo.shared.sources.InstalledSource
+import ani.saikou.neo.shared.sources.SourceProblem
 import com.apollographql.apollo.api.http.HttpRequest
 import com.apollographql.apollo.api.http.HttpResponse
 import com.apollographql.apollo.network.http.HttpEngine
@@ -92,6 +100,8 @@ class DetailsViewModelTest {
         zoneOffsetSeconds: Int = 0,
         warmSources: () -> Unit = {},
         asksWhereToPickUp: Boolean = true,
+        lastServer: LastServer? = null,
+        installed: List<InstalledSource>? = null,
     ) = DetailsViewModel(
         clientFor(engine, main),
         library,
@@ -107,6 +117,8 @@ class DetailsViewModelTest {
         zoneOffsetSeconds = zoneOffsetSeconds,
         warmSources = warmSources,
         asksWhereToPickUp = asksWhereToPickUp,
+        lastServer = flowOf(lastServer),
+        installed = flowOf(installed),
     )
 
     private fun library(
@@ -256,6 +268,130 @@ class DetailsViewModelTest {
 
             assertEquals(listOf(Triple(195516, 3, 1)), sides.moved)
             assertEquals(PickUp.At(here), assertIs<DetailsState.Loaded>(viewModel.state.value).pickUp)
+        }
+
+    private val demo = InstalledSource("com.example.demo", "Demo source", "1.0.0")
+    private val lastDub = LastServer(demo.id, "Server 1", ServerEdition.DUB, audio = "English")
+
+    /** The request Details' main button plays [episode] with on [lastDub], carrying on from [place] (#499). */
+    private fun playing(
+        episode: Int,
+        place: WatchProgress?,
+        loaded: DetailsState.Loaded,
+    ) = NextPlay.Play(
+        PlayRequest(
+            loaded.details,
+            episode,
+            loaded.episodes
+                ?.episodes
+                ?.firstOrNull { it.number == episode }
+                ?.title,
+            listOf(PlayServer(demo, FoundServer("", "Server 1", ServerEdition.DUB, null), 1)),
+            0,
+            loaded.backdrop,
+            loaded.episodes,
+            place,
+            audio = "English",
+            findServer = true,
+            resume = true,
+        ),
+    )
+
+    @Test
+    fun resumePlaysTheEpisodeOnTheShowsLastServer() =
+        runTest(main) {
+            val here = WatchProgress(1, 12.minutes, 24.minutes, null, 300)
+            val viewModel = detailsViewModel(progress = flowOf(here), lastServer = lastDub, installed = listOf(demo))
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.settled())
+
+            assertEquals(playing(1, here, loaded), viewModel.play())
+        }
+
+    @Test
+    fun anEpisodeWatchedToTheEndPlaysTheNextOne() =
+        runTest(main) {
+            val here = WatchProgress(1, 23.minutes, 24.minutes, null, 300)
+            val viewModel = detailsViewModel(progress = flowOf(here), lastServer = lastDub, installed = listOf(demo))
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.settled())
+
+            assertEquals(playing(2, here, loaded), viewModel.play())
+        }
+
+    @Test
+    fun withNoLastServerTheEpisodesServersOpen() =
+        runTest(main) {
+            val viewModel = detailsViewModel(progress = flowOf(WatchProgress(1, 12.minutes, 24.minutes, null)), installed = listOf(demo))
+            viewModel.settled()
+
+            assertEquals(NextPlay.Choose(1), viewModel.play())
+        }
+
+    @Test
+    fun aLastServerWhoseSourceIsGoneOrBrokenOpensTheServers() =
+        runTest(main) {
+            val here = WatchProgress(1, 12.minutes, 24.minutes, null)
+            val gone = detailsViewModel(progress = flowOf(here), lastServer = lastDub, installed = emptyList())
+            val broken =
+                detailsViewModel(
+                    progress = flowOf(here),
+                    lastServer = lastDub,
+                    installed = listOf(demo.copy(problem = SourceProblem.entries.first())),
+                )
+            gone.settled()
+            broken.settled()
+
+            assertEquals(NextPlay.Choose(1), gone.play())
+            assertEquals(NextPlay.Choose(1), broken.play())
+        }
+
+    // Nothing watched yet: Play starts the first episode, on the servers page as no server is known.
+    @Test
+    fun playWithNothingWatchedOpensTheFirstEpisodesServers() =
+        runTest(main) {
+            val viewModel = detailsViewModel(installed = listOf(demo))
+            viewModel.settled()
+
+            assertEquals(NextPlay.Choose(1), viewModel.play())
+        }
+
+    @Test
+    fun afterPickingAniListItsPlacePlays() =
+        runTest(main) {
+            val here = WatchProgress(1, 12.minutes, 24.minutes, null, 300)
+            val viewModel =
+                detailsViewModel(
+                    progress = flowOf(here),
+                    listed = ListedProgress(195516, 2, 500, 24),
+                    sides = RecordedSides(),
+                    lastServer = lastDub,
+                    installed = listOf(demo),
+                )
+            val asked = assertIs<PickUp.Ask>(assertIs<DetailsState.Loaded>(viewModel.settled()).pickUp)
+
+            viewModel.keepAniList()
+
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.state.value)
+            assertEquals(playing(3, asked.aniList, loaded), viewModel.play())
+        }
+
+    @Test
+    fun afterPickingThisTvItsPlacePlays() =
+        runTest(main) {
+            val here = WatchProgress(3, 12.minutes, 24.minutes, null, 300)
+            val viewModel =
+                detailsViewModel(
+                    progress = flowOf(here),
+                    listed = ListedProgress(195516, 1, 500, 24),
+                    sides = RecordedSides(),
+                    lastServer = lastDub,
+                    installed = listOf(demo),
+                )
+            assertIs<PickUp.Ask>(assertIs<DetailsState.Loaded>(viewModel.settled()).pickUp)
+
+            viewModel.keepThisTv()
+
+            val loaded = assertIs<DetailsState.Loaded>(viewModel.state.value)
+            assertEquals(playing(3, here, loaded), viewModel.play())
         }
 
     // The signed-in user's entry for the show, or none signed out.

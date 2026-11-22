@@ -22,11 +22,19 @@ import ani.saikou.neo.shared.home.airedEpisodes
 import ani.saikou.neo.shared.home.pickUp
 import ani.saikou.neo.shared.home.picksUpAt
 import ani.saikou.neo.shared.home.upNext
+import ani.saikou.neo.shared.playback.FoundServer
+import ani.saikou.neo.shared.playback.LastServer
+import ani.saikou.neo.shared.playback.NextPlay
+import ani.saikou.neo.shared.playback.PlayRequest
+import ani.saikou.neo.shared.playback.PlayServer
+import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -96,6 +104,7 @@ public data class AniListWatched(
  * MAL's filler and recap episodes join the list when MAL answers.
  * [progress] is how far this TV got in the show, if anywhere, and again each time the player saves more.
  * Opening it calls [warmSources], so the sources' sites are ready by the time an episode is played.
+ * The main button plays on the show's [lastServer], while its source is among those [installed] and usable (#499).
  */
 public class DetailsViewModel(
     private val client: AniListClient,
@@ -112,9 +121,19 @@ public class DetailsViewModel(
     private val zoneOffsetSeconds: Int = 0,
     warmSources: () -> Unit = {},
     private val asksWhereToPickUp: Boolean = true,
+    lastServer: Flow<LastServer?> = flowOf(null),
+    installed: Flow<List<InstalledSource>?> = flowOf(null),
 ) : ViewModel() {
     private val mutableState = MutableStateFlow<DetailsState>(DetailsState.Loading)
     public val state: StateFlow<DetailsState> = mutableState.asStateFlow()
+
+    // The show's last server, standing in until its source names it for the episode, with the audio it played.
+    private val playsOn =
+        combine(lastServer, installed) { last, sources ->
+            last ?: return@combine null
+            val source = sources?.firstOrNull { it.id == last.sourceId && it.problem == null } ?: return@combine null
+            PlayServer(source, FoundServer("", last.name, last.edition, null), 1) to last.audio
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     init {
         warmSources()
@@ -197,6 +216,37 @@ public class DetailsViewModel(
             val shown = art.await()
             mutableState.update { (it as DetailsState.Loaded).withArt(shown, logo = Logo.None) }
         }
+    }
+
+    /**
+     * What the main button does: play the episode it names on the show's last server, from where this TV stopped, or
+     * open that episode's servers page when there's no server to play on (#499). After "where to pick up", it's the
+     * place picked.
+     */
+    public fun play(): NextPlay? {
+        val loaded = state.value as? DetailsState.Loaded ?: return null
+        val episode = loaded.upNext?.episode ?: loaded.episodes?.nextToWatch(null) ?: 1
+        val (server, audio) = playsOn.value ?: return NextPlay.Choose(episode)
+        val title =
+            loaded.episodes
+                ?.episodes
+                ?.firstOrNull { it.number == episode }
+                ?.title
+        return NextPlay.Play(
+            PlayRequest(
+                loaded.details,
+                episode,
+                title,
+                listOf(server),
+                0,
+                loaded.backdrop,
+                loaded.episodes,
+                loaded.place,
+                audio = audio,
+                findServer = true,
+                resume = true,
+            ),
+        )
     }
 
     /** AniList's place was picked: this TV carries on there. */

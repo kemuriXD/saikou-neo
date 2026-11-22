@@ -222,6 +222,13 @@ class DetailsScreenTest {
     }
 
     // Keys sent together arrive before the screen redraws, as when the remote is quick.
+
+    /** From the main button, to Episodes beside it and into the list. The main button plays (#499). */
+    private fun toTheEpisodes() {
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+    }
+
     private fun pressQuickly(keys: List<Key>) = compose.onRoot().performKeyInput { keys.forEach { pressKey(it) } }
 
     // Down straight after moving to a tab never lands in the section it's leaving, which would then vanish.
@@ -244,12 +251,12 @@ class DetailsScreenTest {
             .fetchSemanticsNodes()
             .firstNotNullOfOrNull { it.config.getOrNull(SemanticsProperties.TestTag) }
 
-    // Down straight after the main button goes towards the episodes it chose, not back to the Overview.
+    // Down straight after Episodes goes towards the episodes it chose, not back to the Overview.
     @Test
-    fun quickDownAfterTheMainButtonStaysWithTheEpisodes() {
+    fun quickDownAfterTheEpisodesButtonStaysWithTheEpisodes() {
         show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today)))
 
-        pressQuickly(listOf(Key.DirectionCenter, Key.DirectionDown, Key.DirectionDown))
+        pressQuickly(listOf(Key.DirectionRight, Key.DirectionCenter, Key.DirectionDown, Key.DirectionDown))
         compose.waitForIdle()
 
         compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertIsSelected()
@@ -486,7 +493,7 @@ class DetailsScreenTest {
             }
         }
         compose.waitForIdle()
-        press(Key.DirectionCenter)
+        toTheEpisodes()
         compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
 
         fromPlayer = 20
@@ -546,7 +553,7 @@ class DetailsScreenTest {
         }
         press(Key.DirectionCenter)
         compose.waitForIdle()
-        press(Key.DirectionCenter)
+        toTheEpisodes()
         compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
         press(Key.DirectionCenter)
         compose.onNodeWithTag(sourceTag(source.id)).assertIsFocused()
@@ -613,7 +620,7 @@ class DetailsScreenTest {
         }
         press(Key.DirectionCenter)
         compose.waitForIdle()
-        press(Key.DirectionCenter)
+        toTheEpisodes()
         compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
         press(Key.DirectionCenter)
         press(Key.DirectionRight)
@@ -646,19 +653,19 @@ class DetailsScreenTest {
 
     // #480: the list opened before this TV's place was read, on 1–12, and Resume E25 landed on the ranges instead.
     @Test
-    fun theMainButtonOpensTheRangeWithTheNextEpisode() {
+    fun theEpisodesButtonOpensTheRangeWithTheNextEpisode() {
         val long = details.copy(card = details.card.copy(episodes = 64))
         var state by mutableStateOf(DetailsState.Loaded(long, episodes = episodeList(long, null, today)))
         compose.setContent { NeoTheme { DetailsScreen(state) } }
         compose.waitForIdle()
-        press(Key.DirectionCenter)
+        toTheEpisodes()
         compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
         back()
 
         state = state.copy(progress = WatchProgress(25, 2.minutes, 24.minutes, null))
         compose.waitForIdle()
         compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused()
-        press(Key.DirectionCenter)
+        toTheEpisodes()
         compose.waitForIdle()
 
         compose.onNodeWithTag(episodeTag(25)).assertIsFocused()
@@ -724,7 +731,7 @@ class DetailsScreenTest {
         }
         press(Key.DirectionCenter)
         compose.waitForIdle()
-        press(Key.DirectionCenter)
+        toTheEpisodes()
         compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
         press(Key.DirectionCenter)
         press(Key.DirectionRight)
@@ -756,11 +763,52 @@ class DetailsScreenTest {
         compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertIsFocused()
     }
 
+    // #499: Resume and Play play the episode they name, and Details stays as it is underneath.
     @Test
-    fun theMainButtonGoesToTheEpisodes() {
-        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today)))
+    fun theMainButtonPlays() {
+        var played = 0
+        val state = DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today))
+        compose.setContent { NeoTheme { DetailsScreen(state, onPlay = { played++ }) } }
 
         press(Key.DirectionCenter)
+
+        assertEquals(1, played)
+        compose.onNodeWithTag(DETAILS_MAIN_BUTTON_TAG).assertIsFocused()
+        compose.onNodeWithTag(DETAILS_OVERVIEW_TAB_TAG).assertIsSelected()
+    }
+
+    // Without a server to play on, the episode's servers open on the lifted page, and Back finds it in the list.
+    @Test
+    fun theMainButtonsEpisodeServersOpenOnTheLiftedPage() {
+        var servers by mutableStateOf<Int?>(null)
+        val progress = WatchProgress(9, 12.minutes, 24.minutes, null)
+        val state = DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today), progress = progress)
+        compose.setContent {
+            NeoTheme {
+                DetailsScreen(
+                    state,
+                    streams = { episode, _, _ -> Text("Streams for $episode") },
+                    openStreams = servers,
+                    onStreamsOpened = { servers = null },
+                    onPlay = { servers = 9 },
+                )
+            }
+        }
+
+        press(Key.DirectionCenter)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(DETAILS_STREAMS_CRUMB_TAG).assertTopPositionInRootIsEqualTo(76.dp)
+        compose.onNodeWithText("Streams for 9").assertIsDisplayed()
+        back()
+        compose.onNodeWithTag(episodeTag(9)).assertIsFocused()
+    }
+
+    @Test
+    fun theEpisodesButtonLiftsThePageOntoTheEpisodes() {
+        show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today)))
+
+        toTheEpisodes()
 
         compose.onNodeWithTag(detailsTabTag(DetailsSection.EPISODES)).assertIsSelected()
         compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
@@ -815,11 +863,11 @@ class DetailsScreenTest {
     }
 
     @Test
-    fun theMainButtonLandsOnTheEpisodeInProgress() {
+    fun theEpisodesButtonLandsOnTheEpisodeInProgress() {
         val progress = WatchProgress(9, 12.minutes, 24.minutes, null)
         show(DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today), progress = progress))
 
-        press(Key.DirectionCenter)
+        toTheEpisodes()
 
         compose.onNodeWithTag(episodeTag(9)).assertIsFocused()
     }
@@ -859,27 +907,46 @@ class DetailsScreenTest {
         assertEquals(0, picked)
     }
 
+    // #499: the place picked plays once it's said which it was.
     @Test
-    fun pickingAPlaceSaysWhichAndGoesToTheEpisodes() {
-        var keptThisTv = false
-        compose.setContent { NeoTheme { DetailsScreen(disagreeing, onKeepThisTv = { keptThisTv = true }) } }
+    fun pickingThisTvSaysSoThenPlaysIt() {
+        val calls = mutableListOf<String>()
+        compose.setContent {
+            NeoTheme { DetailsScreen(disagreeing, onKeepThisTv = { calls += "this TV" }, onPlay = { calls += "play" }) }
+        }
         press(Key.DirectionCenter)
 
         press(Key.DirectionRight)
         press(Key.DirectionCenter)
 
-        assertTrue(keptThisTv)
+        assertEquals(listOf("this TV", "play"), calls)
         compose.onNodeWithTag(PICK_UP_TAG).assertDoesNotExist()
-        compose.onNodeWithTag(episodeTag(3)).assertIsFocused()
+    }
+
+    @Test
+    fun pickingAniListSaysSoThenPlaysIt() {
+        val calls = mutableListOf<String>()
+        compose.setContent {
+            NeoTheme { DetailsScreen(disagreeing, onKeepAniList = { calls += "AniList" }, onPlay = { calls += "play" }) }
+        }
+        press(Key.DirectionCenter)
+
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf("AniList", "play"), calls)
     }
 
     @Test
     fun aniListFurtherOnWithNothingPartWatchedHereDoesntAsk() {
-        show(disagreeing.copy(progress = WatchProgress(3, 23.minutes, 24.minutes, null)))
+        var played = 0
+        val state = disagreeing.copy(progress = WatchProgress(3, 23.minutes, 24.minutes, null))
+        compose.setContent { NeoTheme { DetailsScreen(state, onPlay = { played++ }) } }
 
         press(Key.DirectionCenter)
-
         compose.onNodeWithTag(PICK_UP_TAG).assertDoesNotExist()
+        assertEquals(1, played)
+
+        toTheEpisodes()
         // AniList keeps no position, so episode 8 isn't marked as begun on this TV.
         compose.onNodeWithTag(episodeTag(8)).assertIsFocused().assert(!hasText("Position saved on this TV", substring = true))
         compose.onNodeWithTag(episodeTag(7)).assert(hasText("Watched"))
@@ -1138,7 +1205,7 @@ class DetailsScreenTest {
     @Test
     fun focusStaysOnTheEpisodeAfterRecreation() {
         recreate(DetailsState.Loaded(details, episodes = episodeList(details, null, today))) {
-            press(Key.DirectionCenter)
+            toTheEpisodes()
             press(Key.DirectionDown)
             press(Key.DirectionDown)
             compose.onNodeWithTag(episodeTag(3)).assertIsFocused()
@@ -1819,8 +1886,8 @@ class DetailsScreenTest {
     ) {
         val loaded = DetailsState.Loaded(details, episodes = episodeList(details, deathNote, today), aniList = aniList)
         compose.setContent { NeoTheme { DetailsScreen(loaded, onMark = onMark) } }
-        // The main button goes to the first episode.
-        press(Key.DirectionCenter)
+        // Episodes goes to the first one.
+        toTheEpisodes()
     }
 
     // ADR 0052: signed in, the marks come from AniList's progress, and a hint says how to change them.

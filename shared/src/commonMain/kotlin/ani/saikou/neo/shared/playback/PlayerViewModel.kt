@@ -65,6 +65,10 @@ public data class PlayServer(
  * [backdrop] is the artwork Details showed, if it had any. The [episodes] Details listed, and the [progress] it showed
  * them with, fill the player's episodes drawer. Going on from the episode before, [audio] is the separate audio track it
  * played, which this one plays too.
+ *
+ * From Details' main button (#499), [findServer] says the one server listed is the show's last, standing in until its
+ * source names the server of the same name and edition for this episode. [resume] says Resume was already pressed, so
+ * the player carries on from [progress] without asking.
  */
 public data class PlayRequest(
     val show: AnimeDetails,
@@ -76,6 +80,8 @@ public data class PlayRequest(
     val episodes: EpisodeList? = null,
     val progress: WatchProgress? = null,
     val audio: String? = null,
+    val findServer: Boolean = false,
+    val resume: Boolean = false,
 ) {
     /** The artwork behind the player while it starts: the one Details showed, or else the show's banner or cover. */
     val art: String? get() = backdrop ?: show.card.art
@@ -178,7 +184,8 @@ public data class PlayerState<out S>(
  * watched, or the viewer moves on to the next one, [updates] is told, once, unless it asks first. Then the episode is
  * held, and the question is asked as the viewer leaves, or over Up next. Going on to the next episode asks [servers] for
  * it on the same source (ADR 0054). After a [run] of episodes with no button pressed, Up next asks instead of counting
- * down (ADR 0055).
+ * down (ADR 0055). The server and audio that start playing are kept in [lastServers], for Details' main button to play
+ * on next time (#499).
  */
 public class PlayerViewModel<S>(
     private val finder: StreamFinder<S>,
@@ -189,7 +196,11 @@ public class PlayerViewModel<S>(
     private val updates: WatchingUpdates? = null,
     private val servers: ServerFinder? = null,
     private val run: WatchingRun? = null,
+    private val lastServers: LastServers? = null,
 ) : ViewModel() {
+    // The servers to play, which a request to find the show's last server replaces once its source names it.
+    private var listed = request.servers
+
     private var index = request.picked
     private var triedNext = false
     private var refreshed = false
@@ -230,14 +241,40 @@ public class PlayerViewModel<S>(
         MutableStateFlow(
             PlayerState<S>(
                 request.servers[index],
-                resumeAt?.let { PlayerPhase.Resume(it) } ?: PlayerPhase.Starting(null),
+                resumeAt?.takeIf { !request.resume }?.let { PlayerPhase.Resume(it) } ?: PlayerPhase.Starting(null),
                 next = request.nextEpisode(),
             ),
         )
     public val state: StateFlow<PlayerState<S>> = mutableState.asStateFlow()
 
     init {
-        if (resumeAt == null) open(index, startAtMs = 0)
+        when {
+            request.findServer -> findServer()
+            resumeAt == null || request.resume -> open(index, startAtMs = resumeAt ?: 0)
+        }
+    }
+
+    // Asks the last server's source for this episode, as Up next does, and plays the same server, or else the
+    // episode's servers page opens (#499).
+    private fun findServer() {
+        val wanted = request.servers[index]
+        val finder = servers ?: return mutableState.update { it.copy(going = NextPlay.Choose(request.episode)) }
+        viewModelScope.launch {
+            val found =
+                withTimeoutOrNull(answerWithin) {
+                    try {
+                        finder.servers(wanted.source, request.show, request.episode)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        null
+                    }
+                }
+            val same = found?.firstOrNull { it.name == wanted.server.name && it.edition == wanted.server.edition }
+            if (same == null) return@launch mutableState.update { it.copy(going = NextPlay.Choose(request.episode)) }
+            listed = listOf(PlayServer(wanted.source, same, found.size))
+            open(0, startAtMs = resumeAt ?: 0)
+        }
     }
 
     /** Carries on from where this TV stopped. */
@@ -419,6 +456,9 @@ public class PlayerViewModel<S>(
     public fun started() {
         val answered = (state.value.phase as? PlayerPhase.Starting)?.answered ?: return
         mutableState.update { it.copy(phase = PlayerPhase.Playing(answered)) }
+        val server = state.value.server
+        val audio = answered.audio.getOrNull(state.value.pickedAudio)
+        lastServers?.saveServer(request.show.card.id, LastServer(server.source.id, server.server.name, server.server.edition, audio))
     }
 
     /** The player stopped with [error] at [positionMs]. */
@@ -492,7 +532,7 @@ public class PlayerViewModel<S>(
         positionMs: Long,
     ) {
         if (state.value.phase !is PlayerPhase.Playing || server == state.value.server) return
-        val at = request.servers.indexOf(server)
+        val at = listed.indexOf(server)
         if (at >= 0) open(at, positionMs)
     }
 
@@ -512,8 +552,8 @@ public class PlayerViewModel<S>(
     ) {
         index = at
         refreshed = false
-        val server = request.servers[at]
-        val willTryNext = !triedNext && request.servers.getOrNull(at + 1) != null
+        val server = listed[at]
+        val willTryNext = !triedNext && listed.getOrNull(at + 1) != null
         mutableState.update {
             it.copy(
                 server = server,
@@ -572,7 +612,7 @@ public class PlayerViewModel<S>(
         atMs: Long? = state.value.startAtMs.takeIf { it > 0 },
     ) {
         val current = state.value
-        val next = request.servers.getOrNull(index + 1)
+        val next = listed.getOrNull(index + 1)
         val starting = (current.phase as? PlayerPhase.Starting<*>)?.quiet == false
         if (starting && current.willTryNext) {
             triedNext = true

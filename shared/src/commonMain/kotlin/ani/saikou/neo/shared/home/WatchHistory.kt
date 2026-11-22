@@ -5,6 +5,9 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
+import ani.saikou.neo.shared.playback.LastServer
+import ani.saikou.neo.shared.playback.LastServers
+import ani.saikou.neo.shared.playback.ServerEdition
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -14,6 +17,11 @@ import okio.Path.Companion.toPath
 import kotlin.time.Duration.Companion.milliseconds
 
 private const val PREFIX = "progress_"
+private const val SERVER_PREFIX = "server_"
+
+// Between a last server's fields. Names come from sources, so it's a character none would use.
+private const val SERVER_SEPARATOR = "\u001F"
+private const val SERVER_FIELDS = 4
 private const val SEPARATOR = ";"
 private const val FIELDS = 5
 
@@ -29,19 +37,21 @@ public interface WatchHistory {
 }
 
 /**
- * Keeps [WatchHistory] in a file, so it's there after the app restarts. Saves are written in [scope] in the order
+ * Keeps [WatchHistory], and the [LastServers] beside it, in a file, so they're there after the app restarts. Saves are written in [scope] in the order
  * they're made. Only one store may have a file open at a time, so the app makes one and shares it.
  */
 public class WatchHistoryStore private constructor(
     private val dataStore: DataStore<Preferences>,
     scope: CoroutineScope,
-) : WatchHistory {
-    private val saves = Channel<Pair<Int, WatchProgress>>(Channel.UNLIMITED)
+) : WatchHistory,
+    LastServers {
+    // Written in the order they're made, a progress or a server.
+    private val saves = Channel<Pair<String, String>>(Channel.UNLIMITED)
 
     init {
         scope.launch {
-            for ((animeId, progress) in saves) {
-                dataStore.edit { it[stringPreferencesKey("$PREFIX$animeId")] = progress.encode() }
+            for ((key, value) in saves) {
+                dataStore.edit { it[stringPreferencesKey(key)] = value }
             }
         }
     }
@@ -52,8 +62,21 @@ public class WatchHistoryStore private constructor(
                 .asMap()
                 .entries
                 .mapNotNull { (key, value) ->
+                    if (!key.name.startsWith(PREFIX)) return@mapNotNull null
                     val animeId = key.name.removePrefix(PREFIX).toIntOrNull() ?: return@mapNotNull null
                     (value as? String)?.decode()?.let { animeId to it }
+                }.toMap()
+        }
+
+    override val lastServers: Flow<Map<Int, LastServer>> =
+        dataStore.data.map { saved ->
+            saved
+                .asMap()
+                .entries
+                .mapNotNull { (key, value) ->
+                    if (!key.name.startsWith(SERVER_PREFIX)) return@mapNotNull null
+                    val animeId = key.name.removePrefix(SERVER_PREFIX).toIntOrNull() ?: return@mapNotNull null
+                    (value as? String)?.decodeServer()?.let { animeId to it }
                 }.toMap()
         }
 
@@ -61,7 +84,14 @@ public class WatchHistoryStore private constructor(
         animeId: Int,
         progress: WatchProgress,
     ) {
-        saves.trySend(animeId to progress)
+        saves.trySend("$PREFIX$animeId" to progress.encode())
+    }
+
+    override fun saveServer(
+        animeId: Int,
+        server: LastServer,
+    ) {
+        saves.trySend("$SERVER_PREFIX$animeId" to server.encode())
     }
 
     public companion object {
@@ -86,5 +116,18 @@ private fun String.decode(): WatchProgress? {
         length = (fields[2].toLongOrNull() ?: return null).milliseconds,
         still = fields[4].ifEmpty { null },
         savedAt = fields[3].toLongOrNull(),
+    )
+}
+
+private fun LastServer.encode() = listOf(sourceId, edition.name, audio ?: "", name).joinToString(SERVER_SEPARATOR)
+
+private fun String.decodeServer(): LastServer? {
+    val fields = split(SERVER_SEPARATOR, limit = SERVER_FIELDS)
+    if (fields.size != SERVER_FIELDS) return null
+    return LastServer(
+        sourceId = fields[0],
+        name = fields[3],
+        edition = ServerEdition.entries.firstOrNull { it.name == fields[1] } ?: return null,
+        audio = fields[2].ifEmpty { null },
     )
 }
