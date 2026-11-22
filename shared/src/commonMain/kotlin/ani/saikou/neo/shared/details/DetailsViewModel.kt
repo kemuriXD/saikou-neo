@@ -278,13 +278,19 @@ public class DetailsViewModel(
         watched: Boolean,
     ) {
         val marks = marks ?: return
-        val before = (state.value as? DetailsState.Loaded)?.aniList ?: return
+        val loaded = state.value as? DetailsState.Loaded ?: return
+        val before = loaded.aniList ?: return
+        val title = loaded.details.card.title
         if (watched == (episode <= before.progress)) return
         val to = if (watched) episode else episode - 1
         mutableState.update { (it as? DetailsState.Loaded)?.withAniList(to) ?: it }
         viewModelScope.launch {
             val sent =
-                if (watched) marks.markWatched(animeId, episode, before.userId) else marks.markUnwatched(animeId, episode, before.userId)
+                if (watched) {
+                    marks.markWatched(animeId, episode, before.userId, title)
+                } else {
+                    marks.markUnwatched(animeId, episode, before.userId, title)
+                }
             if (!sent) {
                 // Unless another mark has shown since.
                 mutableState.update {

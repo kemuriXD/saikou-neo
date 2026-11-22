@@ -787,6 +787,10 @@
     <string name="notice_wasnt_on_your_list">It wasn\'t on your list</string>
     <string name="notice_couldnt_undo">Couldn\'t undo %1$s</string>
     <string name="notice_couldnt_undo_why">AniList changed since, or can\'t be reached</string>
+    <!-- A mark from Details that AniList didn't take, so it went back (#512). %2$d is the episode. -->
+    <string name="notice_not_marked_watched" tools:ignore="PluralsCandidate">%1$s · episode %2$d not marked watched</string>
+    <string name="notice_not_marked_unwatched" tools:ignore="PluralsCandidate">%1$s · episode %2$d not marked unwatched</string>
+    <string name="notice_not_saved_why">Not saved. AniList changed since, or can\'t be reached</string>
     <!-- Stands in for the show's name when AniList didn't give one. -->
     <string name="notice_this_show">This show</string>
     <string name="notice_undo">Undo</string>

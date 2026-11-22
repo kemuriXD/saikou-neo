@@ -9,6 +9,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
 
 // ADR 0056: one notice at a time, for 8 s, held while the player is full screen.
@@ -143,6 +144,24 @@ class ListNoticesTest {
             runCurrent()
 
             assertEquals(listOf(marked), undone)
+            assertNull(notices.shown.value)
+        }
+
+    // #512: there's nothing to put back for a mark that wasn't saved.
+    @Test
+    fun aMarkThatWasntSavedHasNoUndo() =
+        runTest {
+            val notices = notices()
+            val notSaved = marked.copy(change = NoticeChange.NotSaved(4, watched = true))
+
+            tell(notSaved)
+            notices.undo()
+            runCurrent()
+
+            assertEquals(emptyList(), undone)
+            assertEquals(ShownNotice(notSaved), notices.shown.value)
+            assertFalse(notices.shown.value!!.canUndo)
+            advanceTimeBy(8_001)
             assertNull(notices.shown.value)
         }
 
