@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.pluralStringResource
@@ -294,6 +295,13 @@ private fun DetailsPage(
     LaunchedEffect(streamsFor) { if (streamsFor == null && picked != null) pickedFocus.requestFocus() }
     val dimensions = NeoTheme.dimensions
     val overviewLift = loaded?.let { overviewLift(it) } ?: 0.dp
+    // Lifted, a section has the rest of the screen under the tabs.
+    val screenHeight =
+        with(LocalDensity.current) {
+            LocalWindowInfo.current.containerSize.height
+                .toDp()
+        }
+    val sectionRoom = (screenHeight - (OverviewTop - overviewLift) - TabsAboveSection).coerceAtLeast(0.dp)
     val lift by animateDpAsState(
         targetValue = if (lifted) -overviewLift else 0.dp,
         animationSpec = tween(dimensions.durationBackdropMillis, easing = dimensions.easeStandard),
@@ -381,6 +389,7 @@ private fun DetailsPage(
                                         backdrop = state.backdrop,
                                         progress = state.place,
                                         nextFocus = nextEpisodeFocus,
+                                        height = sectionRoom,
                                         modifier = Modifier.focusRequester(episodesFocus),
                                         onPick = { episode ->
                                             if (streams != null) {

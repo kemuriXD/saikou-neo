@@ -21,12 +21,17 @@ import androidx.compose.ui.unit.dp
 import ani.saikou.neo.shared.details.DetailsSection
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.ui.NeoSectionTab
+import ani.saikou.neo.tv.ui.SectionTabHeight
 import ani.saikou.neo.tv.ui.remembersFocus
 
 internal fun detailsTabTag(section: DetailsSection) = "details-tab-${section.name.lowercase()}"
 
-// From the design: 28 dp between the tabs' labels.
+// From the design: 28 dp between the tabs' labels, and the section 10 dp under them.
 private val TabGap = 28.dp
+private val SectionGap = 10.dp
+
+/** How far below the top of the tabs a section starts. */
+internal val TabsAboveSection = SectionTabHeight + SectionGap
 
 private val sectionNames =
     mapOf(
@@ -55,7 +60,7 @@ internal fun DetailsSections(
 ) {
     val tabs = remember { DetailsSection.entries.associateWith { FocusRequester() } }
     val shown = selected()
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(SectionGap)) {
         Row(
             Modifier
                 .focusProperties {
