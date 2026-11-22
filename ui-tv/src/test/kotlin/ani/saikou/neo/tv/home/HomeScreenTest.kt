@@ -501,6 +501,21 @@ class HomeScreenTest {
     }
 
     @Test
+    @GraphicsMode(GraphicsMode.Mode.NATIVE)
+    fun theNextRowsHeadingDoesNotPeekInAtTheBottom() {
+        show(continuing)
+
+        enterRows()
+
+        // Three whole rows fill the screen. Popular's heading starts at 534 dp, so none of it shows in the last 6 dp (#503).
+        compose.onNodeWithText("Popular").assertTopPositionInRootIsEqualTo(534.dp)
+        val screen = compose.onRoot().captureToImage().toPixelMap()
+        val strip = screen.height * 534 / 540 until screen.height
+        val lit = (0 until screen.width).sumOf { x -> strip.count { y -> screen[x, y].let { it.red + it.green + it.blue } > 1.5f } }
+        assertEquals(0, lit)
+    }
+
+    @Test
     fun upFromTheFirstRowBringsTheSpotlightBack() {
         show()
 
