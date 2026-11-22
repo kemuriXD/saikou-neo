@@ -40,12 +40,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshots.SnapshotStateMap
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
@@ -145,6 +147,10 @@ private val RowGap = 24.dp
 
 // Room below the last row's cards, which end at 510 dp: 540 - 30 - 3 * (34 + 110) - 2 * 24.
 private val LastRowRoom = 30.dp
+
+// The next row's heading starts 24 dp below the cards, at 534 dp, so the list stops drawing there rather than show
+// the top of it at the screen's edge (#503). The focused card's glow still fits above it.
+private val HiddenBelowRows = LastRowRoom - RowGap
 private const val ROWS_ON_SCREEN = 3
 
 private val FullLine = LineHeightStyle(LineHeightStyle.Alignment.Center, LineHeightStyle.Trim.None)
@@ -303,6 +309,7 @@ fun HomeScreen(
                             }
                         }.offset { IntOffset(0, (rowsTop - BrowseTop).roundToPx()) }
                         .fillMaxSize()
+                        .drawWithContent { clipRect(bottom = size.height - HiddenBelowRows.toPx()) { this@drawWithContent.drawContent() } }
                         .padding(top = BrowseTop),
                 verticalArrangement = Arrangement.spacedBy(RowGap),
                 contentPadding = PaddingValues(bottom = LastRowRoom),
