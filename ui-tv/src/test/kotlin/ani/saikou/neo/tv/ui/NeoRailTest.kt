@@ -114,24 +114,42 @@ class NeoRailTest {
         assertEquals(tops.sorted(), tops)
     }
 
-    // The logo and the profile match, each as far from its end of the screen, with the sections centred between them.
+    // The logo and the profile are centred the same way in from each end, with the sections centred between them.
     @Test
     fun theSectionsSitCentredBetweenTheLogoAndTheProfile() {
         show()
 
-        // The logo's box is just its artwork, which is wider than it is tall, so its height matches the picture's.
-        val logo =
-            compose
-                .onNodeWithTag(RAIL_LOGO_TAG, useUnmergedTree = true)
-                .assertHeightIsEqualTo(36.dp)
-                .assertWidthIsEqualTo((36f * 246 / 228).dp)
-                .getUnclippedBoundsInRoot()
+        val logo = compose.onNodeWithTag(RAIL_LOGO_TAG, useUnmergedTree = true).getUnclippedBoundsInRoot()
         val avatar = compose.onNodeWithTag(RAIL_AVATAR_TAG, useUnmergedTree = true).getUnclippedBoundsInRoot()
         assertEquals(((logo.left + logo.right) / 2).value, ((avatar.left + avatar.right) / 2).value, 0.5f)
-        assertEquals(logo.top.value, (540.dp - avatar.bottom).value, 0.5f)
-        val above = item(Section.SEARCH).getUnclippedBoundsInRoot().top - logo.bottom
-        val below = avatar.top - item(Section.SETTINGS).getUnclippedBoundsInRoot().bottom
+        assertEquals(((logo.top + logo.bottom) / 2).value, (540.dp - (avatar.top + avatar.bottom) / 2).value, 0.5f)
+        val above = item(Section.SEARCH).getUnclippedBoundsInRoot().top - (logo.top + logo.bottom) / 2
+        val below = (avatar.top + avatar.bottom) / 2 - item(Section.SETTINGS).getUnclippedBoundsInRoot().bottom
         assertEquals(above.value, below.value, 0.5f)
+    }
+
+    // The logo's artwork is solid, so it's drawn smaller than the picture to weigh the same. Its box is just the
+    // artwork, which is wider than it is tall.
+    @Test
+    fun theLogoIsSmallerThanThePicture() {
+        show()
+
+        compose
+            .onNodeWithTag(RAIL_LOGO_TAG, useUnmergedTree = true)
+            .assertHeightIsEqualTo(26.dp)
+            .assertWidthIsEqualTo((26f * 246 / 228).dp)
+        compose.onNodeWithTag(RAIL_AVATAR_TAG, useUnmergedTree = true).assertHeightIsEqualTo(36.dp)
+    }
+
+    @Test
+    fun theLogoStaysPutAsTheRailOpens() {
+        show()
+        val closed = compose.onNodeWithTag(RAIL_LOGO_TAG, useUnmergedTree = true).getUnclippedBoundsInRoot()
+
+        press(Key.DirectionLeft)
+        compose.onNodeWithText("Discover").assertExists()
+
+        assertEquals(closed, compose.onNodeWithTag(RAIL_LOGO_TAG, useUnmergedTree = true).getUnclippedBoundsInRoot())
     }
 
     @Test
