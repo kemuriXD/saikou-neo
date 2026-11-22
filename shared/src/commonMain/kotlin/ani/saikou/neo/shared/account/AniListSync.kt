@@ -187,7 +187,10 @@ public class AniListSync(
             // Watching an earlier episode again doesn't replace a later one still waiting.
             val replaces = waiting == null || waiting.episode < episode
             if (replaces) queue.put(pending)
-            send(signedIn, Told(pending, waiting, title).takeIf { replaces && inPlayer })
+            // The same episode already waiting, from an earlier try, is still this update saved for later (#504). Undo
+            // leaves it waiting, as it was.
+            val again = waiting == pending
+            send(signedIn, Told(pending, waiting, title).takeIf { (replaces || again) && inPlayer })
         }
     }
 
