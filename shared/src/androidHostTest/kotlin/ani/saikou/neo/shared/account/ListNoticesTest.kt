@@ -65,6 +65,42 @@ class ListNoticesTest {
             assertNull(notices.shown.value)
         }
 
+    // #504: the update failed just before Up next, which then gave way to the full-screen video before the notice's time
+    // was up. It waits for the next Up next or the way out, rather than running out unseen behind the video.
+    @Test
+    fun aWatchingNoticeCutShortByTheFullScreenVideoWaitsAgain() =
+        runTest {
+            val notices = notices()
+            notices.playing(fullScreen = true)
+            tell(watched)
+            notices.playing(fullScreen = false)
+            runCurrent()
+            advanceTimeBy(2_000)
+            assertEquals(ShownNotice(watched), notices.shown.value)
+
+            notices.playing(fullScreen = true)
+            runCurrent()
+            assertNull(notices.shown.value)
+            advanceTimeBy(60_000)
+
+            notices.playing(fullScreen = false)
+            runCurrent()
+            assertEquals(ShownNotice(watched), notices.shown.value)
+            advanceTimeBy(8_001)
+            assertNull(notices.shown.value)
+        }
+
+    // A notice from elsewhere, such as Details, isn't the player's to hold.
+    @Test
+    fun aNoticeNotFromWatchingIsntHeldByTheVideo() =
+        runTest {
+            val notices = notices()
+            tell(marked)
+            notices.playing(fullScreen = true)
+            runCurrent()
+            assertEquals(ShownNotice(marked), notices.shown.value)
+        }
+
     @Test
     fun itStaysWhileUndoHasFocusAndGoesEightSecondsAfter() =
         runTest {
