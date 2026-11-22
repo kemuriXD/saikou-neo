@@ -68,6 +68,7 @@ import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.formatSpeed
 import ani.saikou.neo.shared.playback.formatSubtitleDelay
 import ani.saikou.neo.shared.playback.nextSubtitleDelay
+import ani.saikou.neo.shared.playback.shownServerName
 import ani.saikou.neo.shared.settings.LookRow
 import ani.saikou.neo.shared.settings.lookRow
 import ani.saikou.neo.tv.R
@@ -238,7 +239,8 @@ internal fun BoxScope.PlayerPanel(
                             stringResource(
                                 R.string.player_panel_server,
                                 each.source.name,
-                                each.server.name,
+                                shownServerName(each.server.name, each.source.name)
+                                    ?: stringResource(R.string.server_default),
                                 editionName(each.server.edition),
                             )
                         Choice(name, each == state.server) { actions.onServer(each, playback.positionMs) }

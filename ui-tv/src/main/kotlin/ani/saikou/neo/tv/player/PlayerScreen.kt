@@ -53,6 +53,7 @@ import ani.saikou.neo.shared.playback.PlayerPhase
 import ani.saikou.neo.shared.playback.PlayerState
 import ani.saikou.neo.shared.playback.SegmentKind
 import ani.saikou.neo.shared.playback.formatPlaybackTime
+import ani.saikou.neo.shared.playback.shownServerName
 import ani.saikou.neo.shared.playback.upNextAtMs
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.details.editionName
@@ -520,9 +521,15 @@ private fun BoxScope.Stopped(
             )
             if (!again) tryAgain()
         }
+        val serverName = shownServerName(server.server.name, server.source.name)
+        val code = phase.httpCode
         Text(
-            phase.httpCode?.let { stringResource(R.string.player_footer_code, server.source.name, server.server.name, it) }
-                ?: stringResource(R.string.player_footer, server.source.name, server.server.name),
+            when {
+                serverName == null && code != null -> stringResource(R.string.player_footer_source_code, server.source.name, code)
+                serverName == null -> server.source.name
+                code != null -> stringResource(R.string.player_footer_code, server.source.name, serverName, code)
+                else -> stringResource(R.string.player_footer, server.source.name, serverName)
+            },
             style = typography.caption.copy(fontSize = 12.sp, lineHeight = 16.sp),
             color = colors.textFaint,
         )

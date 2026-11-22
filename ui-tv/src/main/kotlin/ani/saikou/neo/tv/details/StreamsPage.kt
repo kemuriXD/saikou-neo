@@ -63,6 +63,7 @@ import ani.saikou.neo.shared.playback.ServersState
 import ani.saikou.neo.shared.playback.SourceAnswer
 import ani.saikou.neo.shared.playback.SourceServers
 import ani.saikou.neo.shared.playback.StreamsOutcome
+import ani.saikou.neo.shared.playback.shownServerName
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.tv.R
@@ -377,7 +378,8 @@ private fun Servers(
                         .remembersFocus("${serverTag(source.id, server.id)}-$episode")
                         .then(if (server.id == playedId) Modifier.focusRequester(playedFocus) else Modifier)
                         .testTag(serverTag(source.id, server.id))
-                ServerRow(server, onClick = { onPick(source, server) }, if (server == firstServer) tag.focusRequester(first) else tag)
+                val modifier = if (server == firstServer) tag.focusRequester(first) else tag
+                ServerRow(server, source.name, onClick = { onPick(source, server) }, modifier)
             }
         }
         group(ServerEdition.SUB, groups.sub)
@@ -537,6 +539,7 @@ private fun failedText(
 @Composable
 private fun ServerRow(
     server: FoundServer,
+    sourceName: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -564,7 +567,7 @@ private fun ServerRow(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = server.name,
+                text = shownServerName(server.name, sourceName) ?: stringResource(R.string.server_default),
                 style = NeoTheme.typography.label.copy(fontSize = 14.sp, fontWeight = FontWeight.SemiBold),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
