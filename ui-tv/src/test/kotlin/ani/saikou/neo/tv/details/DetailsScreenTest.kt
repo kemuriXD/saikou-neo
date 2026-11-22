@@ -1501,6 +1501,48 @@ class DetailsScreenTest {
         assertTabsSitUnderTheHeaderTitle()
     }
 
+    // A logo's title line pushes the lifted tabs down, and the list must end on the screen all the same.
+    @Test
+    fun theLastEpisodeShowsInFull() {
+        assertTheLastEpisodeShowsInFull(episodes = 8, last = 8, downs = 7, ranges = false)
+    }
+
+    @Test
+    fun theLastEpisodeOfARangeShowsInFull() {
+        assertTheLastEpisodeShowsInFull(episodes = 22, last = 12, downs = 11, ranges = true)
+    }
+
+    /** Down to episode [last] of a show with [episodes], under a logo: its row ends the list's 16 dp above the screen's foot. */
+    private fun assertTheLastEpisodeShowsInFull(
+        episodes: Int,
+        last: Int,
+        downs: Int,
+        ranges: Boolean,
+    ) {
+        imagesAre(800, 310)
+        val show = details.copy(card = details.card.copy(episodes = episodes))
+        val told =
+            AniZipEpisodes(
+                (1..episodes).map { AniZipEpisode(it, "Title $it", "What happens in $it.", null, AirDate(2006, 10, 4), 23) },
+                emptyList(),
+            )
+        show(DetailsState.Loaded(show, logo = Logo.Image(LOGO), episodes = episodeList(show, told, today)))
+        compose.waitUntil { compose.onAllNodesWithTag(DETAILS_TITLE_TAG).fetchSemanticsNodes().isEmpty() }
+        press(Key.DirectionDown)
+        press(Key.DirectionRight)
+        if (ranges) press(Key.DirectionDown)
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(episodeTag(1)).assertIsFocused()
+
+        repeat(downs) { press(Key.DirectionDown) }
+        compose.mainClock.advanceTimeBy(2_000)
+        compose.waitForIdle()
+
+        compose.onNodeWithTag(episodeTag(last)).assertIsFocused()
+        val row = compose.onNodeWithTag(episodeTag(last)).getUnclippedBoundsInRoot()
+        assertEquals(540f - 16f, row.bottom.value, 0.5f)
+    }
+
     @Test
     fun theTitleIsTheLogoWhenThereIsOne() {
         imagesAre(800, 310)

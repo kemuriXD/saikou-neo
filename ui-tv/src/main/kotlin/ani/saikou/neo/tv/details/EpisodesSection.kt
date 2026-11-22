@@ -98,12 +98,13 @@ internal const val EPISODE_RANGES_TAG = "episode-ranges"
 
 internal const val EPISODE_THUMB_TAG = "episode-thumb"
 
-// From the design: lifted, the section starts 118 dp down, so the list has the rest of the screen.
-internal val SectionHeight = 422.dp
 private val RowThumbWidth = 128.dp
 private val RowThumbHeight = 72.dp
 private val TextRowHeight = 56.dp
 private val ChipHeight = 36.dp
+
+// Room above the first row and below the last.
+private val ListRoom = 16.dp
 
 // Room for a focused chip's growth and glow, which the ranges' fade would otherwise cut off.
 private val GlowRoom = 24.dp
@@ -127,6 +128,8 @@ private const val RANGE_REST_MILLIS = 150L
  *
  * Signed in, [aniList] is how many episodes AniList has watched, and the marks come from it (ADR 0052). With [onMenu],
  * holding OK or pressing Menu on an episode opens its menu, given where its row is on the screen.
+ *
+ * The section is at most [height] tall, the room left under the lifted tabs, so the last row ends on the screen.
  */
 @Composable
 internal fun EpisodesSection(
@@ -134,6 +137,7 @@ internal fun EpisodesSection(
     backdrop: String?,
     progress: WatchProgress?,
     nextFocus: FocusRequester,
+    height: Dp,
     modifier: Modifier = Modifier,
     onPick: (AniZipEpisode) -> Unit = {},
     picked: Int? = null,
@@ -192,7 +196,7 @@ internal fun EpisodesSection(
         withFrameNanos {}
         onToNext(nextFocus.requestFocus())
     }
-    Column(modifier.heightIn(max = SectionHeight), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier.heightIn(max = height), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         // As wide as the rows, so the hint ends on their right edge.
         Row(Modifier.width(RowWidth), verticalAlignment = Alignment.CenterVertically) {
             Text(
@@ -250,60 +254,63 @@ internal fun EpisodesSection(
                 }
             }
         }
-        // Room above and below so a focused row's growth and glow aren't cut off.
-        LazyColumn(
-            state = listState,
-            modifier =
-                Modifier
-                    .focusRequester(listFocus)
-                    .focusProperties {
-                        onEnter = {
-                            val across = requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down
-                            if (across && listState.isVisible(nextIndex)) nextFocus.requestFocus()
-                        }
-                    },
-            verticalArrangement = Arrangement.spacedBy(if (rich) dimensions.space2 else 6.dp),
-            contentPadding = PaddingValues(vertical = dimensions.space4),
-        ) {
-            items(shown, key = { it.number }) { episode ->
-                val mark = episodeMark(episode.number, progress, aniList)
-                val kind = list.kinds[episode.number]
-                // Kept without recomposing, for the menu to open beside the row.
-                val row = remember { RowBounds() }
-                val menu = onMenu?.let { open -> { open(episode, row.rect) } }
-                val rowModifier =
+        // Room above and below so a focused row's growth and glow aren't cut off. Focus keeps that room in sight, so
+        // the first and last rows rest as far from the list's edges as the others do.
+        WindowScrolling(leading = ListRoom, trailing = ListRoom) {
+            LazyColumn(
+                state = listState,
+                modifier =
                     Modifier
-                        .onGloballyPositioned { row.rect = it.boundsInRoot() }
-                        .opensMenu(menu)
-                        .then(if (episode.number == next) Modifier.focusRequester(nextFocus) else Modifier)
-                        .then(if (episode.number == picked && pickedFocus != null) Modifier.focusRequester(pickedFocus) else Modifier)
-                        .remembersFocus(episodeTag(episode.number))
-                        .testTag(episodeTag(episode.number))
-                if (rich) {
-                    EpisodeRow(episode, backdrop, mark, kind, rowModifier, onClick = { onPick(episode) }, onLongClick = menu)
-                } else {
-                    TextRow(
-                        title = episode.title ?: stringResource(R.string.details_episode_number, episode.number),
-                        meta = withSaved(mark, episode.meta(list.film)),
-                        modifier = rowModifier,
-                        mark = mark,
-                        kind = kind,
-                        onClick = { onPick(episode) },
-                        onLongClick = menu,
-                    )
+                        .focusRequester(listFocus)
+                        .focusProperties {
+                            onEnter = {
+                                val across = requestedFocusDirection == FocusDirection.Up || requestedFocusDirection == FocusDirection.Down
+                                if (across && listState.isVisible(nextIndex)) nextFocus.requestFocus()
+                            }
+                        },
+                verticalArrangement = Arrangement.spacedBy(if (rich) dimensions.space2 else 6.dp),
+                contentPadding = PaddingValues(vertical = ListRoom),
+            ) {
+                items(shown, key = { it.number }) { episode ->
+                    val mark = episodeMark(episode.number, progress, aniList)
+                    val kind = list.kinds[episode.number]
+                    // Kept without recomposing, for the menu to open beside the row.
+                    val row = remember { RowBounds() }
+                    val menu = onMenu?.let { open -> { open(episode, row.rect) } }
+                    val rowModifier =
+                        Modifier
+                            .onGloballyPositioned { row.rect = it.boundsInRoot() }
+                            .opensMenu(menu)
+                            .then(if (episode.number == next) Modifier.focusRequester(nextFocus) else Modifier)
+                            .then(if (episode.number == picked && pickedFocus != null) Modifier.focusRequester(pickedFocus) else Modifier)
+                            .remembersFocus(episodeTag(episode.number))
+                            .testTag(episodeTag(episode.number))
+                    if (rich) {
+                        EpisodeRow(episode, backdrop, mark, kind, rowModifier, onClick = { onPick(episode) }, onLongClick = menu)
+                    } else {
+                        TextRow(
+                            title = episode.title ?: stringResource(R.string.details_episode_number, episode.number),
+                            meta = withSaved(mark, episode.meta(list.film)),
+                            modifier = rowModifier,
+                            mark = mark,
+                            kind = kind,
+                            onClick = { onPick(episode) },
+                            onLongClick = menu,
+                        )
+                    }
                 }
-            }
-            if (list.extras.isNotEmpty()) {
-                item {
-                    Text(
-                        text = stringResource(R.string.details_extras).uppercase(),
-                        style = NeoTheme.typography.overline,
-                        color = NeoTheme.colors.pink,
-                        modifier = Modifier.padding(top = dimensions.space2),
-                    )
-                }
-                items(list.extras) { extra ->
-                    TextRow(title = extra.title, meta = extra.minutes?.let { duration(it) })
+                if (list.extras.isNotEmpty()) {
+                    item {
+                        Text(
+                            text = stringResource(R.string.details_extras).uppercase(),
+                            style = NeoTheme.typography.overline,
+                            color = NeoTheme.colors.pink,
+                            modifier = Modifier.padding(top = dimensions.space2),
+                        )
+                    }
+                    items(list.extras) { extra ->
+                        TextRow(title = extra.title, meta = extra.minutes?.let { duration(it) })
+                    }
                 }
             }
         }

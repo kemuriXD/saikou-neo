@@ -76,7 +76,7 @@ private const val SUPPORTING_ALPHA = 0.72f
 
 // From the design: section tabs are 36 dp tall, with a 2 dp line under the current one. Focus thickens it to 3 dp and
 // makes it glow.
-private val SectionTabHeight = 36.dp
+internal val SectionTabHeight = 36.dp
 private val SectionLine = 2.dp
 private val SectionLineFocused = 3.dp
 private val SectionGlow = 10.dp
