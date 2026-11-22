@@ -181,6 +181,7 @@ internal fun BoxScope.PlayerControls(
     val playPause = remember { FocusRequester() }
     var onBar by remember { mutableStateOf(false) }
     val hold = remember { HeldKey() }
+    var backDown by remember { mutableStateOf(false) }
     val pills = remember { PanelTab.entries.associateWith { FocusRequester() } }
     val episodesPill = remember { FocusRequester() }
     var panelFrom by remember { mutableStateOf<PanelTab?>(null) }
@@ -224,7 +225,31 @@ internal fun BoxScope.PlayerControls(
         read()
     }
 
+    fun back() {
+        when {
+            shown.panel != null -> controls.closePanel(playback.playing)
+            shown.episodes -> controls.closeEpisodes(playback.playing)
+            shown.scrub != null -> controls.stay()
+            else -> controls.hide()
+        }
+    }
+
     fun onKey(event: KeyEvent): Boolean {
+        // Compose turns an unclaimed Back into a focus move out to the nearest focusable parent, this box. From the bar
+        // or a button that took the first Back before the Back handler saw it (#498), so the controls take it here.
+        if (event.key == Key.Back || event.key == Key.Escape) {
+            if (event.type == KeyEventType.KeyDown && shown.shown && !covered) {
+                if (event.nativeKeyEvent.repeatCount == 0) back()
+                backDown = true
+                return true
+            }
+            // The release of a Back taken here, so nothing after sees half a press.
+            if (event.type == KeyEventType.KeyUp && backDown) {
+                backDown = false
+                return true
+            }
+            return false
+        }
         val scrubbing = shown.scrub != null
         val native = event.nativeKeyEvent
         val forward = event.key == Key.DirectionRight || event.key == Key.MediaFastForward
@@ -304,14 +329,7 @@ internal fun BoxScope.PlayerControls(
         }
     }
 
-    BackHandler(enabled = shown.shown || covered) {
-        when {
-            shown.panel != null -> controls.closePanel(playback.playing)
-            shown.episodes -> controls.closeEpisodes(playback.playing)
-            shown.scrub != null -> controls.stay()
-            else -> controls.hide()
-        }
-    }
+    BackHandler(enabled = shown.shown || covered, onBack = ::back)
 
     Box(
         Modifier
