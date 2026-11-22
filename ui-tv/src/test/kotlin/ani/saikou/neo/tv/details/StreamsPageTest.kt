@@ -122,9 +122,10 @@ class StreamsPageTest {
 
     private fun press(key: Key) = compose.onRoot().performKeyInput { pressKey(key) }
 
-    /** From the main button into Episodes, then Select on episode 2. */
+    /** From Episodes beside the main button into the list, then Select on episode 2. */
     private fun openEpisodeTwo() {
         show()
+        press(Key.DirectionRight)
         press(Key.DirectionCenter)
         press(Key.DirectionDown)
         compose.onNodeWithTag(episodeTag(2)).assertIsFocused()

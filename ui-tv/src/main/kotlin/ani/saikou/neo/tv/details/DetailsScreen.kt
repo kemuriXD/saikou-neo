@@ -182,8 +182,9 @@ internal val seasonNames =
  * One anime over its dimmed art: what it is at the top, and an Overview with a short synopsis and the facts below.
  * Selecting the synopsis opens all of it, notes included. With [streams], selecting an episode shows its streams on the
  * lifted page, and Back, or the page's own way back, returns to the episode. [openStreams] is an episode picked in the
- * player's drawer, which opens the same way, and [onStreamsOpened] says it has. When AniList and this TV disagree, Resume
- * first asks where to pick up, and [onKeepAniList] or [onKeepThisTv] says which was picked. Signed in, the list button
+ * player's drawer, which opens the same way, and [onStreamsOpened] says it has. Resume or Play calls [onPlay], which plays
+ * the episode it names or opens its streams (#499). When AniList and this TV disagree, it first asks where to pick up,
+ * and [onKeepAniList] or [onKeepThisTv] says which was picked before [onPlay]. Signed in, the list button
  * shows the show's [list] status, and picking one in its panel calls [onListChange] with it, or null to remove the show.
  * Signed in, holding OK on an episode opens its menu, and [onMark] gets the episode and whether it was marked watched.
  */
@@ -196,6 +197,7 @@ fun DetailsScreen(
     streams: (@Composable (episode: Int, back: () -> Unit, modifier: Modifier) -> Unit)? = null,
     openStreams: Int? = null,
     onStreamsOpened: () -> Unit = {},
+    onPlay: () -> Unit = {},
     onKeepAniList: () -> Unit = {},
     onKeepThisTv: () -> Unit = {},
     list: ListButtonState = ListButtonState.Hidden,
@@ -211,6 +213,7 @@ fun DetailsScreen(
         streams,
         openStreams,
         onStreamsOpened,
+        onPlay,
         onKeepAniList,
         onKeepThisTv,
         list,
@@ -229,6 +232,7 @@ private fun DetailsPage(
     streams: (@Composable (episode: Int, back: () -> Unit, modifier: Modifier) -> Unit)?,
     openStreams: Int?,
     onStreamsOpened: () -> Unit,
+    onPlay: () -> Unit,
     onKeepAniList: () -> Unit,
     onKeepThisTv: () -> Unit,
     list: ListButtonState,
@@ -255,6 +259,9 @@ private fun DetailsPage(
     var menuFor by remember { mutableStateOf<Pair<AniZipEpisode, Rect>?>(null) }
     LaunchedEffect(openStreams) {
         val episode = openStreams ?: return@LaunchedEffect
+        // Opened by the main button, the page lifts onto the episodes, as if the episode had been picked there.
+        section = DetailsSection.EPISODES
+        lifted = true
         picked = episode
         streamsFor = episode
         onStreamsOpened()
@@ -313,21 +320,18 @@ private fun DetailsPage(
                         details = state.details,
                         logo = state.logo,
                         progress = state.upNext,
-                        // The main button goes to the episodes, asking first where to pick up if AniList and this TV
-                        // disagree. Without any episodes, there's nothing for it to do.
+                        // The main button plays, asking first where to pick up if AniList and this TV disagree, and
+                        // Episodes goes to them. Without any episodes, there's nothing for either to do.
                         onMain =
                             if (hasEpisodes) {
-                                {
-                                    if (state.pickUp is PickUp.Ask) {
-                                        asking = true
-                                    } else {
-                                        section = DetailsSection.EPISODES
-                                        toEpisodes = true
-                                    }
-                                }
+                                { if (state.pickUp is PickUp.Ask) asking = true else onPlay() }
                             } else {
                                 null
                             },
+                        onEpisodes = {
+                            section = DetailsSection.EPISODES
+                            toEpisodes = true
+                        },
                         mainFocus = mainFocus,
                         ratings = state.ratings,
                         list = list as? ListButtonState.Shown,
@@ -519,8 +523,7 @@ private fun DetailsPage(
             fun carryOn(keep: () -> Unit) {
                 keep()
                 asking = false
-                section = DetailsSection.EPISODES
-                toEpisodes = true
+                onPlay()
             }
             PickUpDialog(
                 show = loaded.details.card.displayTitle(),
@@ -543,6 +546,7 @@ private fun Hero(
     logo: Logo,
     progress: WatchProgress?,
     onMain: (() -> Unit)?,
+    onEpisodes: () -> Unit,
     mainFocus: FocusRequester,
     ratings: Ratings,
     list: ListButtonState.Shown?,
@@ -588,7 +592,7 @@ private fun Hero(
             )
         }
         if (ratings.mean != null) TopRatings(ratings)
-        // Until the player comes, Resume and Play open the episodes too. A show with none yet can still go on the list.
+        // Resume or Play, and Episodes beside it. A show with none yet can still go on the list.
         if (onMain != null || list != null) {
             // The buttons can run past the hero, as in the design, rather than squeeze the last one.
             NeoButtonRow(Modifier.padding(top = ButtonsGap).wrapContentWidth(Alignment.Start, unbounded = true)) {
@@ -614,7 +618,7 @@ private fun Hero(
                     }
                     NeoButton(
                         text = stringResource(R.string.details_episodes),
-                        onClick = it,
+                        onClick = onEpisodes,
                         modifier = Modifier.remembersFocus("episodes").testTag(DETAILS_EPISODES_BUTTON_TAG),
                     )
                 }
