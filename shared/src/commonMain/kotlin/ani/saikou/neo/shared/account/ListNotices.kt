@@ -82,6 +82,13 @@ public class ListNotices(
 
                 is Event.Playing -> {
                     fullScreen = event.fullScreen
+                    // Up next gave way to the full-screen video before a watching notice's time was up. Only Up next draws
+                    // it in the player, so it waits again rather than running out unseen (#504).
+                    val now = showing.value
+                    if (fullScreen && now != null && now.notice.fromWatching && !now.failed && !undoing) {
+                        held = now.notice
+                        show(null)
+                    }
                     if (!fullScreen) held?.let { show(ShownNotice(it)) }
                     if (!fullScreen) held = null
                 }

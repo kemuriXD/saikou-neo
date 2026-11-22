@@ -181,6 +181,45 @@ class HomeViewModelTest {
             )
         }
 
+    // Show 1001 has 10 episodes. Its last was watched here, then Undo put AniList back on Rewatching at 5 (#496).
+    @Test
+    fun aShowUndoPutsBackOnYourListReturnsAtItsNextEpisode() =
+        runTest(main) {
+            val history = FakeHistory(mapOf(1001 to progress(10, savedAt = 300, watched = 24.minutes)))
+            var listed = emptyList<ListedProgress>()
+            val forgets = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+            val yourList =
+                object : YourList {
+                    override suspend fun shows() = listed
+
+                    override val forgotten: Flow<Unit> = forgets
+                }
+            val viewModel = homeViewModel(history = history, yourList = yourList)
+            assertEquals(RowState.Loaded(emptyList()), viewModel.settledRows()[HomeRow.CONTINUE_WATCHING])
+
+            listed = listOf(ListedProgress(1001, progress = 5, updatedAt = 317, episodeMinutes = 24))
+            forgets.tryEmit(Unit)
+            advanceUntilIdle()
+
+            assertEquals(listOf(1001), assertIs<RowState.Loaded>(viewModel.state.value.rows[HomeRow.CONTINUE_WATCHING]).items.map { it.id })
+            assertEquals(
+                6,
+                viewModel.state.value.progress
+                    .getValue(1001)
+                    .episode,
+            )
+
+            // After a restart.
+            val restarted = homeViewModel(history = history, yourList = yourList)
+            assertEquals(listOf(1001), assertIs<RowState.Loaded>(restarted.settledRows()[HomeRow.CONTINUE_WATCHING]).items.map { it.id })
+            assertEquals(
+                6,
+                restarted.state.value.progress
+                    .getValue(1001)
+                    .episode,
+            )
+        }
+
     @Test
     fun signingOutLeavesOnlyThisTvsShows() =
         runTest(main) {

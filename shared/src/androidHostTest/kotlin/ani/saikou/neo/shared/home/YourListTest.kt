@@ -80,6 +80,18 @@ class YourListTest {
         assertEquals(WatchProgress(2, 24.minutes, 24.minutes, null, 500), merged.getValue(201))
     }
 
+    // The last of 13 episodes was watched here, then Undo put AniList back at 5 (#496). The show isn't finished.
+    @Test
+    fun aniListsNewerPlaceBringsBackAShowFinishedOnThisTv() {
+        val merged =
+            withYourList(
+                mapOf(201 to tv(13, savedAt = 400, watched = 24.minutes)),
+                listOf(ListedProgress(201, progress = 5, updatedAt = 417, episodeMinutes = 24)),
+            )
+
+        assertEquals(WatchProgress(6, Duration.ZERO, 24.minutes, null, 417), merged.getValue(201).upNext(13))
+    }
+
     // The TV sent episode 6 to AniList, which saved it a moment after the TV's last save. The TV's place has the still.
     @Test
     fun theTvsPlaceIsKeptWhenBothPickUpAtTheSameEpisode() {

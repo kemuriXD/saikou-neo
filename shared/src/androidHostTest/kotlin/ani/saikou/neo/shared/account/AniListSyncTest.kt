@@ -773,6 +773,41 @@ class AniListSyncTest {
             assertEquals(title, notice.title)
         }
 
+    // #504: the episode was already waiting from an earlier try, so watching it again changed nothing in the queue and
+    // said nothing. It's still saved for later, and Undo leaves the queue as it was.
+    @Test
+    fun anEpisodeAlreadyWaitingIsStillSavedForLater() =
+        runTest {
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 4, userId = 1) }
+            val sync = sync(FakeClient(failWith = AniListError.Network("offline")), queue)
+            val told = async { sync.notices.first() }
+            runCurrent()
+
+            sync.watching(101, 4, title)
+            runCurrent()
+
+            val notice = told.await()
+            assertEquals(NoticeChange.SavedForLater(PendingProgress(101, 4, 1), replaced = PendingProgress(101, 4, 1)), notice.change)
+            assertTrue(sync.undo(notice))
+            assertEquals(listOf(PendingProgress(101, 4, 1)), queue.all())
+        }
+
+    // A later episode waiting isn't replaced by an earlier one watched again, so nothing new is saved and nothing is said.
+    @Test
+    fun anEarlierEpisodeWatchedAgainSaysNothing() =
+        runTest {
+            val queue = MemoryQueue().apply { items[101] = PendingProgress(101, 5, userId = 1) }
+            val sync = sync(FakeClient(failWith = AniListError.Network("offline")), queue)
+            val told = async { sync.notices.first() }
+            runCurrent()
+
+            sync.watching(101, 4, title)
+            runCurrent()
+
+            assertFalse(told.isCompleted)
+            told.cancel()
+        }
+
     @Test
     fun updatesSentLaterFromTheQueueSayNothing() =
         runTest {
