@@ -92,7 +92,7 @@ internal fun PairTvScreen(
                             Modifier.weight(1f),
                             title = stringResource(R.string.pair_signed_in, state.tvName),
                             body = stringResource(R.string.pair_signed_in_body),
-                        ) { Badge(R.drawable.icon_check_circle, PhoneColors.pink, PhoneColors.fillTonal) }
+                        ) { Badge(R.drawable.icon_check_circle, PhoneColors.pinkLight, PhoneColors.fillTonal) }
                         Actions { Button(onClick = actions.done, modifier = BIG_BUTTON) { ButtonLabel(R.string.pair_done) } }
                     }
                 }

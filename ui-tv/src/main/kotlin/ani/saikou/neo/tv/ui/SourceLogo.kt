@@ -94,7 +94,7 @@ private fun LetterTile(
                     lineHeight = letterSize * 1.33f,
                     fontWeight = FontWeight.Bold,
                 ),
-            color = NeoTheme.colors.pink,
+            color = NeoTheme.colors.pinkLight,
         )
     }
 }

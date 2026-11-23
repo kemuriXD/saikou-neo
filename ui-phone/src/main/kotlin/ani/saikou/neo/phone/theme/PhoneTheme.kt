@@ -16,7 +16,10 @@ import ani.saikou.neo.phone.R
 internal object PhoneColors {
     val ink = Color(0xFF11121C)
     val paper = Color(0xFFF6F5F2)
-    val pink = Color(0xFFFF4F91)
+    val pink = Color(0xFFFF0080)
+
+    /** Pink on a light tint, where [pink] is too dark to stand out. */
+    val pinkLight = Color(0xFFFF4BA8)
     val surface = Color(0xFF1A1B27)
     val surfaceRaised = Color(0xFF242535)
     val line = Color(0xFF33344A)

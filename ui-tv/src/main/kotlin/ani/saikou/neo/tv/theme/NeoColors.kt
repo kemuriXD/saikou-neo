@@ -8,8 +8,11 @@ import androidx.compose.ui.graphics.Color
 data class NeoColors(
     val ink: Color = Color(0xFF11121C),
     val paper: Color = Color(0xFFF6F5F2),
-    val pink: Color = Color(0xFFFF4F91),
-    val pinkDeep: Color = Color(0xFFB3245C),
+    /** The pinks of the original Saikou logo (ADR 0057). */
+    val pink: Color = Color(0xFFFF0080),
+    /** Pink text on surfaceRaised, or on a light tint, where [pink] is too dark to read. */
+    val pinkLight: Color = Color(0xFFFF4BA8),
+    val pinkDeep: Color = Color(0xFFC50053),
     val surface: Color = Color(0xFF1A1B27),
     val surfaceScrim: Color = Color(0xD91A1B27),
     val surfaceRaised: Color = Color(0xFF242535),

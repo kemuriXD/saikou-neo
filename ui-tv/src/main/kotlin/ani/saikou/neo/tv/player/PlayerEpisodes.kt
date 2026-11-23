@@ -277,7 +277,7 @@ private fun EpisodeRow(
                     val tint =
                         when {
                             focused -> colors.onFocusMuted
-                            playing -> colors.pink
+                            playing -> colors.pinkLight
                             else -> colors.textMuted
                         }
                     Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
