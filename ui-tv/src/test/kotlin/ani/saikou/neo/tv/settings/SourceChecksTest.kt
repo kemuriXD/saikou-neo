@@ -95,8 +95,8 @@ class SourceChecksTest {
 
     private fun checkExample() {
         compose.onNodeWithTag(checkTag(example.id)).assertExists()
-        // Down to Check all, Down to the first source's Remove, Left to its Check.
-        press(Key.DirectionDown, times = 2)
+        // Down past Add from my phone to Check all, Down to the first source's Remove, Left to its Check.
+        press(Key.DirectionDown, times = 3)
         press(Key.DirectionLeft)
         compose.onNodeWithTag(checkTag(example.id)).assertIsFocused()
         press(Key.DirectionCenter)
@@ -158,7 +158,7 @@ class SourceChecksTest {
     @Test
     fun checkAllShowsEachSourceAndStopChecksStopsThem() {
         show()
-        press(Key.DirectionDown)
+        press(Key.DirectionDown, times = 2)
         text("Check all").assertIsDisplayed()
         press(Key.DirectionCenter)
         assertEquals(1, checkedAll)

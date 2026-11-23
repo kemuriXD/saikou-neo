@@ -141,8 +141,8 @@ class SourceUpdatesSettingsTest {
     @Test
     fun updateOnARowUpdatesThatSource() {
         show(twoOut)
-        // Add a source, then Update all, then the first row's Update.
-        press(Key.DirectionDown, times = 2)
+        // Add a source, Add from my phone, then Update all, then the first row's Update.
+        press(Key.DirectionDown, times = 3)
 
         compose
             .onNodeWithTag(updateTag(example.id))
@@ -156,7 +156,7 @@ class SourceUpdatesSettingsTest {
     @Test
     fun updateAllSaysHowManyAndUpdatesThemAll() {
         show(twoOut)
-        press(Key.DirectionDown)
+        press(Key.DirectionDown, times = 2)
 
         compose.onNodeWithTag(UPDATE_ALL_TAG).assertIsFocused()
         text("Update all (2)").assertIsDisplayed()
@@ -258,7 +258,7 @@ class SourceUpdatesSettingsTest {
     @Test
     fun updatingOneSourceAlsoMovesFocusToTheProgress() {
         show(twoOut)
-        press(Key.DirectionDown, times = 2)
+        press(Key.DirectionDown, times = 3)
         compose.onNodeWithTag(updateTag(example.id)).assertIsFocused()
         press(Key.DirectionCenter)
 
@@ -288,8 +288,8 @@ class SourceUpdatesSettingsTest {
         checks.value = mapOf(example.id to SourceCheck(CheckStatus.RUNNING))
         show(twoOut)
 
-        // Past Add a source, Update all rests, so Down goes to Stop checks.
-        press(Key.DirectionDown)
+        // Past Add a source and Add from my phone, Update all rests, so Down goes to Stop checks.
+        press(Key.DirectionDown, times = 2)
         compose.onNodeWithTag(CHECK_ALL_TAG).assertIsFocused()
         // The rows' Update rests with their Check and Remove.
         press(Key.DirectionDown)

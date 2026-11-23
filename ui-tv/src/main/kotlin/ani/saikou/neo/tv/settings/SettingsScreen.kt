@@ -216,6 +216,7 @@ fun SettingsScreen(
     subtitles: SubtitleSettings = SubtitleSettings(),
     subtitleActions: SubtitleActions = SubtitleActions(),
     account: AccountSettings = AccountSettings(),
+    fromPhone: FromPhone = FromPhone(),
 ) = RememberFocus { focus ->
     val shown = rememberSaveable { mutableStateOf(start) }
     var subtitlesOpen by rememberSaveable { mutableStateOf(false) }
@@ -226,7 +227,7 @@ fun SettingsScreen(
             subtitlesOpen = false
         }
     } else {
-        SettingsPage(settings, focus, onChoose, onTick, sources, sourceActions, shown, checks, updates, subtitles, account) {
+        SettingsPage(settings, focus, onChoose, onTick, sources, sourceActions, shown, checks, updates, subtitles, account, fromPhone) {
             subtitlesOpen = true
         }
     }
@@ -245,6 +246,7 @@ private fun SettingsPage(
     updates: UpdatesState,
     subtitles: SubtitleSettings,
     account: AccountSettings,
+    fromPhone: FromPhone,
     openSubtitles: () -> Unit,
 ) {
     val colors = NeoTheme.colors
@@ -436,6 +438,15 @@ private fun SettingsPage(
             )
         }
         SourcesPanels(sources, sourcesUi, sourceActions, checks)
+        FromPhonePanel(fromPhone)
+        if (fromPhone.state?.onBoard == true) FromPhoneBoard(fromPhone)
+        // Once Add from my phone closes, focus goes back to it.
+        val fromPhoneOpen = fromPhone.state != null
+        var wasOpen by remember { mutableStateOf(false) }
+        LaunchedEffect(fromPhoneOpen) {
+            if (!fromPhoneOpen && wasOpen) sourcesUi.fromPhone.requestFocus()
+            wasOpen = fromPhoneOpen
+        }
         // Closed in the same frame either way, so focus can move to Sign in or back to Sign out.
         SlidingPanel(Unit.takeIf { accountUi.asking && account.profile != null }) { _, active, _ ->
             SignOutDialog(

@@ -152,9 +152,11 @@ class SourcesSettingsTest {
     }
 
     @Test
-    fun downFromAddASourceFocusesCheckAllThenEachRemoveButtonInTurn() {
+    fun downFromAddASourceFocusesAddFromMyPhoneCheckAllThenEachRemoveButtonInTurn() {
         show(SourcesState(listOf(example, demo)))
 
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(FROM_PHONE_ENTRY_TAG).assertIsFocused()
         press(Key.DirectionDown)
         compose.onNodeWithTag(CHECK_ALL_TAG).assertIsFocused()
         press(Key.DirectionDown)
@@ -164,7 +166,7 @@ class SourcesSettingsTest {
         press(Key.DirectionDown)
         removeButton(demo).assertIsFocused()
 
-        press(Key.DirectionUp, times = 3)
+        press(Key.DirectionUp, times = 4)
         addSource().assertIsFocused()
     }
 
@@ -361,7 +363,7 @@ class SourcesSettingsTest {
     @Test
     fun removeAsksFirstWithKeepFocused() {
         show(SourcesState(listOf(example, demo)))
-        press(Key.DirectionDown, times = 2)
+        press(Key.DirectionDown, times = 3)
 
         press(Key.DirectionCenter)
 
@@ -375,7 +377,7 @@ class SourcesSettingsTest {
     @Test
     fun removingMovesFocusToTheNextSource() {
         show(SourcesState(listOf(demo, example)))
-        press(Key.DirectionDown, times = 2)
+        press(Key.DirectionDown, times = 3)
         press(Key.DirectionCenter)
 
         press(Key.DirectionUp)
@@ -389,7 +391,7 @@ class SourcesSettingsTest {
     @Test
     fun removingTheLastSourceMovesFocusToAddASource() {
         show(SourcesState(listOf(example)))
-        press(Key.DirectionDown, times = 2)
+        press(Key.DirectionDown, times = 3)
         press(Key.DirectionCenter)
 
         press(Key.DirectionUp)

@@ -30,6 +30,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Surface
+import ani.saikou.neo.extension.api.ExtensionApi
 import ani.saikou.neo.shared.account.AniListAccountClient
 import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.account.KeystoreAccountStore
@@ -57,6 +58,7 @@ import ani.saikou.neo.shared.pairing.TvAccountViewModel
 import ani.saikou.neo.shared.pairing.TvSignInState
 import ani.saikou.neo.shared.pairing.TvSignInViewModel
 import ani.saikou.neo.shared.pairing.openTvPairing
+import ani.saikou.neo.shared.pairing.openTvSourcesPairing
 import ani.saikou.neo.shared.pairing.thisTv
 import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.NextPlay
@@ -73,11 +75,13 @@ import ani.saikou.neo.shared.settings.PlayerSubtitlesViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
 import ani.saikou.neo.shared.settings.SubtitleSettings
 import ani.saikou.neo.shared.settings.SubtitleSettingsViewModel
+import ani.saikou.neo.shared.sources.FromPhoneState
 import ani.saikou.neo.shared.sources.ShortCodes
 import ani.saikou.neo.shared.sources.SourceChecker
 import ani.saikou.neo.shared.sources.SourceChecksViewModel
 import ani.saikou.neo.shared.sources.SourceDownloads
 import ani.saikou.neo.shared.sources.SourceUpdatesViewModel
+import ani.saikou.neo.shared.sources.SourcesFromPhoneViewModel
 import ani.saikou.neo.shared.sources.SourcesViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
 import ani.saikou.neo.tv.details.StreamsActions
@@ -100,6 +104,7 @@ import ani.saikou.neo.tv.schedule.ScheduleScreen
 import ani.saikou.neo.tv.search.SearchScreen
 import ani.saikou.neo.tv.search.genreLabels
 import ani.saikou.neo.tv.settings.AccountSettings
+import ani.saikou.neo.tv.settings.FromPhone
 import ani.saikou.neo.tv.settings.SettingsCategory
 import ani.saikou.neo.tv.settings.SettingsScreen
 import ani.saikou.neo.tv.settings.SourceActions
@@ -626,6 +631,30 @@ class MainActivity : ComponentActivity() {
         val updatesState by updates.state.collectAsStateWithLifecycle()
         val subtitlesScreen = viewModel { SubtitleSettingsViewModel(app.settingsStore.subtitles, app.settingsStore::updateSubtitles) }
         val subtitles by subtitlesScreen.state.collectAsStateWithLifecycle()
+        // Add from my phone (ADR 0042): each time it opens is a new board, kept only while it's open. Closing it, or
+        // the app going to the background, ends the connection. Which board is open lives in a ViewModel, not saved
+        // state, so a board never opens by itself when the app comes back after the system ended it.
+        val fromPhoneHost = viewModel { FromPhoneHost() }
+        val fromPhoneBoard =
+            fromPhoneHost.run?.let { run ->
+                viewModel(viewModelStoreOwner = fromPhoneHost, key = "from-phone-$run") {
+                    SourcesFromPhoneViewModel(
+                        open = { code -> openTvSourcesPairing(applicationContext, code) },
+                        store = app.sources,
+                        downloads = SourceDownloads(),
+                        api = ExtensionApi.MIN_VERSION..ExtensionApi.VERSION,
+                    )
+                }
+            }
+        val fromPhoneState = fromPhoneBoard?.state?.collectAsStateWithLifecycle()?.value
+        val closeFromPhone = {
+            fromPhoneBoard?.cancel()
+            fromPhoneHost.close()
+        }
+        // Sources already installing carry on, and the panel still shows how they went when the app comes back.
+        LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+            if ((fromPhoneState as? FromPhoneState.Installing)?.done != false) closeFromPhone()
+        }
         state?.let {
             SettingsScreen(
                 it,
@@ -642,6 +671,7 @@ class MainActivity : ComponentActivity() {
                         checksScreen::check,
                         { checksScreen.checkAll(sources.installed.orEmpty()) },
                         checksScreen::stop,
+                        onFromPhone = { fromPhoneHost.run = System.currentTimeMillis() },
                         onCheckUpdates = updates::check,
                         onUpdate = updates::update,
                         onUpdateAll = updates::updateAll,
@@ -662,6 +692,15 @@ class MainActivity : ComponentActivity() {
                         subtitlesScreen::resetAll,
                     ),
                 account = AccountSettings(profile, openSignIn, onSignOut),
+                fromPhone =
+                    FromPhone(
+                        fromPhoneState,
+                        onNewCode = { fromPhoneBoard?.newCode() },
+                        onMatch = { shown -> fromPhoneBoard?.confirmCodes(shown) },
+                        onNoMatch = { fromPhoneBoard?.codesDontMatch() },
+                        onInstall = { fromPhoneBoard?.install() },
+                        onClose = closeFromPhone,
+                    ),
             )
         }
     }
@@ -724,4 +763,23 @@ class MainActivity : ComponentActivity() {
     // Today on this TV, to tell the episodes out from those still to air.
     private fun today() =
         Calendar.getInstance().let { AirDate(it.get(Calendar.YEAR), it.get(Calendar.MONTH) + 1, it.get(Calendar.DAY_OF_MONTH)) }
+}
+
+/**
+ * Which Add from my phone board is open, if any, and where its ViewModel lives. Kept through a rotation, but not when the
+ * system ends the app. Closing clears the board's ViewModel, so closed boards don't pile up.
+ */
+private class FromPhoneHost :
+    androidx.lifecycle.ViewModel(),
+    androidx.lifecycle.ViewModelStoreOwner {
+    override val viewModelStore = androidx.lifecycle.ViewModelStore()
+
+    var run by mutableStateOf<Long?>(null)
+
+    fun close() {
+        run = null
+        viewModelStore.clear()
+    }
+
+    override fun onCleared() = viewModelStore.clear()
 }
