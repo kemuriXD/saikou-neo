@@ -29,9 +29,14 @@ import ani.saikou.neo.shared.pairing.PairCodeViewModel
 import ani.saikou.neo.shared.pairing.PairTvState
 import ani.saikou.neo.shared.pairing.PairTvViewModel
 import ani.saikou.neo.shared.pairing.PairingRequest
+import ani.saikou.neo.shared.sources.SendSourcesState
+import ani.saikou.neo.shared.sources.SendSourcesViewModel
 
-/** The screens behind Home, kept as a back stack. Pair is 3.4 to 3.8, which follow [PairTvViewModel]. */
-internal enum class PhoneScreen { Home, Account, Scan, Type, Pair }
+/**
+ * The screens behind Home, kept as a back stack. Pair is 3.4 to 3.8, which follow [PairTvViewModel]. SendScan and
+ * SendType find the TV for Send a source, and Send is 4.2 to 4.10, which follow [SendSourcesViewModel].
+ */
+internal enum class PhoneScreen { Home, Account, Scan, Type, Pair, SendScan, SendType, Send }
 
 /**
  * Welcome until the phone is signed in, then 1.3 Signed in once and Home, with Account behind the avatar and pairing
@@ -41,6 +46,7 @@ internal enum class PhoneScreen { Home, Account, Scan, Type, Pair }
 internal fun PhoneApp(
     accounts: PhoneAccountViewModel,
     pairing: PairTvViewModel,
+    sources: SendSourcesViewModel,
     version: String,
     openInBrowser: (url: String) -> Unit,
 ) {
@@ -79,7 +85,7 @@ internal fun PhoneApp(
                         screens = listOf(PhoneScreen.Home)
                         accounts.signOut()
                     }
-                    SignedIn(current, pairing, screens.last(), version, openInBrowser, open, back, signOut) { screens = it }
+                    SignedIn(current, pairing, sources, screens.last(), version, openInBrowser, open, back, signOut) { screens = it }
                 }
 
                 is AccountState.SignedOut -> {
@@ -124,6 +130,7 @@ private fun screenOf(state: AccountState): Any =
 private fun SignedIn(
     account: AccountState.SignedIn,
     pairing: PairTvViewModel,
+    sources: SendSourcesViewModel,
     screen: PhoneScreen,
     version: String,
     openInBrowser: (url: String) -> Unit,
@@ -143,6 +150,12 @@ private fun SignedIn(
         codes.clearCode()
         open(PhoneScreen.Type)
     }
+    // The TV whose options opened Send a source. Its name heads the screens that follow.
+    var sendTo by rememberSaveable { mutableStateOf("") }
+    val send = { request: PairingRequest ->
+        sources.start(request)
+        replace(listOf(PhoneScreen.Home, PhoneScreen.Send))
+    }
     val leavePairing = {
         // While the account is going to the TV, stay and wait for its answer.
         if ((pairing.state.value as? PairTvState.CheckCode)?.sending != true) {
@@ -160,6 +173,10 @@ private fun SignedIn(
                 onScan = { open(PhoneScreen.Scan) },
                 onType = { openType() },
                 onRemoveTv = { pairing.removeTv(it.id) },
+                onSendSource = {
+                    sendTo = it.name
+                    open(PhoneScreen.SendScan)
+                },
             )
         }
 
@@ -178,6 +195,28 @@ private fun SignedIn(
         PhoneScreen.Type -> {
             val code by codes.state.collectAsStateWithLifecycle()
             PairCodeScreen(code, onCodeChange = codes::onCodeChange, onConnect = { codes.connect()?.let(pair) }, onBack = back)
+        }
+
+        PhoneScreen.SendScan -> {
+            PairScanRoute(
+                onClose = back,
+                onType = {
+                    codes.clearCode()
+                    open(PhoneScreen.SendType)
+                },
+                onQrCode = { text -> codes.scanned(text)?.also(send) != null },
+                title = R.string.send_title,
+                body = R.string.send_scan_body,
+            )
+        }
+
+        PhoneScreen.SendType -> {
+            val code by codes.state.collectAsStateWithLifecycle()
+            PairCodeScreen(code, onCodeChange = codes::onCodeChange, onConnect = { codes.connect()?.let(send) }, onBack = back)
+        }
+
+        PhoneScreen.Send -> {
+            SendRoute(sources, sendTo) { next -> replace(listOfNotNull(PhoneScreen.Home, next)) }
         }
 
         PhoneScreen.Pair -> {
@@ -206,6 +245,44 @@ private fun SignedIn(
             )
         }
     }
+}
+
+/** 4.2 to 4.10. Back on the picks goes back to the link; anywhere else it leaves, as Close does, for [leave]. */
+@Composable
+private fun SendRoute(
+    sources: SendSourcesViewModel,
+    tvName: String,
+    leave: (then: PhoneScreen?) -> Unit,
+) {
+    val state by sources.state.collectAsStateWithLifecycle()
+    val close = {
+        // While the picks are going to the TV, stay and wait for its answer.
+        if ((sources.state.value as? SendSourcesState.Pick)?.sending != true) {
+            sources.cancel()
+            leave(null)
+        }
+    }
+    // Nothing in progress, such as after the app was closed mid-way: there's nothing to show here.
+    LaunchedEffect(state) { if (state == SendSourcesState.Idle) leave(null) }
+    BackHandler { if (state is SendSourcesState.Pick) sources.backToLink() else close() }
+    SendSourcesScreen(
+        state,
+        tvName,
+        SendSourcesActions(
+            close = close,
+            confirm = sources::confirm,
+            reject = sources::reject,
+            linkChange = sources::onLinkChange,
+            check = sources::check,
+            toggle = sources::toggle,
+            back = sources::backToLink,
+            send = sources::send,
+            scanAgain = {
+                sources.cancel()
+                leave(PhoneScreen.SendScan)
+            },
+        ),
+    )
 }
 
 private val screensSaver =

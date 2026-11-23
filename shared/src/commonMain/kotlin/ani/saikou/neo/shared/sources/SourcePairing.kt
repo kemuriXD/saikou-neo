@@ -45,7 +45,10 @@ public sealed interface LinkForTv {
         val error: AddError,
     ) : LinkForTv
 
-    /** A list at [list], each source with what it is on the TV, as the TV would show it. Nothing is ticked. */
+    /**
+     * A list at [list], each source with what it is on the TV, as the TV would show it. Nothing is ticked. It may hold
+     * nothing that can be picked, so the phone can show why (4.9).
+     */
     public data class Listed(
         val list: String,
         val choices: List<Choice>,
@@ -74,8 +77,12 @@ public suspend fun readLinkForTv(
     if (!isSourceList(start)) return LinkForTv.OneApk(url)
     val listed = withContext(work) { readSourceList(start) } ?: return LinkForTv.Failed(AddError.BROKEN_LIST)
     val installed = tv.installed.associateBy { it.id }
-    val choices = listed.choices { choiceStatus(it, installed[it.id]?.version, installed[it.id]?.hasList == true, tv.api::problemFor) }
-    return choices.whyNone()?.let { LinkForTv.Failed(it) } ?: LinkForTv.Listed(url, choices)
+    return LinkForTv.Listed(
+        url,
+        listed.choices {
+            choiceStatus(it, installed[it.id]?.version, installed[it.id]?.hasList == true, tv.api::problemFor)
+        },
+    )
 }
 
 /** What to send for the ticked sources that can be picked, without their logos. Null when none are ticked. */

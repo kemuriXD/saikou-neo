@@ -106,7 +106,10 @@ class LinkForTvTest {
     @Test
     fun aListTheTvHasAllOfSaysSo() =
         runTest {
-            assertEquals(LinkForTv.Failed(AddError.ALL_INSTALLED), read("https://example.com/installed.json"))
+            val read = read("https://example.com/installed.json") as LinkForTv.Listed
+
+            assertEquals(listOf(ChoiceStatus.Installed), read.choices.map { it.status })
+            assertEquals(AddError.ALL_INSTALLED, read.choices.whyNone())
         }
 
     @Test

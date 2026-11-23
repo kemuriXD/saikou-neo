@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Icon/shield from the design's Components page. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="20dp"
+    android:height="20dp"
+    android:viewportWidth="20"
+    android:viewportHeight="20">
+    <path
+        android:pathData="M10 2.5L16.6667 5V10C16.6667 14.1667 13.75 16.6667 10 17.5C6.25 16.6667 3.33333 14.1667 3.33333 10V5L10 2.5Z"
+        android:strokeWidth="2"
+        android:strokeColor="#FFF6F5F2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+    <path
+        android:pathData="M7.5 10L9.16667 11.6667L12.5 8.33333"
+        android:strokeWidth="2"
+        android:strokeColor="#FFF6F5F2"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round" />
+</vector>

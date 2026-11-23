@@ -81,7 +81,9 @@ internal fun PairTvScreen(
         }
 
         is PairTvState.CheckCode -> {
-            PairFrame(actions.close, closeEnabled = !state.sending) { CheckCode(state, actions) }
+            PairFrame(actions.close, closeEnabled = !state.sending) {
+                CheckCode(state.code, stringResource(R.string.pair_check_body), state.sending, actions.confirm, actions.reject)
+            }
         }
 
         is PairTvState.SignedIn -> {
@@ -145,11 +147,17 @@ private fun Stopped(
     }
 }
 
-/** 3.5: the check code in two groups of three, read out as one label, with It matches and It doesn't match. */
+/**
+ * 3.5 and 4.2b: the check code in two groups of three, read out as one label, with It matches and It doesn't match.
+ * Both wait while [busy].
+ */
 @Composable
-private fun ColumnScope.CheckCode(
-    state: PairTvState.CheckCode,
-    actions: PairTvActions,
+internal fun ColumnScope.CheckCode(
+    code: String,
+    body: String,
+    busy: Boolean,
+    onConfirm: () -> Unit,
+    onReject: () -> Unit,
 ) {
     Column(
         Modifier
@@ -166,7 +174,7 @@ private fun ColumnScope.CheckCode(
             modifier = Modifier.semantics { heading() },
         )
         Spacer(Modifier.height(24.dp))
-        val label = stringResource(R.string.pair_check_code, state.code.toList().joinToString(" "))
+        val label = stringResource(R.string.pair_check_code, code.toList().joinToString(" "))
         Box(
             Modifier
                 .fillMaxWidth()
@@ -177,7 +185,7 @@ private fun ColumnScope.CheckCode(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                state.code.chunked(3).joinToString(" "),
+                code.chunked(3).joinToString(" "),
                 style = MaterialTheme.typography.displayMedium.copy(fontWeight = FontWeight.Bold, letterSpacing = 4.sp),
                 fontSize = 56.sp,
                 lineHeight = 64.sp,
@@ -186,31 +194,32 @@ private fun ColumnScope.CheckCode(
         }
         Spacer(Modifier.height(24.dp))
         Text(
-            stringResource(R.string.pair_check_body),
+            body,
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
     Actions {
-        Button(onClick = actions.confirm, enabled = !state.sending, modifier = BIG_BUTTON) {
+        Button(onClick = onConfirm, enabled = !busy, modifier = BIG_BUTTON) {
             ButtonLabel(R.string.pair_matches, R.drawable.icon_check)
         }
-        SmallButton(R.string.pair_no_match, null, actions.reject, enabled = !state.sending)
+        SmallButton(R.string.pair_no_match, null, onReject, enabled = !busy)
     }
 }
 
-/** The Pair a TV top bar with Close, over [content]. Close waits while the account is going to the TV. */
+/** The top bar with [title] and Close, over [content]. Close waits while the account is going to the TV. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PairFrame(
+internal fun PairFrame(
     onClose: () -> Unit,
     closeEnabled: Boolean = true,
+    @StringRes title: Int = R.string.pair_title,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.pair_title)) },
+                title = { Text(stringResource(title)) },
                 navigationIcon = {
                     IconButton(onClick = onClose, enabled = closeEnabled) {
                         Icon(painterResource(R.drawable.icon_close), contentDescription = stringResource(R.string.pair_close))
@@ -225,7 +234,7 @@ private fun PairFrame(
 }
 
 @Composable
-private fun SmallButton(
+internal fun SmallButton(
     @StringRes text: Int,
     @DrawableRes icon: Int?,
     onClick: () -> Unit,

@@ -23,8 +23,13 @@ import ani.saikou.neo.shared.account.PhoneAccountViewModel
 import ani.saikou.neo.shared.pairing.PairTvViewModel
 import ani.saikou.neo.shared.pairing.PrefsPairedTvStore
 import ani.saikou.neo.shared.pairing.connectForPairing
+import ani.saikou.neo.shared.pairing.connectPhoneForSources
 import ani.saikou.neo.shared.pairing.connectPhoneToTv
 import ani.saikou.neo.shared.pairing.lookupTvByCode
+import ani.saikou.neo.shared.sources.SendSourcesViewModel
+import ani.saikou.neo.shared.sources.ShortCodes
+import ani.saikou.neo.shared.sources.SourceDownloads
+import ani.saikou.neo.shared.sources.readLinkForTv
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -62,6 +67,23 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private val sources: SendSourcesViewModel by viewModels {
+        viewModelFactory {
+            initializer {
+                val codes = ShortCodes()
+                val downloads = SourceDownloads()
+                SendSourcesViewModel(
+                    connect = { request ->
+                        connectForPairing(request, lookup = { code ->
+                            lookupTvByCode(applicationContext, code)
+                        }, connect = ::connectPhoneForSources)
+                    },
+                    read = { text, tv -> readLinkForTv(text, tv, codes, downloads) },
+                )
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // The phone is always on ink, so the system bars keep light icons even when the phone is in light mode.
         enableEdgeToEdge(
@@ -74,7 +96,7 @@ class MainActivity : ComponentActivity() {
         }
         takeCallback(intent)
         val version = versionName()
-        setContent { PhoneTheme { PhoneApp(accounts, pairing, version, ::openInBrowser) } }
+        setContent { PhoneTheme { PhoneApp(accounts, pairing, sources, version, ::openInBrowser) } }
     }
 
     override fun onNewIntent(intent: Intent) {

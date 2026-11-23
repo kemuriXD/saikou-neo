@@ -56,6 +56,8 @@
     <!-- 2.3 to 2.5 A TV's options, and removing it (ADR 0040: removing only forgets it on the phone). -->
     <!-- %1$s is the TV's name. -->
     <string name="home_tv_options">Options for %1$s</string>
+    <string name="home_send_source">Send a source</string>
+    <string name="home_send_source_body">Add a link or code to this TV</string>
     <string name="home_remove_tv">Remove this TV</string>
     <string name="home_remove_tv_body">Takes it off Your TVs</string>
     <!-- %1$s is the TV's name. -->
@@ -116,6 +118,53 @@
     <string name="pair_sign_in_again">Sign in again</string>
     <string name="pair_start_again">Start again</string>
     <string name="pair_back_home">Back to Home</string>
+
+    <!-- 4.1 to 4.10 Send a source (ADR 0042). The phone sends only the ticked entries; the TV checks them again. -->
+    <string name="send_title">Send a source</string>
+    <string name="send_scan_body">On the TV, open Sources and choose Add from my phone. Then point your camera at the code. It scans on its own.</string>
+    <string name="send_connecting">Connecting to the TV…</string>
+    <string name="send_connecting_body">Keep Add from my phone open on the TV.</string>
+    <string name="send_check_body">Tap It matches only if the numbers are exactly the same, and choose It matches on the TV too. Then you can pick sources to send.</string>
+    <!-- %1$s is the TV's name, such as Living room TV. -->
+    <string name="send_to">To %1$s</string>
+    <string name="send_link_body">Paste the link or short code for a source or a list of sources.</string>
+    <string name="send_link_field">Link or code</string>
+    <string name="send_link_hint">A list lets you pick which sources to send.</string>
+    <string name="send_checking">Checking the link…</string>
+    <string name="send_trust">Sources run inside the app. Only add ones you trust.</string>
+    <string name="send_check_link">Check link</string>
+    <string name="send_error_code">No source has that code. Check it and try again.</string>
+    <string name="send_error_not_secure">That link isn’t secure. Use one that starts with https://.</string>
+    <string name="send_error_not_a_source">This link isn’t a source or a list of sources.</string>
+    <string name="send_error_broken_list">Couldn’t read the list at that link. Check it and try again.</string>
+    <string name="send_pick_title">Pick sources</string>
+    <string name="send_back">Back</string>
+    <!-- %1$s is the link without https://, such as example.org/sources.json. -->
+    <string name="send_from_list">From %1$s. Tick the ones to send.</string>
+    <string name="send_from">From %1$s.</string>
+    <string name="send_nothing_fits">Nothing in this list can be added. Every source is installed or needs a newer version of the app.</string>
+    <!-- %1$s is a version, such as 2.1.0. -->
+    <string name="send_version">Version %1$s</string>
+    <string name="send_update">Update from %1$s to %2$s</string>
+    <string name="send_installed">Installed, version %1$s</string>
+    <string name="send_add_again">Installed. Tick to get updates</string>
+    <string name="send_needs_newer_app">Needs a newer version of the app</string>
+    <string name="send_needs_newer_source">Built for an older version of the app</string>
+    <string name="send_does_not_work">Doesn’t work with this version of the app</string>
+    <string name="send_one_apk">One source, checked on the TV</string>
+    <string name="send_to_tv">Send to TV</string>
+    <plurals name="send_count">
+        <item quantity="one">Send %d source</item>
+        <item quantity="other">Send %d sources</item>
+    </plurals>
+    <!-- %1$s is the TV's name. -->
+    <string name="send_sent">%1$s has the list</string>
+    <string name="send_sent_body">Finish on the TV: it lists what’s arriving and installs nothing until you press Install.</string>
+    <string name="send_done">Done</string>
+    <!-- %1$s is the TV's name. -->
+    <string name="send_lost">Lost the connection to %1$s</string>
+    <string name="send_lost_body">Open Add from my phone on the TV again, then scan its new code.</string>
+    <string name="send_scan_again">Scan again</string>
 
     <!-- 6.1 Account -->
     <string name="account_title">Account</string>
