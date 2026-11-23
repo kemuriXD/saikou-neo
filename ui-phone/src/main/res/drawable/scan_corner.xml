@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- The top-left scan corner on 3.1 Pair: scan the TV code. The screen turns it for the other three. -->
+<!-- The top-left scan corner on 3.1 Pair: scan the TV code. The screen turns it for the other three and tints it
+     with the accent, so alpha and beta draw it green. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="48dp"
     android:height="48dp"

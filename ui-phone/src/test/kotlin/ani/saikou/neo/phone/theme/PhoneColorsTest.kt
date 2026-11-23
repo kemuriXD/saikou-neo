@@ -10,20 +10,22 @@ import org.junit.Test
 class PhoneColorsTest {
     @Test
     fun pinksMatchTheSaikouLogo() {
-        assertEquals(Color(0xFFFF0080), PhoneColors.pink)
-        assertEquals(Color(0xFFFF4BA8), PhoneColors.pinkLight)
+        assertEquals(Accent(Color(0xFFFF0080), Color(0xFFFF4BA8)), Accent.Stable)
     }
 
+    // Stable's pinks and the alpha and beta greens, whichever build runs the tests.
     @Test
     fun pinkStandsOutWhereThePhoneUsesIt() {
-        // "Neo" in the title, on ink.
-        assertContrast(PhoneColors.pink, PhoneColors.ink, 4.5f)
-        // Ink on the pink Pair a TV button and on the avatar's pink circle.
-        assertContrast(PhoneColors.ink, PhoneColors.pink, 4.5f)
-        // TV icons on the raised sheet.
-        assertContrast(PhoneColors.pink, PhoneColors.surfaceRaised, 3f)
-        // The paired tick on its tonal circle takes the lighter pink.
-        assertContrast(PhoneColors.pinkLight, PhoneColors.fillTonal.compositeOver(PhoneColors.ink), 3f)
+        listOf(Accent.Stable, Accent.Preview).forEach { accent ->
+            // "Neo" in the title, on ink.
+            assertContrast(accent.pink, PhoneColors.ink, 4.5f)
+            // Ink on the pink Pair a TV button and on the avatar's pink circle.
+            assertContrast(PhoneColors.ink, accent.pink, 4.5f)
+            // TV icons on the raised sheet.
+            assertContrast(accent.pink, PhoneColors.surfaceRaised, 3f)
+            // The paired tick on its tonal circle takes the lighter pink.
+            assertContrast(accent.pinkLight, PhoneColors.fillTonal.compositeOver(PhoneColors.ink), 3f)
+        }
     }
 
     private fun assertContrast(

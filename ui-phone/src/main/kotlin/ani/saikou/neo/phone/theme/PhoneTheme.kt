@@ -10,16 +10,19 @@ import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import ani.saikou.neo.phone.BuildConfig
 import ani.saikou.neo.phone.R
 
 /** The design's colour tokens (Foundations), the same as the TV's. The phone has one theme, on ink. */
 internal object PhoneColors {
     val ink = Color(0xFF11121C)
     val paper = Color(0xFFF6F5F2)
-    val pink = Color(0xFFFF0080)
+
+    /** The accent: the Saikou logo's pink, green in alpha and beta. See [Accent]. */
+    val pink = Accent.current.pink
 
     /** Pink on a light tint, where [pink] is too dark to stand out. */
-    val pinkLight = Color(0xFFFF4BA8)
+    val pinkLight = Accent.current.pinkLight
     val surface = Color(0xFF1A1B27)
     val surfaceRaised = Color(0xFF242535)
     val line = Color(0xFF33344A)
@@ -27,6 +30,23 @@ internal object PhoneColors {
     val fillTonal = paper.copy(alpha = 0.2f)
     val outline = paper.copy(alpha = 0.52f)
     val error = Color(0xFFFF8A80)
+}
+
+/**
+ * The accent colours, the same as the TV's. Stable uses the Saikou logo's pinks. Alpha and beta have a green icon, so
+ * they use greens with the same contrast.
+ */
+internal data class Accent(
+    val pink: Color,
+    val pinkLight: Color,
+) {
+    companion object {
+        val Stable = Accent(pink = Color(0xFFFF0080), pinkLight = Color(0xFFFF4BA8))
+        val Preview = Accent(pink = Color(0xFF00984C), pinkLight = Color(0xFF4BFFA2))
+
+        /** This build's accent. */
+        val current: Accent = if (BuildConfig.FLAVOR == "stable") Stable else Preview
+    }
 }
 
 // Static font files, since variable font settings need API 26. The TV uses the same files from brand/res.
