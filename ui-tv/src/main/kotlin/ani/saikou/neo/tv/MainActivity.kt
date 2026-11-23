@@ -680,7 +680,7 @@ class MainActivity : ComponentActivity() {
                     FromPhone(
                         fromPhoneState,
                         onNewCode = { fromPhoneBoard?.newCode() },
-                        onMatch = { fromPhoneBoard?.confirmCodes() },
+                        onMatch = { shown -> fromPhoneBoard?.confirmCodes(shown) },
                         onNoMatch = { fromPhoneBoard?.codesDontMatch() },
                         onInstall = { fromPhoneBoard?.install() },
                         onClose = closeFromPhone,

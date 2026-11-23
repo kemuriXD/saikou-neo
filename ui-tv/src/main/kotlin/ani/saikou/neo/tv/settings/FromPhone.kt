@@ -52,9 +52,9 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
+import ani.saikou.neo.shared.sources.ChoiceStatus
 import ani.saikou.neo.shared.sources.FromPhoneState
 import ani.saikou.neo.shared.sources.InstallOutcome
-import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.PickedSources
 import ani.saikou.neo.shared.sources.size
 import ani.saikou.neo.tv.R
@@ -85,14 +85,14 @@ internal const val FROM_PHONE_PANEL_TAG = "from-phone-panel"
 
 /**
  * Add from my phone (ADR 0042, ADR 0058): its [state], or null while it's closed, and what its buttons do.
- * [onNewCode] gets a new code, [onMatch] is It matches on the TV and [onNoMatch] tells the phone the codes didn't
+ * [onNewCode] gets a new code, [onMatch] is It matches on the TV for the code shown, and [onNoMatch] tells the phone the codes didn't
  * match. [onInstall] installs what arrived, and [onClose] leaves, dropping anything that hasn't been installed. Sources
  * opens it with [SourceActions.onFromPhone].
  */
 class FromPhone(
     val state: FromPhoneState? = null,
     val onNewCode: () -> Unit = {},
-    val onMatch: () -> Unit = {},
+    val onMatch: (shown: String) -> Unit = {},
     val onNoMatch: () -> Unit = {},
     val onInstall: () -> Unit = {},
     val onClose: () -> Unit = {},
@@ -180,7 +180,11 @@ private fun ColumnScope.BoardMessage(
                     if (state.confirmed) {
                         NeoButton(cancel, onClick = fromPhone.onClose, modifier = focused)
                     } else {
-                        NeoButton(stringResource(R.string.from_phone_it_matches), onClick = fromPhone.onMatch, modifier = focused)
+                        NeoButton(
+                            stringResource(R.string.from_phone_it_matches),
+                            onClick = { fromPhone.onMatch(state.checkCode) },
+                            modifier = focused,
+                        )
                         // Cancel here means the codes don't match, so the phone hears that someone else may be listening.
                         NeoButton(
                             cancel,
@@ -308,14 +312,12 @@ private fun BoardPanel(state: FromPhoneState) {
 }
 
 /**
- * What the phone sent, over Sources: each source with whether it's new or an update from what's [installed], and
- * Install and Cancel. While they install, each says how it went, one at a time, and once all have been tried, Done.
+ * What the phone sent, over Sources: each source as the TV sees it, new, an update, already installed or not for this
+ * app, and Install for the ones that can be, with Cancel. While they install, each says how it went, one at a time,
+ * and once all have been tried, Done.
  */
 @Composable
-internal fun BoxScope.FromPhonePanel(
-    fromPhone: FromPhone,
-    installed: List<InstalledSource>,
-) {
+internal fun BoxScope.FromPhonePanel(fromPhone: FromPhone) {
     val state = fromPhone.state?.takeUnless { it.onBoard }
     SlidingPanel(state) { shown, active, motion ->
         val picked =
@@ -324,6 +326,8 @@ internal fun BoxScope.FromPhonePanel(
                 is FromPhoneState.Installing -> shown.picked
                 else -> return@SlidingPanel
             }
+        val statuses = (shown as? FromPhoneState.Confirm)?.statuses
+        val toInstall = (shown as? FromPhoneState.Confirm)?.toInstall ?: 0
         val outcomes = (shown as? FromPhoneState.Installing)?.outcomes
         val going = outcomes != null && outcomes.any { it == null }
         val presses = remember(outcomes == null, going) { OwnPresses() }
@@ -338,17 +342,16 @@ internal fun BoxScope.FromPhonePanel(
         ) {
             val colors = NeoTheme.colors
             Text(stringResource(R.string.from_phone_panel_title), style = PaneTitle, color = colors.paper)
-            Text(panelBody(picked, outcomes), style = Body, color = colors.textMuted)
-            val byId = installed.associateBy { it.id }
+            Text(panelBody(picked, outcomes, toInstall), style = Body, color = colors.textMuted)
             // The list scrolls under the buttons, and Up goes through each source, so all of them can be read.
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                rows(picked).forEachIndexed { index, (id, name, version) ->
+                rows(picked).forEachIndexed { index, (name, version) ->
                     val meta =
                         when {
-                            outcomes == null -> arrivingMeta(version, id?.let { byId[it] }?.version)
+                            outcomes == null -> arrivingMeta(version, statuses?.getOrNull(index))
                             else -> outcomeMeta(outcomes[index], outcomes.indexOfFirst { it == null } == index)
                         }
                     PhoneRow(name, meta.first, warn = meta.second)
@@ -360,13 +363,17 @@ internal fun BoxScope.FromPhonePanel(
                 NeoDialogButtons {
                     val focused = Modifier.focusRequester(first)
                     when {
-                        outcomes == null -> {
+                        outcomes == null && toInstall > 0 -> {
                             NeoDialogButton(
-                                pluralStringResource(R.plurals.from_phone_install, picked.size, picked.size),
+                                pluralStringResource(R.plurals.from_phone_install, toInstall, toInstall),
                                 onClick = fromPhone.onInstall,
                                 modifier = focused,
                             )
                             NeoDialogButton(stringResource(R.string.sign_in_cancel), onClick = fromPhone.onClose)
+                        }
+
+                        outcomes == null -> {
+                            NeoDialogButton(stringResource(R.string.sources_close), onClick = fromPhone.onClose, modifier = focused)
                         }
 
                         going -> {
@@ -384,18 +391,18 @@ internal fun BoxScope.FromPhonePanel(
     }
 }
 
-/** Each source's id, name and version, or for a link to one APK, the file's name and site. */
+/** Each source's name and version, or for a link to one APK, the file's name and site. */
 @Composable
-private fun rows(picked: PickedSources): List<Triple<String?, String, String?>> =
+private fun rows(picked: PickedSources): List<Pair<String, String?>> =
     when (picked) {
         is PickedSources.FromList -> {
-            picked.sources.map { Triple(it.id, it.name, it.version) }
+            picked.sources.map { it.name to it.version }
         }
 
         is PickedSources.OneApk -> {
             val file = pathEnd(picked.apk)
             val site = host(picked.apk)
-            listOf(Triple(null, if (file.isEmpty()) site else stringResource(R.string.from_phone_apk_from, file, site), null))
+            listOf((if (file.isEmpty()) site else stringResource(R.string.from_phone_apk_from, file, site)) to null)
         }
     }
 
@@ -414,9 +421,14 @@ private fun pathEnd(link: String): String =
 private fun panelBody(
     picked: PickedSources,
     outcomes: List<InstallOutcome?>?,
+    toInstall: Int,
 ): String {
     val total = picked.size
     return when {
+        outcomes == null && toInstall == 0 -> {
+            stringResource(R.string.from_phone_nothing_to_install)
+        }
+
         outcomes == null -> {
             val from = (picked as? PickedSources.FromList)?.list ?: (picked as PickedSources.OneApk).apk
             pluralStringResource(R.plurals.from_phone_sent, total, total, host(from))
@@ -433,17 +445,23 @@ private fun panelBody(
     }
 }
 
-/** What arrives: new, an update [from] the version installed, or for one APK with no [version], checked as it installs. */
+/**
+ * What arriving at [version] means here, from the TV's own [status]: new, an update, already installed or not for this
+ * app. A link to one APK has neither, and is checked as it installs. True when it can't be installed.
+ */
 @Composable
 private fun arrivingMeta(
     version: String?,
-    from: String?,
+    status: ChoiceStatus?,
 ): Pair<String, Boolean> =
     when {
-        version == null -> stringResource(R.string.from_phone_one_apk)
-        from == null -> stringResource(R.string.from_phone_new, version)
-        else -> stringResource(R.string.sources_update, from, version)
-    } to false
+        version == null || status == null -> stringResource(R.string.from_phone_one_apk) to false
+        status is ChoiceStatus.Update -> stringResource(R.string.sources_update, status.from, version) to false
+        status == ChoiceStatus.AddAgain -> stringResource(R.string.from_phone_add_again, version) to false
+        status == ChoiceStatus.Installed -> stringResource(R.string.from_phone_already) to true
+        status is ChoiceStatus.CantUse -> stringResource(status.problem.short) to true
+        else -> stringResource(R.string.from_phone_new, version) to false
+    }
 
 /** How one source went, or that it's installing or waiting its turn. True when it went wrong. */
 @Composable

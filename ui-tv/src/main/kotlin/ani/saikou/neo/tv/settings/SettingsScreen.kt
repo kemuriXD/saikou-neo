@@ -431,7 +431,7 @@ private fun SettingsPage(
             )
         }
         SourcesPanels(sources, sourcesUi, sourceActions, checks)
-        FromPhonePanel(fromPhone, sources.installed.orEmpty())
+        FromPhonePanel(fromPhone)
         if (fromPhone.state?.onBoard == true) FromPhoneBoard(fromPhone)
         // Once Add from my phone closes, focus goes back to it.
         val fromPhoneOpen = fromPhone.state != null

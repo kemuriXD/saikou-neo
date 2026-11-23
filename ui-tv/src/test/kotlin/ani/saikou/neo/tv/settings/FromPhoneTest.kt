@@ -13,11 +13,13 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import ani.saikou.neo.shared.settings.Settings
+import ani.saikou.neo.shared.sources.ChoiceStatus
 import ani.saikou.neo.shared.sources.FromPhoneState
 import ani.saikou.neo.shared.sources.InstallOutcome
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.ListedSource
 import ani.saikou.neo.shared.sources.PickedSources
+import ani.saikou.neo.shared.sources.SourceProblem
 import ani.saikou.neo.shared.sources.SourcesState
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.Assert.assertEquals
@@ -37,6 +39,8 @@ private val picked =
             ListedSource(demo.id, demo.name, "1.0.0", 1, "https://example.com/demo.apk"),
         ),
     )
+
+private val arriving = listOf(ChoiceStatus.New, ChoiceStatus.Update(from = "0.9.0"))
 
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -155,7 +159,7 @@ class FromPhoneTest {
     @Test
     fun whatArrivedShowsNewAndUpdateWithInstallFocused() {
         show()
-        set(FromPhoneState.Confirm(picked))
+        set(FromPhoneState.Confirm(picked, arriving))
 
         text("From your phone").assertIsDisplayed()
         text("Your phone sent 2 sources from example.com. Nothing installs until you press Install.").assertIsDisplayed()
@@ -173,7 +177,7 @@ class FromPhoneTest {
         compose.onRoot().performKeyInput { keyDown(Key.DirectionCenter) }
         compose.waitForIdle()
 
-        set(FromPhoneState.Confirm(picked))
+        set(FromPhoneState.Confirm(picked, arriving))
         compose.onRoot().performKeyInput { keyUp(Key.DirectionCenter) }
         compose.waitForIdle()
 
@@ -215,7 +219,7 @@ class FromPhoneTest {
                 (1..50).map { ListedSource("ani.saikou.neo.s$it", "Source $it", "1.0.0", 1, "https://example.com/s$it.apk") },
             )
         show()
-        set(FromPhoneState.Confirm(many))
+        set(FromPhoneState.Confirm(many, List(50) { ChoiceStatus.New }))
 
         text("Install 50 sources").assertIsDisplayed()
         text("Cancel").assertIsDisplayed()
@@ -228,9 +232,36 @@ class FromPhoneTest {
     @Test
     fun theSiteTheSourcesComeFromIsShown() {
         show()
-        set(FromPhoneState.Confirm(PickedSources.OneApk("https://files.example.org/x?y/Official.apk")))
+        set(FromPhoneState.Confirm(PickedSources.OneApk("https://files.example.org/x?y/Official.apk"), listOf(null)))
 
         text("x from files.example.org").assertIsDisplayed()
+    }
+
+    @Test
+    fun aDowngradeOrAVersionForAnotherAppIsShownAsSuchAndNotCounted() {
+        show()
+        set(
+            FromPhoneState.Confirm(
+                picked,
+                listOf(ChoiceStatus.CantUse(SourceProblem.BUILT_FOR_NEWER_APP), ChoiceStatus.Installed),
+            ),
+        )
+
+        text("Needs a newer version of the app").assertIsDisplayed()
+        text("Already installed").assertIsDisplayed()
+        text("Close").assertIsDisplayed()
+        press(Key.DirectionCenter)
+
+        assertEquals(0, installed)
+        assertEquals(1, closed)
+    }
+
+    @Test
+    fun installCountsOnlyWhatCanBeInstalled() {
+        show()
+        set(FromPhoneState.Confirm(picked, listOf(ChoiceStatus.New, ChoiceStatus.Installed)))
+
+        text("Install 1 source").assertIsDisplayed()
     }
 
     @Test

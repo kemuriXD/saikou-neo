@@ -380,6 +380,8 @@
     <string name="from_phone_done">Done</string>
     <string name="from_phone_new">New, version %1$s</string>
     <string name="from_phone_apk_from">%1$s from %2$s</string>
+    <string name="from_phone_add_again">Installed, version %1$s. Adding it again gets it updates</string>
+    <string name="from_phone_nothing_to_install">Nothing your phone sent can be installed here. Each is already installed or built for another version of the app.</string>
     <string name="from_phone_one_apk">One source, checked as it installs</string>
     <string name="from_phone_row_installing">Installing…</string>
     <string name="from_phone_row_waiting">Waiting</string>
