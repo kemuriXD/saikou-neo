@@ -31,6 +31,12 @@ public class SourceDownloads internal constructor(
     public suspend fun fetch(url: String): ByteArray? = download(url, maxBytes)
 
     /**
+     * The first bytes of the file at [url], enough to tell a list from an APK and to read the list, so the phone never
+     * downloads a whole APK (ADR 0042). Null when it isn't allowed or can't be fetched.
+     */
+    public suspend fun fetchStart(url: String): ByteArray? = download(url, MAX_START_BYTES, cut = true)
+
+    /**
      * The logo at [url] (ADR 0028), or null when it isn't allowed, can't be fetched, or isn't a small enough PNG. A logo
      * is fetched as soon as its list opens, with no click, so one at home is only fetched for a list [fromHome]. That
      * stops a list from the internet making the TV call devices on the same network.
@@ -44,6 +50,7 @@ public class SourceDownloads internal constructor(
         url: String,
         maxBytes: Long,
         allowHome: Boolean = true,
+        cut: Boolean = false,
     ): ByteArray? =
         withContext(io) {
             try {
@@ -66,7 +73,7 @@ public class SourceDownloads internal constructor(
                         }
 
                         response.statusCode == 200 && body != null -> {
-                            return@withContext body.use { it.readAtMost(maxBytes) }
+                            return@withContext body.use { it.readAtMost(maxBytes, cut) }
                         }
 
                         else -> {
@@ -95,17 +102,23 @@ public class SourceDownloads internal constructor(
 
         // A logo is drawn at 96 px, so anything bigger than this is not one.
         const val MAX_ICON_BYTES = 256L * 1024
+
+        // A list of 50 sources is a few kilobytes, so this is plenty for one.
+        const val MAX_START_BYTES = 256L * 1024
         val REDIRECTS = setOf(301, 302, 303, 307, 308)
     }
 }
 
-/** Everything left to read, or null when it's more than [max] bytes. */
-private fun BufferedSource.readAtMost(max: Long): ByteArray? {
+/** Everything left to read, or null when it's more than [max] bytes. With [cut], the first [max] bytes instead. */
+private fun BufferedSource.readAtMost(
+    max: Long,
+    cut: Boolean = false,
+): ByteArray? {
     val buffer = Buffer()
     while (buffer.size <= max) {
         if (read(buffer, 8_192) == -1L) return buffer.readByteArray()
     }
-    return null
+    return if (cut) buffer.readByteArray(max) else null
 }
 
 /** Where a redirect from [from] to [location] goes: a full link, or a path on the same site. */

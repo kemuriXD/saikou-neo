@@ -167,12 +167,7 @@ public class SourcesViewModel(
     }
 
     private suspend fun addFrom(text: String): Adding {
-        val url =
-            when (val address = SourceAddress.parse(text)) {
-                is SourceAddress.Link -> address.url
-                is SourceAddress.Code -> codes.link(address.code)
-                null -> null
-            } ?: return Adding.Failed(AddError.NO_SUCH_CODE)
+        val url = linkFor(text, codes) ?: return Adding.Failed(AddError.NO_SUCH_CODE)
         if (!isAllowedSourceLink(url)) return Adding.Failed(AddError.NOT_SECURE)
         val file = downloads.fetch(url) ?: return Adding.Failed(AddError.NOT_A_SOURCE)
         if (isSourceList(file)) {
@@ -191,37 +186,8 @@ public class SourcesViewModel(
             store.installed.value
                 .orEmpty()
                 .associateBy { it.id }
-        val choices =
-            listed
-                .map { Choice(it, status(it, installed[it.id])) }
-                .sortedBy {
-                    when {
-                        it.status == ChoiceStatus.AddAgain -> 1
-                        it.status.canPick -> 0
-                        it.status == ChoiceStatus.Installed -> 2
-                        else -> 3
-                    }
-                }
-        if (choices.all { it.status is ChoiceStatus.CantUse }) return Adding.Failed(AddError.NOTHING_IN_LIST)
-        if (choices.none { it.status.canPick }) return Adding.Failed(AddError.ALL_INSTALLED)
-        return Adding.Choosing(choices)
-    }
-
-    private fun status(
-        source: ListedSource,
-        installed: InstalledSource?,
-    ): ChoiceStatus {
-        store.problemFor(source.api)?.let { return ChoiceStatus.CantUse(it) }
-        return when {
-            installed == null -> ChoiceStatus.New
-
-            compareVersions(source.version, installed.version) > 0 -> ChoiceStatus.Update(installed.version)
-
-            // Only the same version, so adding it again never goes back to an older one.
-            installed.list == null && compareVersions(source.version, installed.version) == 0 -> ChoiceStatus.AddAgain
-
-            else -> ChoiceStatus.Installed
-        }
+        val choices = listed.choices { choiceStatus(it, installed[it.id]?.version, installed[it.id]?.list != null, store::problemFor) }
+        return choices.whyNone()?.let { Adding.Failed(it) } ?: Adding.Choosing(choices)
     }
 
     /** Ticks or unticks the source with [id] in the list, unless it can't be picked or sources are being added. */
@@ -277,6 +243,59 @@ public class SourcesViewModel(
 
 // A list can name 50 sources, so its logos come in a few at a time.
 private const val ICONS_AT_ONCE = 4
+
+/** The link [text] stands for: a link as typed, or the link a short code leads to. Null when it's neither. */
+internal suspend fun linkFor(
+    text: String,
+    codes: ShortCodes,
+): String? =
+    when (val address = SourceAddress.parse(text)) {
+        is SourceAddress.Link -> address.url
+        is SourceAddress.Code -> codes.link(address.code)
+        null -> null
+    }
+
+/**
+ * What [source] is to an app that has [installedVersion] of it (null when none) with or without a saved list, and
+ * that can't use a source when [problemFor] says why. The TV and the phone both use this (ADR 0042).
+ */
+internal fun choiceStatus(
+    source: ListedSource,
+    installedVersion: String?,
+    hasList: Boolean,
+    problemFor: (Int) -> SourceProblem?,
+): ChoiceStatus {
+    problemFor(source.api)?.let { return ChoiceStatus.CantUse(it) }
+    return when {
+        installedVersion == null -> ChoiceStatus.New
+
+        compareVersions(source.version, installedVersion) > 0 -> ChoiceStatus.Update(installedVersion)
+
+        // Only the same version, so adding it again never goes back to an older one.
+        !hasList && compareVersions(source.version, installedVersion) == 0 -> ChoiceStatus.AddAgain
+
+        else -> ChoiceStatus.Installed
+    }
+}
+
+/** [this] with each source's [status], unticked: ones you can pick first, then add again, installed, can't use. */
+internal fun List<ListedSource>.choices(status: (ListedSource) -> ChoiceStatus): List<Choice> =
+    map { Choice(it, status(it)) }.sortedBy {
+        when {
+            it.status == ChoiceStatus.AddAgain -> 1
+            it.status.canPick -> 0
+            it.status == ChoiceStatus.Installed -> 2
+            else -> 3
+        }
+    }
+
+/** Why none of [this] can be picked, or null when some can. */
+internal fun List<Choice>.whyNone(): AddError? =
+    when {
+        all { it.status is ChoiceStatus.CantUse } -> AddError.NOTHING_IN_LIST
+        none { it.status.canPick } -> AddError.ALL_INSTALLED
+        else -> null
+    }
 
 /** [this] with the source [id] given [status]. A source that failed stays ticked, so Add tries it again. */
 private fun List<Choice>.withStatus(

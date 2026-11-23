@@ -42,6 +42,18 @@ internal class PagesEngine(
 
 class SourceDownloadsTest {
     @Test
+    fun theStartOfAFileStopsShortOfAWholeApk() =
+        runTest {
+            val apk = ByteArray(1024 * 1024) { 'P'.code.toByte() }
+            val start =
+                SourceDownloads(
+                    PagesEngine(emptyMap(), mapOf("https://example.com/a.apk" to apk)),
+                ).fetchStart("https://example.com/a.apk")
+
+            assertEquals(256 * 1024, start?.size)
+        }
+
+    @Test
     fun aLinkGivesItsFile() =
         runTest {
             val apk = SourceDownloads(PagesEngine(mapOf("https://example.com/a.apk" to "APK"))).fetch("https://example.com/a.apk")
