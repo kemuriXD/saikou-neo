@@ -97,8 +97,14 @@ public class SourceUpdatesViewModel(
         run.update { it.copy(failed = it.failed - updates.map { source -> source.id }.toSet()) }
         installs =
             viewModelScope.launch {
-                updates.forEachIndexed { done, source ->
+                updates.forEachIndexed { done, queued ->
                     run.update { it.copy(progress = Progress(done, updates.size)) }
+                    // Read again, so one removed or updated some other way while it waited is left as it is now.
+                    val source =
+                        store.installed.value
+                            .orEmpty()
+                            .firstOrNull { it.id == queued.id }
+                    if (source == null || updateStatus(source, found, store::problemFor) !is UpdateStatus.Available) return@forEachIndexed
                     if (!install(source, found)) run.update { it.copy(failed = it.failed + source.id) }
                 }
                 run.update { it.copy(progress = null) }
@@ -107,7 +113,8 @@ public class SourceUpdatesViewModel(
 
     /**
      * Installs the version of [source] its list names in [found], through the normal install, keeping the list's link.
-     * False when it couldn't be fetched or isn't the source its entry names, which keeps the old version.
+     * False when it couldn't be fetched or isn't the source its entry names, which keeps the old version, or when what
+     * it installed is no newer than [source], so the update would be offered again forever.
      */
     private suspend fun install(
         source: InstalledSource,
@@ -117,7 +124,7 @@ public class SourceUpdatesViewModel(
         val listed = found[link]?.firstOrNull { it.id == source.id } ?: return false
         val apk = downloads.fetch(listed.apk) ?: return false
         val installed = store.install(apk, source.id, link) ?: return false
-        return installed.problem == null
+        return installed.problem == null && compareVersions(installed.version, source.version) > 0
     }
 
     private fun stateOf(

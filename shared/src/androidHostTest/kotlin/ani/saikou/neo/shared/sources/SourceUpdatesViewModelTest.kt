@@ -272,4 +272,69 @@ class SourceUpdatesViewModelTest {
                     .failed,
             )
         }
+
+    @Test
+    fun aSourceRemovedWhileQueuedIsNotInstalledAgain() =
+        test {
+            val viewModel = viewModel(alpha, beta, gamma)
+            viewModel.check()
+            val first = CompletableDeferred<Unit>()
+            store.gates += first
+            viewModel.updateAll()
+
+            // Beta is removed while alpha installs.
+            store.installed.value =
+                store.installed.value
+                    .orEmpty()
+                    .filter { it.id != beta.id }
+            first.complete(Unit)
+
+            assertEquals(listOf(alpha.id, gamma.id), store.installs)
+            assertEquals(listOf(alpha.copy(version = "1.1.0"), gamma.copy(version = "1.1.0")), store.installed.value?.sortedBy { it.id })
+            assertNull(viewModel.state.value.progress)
+        }
+
+    @Test
+    fun aSourceUpdatedElsewhereWhileQueuedIsNotInstalledOver() =
+        test {
+            val viewModel = viewModel(alpha, beta)
+            viewModel.check()
+            val first = CompletableDeferred<Unit>()
+            store.gates += first
+            viewModel.updateAll()
+
+            // A newer beta than its list names is installed some other way while alpha installs.
+            val newer = beta.copy(version = "1.2.0")
+            store.installed.value = store.installed.value
+                .orEmpty()
+                .filter { it.id != beta.id } + newer
+            first.complete(Unit)
+
+            assertEquals(listOf(alpha.id), store.installs)
+            val row =
+                viewModel.state.value.sources
+                    .single { it.source.id == beta.id }
+            assertEquals(newer, row.source)
+            assertEquals(UpdateStatus.UpToDate, row.status)
+            assertFalse(row.failed)
+        }
+
+    @Test
+    fun anUpdateThatInstallsNoNewerVersionFails() =
+        test {
+            // The list names 1.1.0, but the APK it links to is still 1.0.0 inside.
+            val stale = FakeStore(mapOf("ALPHA" to alpha))
+            stale.installed.value = listOf(alpha)
+            val viewModel = SourceUpdatesViewModel(stale, SourceDownloads(PagesEngine(pages), main), main) { 1_000L }
+            viewModel.check()
+
+            viewModel.update(alpha.id)
+
+            assertEquals(listOf(alpha.id), stale.installs)
+            val row =
+                viewModel.state.value.sources
+                    .single()
+            assertEquals(UpdateStatus.Available("1.1.0"), row.status)
+            assertEquals(true, row.failed)
+        }
 }
