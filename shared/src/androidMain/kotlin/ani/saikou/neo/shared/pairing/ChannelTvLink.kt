@@ -96,12 +96,37 @@ public object PairingMessages {
     internal fun read(
         bytes: ByteArray,
         type: String,
-    ): JSONObject? =
-        try {
-            JSONObject(bytes.decodeToString()).takeIf { it.optInt("v") == VERSION && it.optString("type") == type }
+    ): JSONObject? {
+        val text = bytes.decodeToString()
+        // The parser recurses, so deep nesting from the other side could overflow the stack and crash the app.
+        if (nesting(text) > MAX_NESTING) return null
+        return try {
+            JSONObject(text).takeIf { it.optInt("v") == VERSION && it.optString("type") == type }
         } catch (_: JSONException) {
             null
         }
+    }
+
+    private const val MAX_NESTING = 8
+
+    /** How deep the arrays and objects in [json] go, not counting brackets inside strings. */
+    private fun nesting(json: String): Int {
+        var depth = 0
+        var deepest = 0
+        var inString = false
+        var escaped = false
+        for (char in json) {
+            when {
+                escaped -> escaped = false
+                inString && char == '\\' -> escaped = true
+                char == '"' -> inString = !inString
+                inString -> Unit
+                char == '{' || char == '[' -> deepest = maxOf(deepest, ++depth)
+                char == '}' || char == ']' -> depth--
+            }
+        }
+        return deepest
+    }
 }
 
 /**

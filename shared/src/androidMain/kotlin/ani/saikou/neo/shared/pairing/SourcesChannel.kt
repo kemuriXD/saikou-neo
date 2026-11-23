@@ -37,14 +37,15 @@ import org.json.JSONObject
  * - Either way, a stop message as in [PairingMessages]: `no-match` when the codes don't match on either side,
  *   `cancelled` from either side, or `timed-out` when the TV stops waiting for the phone's It matches or picks.
  *
- * The TV never trusts the phone's checks. A message over 65,000 bytes is refused. So are 1 to 50 entries that aren't
- * all valid list entries, with distinct ids, and a list or APK link the TV wouldn't take typed. Any of these drops the
- * phone. Install on the TV checks each entry again before it downloads anything.
+ * The TV never trusts the phone's checks. A message over 65,000 bytes or nested more than 8 deep is refused. So is
+ * anything but 1 to 50 valid list entries with distinct ids, and a list or APK link the TV wouldn't take typed, longer
+ * than 2,000 characters or with hidden characters. Any of these drops the phone. Install on the TV checks each entry again before it downloads anything.
  */
 internal object SourcesMessages {
     private const val MAX_MESSAGE = 65_000
     private const val MAX_INSTALLED = 200
     private const val MAX_TEXT = 60
+    private const val MAX_LINK = 2_000
 
     fun tvSources(tv: TvSources): ByteArray {
         val installed = JSONArray()
@@ -115,12 +116,14 @@ internal object SourcesMessages {
             readJson(bytes, "sources")?.let { json ->
                 if (json.has("apk")) {
                     val apk = json.getString("apk")
-                    return if (json.has("list") || json.has("sources") || !isAllowedSourceLink(apk)) null else PickedSources.OneApk(apk)
+                    return if (json.has("list") || json.has("sources") || !isCleanLink(apk)) null else PickedSources.OneApk(apk)
                 }
-                val list = json.getString("list").takeIf { isAllowedSourceLink(it) } ?: return null
+                val list = json.getString("list").takeIf(::isCleanLink) ?: return null
                 val sent = json.getJSONArray("sources").length()
                 // Read with the list rules. An entry they leave out, or one past the limit, refuses the whole message.
-                val read = readSourceList(bytes)?.takeIf { sent > 0 && it.size == sent } ?: return null
+                val read =
+                    readSourceList(bytes)?.takeIf { sent > 0 && it.size == sent && it.all { source -> isCleanLink(source.apk) } }
+                        ?: return null
                 PickedSources.FromList(list, read.map { it.copy(icon = null) })
             }
         } catch (_: JSONException) {
@@ -134,6 +137,9 @@ internal object SourcesMessages {
     fun received(): ByteArray = PairingMessages.message("sources-received").toString().encodeToByteArray()
 
     fun isReceived(bytes: ByteArray): Boolean = readJson(bytes, "sources-received") != null
+
+    /** A link the TV would take typed, short enough and with nothing hidden, so the TV can show it as it is. */
+    private fun isCleanLink(link: String): Boolean = link.length <= MAX_LINK && link.none(::isHidden) && isAllowedSourceLink(link)
 
     private fun isHidden(char: Char): Boolean = Character.isISOControl(char) || Character.getType(char) == Character.FORMAT.toInt()
 

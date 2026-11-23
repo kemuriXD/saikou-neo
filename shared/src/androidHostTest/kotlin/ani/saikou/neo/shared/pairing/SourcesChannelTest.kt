@@ -20,7 +20,9 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
+import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 private fun source(
     id: String,
@@ -236,6 +238,30 @@ class SourcesChannelTest {
             )
 
         refused.forEach { assertNull(SourcesMessages.readPicked(it.encodeToByteArray()), it) }
+    }
+
+    @Test
+    fun linksWithHiddenCharactersOrTooLongAreRefused() {
+        val list = "https://example.com/sources.json"
+        val refused =
+            listOf(
+                // A direction override, written as a JSON escape.
+                """{"v":1,"type":"sources","apk":"https://example.com/a‮.apk"}""",
+                """{"v":1,"type":"sources","list":"$list","sources":[${entry("com.example.one", "https://example.com/a‮.apk")}]}""",
+                """{"v":1,"type":"sources","list":"https://example.com/${"a".repeat(2_000)}","sources":[${entry("com.example.one")}]}""",
+            )
+
+        refused.forEach { assertNull(SourcesMessages.readPicked(it.encodeToByteArray()), it) }
+    }
+
+    @Test
+    fun deepNestingIsRefusedWithoutCrashing() {
+        val deep = """{"v":1,"type":"codes-match","x":${"[".repeat(30_000)}${"]".repeat(30_000)}}"""
+
+        assertFalse(SourcesMessages.isCodesMatch(deep.encodeToByteArray()))
+        assertNull(PairingMessages.readAccount(deep.replace("codes-match", "account").encodeToByteArray()))
+        // Brackets inside strings don't count.
+        assertTrue(SourcesMessages.isCodesMatch("""{"v":1,"type":"codes-match","x":"${"[".repeat(100)}"}""".encodeToByteArray()))
     }
 
     @Test
