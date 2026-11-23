@@ -108,9 +108,12 @@ internal fun removeTag(id: String) = "remove-$id"
 
 internal fun choiceTag(id: String) = "choice-$id"
 
+internal const val FROM_PHONE_ENTRY_TAG = "add-from-phone"
+
 /**
  * What Settings > Sources does when you add a source from [onAdd]'s text, close a panel, remove a source by id, tick
- * a source in a list by id, add the ticked ones, check a source, check them all, or stop the checks.
+ * a source in a list by id, add the ticked ones, check a source, check them all, or stop the checks. [onFromPhone]
+ * opens Add from my phone (ADR 0042).
  */
 class SourceActions(
     val onAdd: (text: String) -> Unit = {},
@@ -121,6 +124,7 @@ class SourceActions(
     val onCheck: (InstalledSource) -> Unit = {},
     val onCheckAll: () -> Unit = {},
     val onStopChecks: () -> Unit = {},
+    val onFromPhone: () -> Unit = {},
 )
 
 /** The panels Sources opens: adding a source, or asking before one is removed. */
@@ -136,6 +140,7 @@ internal sealed interface SourcePanel {
 internal class SourcesUi {
     var panel by mutableStateOf<SourcePanel?>(null)
     val addSource = FocusRequester()
+    val fromPhone = FocusRequester()
     val checkAll = FocusRequester()
     val checks = mutableStateMapOf<String, FocusRequester>()
 
@@ -238,7 +243,16 @@ internal fun SourcesPane(
         } else {
             Text(stringResource(R.string.settings_sources_intro), style = Body, color = colors.textMuted)
         }
-        AddSource(empty, onClick = { ui.panel = SourcePanel.Add }, modifier = toCategory.focusRequester(ui.addSource))
+        val openAdd = { ui.panel = SourcePanel.Add }
+        if (empty) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                AddSource(true, onClick = openAdd, modifier = toCategory.focusRequester(ui.addSource))
+                FromPhoneEntry(true, actions.onFromPhone, Modifier.focusRequester(ui.fromPhone))
+            }
+        } else {
+            AddSource(false, onClick = openAdd, modifier = toCategory.focusRequester(ui.addSource))
+            FromPhoneEntry(false, actions.onFromPhone, toCategory.focusRequester(ui.fromPhone))
+        }
         if (empty) {
             EmptyNote(R.string.sources_trust)
         } else {
@@ -463,6 +477,33 @@ private fun AddSource(
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(stringResource(R.string.sources_add), style = RowTitle)
                 Text(stringResource(R.string.sources_add_help), style = Small, color = LocalContentColor.current.copy(alpha = 0.72f))
+            }
+        }
+    }
+}
+
+/** Add from my phone: a wide row under Add a source, or with no sources, a button beside it. */
+@Composable
+private fun FromPhoneEntry(
+    empty: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier,
+) {
+    val colors = NeoTheme.colors
+    WideRow(
+        onClick,
+        if (empty) ButtonHeight else AddRowHeight,
+        if (empty) colors.fillTonal else colors.surfaceRaised,
+        modifier.testTag(FROM_PHONE_ENTRY_TAG).padding(top = if (empty) 4.dp else 0.dp),
+        button = empty,
+    ) {
+        Icon(NeoIcons.Phone, contentDescription = null, modifier = Modifier.size(if (empty) 20.dp else 22.dp))
+        if (empty) {
+            Text(stringResource(R.string.from_phone_card), style = RowTitle.copy(fontSize = 16.sp))
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(stringResource(R.string.from_phone_card), style = RowTitle)
+                Text(stringResource(R.string.from_phone_card_help), style = Small, color = LocalContentColor.current.copy(alpha = 0.72f))
             }
         }
     }
@@ -921,7 +962,7 @@ private val SourceProblem.reason
             SourceProblem.BROKEN -> R.string.sources_broken
         }
 
-private val SourceProblem.short
+internal val SourceProblem.short
     get() =
         when (this) {
             SourceProblem.BUILT_FOR_NEWER_APP -> R.string.sources_needs_newer_app

@@ -281,7 +281,7 @@ private fun Panel(state: TvSignInState) {
         is TvSignInState.CheckCode -> {
             val spoken = stringResource(R.string.sign_in_check_label, state.code.toList().joinToString(" "))
             Column(Modifier.clearAndSetSemantics { contentDescription = spoken }, horizontalAlignment = Alignment.CenterHorizontally) {
-                Text(stringResource(R.string.sign_in_check_overline), style = Overline, color = colors.textMuted)
+                Text(stringResource(R.string.sign_in_check_overline), style = CodeOverline, color = colors.textMuted)
                 Text("${state.code.take(3)} ${state.code.drop(3)}", style = CheckCode, color = colors.paper)
             }
             Status(stringResource(R.string.sign_in_waiting_phone), 14.dp)
@@ -316,7 +316,7 @@ private fun Panel(state: TvSignInState) {
 
 /** Why the last phone left, under the code it can try again with (#414). Read out when it appears. */
 @Composable
-private fun Note(note: TvPairingNote) {
+internal fun Note(note: TvPairingNote) {
     val colors = NeoTheme.colors
     val reason =
         when (note) {
@@ -346,7 +346,7 @@ private fun Note(note: TvPairingNote) {
 
 /** The QR code the phone scans: dark modules on a paper square. */
 @Composable
-private fun Qr(text: String) {
+internal fun Qr(text: String) {
     val colors = NeoTheme.colors
     val matrix = remember(text) { QRCodeWriter().encode(text, BarcodeFormat.QR_CODE, 0, 0, mapOf(EncodeHintType.MARGIN to 0)) }
     Canvas(
@@ -366,7 +366,7 @@ private fun Qr(text: String) {
 }
 
 @Composable
-private fun CodeCharacter(character: Char) {
+internal fun CodeCharacter(character: Char) {
     val colors = NeoTheme.colors
     Box(
         Modifier
@@ -381,7 +381,7 @@ private fun CodeCharacter(character: Char) {
 
 /** A small spinner and [text], read out as it changes. */
 @Composable
-private fun Status(
+internal fun Status(
     text: String,
     spinner: Dp,
 ) {
@@ -396,7 +396,7 @@ private fun Status(
 }
 
 @Composable
-private fun Spinner(
+internal fun Spinner(
     size: Dp,
     tint: Color,
 ) {
@@ -410,7 +410,7 @@ private fun Spinner(
 }
 
 @Composable
-private fun Problem(
+internal fun Problem(
     title: String,
     detail: String,
     icon: ImageVector = NeoIcons.Warning,
@@ -441,14 +441,14 @@ internal val Title
 internal val Body
     @Composable get() = NeoTheme.typography.bodyLarge.copy(lineHeight = 24.sp)
 
-private val StepNumber
+internal val StepNumber
     @Composable get() = NeoTheme.typography.caption.copy(fontWeight = FontWeight.Bold, lineHeight = 16.sp)
 
 internal val Small
     @Composable get() = NeoTheme.typography.body.copy(fontSize = 14.sp)
 
-private val Overline
+internal val CodeOverline
     @Composable get() = NeoTheme.typography.overline.copy(fontSize = 12.sp, lineHeight = 16.sp, letterSpacing = 0.96.sp)
 
-private val CheckCode
+internal val CheckCode
     @Composable get() = NeoTheme.typography.display.copy(fontSize = 64.sp, lineHeight = 76.sp, letterSpacing = 2.56.sp)

@@ -16,6 +16,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.KeyEventType
@@ -30,6 +31,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.tv.material3.Surface
+import ani.saikou.neo.extension.api.ExtensionApi
 import ani.saikou.neo.shared.account.AniListAccountClient
 import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.account.KeystoreAccountStore
@@ -57,6 +59,7 @@ import ani.saikou.neo.shared.pairing.TvAccountViewModel
 import ani.saikou.neo.shared.pairing.TvSignInState
 import ani.saikou.neo.shared.pairing.TvSignInViewModel
 import ani.saikou.neo.shared.pairing.openTvPairing
+import ani.saikou.neo.shared.pairing.openTvSourcesPairing
 import ani.saikou.neo.shared.pairing.thisTv
 import ani.saikou.neo.shared.playback.ControlsViewModel
 import ani.saikou.neo.shared.playback.NextPlay
@@ -77,6 +80,7 @@ import ani.saikou.neo.shared.sources.ShortCodes
 import ani.saikou.neo.shared.sources.SourceChecker
 import ani.saikou.neo.shared.sources.SourceChecksViewModel
 import ani.saikou.neo.shared.sources.SourceDownloads
+import ani.saikou.neo.shared.sources.SourcesFromPhoneViewModel
 import ani.saikou.neo.shared.sources.SourcesViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
 import ani.saikou.neo.tv.details.StreamsActions
@@ -99,6 +103,7 @@ import ani.saikou.neo.tv.schedule.ScheduleScreen
 import ani.saikou.neo.tv.search.SearchScreen
 import ani.saikou.neo.tv.search.genreLabels
 import ani.saikou.neo.tv.settings.AccountSettings
+import ani.saikou.neo.tv.settings.FromPhone
 import ani.saikou.neo.tv.settings.SettingsCategory
 import ani.saikou.neo.tv.settings.SettingsScreen
 import ani.saikou.neo.tv.settings.SourceActions
@@ -614,6 +619,26 @@ class MainActivity : ComponentActivity() {
         val checks by checksScreen.checks.collectAsStateWithLifecycle()
         val subtitlesScreen = viewModel { SubtitleSettingsViewModel(app.settingsStore.subtitles, app.settingsStore::updateSubtitles) }
         val subtitles by subtitlesScreen.state.collectAsStateWithLifecycle()
+        // Add from my phone (ADR 0042): each time it opens is a new board, kept only while it's open. Closing it, or
+        // the app going to the background, ends the connection.
+        var fromPhoneRun by rememberSaveable { mutableStateOf<Long?>(null) }
+        val fromPhoneBoard =
+            fromPhoneRun?.let { run ->
+                viewModel(key = "from-phone-$run") {
+                    SourcesFromPhoneViewModel(
+                        open = { code -> openTvSourcesPairing(applicationContext, code) },
+                        store = app.sources,
+                        downloads = SourceDownloads(),
+                        api = ExtensionApi.MIN_VERSION..ExtensionApi.VERSION,
+                    )
+                }
+            }
+        val fromPhoneState = fromPhoneBoard?.state?.collectAsStateWithLifecycle()?.value
+        val closeFromPhone = {
+            fromPhoneBoard?.cancel()
+            fromPhoneRun = null
+        }
+        LifecycleEventEffect(Lifecycle.Event.ON_STOP) { closeFromPhone() }
         state?.let {
             SettingsScreen(
                 it,
@@ -630,6 +655,7 @@ class MainActivity : ComponentActivity() {
                         checksScreen::check,
                         { checksScreen.checkAll(sources.installed.orEmpty()) },
                         checksScreen::stop,
+                        onFromPhone = { fromPhoneRun = System.currentTimeMillis() },
                     ),
                 start = start,
                 checks = checks,
@@ -646,6 +672,14 @@ class MainActivity : ComponentActivity() {
                         subtitlesScreen::resetAll,
                     ),
                 account = AccountSettings(profile, openSignIn, onSignOut),
+                fromPhone =
+                    FromPhone(
+                        fromPhoneState,
+                        onNewCode = { fromPhoneBoard?.newCode() },
+                        onMatch = { fromPhoneBoard?.confirmCodes() },
+                        onInstall = { fromPhoneBoard?.install() },
+                        onClose = closeFromPhone,
+                    ),
             )
         }
     }
