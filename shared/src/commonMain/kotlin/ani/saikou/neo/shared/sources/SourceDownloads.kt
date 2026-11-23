@@ -32,9 +32,10 @@ public class SourceDownloads internal constructor(
 
     /**
      * The first bytes of the file at [url], enough to tell a list from an APK and to read the list, so the phone never
-     * downloads a whole APK (ADR 0042). Null when it isn't allowed or can't be fetched.
+     * downloads a whole APK (ADR 0042). Reading stops after the first kilobyte unless it starts like a list. Null when
+     * it isn't allowed or can't be fetched.
      */
-    public suspend fun fetchStart(url: String): ByteArray? = download(url, MAX_START_BYTES, cut = true)
+    public suspend fun fetchStart(url: String): ByteArray? = download(url, MAX_START_BYTES, start = true)
 
     /**
      * The logo at [url] (ADR 0028), or null when it isn't allowed, can't be fetched, or isn't a small enough PNG. A logo
@@ -50,7 +51,7 @@ public class SourceDownloads internal constructor(
         url: String,
         maxBytes: Long,
         allowHome: Boolean = true,
-        cut: Boolean = false,
+        start: Boolean = false,
     ): ByteArray? =
         withContext(io) {
             try {
@@ -73,7 +74,7 @@ public class SourceDownloads internal constructor(
                         }
 
                         response.statusCode == 200 && body != null -> {
-                            return@withContext body.use { it.readAtMost(maxBytes, cut) }
+                            return@withContext body.use { if (start) it.readListStart(maxBytes) else it.readAtMost(maxBytes) }
                         }
 
                         else -> {
@@ -109,17 +110,33 @@ public class SourceDownloads internal constructor(
     }
 }
 
-/** Everything left to read, or null when it's more than [max] bytes. With [cut], the first [max] bytes instead. */
-private fun BufferedSource.readAtMost(
-    max: Long,
-    cut: Boolean = false,
-): ByteArray? {
+/** Everything left to read, or null when it's more than [max] bytes. */
+private fun BufferedSource.readAtMost(max: Long): ByteArray? {
     val buffer = Buffer()
     while (buffer.size <= max) {
         if (read(buffer, 8_192) == -1L) return buffer.readByteArray()
     }
-    return if (cut) buffer.readByteArray(max) else null
+    return null
 }
+
+/**
+ * The first [FIRST_CHUNK] bytes, and when they start like a list, the rest up to [max] bytes. Anything else, such as an
+ * APK, is never read past the first chunk.
+ */
+private fun BufferedSource.readListStart(max: Long): ByteArray {
+    val buffer = Buffer()
+    while (buffer.size < FIRST_CHUNK) {
+        if (read(buffer, FIRST_CHUNK - buffer.size) == -1L) return buffer.readByteArray()
+    }
+    if (!isSourceList(buffer.snapshot().toByteArray())) return buffer.readByteArray()
+    while (buffer.size <= max) {
+        if (read(buffer, 8_192) == -1L) return buffer.readByteArray()
+    }
+    return buffer.readByteArray(max)
+}
+
+// Plenty to find where a list starts, and a small part of any APK.
+private const val FIRST_CHUNK = 1024L
 
 /** Where a redirect from [from] to [location] goes: a full link, or a path on the same site. */
 private fun resolve(
