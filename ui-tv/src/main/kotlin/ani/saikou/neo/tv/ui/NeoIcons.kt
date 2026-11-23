@@ -294,6 +294,20 @@ object NeoIcons {
         }
     }
 
+    /** A tray with an arrow into it, for installing an update. */
+    val Download: ImageVector by lazy {
+        icon("Download") {
+            svgStroke(2f, "M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3")
+        }
+    }
+
+    /** An arrow up in a circle, for a source with a newer version out. */
+    val UpdateOut: ImageVector by lazy {
+        icon("UpdateOut") {
+            svgStroke(2.5f, "M2 12a10 10 0 1 0 20 0a10 10 0 1 0-20 0M16 12l-4-4-4 4M12 16V8")
+        }
+    }
+
     /** A rounded square, for stopping. */
     val Stop: ImageVector by lazy {
         icon("Stop") {
