@@ -37,9 +37,10 @@ import org.json.JSONObject
  * - Either way, a stop message as in [PairingMessages]: `no-match` when the codes don't match on either side,
  *   `cancelled` from either side, or `timed-out` when the TV stops waiting for the phone's It matches or picks.
  *
- * The TV never trusts the phone's checks. A message over 65,000 bytes or nested more than 8 deep is refused. So is
+ * The TV never trusts the phone's checks. A message over 65,000 bytes or with more than 256 brackets is refused. So is
  * anything but 1 to 50 valid list entries with distinct ids, and a list or APK link the TV wouldn't take typed, longer
- * than 2,000 characters or with hidden characters. Any of these drops the phone. Install on the TV checks each entry again before it downloads anything.
+ * than 2,000 characters or with hidden characters. Any of these drops the phone. Install on the TV checks each entry
+ * again before it downloads anything.
  */
 internal object SourcesMessages {
     private const val MAX_MESSAGE = 65_000
@@ -151,8 +152,8 @@ internal object SourcesMessages {
 
 /**
  * Opens Add from my phone on the TV: a listener advertised under [code], as [openTvPairing] opens Sign in. A phone has
- * [matchTimeoutMillis] to say the codes match, then [pickTimeoutMillis] to send its picks. After either, the TV tells it
- * so and stops waiting.
+ * [matchTimeoutMillis] to say the codes match, then [pickTimeoutMillis] to send its picks. After either, the TV tells
+ * it so and stops waiting.
  */
 public fun openTvSourcesPairing(
     context: Context,

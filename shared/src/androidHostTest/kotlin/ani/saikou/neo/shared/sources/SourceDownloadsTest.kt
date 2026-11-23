@@ -41,16 +41,36 @@ internal class PagesEngine(
 }
 
 class SourceDownloadsTest {
+    // Even an APK smaller than the limit for a list is only read up to its first kilobyte.
     @Test
-    fun theStartOfAFileStopsShortOfAWholeApk() =
+    fun theStartOfAFileStopsAfterTheFirstChunkOfAnApk() =
         runTest {
-            val apk = ByteArray(1024 * 1024) { 'P'.code.toByte() }
-            val start =
-                SourceDownloads(
-                    PagesEngine(emptyMap(), mapOf("https://example.com/a.apk" to apk)),
-                ).fetchStart("https://example.com/a.apk")
+            val apk = Buffer().write(ByteArray(100 * 1024) { 'P'.code.toByte() })
+            val engine =
+                object : HttpEngine {
+                    override suspend fun execute(request: HttpRequest): HttpResponse = HttpResponse.Builder(200).body(apk).build()
 
-            assertEquals(256 * 1024, start?.size)
+                    override fun close() {}
+                }
+
+            val start = SourceDownloads(engine).fetchStart("https://example.com/a.apk")
+
+            assertEquals(1024, start?.size)
+            assertEquals(99L * 1024, apk.size)
+        }
+
+    @Test
+    fun theStartOfAListIsReadUpToItsLimit() =
+        runTest {
+            val list = "﻿ \n{\"sources\":[]}".encodeToByteArray()
+            val big = "{".encodeToByteArray() + ByteArray(1024 * 1024) { ' '.code.toByte() }
+            val downloads =
+                SourceDownloads(
+                    PagesEngine(emptyMap(), mapOf("https://example.com/s.json" to list, "https://example.com/big.json" to big)),
+                )
+
+            assertContentEquals(list, downloads.fetchStart("https://example.com/s.json"))
+            assertEquals(256 * 1024, downloads.fetchStart("https://example.com/big.json")?.size)
         }
 
     @Test
