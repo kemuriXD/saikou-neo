@@ -81,7 +81,7 @@ internal class ChannelPhoneLink(
     override val checkCode: String get() = channel.checkCode
 
     override suspend fun receiveAccount(): AniListToken =
-        listener.receiveFrom(channel, accountTimeoutMillis, "The phone didn't send an account", PairingMessages::readAccount)
+        listener.receiveFrom(channel, accountTimeoutMillis, "The phone didn't send an account", read = PairingMessages::readAccount)
 
     override suspend fun replySignedIn(reply: PairedTvReply) = withContext(Dispatchers.IO) { channel.send(PairingMessages.signedIn(reply)) }
 
@@ -103,12 +103,15 @@ internal class ChannelPhoneLink(
  * Waits up to [timeoutMillis] for the phone's next message on [channel], read with [read]. Whichever comes first, the
  * message or the deadline, decides. A message that lands as the TV says it stopped waiting is dropped, so the TV never
  * acts on it after telling the phone it didn't. Throws [PairingStoppedException] when the phone stops or the TV stops
- * waiting, and [PairingException] with [missing] for anything else. Either way the phone is turned away.
+ * waiting, [UnusableMessageException] with [missing] for a message [read] can't use, and [PairingException] if the
+ * connection drops. Either way the phone is turned away. A phone whose message can't be used hears [unusable] first,
+ * when there is one.
  */
 internal suspend fun <T : Any> PairingListener.receiveFrom(
     channel: PairingChannel,
     timeoutMillis: Int,
     missing: String,
+    unusable: PairingStop? = null,
     read: (ByteArray) -> T?,
 ): T =
     coroutineScope {
@@ -123,8 +126,9 @@ internal suspend fun <T : Any> PairingListener.receiveFrom(
             val bytes = withContext(Dispatchers.IO) { channel.receive(0) }
             if (!outcome.compareAndSet(WAITING, HEARD)) throw PairingStoppedException(PairingStop.TimedOut)
             read(bytes)
-                ?: throw PairingMessages.readStopped(bytes)?.let { PairingStoppedException(it) } ?: PairingException(missing)
+                ?: throw PairingMessages.readStopped(bytes)?.let { PairingStoppedException(it) } ?: UnusableMessageException(missing)
         } catch (e: PairingException) {
+            if (e is UnusableMessageException && unusable != null) withContext(Dispatchers.IO) { channel.sendStop(unusable) }
             // Left without finishing. A device that keeps doing this gets cut off (#410).
             turnAway(channel)
             throw if (outcome.get() == TIMED_OUT) PairingStoppedException(PairingStop.TimedOut) else e
