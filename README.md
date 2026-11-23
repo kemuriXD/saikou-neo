@@ -39,7 +39,7 @@ public release is **v0.1.0**. Follow the work on the
 [project board](https://github.com/users/kemuriXD/projects/2) or in the
 [milestones](https://github.com/kemuriXD/saikou-neo/milestones).
 
-[![Download the latest build](https://img.shields.io/badge/Download-latest%20build-FF4F91?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kemuriXD/saikou-neo/actions/workflows/android.yml?query=branch%3Amain+is%3Asuccess)
+[![Download the latest build](https://img.shields.io/badge/Download-latest%20build-FF0080?style=for-the-badge&logo=android&logoColor=white)](https://github.com/kemuriXD/saikou-neo/actions/workflows/android.yml?query=branch%3Amain+is%3Asuccess)
 
 Open the newest run and download `saikou-neo-alpha-debug`. The same APK goes on
 the TV and the phone: a TV opens the full app, and a phone opens the companion

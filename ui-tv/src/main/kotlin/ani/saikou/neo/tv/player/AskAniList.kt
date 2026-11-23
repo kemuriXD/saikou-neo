@@ -71,7 +71,12 @@ internal fun BoxScope.AskAniList(
             .focusGroup(),
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Text(show.uppercase(), style = typography.overline.copy(fontSize = 12.sp, lineHeight = 16.sp), color = colors.pink, maxLines = 1)
+        Text(
+            show.uppercase(),
+            style = typography.overline.copy(fontSize = 12.sp, lineHeight = 16.sp),
+            color = colors.pinkLight,
+            maxLines = 1,
+        )
         Text(title, style = typography.titleLarge, color = colors.paper)
         Text(
             stringResource(R.string.player_ask_anilist_body, episode),
