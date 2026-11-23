@@ -46,6 +46,7 @@ class ApkSourceStore(
     private val host: HostServices,
 ) : SourceStore {
     private val folder = File(context.filesDir, "sources")
+    private val links = SourceLinks(folder)
     private val lock = Mutex()
     private val sources = MutableStateFlow<List<InstalledSource>?>(null)
 
@@ -61,7 +62,7 @@ class ApkSourceStore(
                         .listFiles { file -> file.name.endsWith(APK) }
                         .orEmpty()
                         .mapNotNull { apk -> manifest(apk)?.let(::withIcon) }
-                        .map { it.copy(list = savedList(it.id)) }
+                        .map { it.copy(list = links.read(it.id)) }
                         .sorted()
             }
         }
@@ -93,13 +94,11 @@ class ApkSourceStore(
             // Loaded once here so a source whose code doesn't fit is never kept.
             if (load(incoming, manifest.className) == null) return manifest.source.copy(problem = SourceProblem.BROKEN)
             folder.mkdirs()
-            // Saved first, so a failure here leaves the old version as it was.
-            keepList(manifest.source.id, list)
             val kept = File(folder, manifest.source.id + APK)
-            kept.delete()
-            incoming.copyTo(kept)
-            kept.setReadOnly()
-            val source = manifest.source.copy(icon = keepIcon(manifest), list = list)
+            swapIn(incoming, kept)
+            // Saved once the APK is in place, so a copy that fails doesn't leave a new link on the old version.
+            val saved = links.keep(manifest.source.id, list)
+            val source = manifest.source.copy(icon = keepIcon(manifest), list = saved)
             loaded.remove(source.id)
             sources.value = (sources.value.orEmpty().filter { it.id != source.id } + source).sorted()
             source
@@ -118,7 +117,7 @@ class ApkSourceStore(
                 if (listed.any { it.id == id }) {
                     File(folder, id + APK).delete()
                     iconFile(id).delete()
-                    listFile(id).delete()
+                    links.forget(id)
                     loaded.remove(id)
                     sources.value = listed.filter { it.id != id }
                 }
@@ -156,26 +155,6 @@ class ApkSourceStore(
 
     /** Where the logo of the source with [id] is kept, next to its APK (ADR 0028). */
     private fun iconFile(id: String) = File(folder, id + PNG)
-
-    /** Where the link of the list the source with [id] came from is kept, next to its APK (ADR 0046). */
-    private fun listFile(id: String) = File(folder, id + LIST)
-
-    /** Keeps [list] as the link the source with [id] came from, or removes the one it had when null. */
-    private fun keepList(
-        id: String,
-        list: String?,
-    ) {
-        val file = listFile(id)
-        if (list == null) file.delete() else file.writeText(list)
-    }
-
-    /** The link of the list the source with [id] came from, or null when it has none or it can't be read. */
-    private fun savedList(id: String): String? =
-        try {
-            listFile(id).takeIf { it.exists() }?.readText()?.takeIf { it.isNotBlank() }
-        } catch (_: IOException) {
-            null
-        }
 
     /**
      * The source in [manifest] with the logo saved when it was installed. A source kept before logos were saved gets
@@ -274,7 +253,6 @@ class ApkSourceStore(
     private companion object {
         const val APK = ".apk"
         const val PNG = ".png"
-        const val LIST = ".list"
         const val MAX_TEXT = 60
     }
 }
