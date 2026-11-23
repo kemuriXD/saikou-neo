@@ -317,7 +317,6 @@ private fun Panel(state: TvSignInState) {
 /** Why the last phone left, under the code it can try again with (#414). Read out when it appears. */
 @Composable
 internal fun Note(note: TvPairingNote) {
-    val colors = NeoTheme.colors
     val reason =
         when (note) {
             TvPairingNote.StoppedOnPhone -> R.string.sign_in_note_stopped
@@ -327,19 +326,30 @@ internal fun Note(note: TvPairingNote) {
             TvPairingNote.LostConnection -> R.string.sign_in_note_lost
             TvPairingNote.TookTooLong -> R.string.sign_in_note_too_long
         }
+    Note(stringResource(reason), stringResource(R.string.sign_in_note_same_code), lost = note == TvPairingNote.LostConnection)
+}
+
+/** A reason and what to do next, under a code. [lost] shows the no-connection icon in place of the warning. */
+@Composable
+internal fun Note(
+    reason: String,
+    next: String,
+    lost: Boolean,
+) {
+    val colors = NeoTheme.colors
     Row(
         Modifier.semantics(mergeDescendants = true) { liveRegion = LiveRegionMode.Polite },
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Icon(
-            if (note == TvPairingNote.LostConnection) NeoIcons.WifiOff else NeoIcons.Warning,
+            if (lost) NeoIcons.WifiOff else NeoIcons.Warning,
             contentDescription = null,
             tint = colors.warning,
             modifier = Modifier.padding(top = 2.dp).size(18.dp),
         )
         Column {
-            Text(stringResource(reason), style = Small, color = colors.paper)
-            Text(stringResource(R.string.sign_in_note_same_code), style = Small, color = colors.textMuted)
+            Text(reason, style = Small, color = colors.paper)
+            Text(next, style = Small, color = colors.textMuted)
         }
     }
 }

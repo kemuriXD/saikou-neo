@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.sources.ChoiceStatus
+import ani.saikou.neo.shared.sources.FromPhoneNote
 import ani.saikou.neo.shared.sources.FromPhoneState
 import ani.saikou.neo.shared.sources.InstallOutcome
 import ani.saikou.neo.shared.sources.PickedSources
@@ -260,7 +261,7 @@ private fun BoardPanel(state: FromPhoneState) {
             }
             val time = "%d:%02d".format(state.secondsLeft / 60, state.secondsLeft % 60)
             Status(stringResource(R.string.sign_in_waiting, time), 12.dp)
-            state.note?.let { Note(it) }
+            state.note?.let { FromPhoneNoteLine(it) }
         }
 
         FromPhoneState.Connecting, is FromPhoneState.Picking -> {
@@ -504,4 +505,19 @@ private fun PhoneRow(
             Text(meta, style = Small, color = if (warn) colors.warning else colors.textMuted)
         }
     }
+}
+
+/** Why the last phone left the board, in this board's words rather than Sign in's. */
+@Composable
+private fun FromPhoneNoteLine(note: FromPhoneNote) {
+    val reason =
+        when (note) {
+            FromPhoneNote.CodesDontMatch -> R.string.from_phone_note_no_match
+            FromPhoneNote.ClosedOnPhone -> R.string.from_phone_note_closed
+            FromPhoneNote.PhoneTookTooLong -> R.string.from_phone_note_phone_too_long
+            FromPhoneNote.TvTookTooLong -> R.string.from_phone_note_tv_too_long
+            FromPhoneNote.CouldntUse -> R.string.from_phone_note_couldnt_use
+            FromPhoneNote.LostConnection -> R.string.from_phone_note_lost
+        }
+    Note(stringResource(reason), stringResource(R.string.from_phone_note_scan_again), lost = note == FromPhoneNote.LostConnection)
 }

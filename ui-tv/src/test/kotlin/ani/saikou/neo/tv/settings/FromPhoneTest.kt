@@ -4,9 +4,11 @@ import androidx.activity.ComponentActivity
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
@@ -14,6 +16,7 @@ import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.sources.ChoiceStatus
+import ani.saikou.neo.shared.sources.FromPhoneNote
 import ani.saikou.neo.shared.sources.FromPhoneState
 import ani.saikou.neo.shared.sources.InstallOutcome
 import ani.saikou.neo.shared.sources.InstalledSource
@@ -134,6 +137,27 @@ class FromPhoneTest {
         compose.waitForIdle()
 
         assertEquals(1, closed)
+    }
+
+    @Test
+    fun eachWayThePhoneLeftHasItsOwnNoteUnderTheCode() {
+        show()
+        val notes =
+            mapOf(
+                FromPhoneNote.CodesDontMatch to "Your phone said the codes don’t match. Nothing was sent.",
+                FromPhoneNote.ClosedOnPhone to "Send a source was closed on your phone.",
+                FromPhoneNote.PhoneTookTooLong to "Your phone took too long to send anything.",
+                FromPhoneNote.TvTookTooLong to "It matches wasn’t chosen here in time.",
+                FromPhoneNote.CouldntUse to "This TV couldn’t use what your phone sent.",
+                FromPhoneNote.LostConnection to "Lost the connection to your phone.",
+            )
+        notes.forEach { (note, wording) ->
+            set(FromPhoneState.Waiting("qr", "K74Q9M", 590, note = note))
+
+            text(wording).assertIsDisplayed()
+            text("Scan this code again to try once more.").assertIsDisplayed()
+            compose.onAllNodesWithText("Pairing was", substring = true, useUnmergedTree = true).assertCountEquals(0)
+        }
     }
 
     @Test

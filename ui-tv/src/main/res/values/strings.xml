@@ -361,6 +361,13 @@
     <string name="from_phone_stopped_body">Nothing came from your phone. Get a new code and scan it again.</string>
     <string name="from_phone_stopped_status">Stopped</string>
     <string name="from_phone_nothing_installed">Nothing was installed.</string>
+    <string name="from_phone_note_no_match">Your phone said the codes don’t match. Nothing was sent.</string>
+    <string name="from_phone_note_closed">Send a source was closed on your phone.</string>
+    <string name="from_phone_note_phone_too_long">Your phone took too long to send anything.</string>
+    <string name="from_phone_note_tv_too_long">It matches wasn’t chosen here in time.</string>
+    <string name="from_phone_note_couldnt_use">This TV couldn’t use what your phone sent.</string>
+    <string name="from_phone_note_lost">Lost the connection to your phone.</string>
+    <string name="from_phone_note_scan_again">Scan this code again to try once more.</string>
     <string name="from_phone_no_network_title">Can’t reach your phone yet</string>
     <string name="from_phone_panel_title">From your phone</string>
     <plurals name="from_phone_sent">
