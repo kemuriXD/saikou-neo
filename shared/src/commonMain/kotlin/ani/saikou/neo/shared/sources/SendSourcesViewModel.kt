@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.pairing.PairingRequest
 import ani.saikou.neo.shared.pairing.PairingStop
+import ani.saikou.neo.shared.pairing.PairingStoppedException
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -58,14 +59,41 @@ public sealed interface SendSourcesState {
     /** 4.7 The TV has the picks. */
     public data object Sent : SendSourcesState
 
-    /** 4.10 The TV couldn't be reached, dropped the connection or stopped. */
-    public data object Lost : SendSourcesState
+    /** 4.10 and the screens beside it: sending ended before the TV had the picks, and [why]. */
+    public data class Ended(
+        val why: SendEnd,
+    ) : SendSourcesState
+}
+
+/** Why sending ended before the TV had the picks, as Sign in's 3.7 and 3.8 say why pairing did. */
+public enum class SendEnd {
+    /** It doesn't match, tapped on this phone. */
+    NoMatch,
+
+    /** The TV said the codes don't match. */
+    NoMatchOnTv,
+
+    /** Cancel or Back on the TV. */
+    StoppedOnTv,
+
+    /** The TV stopped waiting for It matches or for the picks. */
+    TimedOut,
+
+    /** The TV couldn't be reached: a wrong or expired code, or no answer. */
+    Unreachable,
+
+    /** The TV couldn't use what was sent. */
+    Refused,
+
+    /** The connection dropped. */
+    Lost,
 }
 
 /**
  * Sends sources to a TV's Add from my phone board (#406). [start] connects; both screens then show the check code, and
  * nothing more goes either way until the user confirms it here and on the TV (ADR 0058). The TV then says what it has,
  * a link or code is read with the TV's rules by [read] (on Android, [readLinkForTv]), and only the ticked entries go.
+ * From the check code on, the phone listens to the TV, so a TV that stops or goes shows why straight away.
  */
 public class SendSourcesViewModel(
     private val connect: suspend (PairingRequest) -> SourcesTv,
@@ -78,18 +106,35 @@ public class SendSourcesViewModel(
     private var tv: SourcesTv? = null
     private var tvSources: TvSources? = null
     private var linkText = ""
+    private var request: PairingRequest? = null
     private var job: Job? = null
+    private var listening: Job? = null
 
     /** Connects to the TV in [request], replacing anything in progress. */
     public fun start(request: PairingRequest) {
         stop(SendSourcesState.Connecting, PairingStop.Cancelled)
+        this.request = request
         linkText = ""
         job =
             viewModelScope.launch {
-                val connected = attempt { connect(request) } ?: return@launch
+                val connected =
+                    try {
+                        connect(request)
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        mutableState.value = SendSourcesState.Ended(SendEnd.Unreachable)
+                        return@launch
+                    }
                 tv = connected
                 mutableState.value = SendSourcesState.CheckCode(connected.checkCode)
+                listening = viewModelScope.launch { end(connected, connected.awaitEnd()) }
             }
+    }
+
+    /** Try again after the TV couldn't be reached: connects with the same code. */
+    public fun retry() {
+        if (state.value == SendSourcesState.Ended(SendEnd.Unreachable)) request?.let(::start)
     }
 
     /** It matches: tells the TV, then waits for it to say what it has once It matches is chosen there too. */
@@ -101,7 +146,7 @@ public class SendSourcesViewModel(
         job =
             viewModelScope.launch {
                 tvSources =
-                    attempt {
+                    attempt(tv) {
                         tv.confirmCodes()
                         tv.receiveTvSources()
                     } ?: return@launch
@@ -112,7 +157,7 @@ public class SendSourcesViewModel(
     /** It doesn't match: tells the TV and sends nothing. */
     public fun reject() {
         val shown = state.value as? SendSourcesState.CheckCode ?: return
-        if (!shown.waiting) stop(SendSourcesState.Idle, PairingStop.NoMatch)
+        if (!shown.waiting) stop(SendSourcesState.Ended(SendEnd.NoMatch), PairingStop.NoMatch)
     }
 
     /** The link or code as typed. A message about the last one goes. */
@@ -128,7 +173,8 @@ public class SendSourcesViewModel(
         val shown = state.value as? SendSourcesState.Link ?: return
         val tvSources = tvSources ?: return
         if (shown.checking || shown.text.isBlank()) return
-        mutableState.value = shown.copy(checking = true, error = null)
+        val checking = shown.copy(checking = true, error = null)
+        mutableState.value = checking
         job =
             viewModelScope.launch {
                 val link =
@@ -139,12 +185,14 @@ public class SendSourcesViewModel(
                     } catch (_: Exception) {
                         LinkForTv.Failed(AddError.NOT_A_SOURCE)
                     }
-                mutableState.value =
+                val next =
                     when (link) {
                         is LinkForTv.Failed -> SendSourcesState.Link(shown.text, error = link.error)
                         is LinkForTv.Listed -> SendSourcesState.Pick(link.list, link.choices)
                         is LinkForTv.OneApk -> SendSourcesState.Pick(link.apk, apk = link.apk)
                     }
+                // Only if the TV is still there: one that went while the link was read stays gone.
+                mutableState.compareAndSet(checking, next)
             }
     }
 
@@ -186,7 +234,9 @@ public class SendSourcesViewModel(
         mutableState.value = shown.copy(sending = true)
         job =
             viewModelScope.launch {
-                attempt { tv.send(picked) } ?: return@launch
+                attempt(tv) { tv.send(picked) } ?: return@launch
+                listening?.cancel()
+                listening = null
                 this@SendSourcesViewModel.tv = null
                 mutableState.value = SendSourcesState.Sent
             }
@@ -201,17 +251,46 @@ public class SendSourcesViewModel(
         stop(SendSourcesState.Idle, PairingStop.Cancelled)
     }
 
-    /** Runs [step] with the TV. If it fails, the TV is dropped and counts as lost. */
-    private suspend fun <T> attempt(step: suspend () -> T): T? =
+    /** Runs [step] with [with]. If it fails, the TV is dropped and the phone shows why. */
+    private suspend fun <T> attempt(
+        with: SourcesTv,
+        step: suspend () -> T,
+    ): T? =
         try {
             step()
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
-            tv?.close()
-            tv = null
-            mutableState.value = SendSourcesState.Lost
+        } catch (e: Exception) {
+            end(with, e)
             null
+        }
+
+    /**
+     * The TV [from] ended it, as [e] says. Whatever was in progress stops, and the phone shows why. Ignored once [from]
+     * isn't the TV here, so a step and the listener that both hear it show it once.
+     */
+    private fun end(
+        from: SourcesTv,
+        e: Exception,
+    ) {
+        if (tv !== from) return
+        job?.cancel()
+        job = null
+        listening?.cancel()
+        listening = null
+        from.close()
+        tv = null
+        tvSources = null
+        mutableState.value = SendSourcesState.Ended(endFor(e))
+    }
+
+    private fun endFor(e: Exception): SendEnd =
+        when ((e as? PairingStoppedException)?.reason) {
+            PairingStop.NoMatch -> SendEnd.NoMatchOnTv
+            PairingStop.Cancelled -> SendEnd.StoppedOnTv
+            PairingStop.TimedOut -> SendEnd.TimedOut
+            PairingStop.Refused -> SendEnd.Refused
+            null -> SendEnd.Lost
         }
 
     /** Stops listening and drops the connection, telling the TV [reason] first. */
@@ -221,6 +300,8 @@ public class SendSourcesViewModel(
     ) {
         job?.cancel()
         job = null
+        listening?.cancel()
+        listening = null
         val leaving = tv
         tv = null
         tvSources = null
@@ -231,6 +312,7 @@ public class SendSourcesViewModel(
 
     override fun onCleared() {
         job?.cancel()
+        listening?.cancel()
         tv?.close()
         tv = null
     }

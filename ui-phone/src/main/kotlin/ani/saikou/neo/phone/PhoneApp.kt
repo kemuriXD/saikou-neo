@@ -281,6 +281,7 @@ private fun SendRoute(
                 sources.cancel()
                 leave(PhoneScreen.SendScan)
             },
+            retry = sources::retry,
         ),
     )
 }

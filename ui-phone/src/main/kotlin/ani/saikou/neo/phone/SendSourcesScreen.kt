@@ -53,6 +53,7 @@ import ani.saikou.neo.phone.theme.PhoneColors
 import ani.saikou.neo.shared.sources.AddError
 import ani.saikou.neo.shared.sources.Choice
 import ani.saikou.neo.shared.sources.ChoiceStatus
+import ani.saikou.neo.shared.sources.SendEnd
 import ani.saikou.neo.shared.sources.SendSourcesState
 import ani.saikou.neo.shared.sources.SourceProblem
 import ani.saikou.neo.shared.sources.canPick
@@ -69,6 +70,7 @@ internal class SendSourcesActions(
     val back: () -> Unit,
     val send: () -> Unit,
     val scanAgain: () -> Unit,
+    val retry: () -> Unit,
 )
 
 /** 4.2 to 4.10: connecting, the check code, the link, the picks, and how it ended. [tvName] is the TV's in Your TVs. */
@@ -109,18 +111,52 @@ internal fun SendSourcesScreen(
             }
         }
 
-        SendSourcesState.Lost -> {
-            PairFrame(actions.close, title = R.string.send_title) {
-                Status(Modifier.weight(1f), stringResource(R.string.send_lost, tvName), stringResource(R.string.send_lost_body)) {
-                    Badge(R.drawable.icon_wifi_off, PhoneColors.error, PhoneColors.surfaceRaised)
-                }
-                Actions {
-                    Button(
-                        onClick = actions.scanAgain,
-                        modifier = BIG_BUTTON,
-                    ) { ButtonLabel(R.string.send_scan_again, R.drawable.icon_qr_scan) }
-                }
+        is SendSourcesState.Ended -> {
+            Ended(state.why, tvName, actions)
+        }
+    }
+}
+
+/**
+ * 4.10 and the screens beside it, as Sign in's 3.7 and 3.8a to 3.8d: why sending ended. A TV that couldn't be reached
+ * can be tried again with the same code; the rest start again from a scan.
+ */
+@Composable
+private fun Ended(
+    why: SendEnd,
+    tvName: String,
+    actions: SendSourcesActions,
+) {
+    if (why == SendEnd.Unreachable) {
+        PairFrame(actions.close, title = R.string.send_title) {
+            Status(Modifier.weight(1f), R.string.pair_unreachable, R.string.pair_unreachable_body) {
+                Badge(R.drawable.icon_wifi_off, PhoneColors.error, PhoneColors.surfaceRaised)
             }
+            Actions {
+                Button(onClick = actions.retry, modifier = BIG_BUTTON) { ButtonLabel(R.string.pair_try_again, R.drawable.icon_refresh) }
+                SmallButton(R.string.pair_scan_new, R.drawable.icon_qr_scan, actions.scanAgain)
+            }
+        }
+        return
+    }
+    val (title, body) =
+        when (why) {
+            SendEnd.NoMatch -> stringResource(R.string.send_no_match) to R.string.send_no_match_body
+            SendEnd.NoMatchOnTv -> stringResource(R.string.send_no_match_tv, tvName) to R.string.send_no_match_tv_body
+            SendEnd.StoppedOnTv -> stringResource(R.string.send_stopped_tv, tvName) to R.string.send_stopped_tv_body
+            SendEnd.TimedOut -> stringResource(R.string.send_timed_out, tvName) to R.string.send_timed_out_body
+            SendEnd.Refused -> stringResource(R.string.send_refused, tvName) to R.string.send_refused_body
+            SendEnd.Lost, SendEnd.Unreachable -> stringResource(R.string.send_lost, tvName) to R.string.send_lost_body
+        }
+    val lost = why == SendEnd.Lost
+    PairFrame(actions.close, title = R.string.send_title) {
+        Status(Modifier.weight(1f), title, stringResource(body)) {
+            Badge(if (lost) R.drawable.icon_wifi_off else R.drawable.icon_warning, PhoneColors.error, PhoneColors.surfaceRaised)
+        }
+        Actions {
+            Button(onClick = actions.scanAgain, modifier = BIG_BUTTON) { ButtonLabel(R.string.send_scan_again, R.drawable.icon_qr_scan) }
+            // As pairing's stopped screens: nothing was sent, so Home is a fine place to go instead.
+            if (!lost) SmallButton(R.string.pair_back_home, null, actions.close)
         }
     }
 }

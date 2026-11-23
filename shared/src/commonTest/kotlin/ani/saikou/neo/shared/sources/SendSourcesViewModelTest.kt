@@ -74,6 +74,7 @@ class SendSourcesViewModelTest {
         var closed = false
         var drops: Exception? = null
         val tvConfirms = CompletableDeferred<Unit>()
+        val ends = CompletableDeferred<PairingException>()
 
         override suspend fun confirmCodes() {
             confirmed = true
@@ -89,6 +90,8 @@ class SendSourcesViewModelTest {
             drops?.let { throw it }
             sent += picked
         }
+
+        override suspend fun awaitEnd(): PairingException = ends.await()
 
         override suspend fun stop(reason: PairingStop) {
             stops += reason
@@ -177,22 +180,33 @@ class SendSourcesViewModelTest {
 
             assertEquals(listOf(PairingStop.NoMatch), tv.stops)
             assertTrue(!tv.confirmed)
-            assertEquals(SendSourcesState.Idle, model.state.value)
+            assertEquals(SendSourcesState.Ended(SendEnd.NoMatch), model.state.value)
         }
 
     @Test
-    fun aTvThatCantBeReachedIsLost() =
+    fun aTvThatCantBeReachedSaysSoAndTryAgainUsesTheSameCode() =
         runTest(main) {
-            val model = viewModel { throw PairingException("No route") }
+            val requests = mutableListOf<PairingRequest>()
+            var reachable = false
+            val model =
+                viewModel { request ->
+                    requests += request
+                    if (reachable) FakeTv(tvSources) else throw PairingException("No route")
+                }
 
             model.start(scanned)
             advanceUntilIdle()
+            assertEquals(SendSourcesState.Ended(SendEnd.Unreachable), model.state.value)
 
-            assertEquals(SendSourcesState.Lost, model.state.value)
+            reachable = true
+            model.retry()
+            advanceUntilIdle()
+            assertEquals(SendSourcesState.CheckCode("482913"), model.state.value)
+            assertEquals(listOf<PairingRequest>(scanned, scanned), requests)
         }
 
     @Test
-    fun aTvThatStopsAtTheCheckCodeIsLost() =
+    fun aTvThatStopsWhileThePhoneWaitsForItSaysWhy() =
         runTest(main) {
             val tv = FakeTv(tvSources)
             val model = viewModel { tv }
@@ -203,7 +217,85 @@ class SendSourcesViewModelTest {
             tv.tvConfirms.completeExceptionally(PairingStoppedException(PairingStop.NoMatch))
             advanceUntilIdle()
 
-            assertEquals(SendSourcesState.Lost, model.state.value)
+            assertEquals(SendSourcesState.Ended(SendEnd.NoMatchOnTv), model.state.value)
+            assertTrue(tv.closed)
+        }
+
+    @Test
+    fun eachWayTheTvEndsItAtTheCheckCodeShowsAtOnce() =
+        runTest(main) {
+            val ends =
+                listOf(
+                    PairingStoppedException(PairingStop.NoMatch) to SendEnd.NoMatchOnTv,
+                    PairingStoppedException(PairingStop.Cancelled) to SendEnd.StoppedOnTv,
+                    PairingStoppedException(PairingStop.TimedOut) to SendEnd.TimedOut,
+                    PairingStoppedException(PairingStop.Refused) to SendEnd.Refused,
+                    PairingException("Connection reset") to SendEnd.Lost,
+                )
+
+            ends.forEach { (end, why) ->
+                val tv = FakeTv(tvSources)
+                val model = viewModel { tv }
+                model.start(scanned)
+                advanceUntilIdle()
+
+                // Before It matches is tapped here.
+                tv.ends.complete(end)
+                advanceUntilIdle()
+
+                assertEquals(SendSourcesState.Ended(why), model.state.value, end.toString())
+                assertTrue(tv.closed)
+                model.confirm()
+                advanceUntilIdle()
+                assertTrue(!tv.confirmed)
+            }
+        }
+
+    @Test
+    fun aTvThatGoesWhileTheLinkIsTypedShowsAtOnce() =
+        runTest(main) {
+            val tv = FakeTv(tvSources)
+            val model = onLink(tv)
+
+            tv.ends.complete(PairingStoppedException(PairingStop.Cancelled))
+            advanceUntilIdle()
+
+            assertEquals(SendSourcesState.Ended(SendEnd.StoppedOnTv), model.state.value)
+            assertTrue(tv.closed)
+        }
+
+    @Test
+    fun aTvThatGoesWhileTheLinkIsCheckedStaysGone() =
+        runTest(main) {
+            val tv = FakeTv(tvSources)
+            val answer = CompletableDeferred<LinkForTv>()
+            val model = onLink(tv, read = { _, _ -> answer.await() })
+            model.onLinkChange(list)
+            model.check()
+            advanceUntilIdle()
+
+            tv.ends.complete(PairingException("Connection reset"))
+            advanceUntilIdle()
+            answer.complete(LinkForTv.Listed(list, choices))
+            advanceUntilIdle()
+
+            assertEquals(SendSourcesState.Ended(SendEnd.Lost), model.state.value)
+        }
+
+    @Test
+    fun aTvThatGoesWhileThePhonePicksSendsNothing() =
+        runTest(main) {
+            val tv = FakeTv(tvSources)
+            val model = picking(tv)
+            model.toggle("com.example.fresh")
+
+            tv.ends.complete(PairingException("Connection reset"))
+            advanceUntilIdle()
+            model.send()
+            advanceUntilIdle()
+
+            assertEquals(SendSourcesState.Ended(SendEnd.Lost), model.state.value)
+            assertTrue(tv.sent.isEmpty())
             assertTrue(tv.closed)
         }
 
@@ -357,8 +449,36 @@ class SendSourcesViewModelTest {
             model.send()
             advanceUntilIdle()
 
-            assertEquals(SendSourcesState.Lost, model.state.value)
+            assertEquals(SendSourcesState.Ended(SendEnd.Lost), model.state.value)
             assertTrue(tv.closed)
+        }
+
+    @Test
+    fun picksTheTvCantUseSaySo() =
+        runTest(main) {
+            val tv = FakeTv(tvSources).apply { drops = PairingStoppedException(PairingStop.Refused) }
+            val model = picking(tv)
+
+            model.toggle("com.example.fresh")
+            model.send()
+            advanceUntilIdle()
+
+            assertEquals(SendSourcesState.Ended(SendEnd.Refused), model.state.value)
+        }
+
+    @Test
+    fun onceTheTvHasThePicksItsEndChangesNothing() =
+        runTest(main) {
+            val tv = FakeTv(tvSources)
+            val model = picking(tv)
+            model.toggle("com.example.fresh")
+            model.send()
+            advanceUntilIdle()
+
+            tv.ends.complete(PairingException("Closed"))
+            advanceUntilIdle()
+
+            assertEquals(SendSourcesState.Sent, model.state.value)
         }
 
     @Test

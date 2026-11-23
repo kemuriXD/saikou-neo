@@ -16,6 +16,7 @@ import ani.saikou.neo.shared.sources.AddError
 import ani.saikou.neo.shared.sources.Choice
 import ani.saikou.neo.shared.sources.ChoiceStatus
 import ani.saikou.neo.shared.sources.ListedSource
+import ani.saikou.neo.shared.sources.SendEnd
 import ani.saikou.neo.shared.sources.SendSourcesState
 import ani.saikou.neo.shared.sources.SourceProblem
 import org.junit.Assert.assertEquals
@@ -43,6 +44,7 @@ class SendSourcesScreenTest {
             back = { taps += "back" },
             send = { taps += "send" },
             scanAgain = { taps += "scan" },
+            retry = { taps += "retry" },
         )
 
     private fun source(
@@ -188,9 +190,80 @@ class SendSourcesScreenTest {
 
     @Test
     fun aLostTvOffersToScanAgain() {
-        show(SendSourcesState.Lost)
+        show(SendSourcesState.Ended(SendEnd.Lost))
 
         compose.onNodeWithText("Lost the connection to Living room TV").assertIsDisplayed()
+        compose.onNodeWithText("Scan again").performClick()
+
+        assertEquals(listOf("scan"), taps)
+    }
+
+    @Test
+    fun aTvThatCouldNotBeReachedOffersTryAgainAndANewCode() {
+        show(SendSourcesState.Ended(SendEnd.Unreachable))
+
+        compose.onNodeWithText("Couldn’t reach the TV").assertIsDisplayed()
+        compose.onNodeWithText("Check the phone and TV are on the same Wi-Fi", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Try again").performClick()
+        compose.onNodeWithText("Scan a new code").performClick()
+
+        assertEquals(listOf("retry", "scan"), taps)
+    }
+
+    @Test
+    fun itDoesNotMatchHereSaysNothingWasSent() {
+        show(SendSourcesState.Ended(SendEnd.NoMatch))
+
+        compose.onNodeWithText("The codes don’t match").assertIsDisplayed()
+        compose.onNodeWithText("Nothing was sent.", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Scan again").performClick()
+        compose.onNodeWithText("Back to Home").performClick()
+
+        assertEquals(listOf("scan", "close"), taps)
+    }
+
+    @Test
+    fun codesThatDoNotMatchOnTheTvSaySo() {
+        show(SendSourcesState.Ended(SendEnd.NoMatchOnTv))
+
+        compose.onNodeWithText("Living room TV says the codes don’t match").assertIsDisplayed()
+        compose
+            .onNodeWithText(
+                "Someone else may be connecting. Open Add from my phone on the TV again and check the code before you tap It matches.",
+            ).assertIsDisplayed()
+        compose.onNodeWithText("Scan again").performClick()
+
+        assertEquals(listOf("scan"), taps)
+    }
+
+    @Test
+    fun cancelOnTheTvSaysItStoppedThere() {
+        show(SendSourcesState.Ended(SendEnd.StoppedOnTv))
+
+        compose.onNodeWithText("Stopped on Living room TV").assertIsDisplayed()
+        compose.onNodeWithText("Open Add from my phone on the TV again to send sources.").assertIsDisplayed()
+        compose.onNodeWithText("Scan again").performClick()
+
+        assertEquals(listOf("scan"), taps)
+    }
+
+    @Test
+    fun aTvThatStoppedWaitingSaysSo() {
+        show(SendSourcesState.Ended(SendEnd.TimedOut))
+
+        compose.onNodeWithText("Living room TV stopped waiting").assertIsDisplayed()
+        compose.onNodeWithText("Nothing was sent in time.", substring = true).assertIsDisplayed()
+        compose.onNodeWithText("Scan again").performClick()
+
+        assertEquals(listOf("scan"), taps)
+    }
+
+    @Test
+    fun picksTheTvCouldNotUseSaySo() {
+        show(SendSourcesState.Ended(SendEnd.Refused))
+
+        compose.onNodeWithText("Living room TV didn’t take the sources").assertIsDisplayed()
+        compose.onNodeWithText("Nothing will install.", substring = true).assertIsDisplayed()
         compose.onNodeWithText("Scan again").performClick()
 
         assertEquals(listOf("scan"), taps)

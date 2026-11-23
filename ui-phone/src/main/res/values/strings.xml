@@ -164,6 +164,20 @@
     <!-- %1$s is the TV's name. -->
     <string name="send_lost">Lost the connection to %1$s</string>
     <string name="send_lost_body">Open Add from my phone on the TV again, then scan its new code.</string>
+    <string name="send_no_match">The codes don’t match</string>
+    <string name="send_no_match_body">Nothing was sent. Someone else may be connecting, so scan the code on the TV again and check it before you tap It matches.</string>
+    <!-- %1$s is the TV's name. -->
+    <string name="send_no_match_tv">%1$s says the codes don’t match</string>
+    <string name="send_no_match_tv_body">Someone else may be connecting. Open Add from my phone on the TV again and check the code before you tap It matches.</string>
+    <!-- %1$s is the TV's name. -->
+    <string name="send_stopped_tv">Stopped on %1$s</string>
+    <string name="send_stopped_tv_body">Open Add from my phone on the TV again to send sources.</string>
+    <!-- %1$s is the TV's name. -->
+    <string name="send_timed_out">%1$s stopped waiting</string>
+    <string name="send_timed_out_body">Nothing was sent in time. The TV still shows its code, so you can scan it again.</string>
+    <!-- %1$s is the TV's name. -->
+    <string name="send_refused">%1$s didn’t take the sources</string>
+    <string name="send_refused_body">Nothing will install. The TV still shows its code, so you can scan it again and try another link.</string>
     <string name="send_scan_again">Scan again</string>
 
     <!-- 6.1 Account -->
