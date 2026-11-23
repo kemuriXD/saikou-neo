@@ -43,8 +43,18 @@ private val starterLogo = png(96, 96)
 
 private fun list(vararg entries: String) = """{ "sources": [ ${entries.joinToString()} ] }"""
 
-/** Installs any APK whose text is a source's name, and keeps the list in memory. API version 1 is the only one it runs. */
-private class FakeStore(
+private const val MINE = "https://example.com/mine.json"
+private const val ALL = "https://example.com/all.json"
+private const val TWO = "https://example.com/two.json"
+
+/** [this] as installed from the list at [link]. */
+private fun List<InstalledSource>.from(link: String) = map { it.copy(list = link) }
+
+/**
+ * Installs any APK whose text is a source's name, with the list it came from, and keeps the list in memory. API version
+ * 1 is the only one it runs.
+ */
+internal class FakeStore(
     private val sources: Map<String, InstalledSource> =
         mapOf("EXAMPLE" to example, "STARTER" to starter, "DEMO" to demo, "NEWER_STARTER" to newerStarter),
 ) : SourceStore {
@@ -66,10 +76,11 @@ private class FakeStore(
     override suspend fun install(
         apk: ByteArray,
         id: String?,
+        list: String?,
     ): InstalledSource? {
         waitFor?.await()
         gates.removeFirstOrNull()?.await()
-        val source = sources[apk.decodeToString()]?.takeIf { id == null || it.id == id } ?: return null
+        val source = sources[apk.decodeToString()]?.takeIf { id == null || it.id == id }?.copy(list = list) ?: return null
         installs += source.id
         if (source.problem == null) installed.value = installed.value.orEmpty().filter { it.id != source.id } + source
         return source
@@ -107,6 +118,7 @@ class SourcesViewModelTest {
             "https://example.com/demo.apk" to "DEMO",
             "https://example.com/newer-starter.apk" to "NEWER_STARTER",
             "https://example.com/mine.json" to list(entry(starter, "starter.apk")),
+            "https://example.com/other.json" to list(entry(starter, "starter.apk")),
             "https://example.com/broken.json" to """{ "sources": [ { "id": """,
             "https://example.com/empty.json" to list(),
             "https://example.com/newer.json" to list(entry(starter, "starter.apk", api = 2)),
@@ -390,7 +402,7 @@ class SourcesViewModelTest {
             viewModel.addTicked()
 
             assertEquals(listOf(starter.id, demo.id), store.installs)
-            assertEquals(Adding.AddedAll(listOf(starter, demo)), viewModel.state.value.adding)
+            assertEquals(Adding.AddedAll(listOf(starter, demo).from(ALL)), viewModel.state.value.adding)
         }
 
     @Test
@@ -432,7 +444,7 @@ class SourcesViewModelTest {
                     .status,
             )
             second.complete(Unit)
-            assertEquals(Adding.AddedAll(listOf(starter, demo)), viewModel.state.value.adding)
+            assertEquals(Adding.AddedAll(listOf(starter, demo).from(TWO)), viewModel.state.value.adding)
         }
 
     @Test
@@ -451,7 +463,7 @@ class SourcesViewModelTest {
             gate.complete(Unit)
 
             assertEquals(listOf(starter.id, demo.id), store.installs)
-            assertEquals(Adding.AddedAll(listOf(starter, demo)), viewModel.state.value.adding)
+            assertEquals(Adding.AddedAll(listOf(starter, demo).from(TWO)), viewModel.state.value.adding)
         }
 
     @Test
@@ -549,6 +561,56 @@ class SourcesViewModelTest {
                 ),
                 viewModel.choosing.choices,
             )
+        }
+
+    @Test
+    fun aSourceAddedFromAListKeepsTheListsLink() =
+        test {
+            val store = FakeStore()
+            val viewModel = viewModel(store)
+            viewModel.add(MINE)
+            viewModel.toggle(starter.id)
+
+            viewModel.addTicked()
+
+            assertEquals(listOf(starter.copy(list = MINE)), store.installed.value)
+        }
+
+    @Test
+    fun aCodeIsKeptAsTheLinkItLedTo() =
+        test {
+            val store = FakeStore()
+            val viewModel = viewModel(store)
+            viewModel.add("Mine")
+            viewModel.toggle(starter.id)
+
+            viewModel.addTicked()
+
+            assertEquals(listOf(starter.copy(list = MINE)), store.installed.value)
+        }
+
+    @Test
+    fun addingASourceAgainFromAnotherListKeepsThatListsLink() =
+        test {
+            val store = FakeStore().apply { installed.value = listOf(starter.copy(version = "1.0.0", list = MINE)) }
+            val viewModel = viewModel(store)
+            viewModel.add("https://example.com/other.json")
+            viewModel.toggle(starter.id)
+
+            viewModel.addTicked()
+
+            assertEquals(listOf(starter.copy(list = "https://example.com/other.json")), store.installed.value)
+        }
+
+    @Test
+    fun aSourceAddedFromItsApkKeepsNoLink() =
+        test {
+            val store = FakeStore().apply { installed.value = listOf(example.copy(list = ALL)) }
+            val viewModel = viewModel(store)
+
+            viewModel.add("https://example.com/source.apk")
+
+            assertEquals(listOf(example), store.installed.value)
         }
 
     @Test

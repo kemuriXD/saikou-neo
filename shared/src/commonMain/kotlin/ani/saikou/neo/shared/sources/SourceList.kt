@@ -95,3 +95,23 @@ private fun String.shown(): String? =
         .takeIf { it.isNotEmpty() }
 
 private val hidden = setOf(CharCategory.CONTROL, CharCategory.FORMAT, CharCategory.LINE_SEPARATOR, CharCategory.PARAGRAPH_SEPARATOR)
+
+/**
+ * Compares versions such as `1.10.0` and `1.2.0` part by part, as numbers, ignoring a leading `v`. A part that isn't a
+ * number counts as 0. A pre-release, such as `2.0.0-beta.1`, comes before its release.
+ */
+internal fun compareVersions(
+    a: String,
+    b: String,
+): Int {
+    val first = a.removePrefix("v").split('-', '+', limit = 2)
+    val second = b.removePrefix("v").split('-', '+', limit = 2)
+    val numbers = first[0].split('.')
+    val others = second[0].split('.')
+    for (i in 0 until maxOf(numbers.size, others.size)) {
+        val difference = (numbers.getOrNull(i)?.toIntOrNull() ?: 0).compareTo(others.getOrNull(i)?.toIntOrNull() ?: 0)
+        if (difference != 0) return difference
+    }
+    // Only one is a pre-release: that one is older.
+    return (first.size == 1).compareTo(second.size == 1)
+}
