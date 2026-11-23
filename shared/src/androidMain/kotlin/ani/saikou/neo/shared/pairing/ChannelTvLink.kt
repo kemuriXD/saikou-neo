@@ -15,8 +15,11 @@ import org.json.JSONObject
  *   same each time that TV pairs. ID and name are 1 to 64 characters.
  * - Either way, when one side stops pairing (#414): `{"v":1,"type":"stopped","reason":"<reason>"}`, then it closes the
  *   connection. The reason is `no-match` (It doesn't match on the phone), `cancelled` (closed or cancelled on either
- *   side), `refused` (AniList didn't accept the account, TV to phone) or `timed-out` (the TV stopped waiting, TV to
+ *   side), `refused` (AniList didn't accept the account, or the TV couldn't use the picks, TV to phone) or
+ *   `timed-out` (the TV stopped waiting, TV to
  *   phone). A connection that closes without one was lost. Anything else from the TV means it didn't sign in.
+ *
+ * Add from my phone uses the same connection with its own messages, listed in [SourcesMessages].
  */
 public object PairingMessages {
     private const val VERSION = 1
@@ -89,17 +92,27 @@ public object PairingMessages {
             .filter { it.isNotEmpty() }
             .joinToString(" ")
 
-    private fun message(type: String) = JSONObject().put("v", VERSION).put("type", type)
+    internal fun message(type: String): JSONObject = JSONObject().put("v", VERSION).put("type", type)
 
-    private fun read(
+    internal fun read(
         bytes: ByteArray,
         type: String,
-    ): JSONObject? =
-        try {
-            JSONObject(bytes.decodeToString()).takeIf { it.optInt("v") == VERSION && it.optString("type") == type }
+    ): JSONObject? {
+        val text = bytes.decodeToString()
+        // The parser recurses, so deep nesting from the other side could overflow the stack and crash the app. It also
+        // takes single quotes and comments, so a scan for strings can be fooled: every bracket counts, even in a string.
+        if (text.count { it == '{' || it == '[' } > MAX_BRACKETS) return null
+        return try {
+            JSONObject(text).takeIf { it.optInt("v") == VERSION && it.optString("type") == type }
         } catch (_: JSONException) {
             null
+        } catch (_: StackOverflowError) {
+            null
         }
+    }
+
+    // The biggest real message, a TV with 200 sources, has about 203.
+    private const val MAX_BRACKETS = 256
 }
 
 /**

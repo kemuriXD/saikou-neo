@@ -67,13 +67,13 @@ public interface PairedTvStore {
 
 /**
  * Connects to the TV in [request]. A typed code is found with [lookup] first; null means no TV on this network is
- * showing it. [connect] makes the encrypted connection (on Android, [connectToTv]).
+ * showing it. [connect] makes the encrypted connection (on Android, [connectToTv]), for signing in or sending sources.
  */
-public suspend fun connectForPairing(
+public suspend fun <L> connectForPairing(
     request: PairingRequest,
     lookup: suspend (code: String) -> PairingInvite?,
-    connect: suspend (host: String, port: Int, publicKey: ByteArray, sessionId: ByteArray) -> TvLink,
-): TvLink {
+    connect: suspend (host: String, port: Int, publicKey: ByteArray, sessionId: ByteArray) -> L,
+): L {
     val invite =
         when (request) {
             is PairingRequest.Scanned -> request.invite
