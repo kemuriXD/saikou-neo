@@ -1,22 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Signal symbol for themed icons. Android tints it. -->
+<!-- The original Saikou monochrome mark for themed icons, 66 dp wide in the middle of the 108 dp layer. Android tints it. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
     <group
-        android:scaleX="0.21875"
-        android:scaleY="0.21875"
-        android:translateX="26"
-        android:translateY="26">
-        <group
-            android:translateX="4.5"
-            android:translateY="12.5">
-            <path
-                android:fillColor="#FFFFFFFF"
-                android:fillType="evenOdd"
-                android:pathData="M238 44 L146 5 Q140 2 134 5 L27 50 Q18 54 18 64 L18 105 Q18 113 26 118 L76 143 L8 176 Q1 180 8 184 L100 226 Q107 230 114 226 L222 177 Q231 173 231 164 L231 123 Q231 115 223 110 L168 84 L238 53 Q247 49 238 44 Z M94 79 Q88 76 88 84 L88 164 Q88 172 95 168 L162 130 Q169 126 162 122 Z" />
-        </group>
+        android:scaleX="0.1375"
+        android:scaleY="0.1375"
+        android:translateX="21"
+        android:translateY="21">
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M298.5,303.98c0,10.32 -6.43,17.41 -7.83,18.82l-140,140C62.36,427.38 0,340.98 0,240c0,-132.55 107.45,-240 240,-240L240.5,0L136.18,104.28c-8.92,8.95 -29.67,33.86 -29.68,71.71 0,10.22 2.27,45.73 31.56,73.57a101,101 0,0 0,45.95 24.93v9.4a27.92,27.92 0,0 0,42 24.23l51.64,-29.81a27.23,27.23 0,0 1,14.21 8.11A27.72,27.72 0,0 1,298.5 303.98Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M329.34,17.18 L189.26,157.26A27.91,27.91 0,0 0,181.5 176.01a29,29 0,0 0,3.43 12.88,28 28,0 0,1 41,-17l53.73,31c15.36,1.41 44.91,7.64 68.06,33.57S373.5,292.38 373.5,304.02c0,37.74 -20.73,62.68 -29.63,71.65l-0.1,0.1L239.55,480h0.45c132.55,0 240,-107.45 240,-240C480,139.02 417.64,52.62 329.34,17.18Z" />
+        <path
+            android:fillColor="#FFFFFFFF"
+            android:pathData="M299.99,240a11.85,11.85 0,0 1,-6 10.37l-47,27.13 -29,16.76a12,12 0,0 1,-18 -10.37L199.99,196.11a11.95,11.95 0,0 1,18 -10.37l29,16.76 47,27.13A11.85,11.85 0,0 1,299.99 240Z" />
     </group>
 </vector>

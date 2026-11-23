@@ -24,4 +24,11 @@ class ChannelTest {
     fun drawsTheSymbolInPink() {
         assertEquals(0xFFFF4F91.toInt(), app.getColor(R.color.saikou_neo_symbol))
     }
+
+    @Test
+    fun drawsTheIconInPink() {
+        assertEquals(0xFFFF0080.toInt(), app.getColor(R.color.saikou_neo_icon_pink))
+        assertEquals(0xFFFF4BA8.toInt(), app.getColor(R.color.saikou_neo_icon_pink_light))
+        assertEquals(0xFFC50053.toInt(), app.getColor(R.color.saikou_neo_icon_pink_deep))
+    }
 }
