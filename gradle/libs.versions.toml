@@ -28,6 +28,8 @@ maven-publish = "0.37.0"
 
 # Android SDK levels, read by the convention plugins in build-logic.
 android-compileSdk = "37"
+# Compose 1.13 needs compileSdk 37.1.
+android-compileSdkMinor = "1"
 android-targetSdk = "37"
 android-minSdk = "24"
 

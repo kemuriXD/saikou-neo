@@ -21,7 +21,12 @@ internal fun Project.sdkLevel(name: String): Int =
  * both Kotlin and lint. Each module gets the same channels, so the app picks the matching UI variant.
  */
 internal fun Project.configureNeoAndroid(android: CommonExtension) {
-    android.compileSdk = sdkLevel("android-compileSdk")
+    android.compileSdk {
+        version =
+            release(sdkLevel("android-compileSdk")) {
+                minorApiLevel = sdkLevel("android-compileSdkMinor")
+            }
+    }
     android.defaultConfig.minSdk = sdkLevel("android-minSdk")
 
     // Release channels (ADR 0005).

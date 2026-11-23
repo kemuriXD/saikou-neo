@@ -277,7 +277,6 @@ private fun TvRow(
     onOptions: () -> Unit,
 ) {
     ListItem(
-        headlineContent = { Text(tv.name, style = MaterialTheme.typography.bodyLarge) },
         supportingContent = { Text(stringResource(R.string.home_tv_paired, pairedDay(tv.pairedAtEpochSeconds))) },
         leadingContent = { Icon(painterResource(R.drawable.icon_tv), contentDescription = null, Modifier.size(24.dp)) },
         trailingContent = {
@@ -291,7 +290,9 @@ private fun TvRow(
         },
         colors = ListItemDefaults.colors(containerColor = PhoneColors.surface),
         modifier = Modifier.clickable(onClick = onOptions),
-    )
+    ) {
+        Text(tv.name, style = MaterialTheme.typography.bodyLarge)
+    }
 }
 
 /**
@@ -324,12 +325,13 @@ private fun TvOptions(
             }
             HorizontalDivider(color = PhoneColors.line)
             ListItem(
-                headlineContent = { Text(stringResource(R.string.home_remove_tv), style = MaterialTheme.typography.bodyLarge) },
                 supportingContent = { Text(stringResource(R.string.home_remove_tv_body)) },
                 leadingContent = { Icon(painterResource(R.drawable.icon_delete), contentDescription = null, Modifier.size(24.dp)) },
                 colors = ListItemDefaults.colors(containerColor = PhoneColors.surfaceRaised),
                 modifier = Modifier.clickable(onClick = onRemove).padding(horizontal = 8.dp),
-            )
+            ) {
+                Text(stringResource(R.string.home_remove_tv), style = MaterialTheme.typography.bodyLarge)
+            }
         }
     }
 }
