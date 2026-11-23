@@ -43,3 +43,26 @@ internal class SourceLinks(
         const val LIST = ".list"
     }
 }
+
+/**
+ * Puts a read-only copy of [incoming] in [kept]'s place. The copy is made beside it first and then renamed over it, so a
+ * copy that fails leaves the old file as it was. Throws [IOException] when it can't.
+ */
+internal fun swapIn(
+    incoming: File,
+    kept: File,
+) {
+    val fresh = File(kept.parentFile, kept.name + ".new")
+    fresh.delete()
+    try {
+        incoming.copyTo(fresh)
+        fresh.setReadOnly()
+        if (!fresh.renameTo(kept)) {
+            // Where a rename can't replace a file, the old one goes only now the new one is whole.
+            kept.delete()
+            if (!fresh.renameTo(kept)) throw IOException("Couldn't put ${kept.name} in place")
+        }
+    } finally {
+        fresh.delete()
+    }
+}

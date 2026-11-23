@@ -95,9 +95,7 @@ class ApkSourceStore(
             if (load(incoming, manifest.className) == null) return manifest.source.copy(problem = SourceProblem.BROKEN)
             folder.mkdirs()
             val kept = File(folder, manifest.source.id + APK)
-            kept.delete()
-            incoming.copyTo(kept)
-            kept.setReadOnly()
+            swapIn(incoming, kept)
             // Saved once the APK is in place, so a copy that fails doesn't leave a new link on the old version.
             val saved = links.keep(manifest.source.id, list)
             val source = manifest.source.copy(icon = keepIcon(manifest), list = saved)
