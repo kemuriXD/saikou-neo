@@ -73,6 +73,8 @@ public suspend fun readLinkForTv(
 ): LinkForTv {
     val url = linkFor(text, codes) ?: return LinkForTv.Failed(AddError.NO_SUCH_CODE)
     if (!isAllowedSourceLink(url)) return LinkForTv.Failed(AddError.NOT_SECURE)
+    // The TV refuses a link it couldn't show as it is, so the phone doesn't offer one.
+    if (!isCleanSourceLink(url)) return LinkForTv.Failed(AddError.NOT_A_SOURCE)
     val start = downloads.fetchStart(url) ?: return LinkForTv.Failed(AddError.NOT_A_SOURCE)
     if (!isSourceList(start)) return LinkForTv.OneApk(url)
     val listed = withContext(work) { readSourceList(start) } ?: return LinkForTv.Failed(AddError.BROKEN_LIST)
@@ -80,7 +82,12 @@ public suspend fun readLinkForTv(
     return LinkForTv.Listed(
         url,
         listed.choices {
-            choiceStatus(it, installed[it.id]?.version, installed[it.id]?.hasList == true, tv.api::problemFor)
+            // The TV would refuse the whole send over one APK link it couldn't show as it is.
+            if (!isCleanSourceLink(it.apk)) {
+                ChoiceStatus.CantUse(SourceProblem.BROKEN)
+            } else {
+                choiceStatus(it, installed[it.id]?.version, installed[it.id]?.hasList == true, tv.api::problemFor)
+            }
         },
     )
 }
@@ -107,3 +114,15 @@ internal fun IntRange.problemFor(builtFor: Int): SourceProblem? =
         builtFor < first -> SourceProblem.BUILT_FOR_OLDER_APP
         else -> null
     }
+
+/**
+ * A link the TV takes from a phone (ADR 0042): one it would take typed, at most 2,000 characters, and with nothing
+ * hidden, so the TV can show it as it is.
+ */
+internal fun isCleanSourceLink(link: String): Boolean =
+    link.length <= MAX_SENT_LINK && link.none(::isHiddenChar) && isAllowedSourceLink(link)
+
+/** A control or invisible format character, such as a direction override, that could hide or reorder text around it. */
+internal fun isHiddenChar(char: Char): Boolean = char.isISOControl() || char.category == CharCategory.FORMAT
+
+private const val MAX_SENT_LINK = 2_000

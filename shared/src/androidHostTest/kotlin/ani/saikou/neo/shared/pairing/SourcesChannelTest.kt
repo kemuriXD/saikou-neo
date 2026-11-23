@@ -162,6 +162,18 @@ class SourcesChannelTest {
         }
 
     @Test
+    fun aTvThatNeverTakesThePicksIsGivenUpOnSoon() =
+        pairing {
+            val accepted = async { listener.accept() }
+            // What the TV has may take as long as a code lasts, but the reply to the picks comes straight away.
+            val phone = connectPhoneForSources(loopback.hostAddress!!, listener.port, tvKeys.publicKey, session, 60_000, 300)
+            val tv = ChannelSourcesPhone(listener, accepted.await(), 2_000, 2_000)
+            confirm(phone, tv)
+
+            assertFailsWith<PairingException> { phone.send(fromList) }
+        }
+
+    @Test
     fun aPhoneThatNeverConfirmsHearsTheTvStopWaiting() =
         pairing {
             val (phone, tv) = connect(matchTimeoutMillis = 200)

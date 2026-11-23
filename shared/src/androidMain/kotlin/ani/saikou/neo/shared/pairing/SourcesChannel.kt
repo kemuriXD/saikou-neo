@@ -7,7 +7,8 @@ import ani.saikou.neo.shared.sources.SourcesTv
 import ani.saikou.neo.shared.sources.TvSource
 import ani.saikou.neo.shared.sources.TvSources
 import ani.saikou.neo.shared.sources.TvSourcesSession
-import ani.saikou.neo.shared.sources.isAllowedSourceLink
+import ani.saikou.neo.shared.sources.isCleanSourceLink
+import ani.saikou.neo.shared.sources.isHiddenChar
 import ani.saikou.neo.shared.sources.readSourceList
 import ani.saikou.neo.shared.sources.sourceIdFormat
 import kotlinx.coroutines.Dispatchers
@@ -45,7 +46,6 @@ internal object SourcesMessages {
     private const val MAX_MESSAGE = 65_000
     private const val MAX_INSTALLED = 200
     private const val MAX_TEXT = 60
-    private const val MAX_LINK = 2_000
 
     fun tvSources(tv: TvSources): ByteArray {
         val installed = JSONArray()
@@ -74,7 +74,8 @@ internal object SourcesMessages {
                         val source = array.getJSONObject(i)
                         val id = source.getString("id").takeIf { it.matches(sourceIdFormat) } ?: return null
                         // The phone shows it in "update from", so it can't hide or reorder text.
-                        val version = source.getString("version").takeIf { it.length in 1..MAX_TEXT && it.none(::isHidden) } ?: return null
+                        val version =
+                            source.getString("version").takeIf { it.length in 1..MAX_TEXT && it.none(::isHiddenChar) } ?: return null
                         TvSource(id, version, source.optBoolean("list"))
                     }
                 TvSources(installed, range)
@@ -116,13 +117,13 @@ internal object SourcesMessages {
             readJson(bytes, "sources")?.let { json ->
                 if (json.has("apk")) {
                     val apk = json.getString("apk")
-                    return if (json.has("list") || json.has("sources") || !isCleanLink(apk)) null else PickedSources.OneApk(apk)
+                    return if (json.has("list") || json.has("sources") || !isCleanSourceLink(apk)) null else PickedSources.OneApk(apk)
                 }
-                val list = json.getString("list").takeIf(::isCleanLink) ?: return null
+                val list = json.getString("list").takeIf(::isCleanSourceLink) ?: return null
                 val sent = json.getJSONArray("sources").length()
                 // Read with the list rules. An entry they leave out, or one past the limit, refuses the whole message.
                 val read =
-                    readSourceList(bytes)?.takeIf { sent > 0 && it.size == sent && it.all { source -> isCleanLink(source.apk) } }
+                    readSourceList(bytes)?.takeIf { sent > 0 && it.size == sent && it.all { source -> isCleanSourceLink(source.apk) } }
                         ?: return null
                 PickedSources.FromList(list, read.map { it.copy(icon = null) })
             }
@@ -137,11 +138,6 @@ internal object SourcesMessages {
     fun received(): ByteArray = PairingMessages.message("sources-received").toString().encodeToByteArray()
 
     fun isReceived(bytes: ByteArray): Boolean = readJson(bytes, "sources-received") != null
-
-    /** A link the TV would take typed, short enough and with nothing hidden, so the TV can show it as it is. */
-    private fun isCleanLink(link: String): Boolean = link.length <= MAX_LINK && link.none(::isHidden) && isAllowedSourceLink(link)
-
-    private fun isHidden(char: Char): Boolean = Character.isISOControl(char) || Character.getType(char) == Character.FORMAT.toInt()
 
     private fun readJson(
         bytes: ByteArray,
@@ -223,8 +219,8 @@ internal class ChannelSourcesPhone(
 }
 
 /**
- * The phone's side of Add from my phone: connects to the TV's board with [connectToTv]. Each wait for the TV lasts up
- * to [answerTimeoutMillis].
+ * The phone's side of Add from my phone: connects to the TV's board with [connectToTv]. The wait for what the TV has
+ * lasts up to [answerTimeoutMillis], and the wait for the TV to take the picks up to [receivedTimeoutMillis].
  */
 public suspend fun connectPhoneForSources(
     host: String,
@@ -232,11 +228,13 @@ public suspend fun connectPhoneForSources(
     publicKey: ByteArray,
     sessionId: ByteArray,
     answerTimeoutMillis: Int = ANSWER_TIMEOUT_MILLIS,
-): SourcesTv = ChannelSourcesTv(connectToTv(host, port, publicKey, sessionId), answerTimeoutMillis)
+    receivedTimeoutMillis: Int = RECEIVED_TIMEOUT_MILLIS,
+): SourcesTv = ChannelSourcesTv(connectToTv(host, port, publicKey, sessionId), answerTimeoutMillis, receivedTimeoutMillis)
 
 internal class ChannelSourcesTv(
     internal val channel: PairingChannel,
     private val answerTimeoutMillis: Int,
+    private val receivedTimeoutMillis: Int = RECEIVED_TIMEOUT_MILLIS,
 ) : SourcesTv {
     @Volatile private var confirmed = false
 
@@ -252,24 +250,25 @@ internal class ChannelSourcesTv(
 
     override suspend fun receiveTvSources(): TvSources {
         if (!confirmed) throw PairingException("The codes haven't been confirmed")
-        return answer("The TV didn't say what it has", SourcesMessages::readTvSources).also { heard = true }
+        return answer("The TV didn't say what it has", answerTimeoutMillis, SourcesMessages::readTvSources).also { heard = true }
     }
 
     override suspend fun send(picked: PickedSources) {
         if (!heard) throw PairingException("The TV hasn't said what it has")
         val message = SourcesMessages.picked(picked)
         withContext(Dispatchers.IO) { channel.send(message) }
-        answer("The TV didn't take the sources") { bytes -> Unit.takeIf { SourcesMessages.isReceived(bytes) } }
+        answer("The TV didn't take the sources", receivedTimeoutMillis) { bytes -> Unit.takeIf { SourcesMessages.isReceived(bytes) } }
         channel.close()
     }
 
     /** The TV's next message, read with [read]. Anything else closes the connection. */
     private suspend fun <T : Any> answer(
         missing: String,
+        timeoutMillis: Int,
         read: (ByteArray) -> T?,
     ): T =
         withContext(Dispatchers.IO) {
-            val bytes = channel.receive(answerTimeoutMillis)
+            val bytes = channel.receive(timeoutMillis)
             read(bytes) ?: run {
                 channel.close()
                 throw PairingMessages.readStopped(bytes)?.let { PairingStoppedException(it) } ?: PairingException(missing)
@@ -290,3 +289,6 @@ private const val PICK_TIMEOUT_MILLIS = 5 * 60 * 1_000
 
 // The TV sends what it has only once It matches is chosen there too, so the phone waits as long as a code lasts.
 private const val ANSWER_TIMEOUT_MILLIS = TV_CODE_SECONDS * 1_000
+
+// The TV answers as soon as it has the picks, so a phone left waiting longer than this has lost it.
+private const val RECEIVED_TIMEOUT_MILLIS = 30 * 1_000
