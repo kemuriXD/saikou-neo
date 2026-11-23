@@ -1,5 +1,6 @@
 package ani.saikou.neo.phone
 
+import androidx.annotation.StringRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -42,7 +43,8 @@ import ani.saikou.neo.phone.theme.PhoneColors
 
 /**
  * 3.1 Pair: scan the TV code, or 3.2 Pair: camera not allowed when [cameraAllowed] is false. While the phone is still
- * asking ([cameraAllowed] is null) the card stays empty. [viewfinder] fills the card with the camera.
+ * asking ([cameraAllowed] is null) the card stays empty. [viewfinder] fills the card with the camera. 4.1 Send a source
+ * is the same screen with its own [title] and [body].
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -52,11 +54,13 @@ internal fun PairScanScreen(
     onType: () -> Unit,
     onOpenSettings: () -> Unit,
     viewfinder: @Composable (Modifier) -> Unit,
+    @StringRes title: Int = R.string.pair_title,
+    @StringRes body: Int = R.string.pair_scan_body,
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.pair_title)) },
+                title = { Text(stringResource(title)) },
                 navigationIcon = {
                     IconButton(onClick = onClose) {
                         Icon(painterResource(R.drawable.icon_close), contentDescription = stringResource(R.string.pair_close))
@@ -83,7 +87,7 @@ internal fun PairScanScreen(
                         TypeInstead(onType, small = true)
                     }
                 } else {
-                    Scan(cameraAllowed == true, viewfinder, Modifier.weight(1f))
+                    Scan(cameraAllowed == true, viewfinder, body, Modifier.weight(1f))
                     Box(Modifier.fillMaxWidth().padding(16.dp)) { TypeInstead(onType, small = false) }
                 }
             }
@@ -95,6 +99,7 @@ internal fun PairScanScreen(
 private fun Scan(
     showCamera: Boolean,
     viewfinder: @Composable (Modifier) -> Unit,
+    @StringRes body: Int,
     modifier: Modifier,
 ) {
     Column(
@@ -131,7 +136,7 @@ private fun Scan(
             )
         }
         Text(
-            stringResource(R.string.pair_scan_body),
+            stringResource(body),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )

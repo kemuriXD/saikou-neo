@@ -45,7 +45,10 @@ public sealed interface LinkForTv {
         val error: AddError,
     ) : LinkForTv
 
-    /** A list at [list], each source with what it is on the TV, as the TV would show it. Nothing is ticked. */
+    /**
+     * A list at [list], each source with what it is on the TV, as the TV would show it. Nothing is ticked. It may hold
+     * nothing that can be picked, so the phone can show why (4.9).
+     */
     public data class Listed(
         val list: String,
         val choices: List<Choice>,
@@ -70,12 +73,23 @@ public suspend fun readLinkForTv(
 ): LinkForTv {
     val url = linkFor(text, codes) ?: return LinkForTv.Failed(AddError.NO_SUCH_CODE)
     if (!isAllowedSourceLink(url)) return LinkForTv.Failed(AddError.NOT_SECURE)
+    // The TV refuses a link it couldn't show as it is, so the phone doesn't offer one.
+    if (!isCleanSourceLink(url)) return LinkForTv.Failed(AddError.NOT_A_SOURCE)
     val start = downloads.fetchStart(url) ?: return LinkForTv.Failed(AddError.NOT_A_SOURCE)
     if (!isSourceList(start)) return LinkForTv.OneApk(url)
     val listed = withContext(work) { readSourceList(start) } ?: return LinkForTv.Failed(AddError.BROKEN_LIST)
     val installed = tv.installed.associateBy { it.id }
-    val choices = listed.choices { choiceStatus(it, installed[it.id]?.version, installed[it.id]?.hasList == true, tv.api::problemFor) }
-    return choices.whyNone()?.let { LinkForTv.Failed(it) } ?: LinkForTv.Listed(url, choices)
+    return LinkForTv.Listed(
+        url,
+        listed.choices {
+            // The TV would refuse the whole send over one APK link it couldn't show as it is.
+            if (!isCleanSourceLink(it.apk)) {
+                ChoiceStatus.CantUse(SourceProblem.BROKEN)
+            } else {
+                choiceStatus(it, installed[it.id]?.version, installed[it.id]?.hasList == true, tv.api::problemFor)
+            }
+        },
+    )
 }
 
 /** What to send for the ticked sources that can be picked, without their logos. Null when none are ticked. */
@@ -100,3 +114,15 @@ internal fun IntRange.problemFor(builtFor: Int): SourceProblem? =
         builtFor < first -> SourceProblem.BUILT_FOR_OLDER_APP
         else -> null
     }
+
+/**
+ * A link the TV takes from a phone (ADR 0042): one it would take typed, at most 2,000 characters, and with nothing
+ * hidden, so the TV can show it as it is.
+ */
+internal fun isCleanSourceLink(link: String): Boolean =
+    link.length <= MAX_SENT_LINK && link.none(::isHiddenChar) && isAllowedSourceLink(link)
+
+/** A control or invisible format character, such as a direction override, that could hide or reorder text around it. */
+internal fun isHiddenChar(char: Char): Boolean = char.isISOControl() || char.category == CharCategory.FORMAT
+
+private const val MAX_SENT_LINK = 2_000

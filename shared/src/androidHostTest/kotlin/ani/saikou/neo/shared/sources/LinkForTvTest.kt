@@ -34,6 +34,10 @@ class LinkForTvTest {
                 } ] }""",
             "https://example.com/installed.json" to """{ "sources": [ ${entry("com.example.same", "1.0.0")} ] }""",
             "https://example.com/source.apk" to "PK-not-a-list",
+            "https://example.com/hidden.json" to
+                """{ "sources": [ ${entry("com.example.fresh", "1.0.0")}, ${
+                    entry("com.example.hidden", "1.0.0").replace("hidden.apk", "hid\u202Eden.apk")
+                } ] }""",
             "https://example.com/broken.json" to """{ "sources": [ { "id": """,
             "https://v.gd/forward.php?format=json&shorturl=All" to """{ "url": "https://example.com/all.json" }""",
         )
@@ -106,7 +110,10 @@ class LinkForTvTest {
     @Test
     fun aListTheTvHasAllOfSaysSo() =
         runTest {
-            assertEquals(LinkForTv.Failed(AddError.ALL_INSTALLED), read("https://example.com/installed.json"))
+            val read = read("https://example.com/installed.json") as LinkForTv.Listed
+
+            assertEquals(listOf(ChoiceStatus.Installed), read.choices.map { it.status })
+            assertEquals(AddError.ALL_INSTALLED, read.choices.whyNone())
         }
 
     @Test
@@ -115,6 +122,18 @@ class LinkForTvTest {
             assertEquals(LinkForTv.Failed(AddError.NOT_SECURE), read("http://example.com/all.json"))
             assertEquals(LinkForTv.Failed(AddError.NOT_A_SOURCE), read("https://example.com/gone.json"))
             assertEquals(LinkForTv.Failed(AddError.NO_SUCH_CODE), read("not a link"))
+        }
+
+    @Test
+    fun linksTheTvWouldNotShowAsTheyAreAreNotOffered() =
+        runTest {
+            assertEquals(LinkForTv.Failed(AddError.NOT_A_SOURCE), read("https://example.com/so\u200Burce.apk"))
+            assertEquals(LinkForTv.Failed(AddError.NOT_A_SOURCE), read("https://example.com/" + "a".repeat(2_000)))
+
+            val read = read("https://example.com/hidden.json") as LinkForTv.Listed
+            val statuses = read.choices.associate { it.source.id to it.status }
+            assertEquals(ChoiceStatus.New, statuses["com.example.fresh"])
+            assertEquals(ChoiceStatus.CantUse(SourceProblem.BROKEN), statuses["com.example.hidden"])
         }
 
     @Test

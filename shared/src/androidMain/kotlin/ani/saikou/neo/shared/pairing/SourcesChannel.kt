@@ -7,7 +7,8 @@ import ani.saikou.neo.shared.sources.SourcesTv
 import ani.saikou.neo.shared.sources.TvSource
 import ani.saikou.neo.shared.sources.TvSources
 import ani.saikou.neo.shared.sources.TvSourcesSession
-import ani.saikou.neo.shared.sources.isAllowedSourceLink
+import ani.saikou.neo.shared.sources.isCleanSourceLink
+import ani.saikou.neo.shared.sources.isHiddenChar
 import ani.saikou.neo.shared.sources.readSourceList
 import ani.saikou.neo.shared.sources.sourceIdFormat
 import kotlinx.coroutines.CompletableDeferred
@@ -54,7 +55,6 @@ internal object SourcesMessages {
     private const val MAX_MESSAGE = 65_000
     private const val MAX_INSTALLED = 200
     private const val MAX_TEXT = 60
-    private const val MAX_LINK = 2_000
 
     fun tvSources(tv: TvSources): ByteArray {
         val installed = JSONArray()
@@ -83,7 +83,8 @@ internal object SourcesMessages {
                         val source = array.getJSONObject(i)
                         val id = source.getString("id").takeIf { it.matches(sourceIdFormat) } ?: return null
                         // The phone shows it in "update from", so it can't hide or reorder text.
-                        val version = source.getString("version").takeIf { it.length in 1..MAX_TEXT && it.none(::isHidden) } ?: return null
+                        val version =
+                            source.getString("version").takeIf { it.length in 1..MAX_TEXT && it.none(::isHiddenChar) } ?: return null
                         TvSource(id, version, source.optBoolean("list"))
                     }
                 TvSources(installed, range)
@@ -125,13 +126,13 @@ internal object SourcesMessages {
             readJson(bytes, "sources")?.let { json ->
                 if (json.has("apk")) {
                     val apk = json.getString("apk")
-                    return if (json.has("list") || json.has("sources") || !isCleanLink(apk)) null else PickedSources.OneApk(apk)
+                    return if (json.has("list") || json.has("sources") || !isCleanSourceLink(apk)) null else PickedSources.OneApk(apk)
                 }
-                val list = json.getString("list").takeIf(::isCleanLink) ?: return null
+                val list = json.getString("list").takeIf(::isCleanSourceLink) ?: return null
                 val sent = json.getJSONArray("sources").length()
                 // Read with the list rules. An entry they leave out, or one past the limit, refuses the whole message.
                 val read =
-                    readSourceList(bytes)?.takeIf { sent > 0 && it.size == sent && it.all { source -> isCleanLink(source.apk) } }
+                    readSourceList(bytes)?.takeIf { sent > 0 && it.size == sent && it.all { source -> isCleanSourceLink(source.apk) } }
                         ?: return null
                 PickedSources.FromList(list, read.map { it.copy(icon = null) })
             }
@@ -146,11 +147,6 @@ internal object SourcesMessages {
     fun received(): ByteArray = PairingMessages.message("sources-received").toString().encodeToByteArray()
 
     fun isReceived(bytes: ByteArray): Boolean = readJson(bytes, "sources-received") != null
-
-    /** A link the TV would take typed, short enough and with nothing hidden, so the TV can show it as it is. */
-    private fun isCleanLink(link: String): Boolean = link.length <= MAX_LINK && link.none(::isHidden) && isAllowedSourceLink(link)
-
-    private fun isHidden(char: Char): Boolean = Character.isISOControl(char) || Character.getType(char) == Character.FORMAT.toInt()
 
     private fun readJson(
         bytes: ByteArray,

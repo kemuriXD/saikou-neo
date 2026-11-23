@@ -193,6 +193,20 @@ class PhoneScreensTest {
     }
 
     @Test
+    fun aTvsOptionsSendASourceToIt() {
+        val livingRoom = PairedTv("tv-1", "Living room TV", 1)
+        val sendTo = mutableListOf<PairedTv>()
+        compose.setContent {
+            PhoneTheme { HomeScreen(kemuri, onAccount = {}, tvs = listOf(livingRoom), onSendSource = { sendTo += it }) }
+        }
+
+        compose.onNodeWithText("Living room TV").performClick()
+        compose.onNodeWithText("Send a source").performClick()
+
+        assertEquals(listOf(livingRoom), sendTo)
+    }
+
+    @Test
     fun cancelKeepsTheTv() {
         val removed = mutableListOf<PairedTv>()
         compose.setContent {
