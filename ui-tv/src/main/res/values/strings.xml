@@ -357,9 +357,9 @@
     <string name="from_phone_picking_body">Paste a link on your phone and tick the sources you want. They show up here, and nothing installs until you press Install.</string>
     <string name="from_phone_waiting_sources">Waiting for your sources…</string>
     <string name="from_phone_keep_open">Keep this screen open.</string>
-    <string name="from_phone_stopped_title">Lost the connection to your phone</string>
-    <string name="from_phone_stopped_body">Your phone left before it sent anything. Get a new code and scan it again.</string>
-    <string name="from_phone_stopped_status">Phone disconnected</string>
+    <string name="from_phone_stopped_title">Add from my phone stopped</string>
+    <string name="from_phone_stopped_body">Nothing came from your phone. Get a new code and scan it again.</string>
+    <string name="from_phone_stopped_status">Stopped</string>
     <string name="from_phone_nothing_installed">Nothing was installed.</string>
     <string name="from_phone_no_network_title">Can’t reach your phone yet</string>
     <string name="from_phone_panel_title">From your phone</string>

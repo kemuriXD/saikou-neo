@@ -625,7 +625,7 @@ class MainActivity : ComponentActivity() {
         val fromPhoneHost = viewModel { FromPhoneHost() }
         val fromPhoneBoard =
             fromPhoneHost.run?.let { run ->
-                viewModel(key = "from-phone-$run") {
+                viewModel(viewModelStoreOwner = fromPhoneHost, key = "from-phone-$run") {
                     SourcesFromPhoneViewModel(
                         open = { code -> openTvSourcesPairing(applicationContext, code) },
                         store = app.sources,
@@ -637,7 +637,7 @@ class MainActivity : ComponentActivity() {
         val fromPhoneState = fromPhoneBoard?.state?.collectAsStateWithLifecycle()?.value
         val closeFromPhone = {
             fromPhoneBoard?.cancel()
-            fromPhoneHost.run = null
+            fromPhoneHost.close()
         }
         // Sources already installing carry on, and the panel still shows how they went when the app comes back.
         LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
@@ -749,7 +749,21 @@ class MainActivity : ComponentActivity() {
         Calendar.getInstance().let { AirDate(it.get(Calendar.YEAR), it.get(Calendar.MONTH) + 1, it.get(Calendar.DAY_OF_MONTH)) }
 }
 
-/** Which Add from my phone board is open, if any. Kept through a rotation, but not when the system ends the app. */
-private class FromPhoneHost : androidx.lifecycle.ViewModel() {
+/**
+ * Which Add from my phone board is open, if any, and where its ViewModel lives. Kept through a rotation, but not when the
+ * system ends the app. Closing clears the board's ViewModel, so closed boards don't pile up.
+ */
+private class FromPhoneHost :
+    androidx.lifecycle.ViewModel(),
+    androidx.lifecycle.ViewModelStoreOwner {
+    override val viewModelStore = androidx.lifecycle.ViewModelStore()
+
     var run by mutableStateOf<Long?>(null)
+
+    fun close() {
+        run = null
+        viewModelStore.clear()
+    }
+
+    override fun onCleared() = viewModelStore.clear()
 }
