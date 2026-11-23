@@ -8,7 +8,7 @@ public enum class PairingStop {
     /** Close or Cancel on the phone, or Cancel, Not now or Back on the TV. */
     Cancelled,
 
-    /** AniList didn't accept the account the phone sent. */
+    /** AniList didn't accept the account the phone sent, or, when adding sources, the TV couldn't use the phone's picks. */
     Refused,
 
     /** The TV stopped waiting for It matches. */
@@ -19,6 +19,11 @@ public enum class PairingStop {
 public class PairingStoppedException(
     public val reason: PairingStop,
 ) : PairingException("Pairing stopped: $reason")
+
+/** The other side sent something that couldn't be read or wasn't its turn, so it was dropped. */
+public class UnusableMessageException(
+    message: String,
+) : PairingException(message)
 
 /** The TV has no local network address, so no phone could reach it. */
 public class NoNetworkException : PairingException("This TV isn't on a local network")

@@ -5,7 +5,7 @@ import ani.saikou.neo.shared.pairing.PairingInvite
 import ani.saikou.neo.shared.pairing.PairingStop
 import ani.saikou.neo.shared.pairing.PairingStoppedException
 import ani.saikou.neo.shared.pairing.TV_CODE_SECONDS
-import ani.saikou.neo.shared.pairing.TvPairingNote
+import ani.saikou.neo.shared.pairing.UnusableMessageException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -190,7 +190,7 @@ class SourcesFromPhoneViewModelTest {
 
             phone.match.completeExceptionally(PairingStoppedException(PairingStop.NoMatch))
 
-            assertEquals(TvPairingNote.StoppedOnPhone, (viewModel.state.value as FromPhoneState.Waiting).note)
+            assertEquals(FromPhoneNote.CodesDontMatch, (viewModel.state.value as FromPhoneState.Waiting).note)
             assertEquals(emptyList(), phone.sentTv)
         }
 
@@ -203,7 +203,7 @@ class SourcesFromPhoneViewModelTest {
             advanceTimeBy(90_001)
 
             assertEquals(listOf(PairingStop.TimedOut), phone.stops)
-            assertEquals(TvPairingNote.TookTooLong, (viewModel.state.value as FromPhoneState.Waiting).note)
+            assertEquals(FromPhoneNote.TvTookTooLong, (viewModel.state.value as FromPhoneState.Waiting).note)
             assertEquals(emptyList(), phone.sentTv)
         }
 
@@ -406,7 +406,7 @@ class SourcesFromPhoneViewModelTest {
             phone.picked.completeExceptionally(PairingException("Gone"))
 
             assertEquals(
-                FromPhoneState.Waiting(invite.toQrText(), "K7P2QX", TV_CODE_SECONDS, TvPairingNote.LostConnection),
+                FromPhoneState.Waiting(invite.toQrText(), "K7P2QX", TV_CODE_SECONDS, FromPhoneNote.LostConnection),
                 viewModel.state.value,
             )
             assertTrue(phone.closed)
@@ -419,7 +419,50 @@ class SourcesFromPhoneViewModelTest {
 
             phone.picked.completeExceptionally(PairingStoppedException(PairingStop.TimedOut))
 
-            assertEquals(TvPairingNote.TookTooLong, (viewModel.state.value as FromPhoneState.Waiting).note)
+            assertEquals(FromPhoneNote.PhoneTookTooLong, (viewModel.state.value as FromPhoneState.Waiting).note)
+        }
+
+    @Test
+    fun eachWayAPhoneLeavesAtTheCheckCodeHasItsNote() =
+        test {
+            val notes =
+                listOf(
+                    PairingStoppedException(PairingStop.NoMatch) to FromPhoneNote.CodesDontMatch,
+                    PairingStoppedException(PairingStop.Cancelled) to FromPhoneNote.ClosedOnPhone,
+                    PairingStoppedException(PairingStop.TimedOut) to FromPhoneNote.PhoneTookTooLong,
+                    UnusableMessageException("Picks before the codes match") to FromPhoneNote.CouldntUse,
+                    PairingException("Connection reset") to FromPhoneNote.LostConnection,
+                    // A phone never refuses, so it's taken as a dropped connection.
+                    PairingStoppedException(PairingStop.Refused) to FromPhoneNote.LostConnection,
+                )
+
+            notes.forEach { (left, note) ->
+                val (viewModel, phone) = connected(confirm = false)
+                phone.match.completeExceptionally(left)
+
+                assertEquals(note, (viewModel.state.value as FromPhoneState.Waiting).note, left.toString())
+                viewModel.cancel()
+            }
+        }
+
+    @Test
+    fun eachWayAPhoneLeavesWhilePickingHasItsNote() =
+        test {
+            val notes =
+                listOf(
+                    PairingStoppedException(PairingStop.Cancelled) to FromPhoneNote.ClosedOnPhone,
+                    PairingStoppedException(PairingStop.TimedOut) to FromPhoneNote.PhoneTookTooLong,
+                    UnusableMessageException("The phone sent sources this TV can't use") to FromPhoneNote.CouldntUse,
+                    PairingException("Connection reset") to FromPhoneNote.LostConnection,
+                )
+
+            notes.forEach { (left, note) ->
+                val (viewModel, phone) = connected()
+                phone.picked.completeExceptionally(left)
+
+                assertEquals(note, (viewModel.state.value as FromPhoneState.Waiting).note, left.toString())
+                viewModel.cancel()
+            }
         }
 
     @Test

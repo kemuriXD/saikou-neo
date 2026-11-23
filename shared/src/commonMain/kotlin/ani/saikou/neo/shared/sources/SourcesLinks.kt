@@ -1,5 +1,6 @@
 package ani.saikou.neo.shared.sources
 
+import ani.saikou.neo.shared.pairing.PairingException
 import ani.saikou.neo.shared.pairing.PairingInvite
 import ani.saikou.neo.shared.pairing.PairingStop
 
@@ -71,7 +72,15 @@ public interface SourcesTv {
      */
     public suspend fun send(picked: PickedSources)
 
-    /** Tells the TV why the phone stopped, then drops the connection. */
+    /**
+     * Waits for the TV to end the session on its own, from the check code on, and says how: a
+     * [ani.saikou.neo.shared.pairing.PairingStoppedException] when it stopped and said why, or a
+     * [ani.saikou.neo.shared.pairing.PairingException] when the connection dropped or the TV sent something out of turn.
+     * It never returns once this phone has stopped or closed the connection, or the TV has taken the picks.
+     */
+    public suspend fun awaitEnd(): PairingException
+
+    /** Tells the TV why the phone stopped, then drops the connection. Says nothing to a TV that has already gone. */
     public suspend fun stop(reason: PairingStop)
 
     public fun close()

@@ -10,11 +10,15 @@ import ani.saikou.neo.shared.sources.TvSourcesSession
 import ani.saikou.neo.shared.sources.isAllowedSourceLink
 import ani.saikou.neo.shared.sources.readSourceList
 import ani.saikou.neo.shared.sources.sourceIdFormat
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.json.JSONArray
 import org.json.JSONException
 import org.json.JSONObject
+import kotlin.concurrent.thread
 
 /**
  * The messages of Add from my phone (ADR 0042). The TV opens a board like Sign in's, and the phone connects with the
@@ -35,7 +39,11 @@ import org.json.JSONObject
  *   `{"v":1,"type":"sources","apk":"<link>"}` instead.
  * - TV to phone once it has them: `{"v":1,"type":"sources-received"}`. Both sides then close the connection.
  * - Either way, a stop message as in [PairingMessages]: `no-match` when the codes don't match on either side,
- *   `cancelled` from either side, or `timed-out` when the TV stops waiting for the phone's It matches or picks.
+ *   `cancelled` from either side, `timed-out` when the TV stops waiting for the phone's It matches or picks, or
+ *   `refused` from the TV when it can't use the picks.
+ *
+ * The phone reads the TV's messages as they come, from the handshake on, so it hears a stop or a dropped connection
+ * while the user is still on the check code or picking, and sends nothing after it.
  *
  * The TV never trusts the phone's checks. A message over 65,000 bytes or with more than 256 brackets is refused. So is
  * anything but 1 to 50 valid list entries with distinct ids, and a list or APK link the TV wouldn't take typed, longer
@@ -206,7 +214,14 @@ internal class ChannelSourcesPhone(
 
     override suspend fun receivePicked(): PickedSources {
         if (!told) throw PairingException("The phone hasn't heard what the TV has")
-        return listener.receiveFrom(channel, pickTimeoutMillis, "The phone didn't send sources", SourcesMessages::readPicked)
+        // Picks it can't use are refused out loud, so the phone says the TV didn't take them, not that it lost the TV.
+        return listener.receiveFrom(
+            channel,
+            pickTimeoutMillis,
+            "The phone sent sources this TV can't use",
+            PairingStop.Refused,
+            SourcesMessages::readPicked,
+        )
     }
 
     override suspend fun replyReceived() = withContext(Dispatchers.IO) { channel.send(SourcesMessages.received()) }
@@ -224,8 +239,8 @@ internal class ChannelSourcesPhone(
 }
 
 /**
- * The phone's side of Add from my phone: connects to the TV's board with [connectToTv]. Each wait for the TV lasts up
- * to [answerTimeoutMillis].
+ * The phone's side of Add from my phone: connects to the TV's board with [connectToTv]. The wait for what the TV has
+ * lasts up to [answerTimeoutMillis], and the wait for the TV to take the picks up to [receivedTimeoutMillis].
  */
 public suspend fun connectPhoneForSources(
     host: String,
@@ -233,53 +248,144 @@ public suspend fun connectPhoneForSources(
     publicKey: ByteArray,
     sessionId: ByteArray,
     answerTimeoutMillis: Int = ANSWER_TIMEOUT_MILLIS,
-): SourcesTv = ChannelSourcesTv(connectToTv(host, port, publicKey, sessionId), answerTimeoutMillis)
+    receivedTimeoutMillis: Int = RECEIVED_TIMEOUT_MILLIS,
+): SourcesTv = ChannelSourcesTv(connectToTv(host, port, publicKey, sessionId), answerTimeoutMillis, receivedTimeoutMillis)
 
+/**
+ * The TV's board on the phone. From the handshake on, one reader takes the TV's messages in order: what the TV has,
+ * then that it took the picks, each only in its turn. A stop, a dropped connection or anything out of turn ends the
+ * session there and then, so [awaitEnd] hears it while the user is still on the check code or picking, and nothing more
+ * is sent.
+ */
 internal class ChannelSourcesTv(
     internal val channel: PairingChannel,
     private val answerTimeoutMillis: Int,
+    private val receivedTimeoutMillis: Int = RECEIVED_TIMEOUT_MILLIS,
 ) : SourcesTv {
+    /** A message from the TV, in its turn. */
+    private sealed interface FromTv {
+        class Sources(
+            val tv: TvSources,
+        ) : FromTv
+
+        data object Received : FromTv
+    }
+
     @Volatile private var confirmed = false
 
     @Volatile private var heard = false
 
+    @Volatile private var sentPicks = false
+
+    // This phone stopped or closed, so the reader's end is its own doing, not the TV's.
+    @Volatile private var closedHere = false
+
+    // How the TV ended the session, once it has.
+    @Volatile private var ended: PairingException? = null
+
+    private val messages = Channel<FromTv>(Channel.UNLIMITED)
+    private val end = CompletableDeferred<PairingException>()
+
     override val checkCode: String get() = channel.checkCode
+
+    init {
+        thread(isDaemon = true, name = "Add from my phone") { read() }
+    }
 
     override suspend fun confirmCodes() =
         withContext(Dispatchers.IO) {
-            channel.send(SourcesMessages.codesMatch())
+            ended?.let { throw it }
+            // Before sending, so an answer that comes straight back is in its turn.
             confirmed = true
+            channel.send(SourcesMessages.codesMatch())
         }
 
     override suspend fun receiveTvSources(): TvSources {
         if (!confirmed) throw PairingException("The codes haven't been confirmed")
-        return answer("The TV didn't say what it has", SourcesMessages::readTvSources).also { heard = true }
+        val sources = next("The TV didn't say what it has", answerTimeoutMillis) as FromTv.Sources
+        heard = true
+        return sources.tv
     }
 
     override suspend fun send(picked: PickedSources) {
         if (!heard) throw PairingException("The TV hasn't said what it has")
         val message = SourcesMessages.picked(picked)
-        withContext(Dispatchers.IO) { channel.send(message) }
-        answer("The TV didn't take the sources") { bytes -> Unit.takeIf { SourcesMessages.isReceived(bytes) } }
+        withContext(Dispatchers.IO) {
+            ended?.let { throw it }
+            sentPicks = true
+            channel.send(message)
+        }
+        next("The TV didn't take the sources", receivedTimeoutMillis)
+        close()
+    }
+
+    override suspend fun awaitEnd(): PairingException = end.await()
+
+    override suspend fun stop(reason: PairingStop) =
+        withContext(Dispatchers.IO) {
+            closedHere = true
+            // A TV that has gone hears nothing more.
+            if (ended == null) channel.sendStop(reason) else channel.close()
+        }
+
+    override fun close() {
+        closedHere = true
         channel.close()
     }
 
-    /** The TV's next message, read with [read]. Anything else closes the connection. */
-    private suspend fun <T : Any> answer(
+    /** The TV's next message, within [timeoutMillis]. Throws how the TV ended the session, or [missing] if it's silent. */
+    private suspend fun next(
         missing: String,
-        read: (ByteArray) -> T?,
-    ): T =
-        withContext(Dispatchers.IO) {
-            val bytes = channel.receive(answerTimeoutMillis)
-            read(bytes) ?: run {
-                channel.close()
-                throw PairingMessages.readStopped(bytes)?.let { PairingStoppedException(it) } ?: PairingException(missing)
+        timeoutMillis: Int,
+    ): FromTv {
+        val result = withTimeoutOrNull(timeoutMillis.toLong()) { messages.receiveCatching() }
+        result?.getOrNull()?.let { return it }
+        if (result == null) close()
+        throw ended ?: PairingException(missing)
+    }
+
+    /** The only reader of [channel], on its own thread for as long as the connection lasts. */
+    private fun read() {
+        val failure =
+            try {
+                readUntilReceived()
+                return
+            } catch (e: PairingException) {
+                e
+            } catch (e: RuntimeException) {
+                PairingException("The TV sent something that couldn't be read", e)
+            }
+        channel.close()
+        ended = failure
+        messages.close()
+        if (!closedHere) end.complete(failure)
+    }
+
+    /** Hands on each of the TV's messages in its turn, until it takes the picks. Throws when the session ends first. */
+    private fun readUntilReceived() {
+        var gotSources = false
+        while (true) {
+            val bytes = channel.receive(0)
+            PairingMessages.readStopped(bytes)?.let { throw PairingStoppedException(it) }
+            if (!gotSources) {
+                // What the TV has only counts once the phone confirmed the codes (ADR 0058).
+                val tv = SourcesMessages.readTvSources(bytes)?.takeIf { confirmed } ?: throw PairingException(OUT_OF_TURN)
+                gotSources = true
+                messages.trySend(FromTv.Sources(tv))
+            } else if (sentPicks && SourcesMessages.isReceived(bytes)) {
+                messages.trySend(FromTv.Received)
+                // Done. The phone closes the connection itself.
+                messages.close()
+                return
+            } else {
+                throw PairingException(OUT_OF_TURN)
             }
         }
+    }
 
-    override suspend fun stop(reason: PairingStop) = withContext(Dispatchers.IO) { channel.sendStop(reason) }
-
-    override fun close() = channel.close()
+    private companion object {
+        const val OUT_OF_TURN = "The TV sent something out of turn"
+    }
 }
 
 // As long as Sign in gives a phone at the check code. The board takes no other phone meanwhile, and a device that keeps
@@ -291,3 +397,6 @@ private const val PICK_TIMEOUT_MILLIS = 5 * 60 * 1_000
 
 // The TV sends what it has only once It matches is chosen there too, so the phone waits as long as a code lasts.
 private const val ANSWER_TIMEOUT_MILLIS = TV_CODE_SECONDS * 1_000
+
+// The TV answers as soon as it has the picks, so a phone left waiting longer than this has lost it.
+private const val RECEIVED_TIMEOUT_MILLIS = 30 * 1_000

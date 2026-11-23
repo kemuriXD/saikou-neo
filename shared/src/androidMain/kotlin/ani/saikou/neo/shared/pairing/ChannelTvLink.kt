@@ -15,7 +15,8 @@ import org.json.JSONObject
  *   same each time that TV pairs. ID and name are 1 to 64 characters.
  * - Either way, when one side stops pairing (#414): `{"v":1,"type":"stopped","reason":"<reason>"}`, then it closes the
  *   connection. The reason is `no-match` (It doesn't match on the phone), `cancelled` (closed or cancelled on either
- *   side), `refused` (AniList didn't accept the account, TV to phone) or `timed-out` (the TV stopped waiting, TV to
+ *   side), `refused` (AniList didn't accept the account, or the TV couldn't use the picks, TV to phone) or
+ *   `timed-out` (the TV stopped waiting, TV to
  *   phone). A connection that closes without one was lost. Anything else from the TV means it didn't sign in.
  *
  * Add from my phone uses the same connection with its own messages, listed in [SourcesMessages].

@@ -69,6 +69,22 @@ class SourcesChannelTest {
         assertEquals(tvSources, phone.receiveTvSources())
     }
 
+    /** Why the TV stopped, when [end] says it did, or null for a connection that dropped. */
+    private fun stopReason(end: PairingException): PairingStop? = (end as? PairingStoppedException)?.reason
+
+    /** Connects a phone to a bare TV channel, to see exactly what the phone sends. */
+    private suspend fun CoroutineScope.connectRaw(): Pair<SourcesTv, PairingChannel> {
+        val tv = async { listener.accept() }
+        val phone = connectPhoneForSources(loopback.hostAddress!!, listener.port, tvKeys.publicKey, session, 2_000)
+        return phone to tv.await()
+    }
+
+    /** Asserts nothing more arrives from the phone: the connection ends instead. */
+    private suspend fun PairingChannel.assertNothingMore() {
+        val heard = withContext(Dispatchers.IO) { runCatching { receive(1_000) }.getOrNull() }
+        assertNull(heard?.decodeToString())
+    }
+
     /** The phone's raw channel, to send what a well-behaved phone wouldn't. */
     private suspend fun SourcesTv.sendRaw(text: String) =
         withContext(Dispatchers.IO) { (this@sendRaw as ChannelSourcesTv).channel.send(text.encodeToByteArray()) }
@@ -142,6 +158,87 @@ class SourcesChannelTest {
         }
 
     @Test
+    fun codesThatDoNotMatchOnTheTvReachThePhoneBeforeItConfirms() =
+        pairing {
+            val (phone, tv) = connect()
+            tv.stop(PairingStop.NoMatch)
+
+            assertEquals(PairingStop.NoMatch, stopReason(withTimeout(2_000) { phone.awaitEnd() }))
+        }
+
+    @Test
+    fun cancelOnTheTvReachesThePhoneBeforeItConfirms() =
+        pairing {
+            val (phone, tv) = connect()
+            tv.stop(PairingStop.Cancelled)
+
+            assertEquals(PairingStop.Cancelled, stopReason(withTimeout(2_000) { phone.awaitEnd() }))
+        }
+
+    @Test
+    fun aTvThatClosesWhileThePhonePicksIsHeardAtOnce() =
+        pairing {
+            val (phone, tv) = connect()
+            confirm(phone, tv)
+            tv.close()
+
+            assertNull(stopReason(withTimeout(2_000) { phone.awaitEnd() }))
+        }
+
+    @Test
+    fun aTvThatStopsWhileThePhonePicksIsHeardAtOnce() =
+        pairing {
+            val (phone, tv) = connect()
+            confirm(phone, tv)
+            tv.stop(PairingStop.Cancelled)
+
+            assertEquals(PairingStop.Cancelled, stopReason(withTimeout(2_000) { phone.awaitEnd() }))
+        }
+
+    @Test
+    fun nothingIsSentAfterTheTvStopsAtTheCheckCode() =
+        pairing {
+            val (phone, tv) = connectRaw()
+            withContext(Dispatchers.IO) { tv.send(PairingMessages.stopped(PairingStop.Cancelled)) }
+            phone.awaitEnd()
+
+            val stopped = assertFailsWith<PairingStoppedException> { phone.confirmCodes() }
+            assertEquals(PairingStop.Cancelled, stopped.reason)
+            phone.stop(PairingStop.Cancelled)
+            tv.assertNothingMore()
+        }
+
+    @Test
+    fun nothingIsSentAfterTheTvStopsWhileThePhonePicks() =
+        pairing {
+            val (phone, tv) = connectRaw()
+            phone.confirmCodes()
+            withContext(Dispatchers.IO) {
+                assertTrue(SourcesMessages.isCodesMatch(tv.receive(2_000)))
+                tv.send(SourcesMessages.tvSources(tvSources))
+            }
+            assertEquals(tvSources, phone.receiveTvSources())
+            withContext(Dispatchers.IO) { tv.send(PairingMessages.stopped(PairingStop.Cancelled)) }
+            phone.awaitEnd()
+
+            assertFailsWith<PairingStoppedException> { phone.send(fromList) }
+            phone.stop(PairingStop.Cancelled)
+            tv.assertNothingMore()
+        }
+
+    @Test
+    fun whatTheTvHasIsRefusedBeforeThePhoneConfirms() =
+        pairing {
+            val (phone, tv) = connectRaw()
+            withContext(Dispatchers.IO) { tv.send(SourcesMessages.tvSources(tvSources)) }
+
+            val end = withTimeout(2_000) { phone.awaitEnd() }
+            assertNull(stopReason(end))
+            assertFailsWith<PairingException> { phone.confirmCodes() }
+            tv.assertNothingMore()
+        }
+
+    @Test
     fun aTvThatDropsTheConnectionFailsOnThePhone() =
         pairing {
             val (phone, tv) = connect()
@@ -168,8 +265,7 @@ class SourcesChannelTest {
 
             val stopped = assertFailsWith<PairingStoppedException> { tv.receiveMatch() }
             assertEquals(PairingStop.TimedOut, stopped.reason)
-            val heard = withContext(Dispatchers.IO) { (phone as ChannelSourcesTv).channel.receive(2_000) }
-            assertEquals(PairingStop.TimedOut, PairingMessages.readStopped(heard))
+            assertEquals(PairingStop.TimedOut, stopReason(phone.awaitEnd()))
         }
 
     @Test
@@ -180,8 +276,7 @@ class SourcesChannelTest {
 
             val stopped = assertFailsWith<PairingStoppedException> { tv.receivePicked() }
             assertEquals(PairingStop.TimedOut, stopped.reason)
-            val heard = withContext(Dispatchers.IO) { (phone as ChannelSourcesTv).channel.receive(2_000) }
-            assertEquals(PairingStop.TimedOut, PairingMessages.readStopped(heard))
+            assertEquals(PairingStop.TimedOut, stopReason(phone.awaitEnd()))
         }
 
     @Test
@@ -191,7 +286,9 @@ class SourcesChannelTest {
             confirm(phone, tv)
 
             phone.sendRaw("""{"v":1,"type":"sources","list":"https://example.com/a.json"}""")
-            assertFailsWith<PairingException> { tv.receivePicked() }
+            assertFailsWith<UnusableMessageException> { tv.receivePicked() }
+            // The phone hears the TV couldn't use them, rather than a lost connection.
+            assertEquals(PairingStop.Refused, stopReason(phone.awaitEnd()))
         }
 
     @Test
