@@ -2,6 +2,7 @@ package ani.saikou.neo.phone
 
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,12 +23,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.phone.theme.PhoneColors
 import ani.saikou.neo.shared.account.AccountState
+
+/** Tags the round mark on Welcome and Home, for tests. */
+internal const val PHONE_LOGO_TAG = "phone_logo"
 
 /**
  * 1.2 Welcome: what the phone is for, and Sign in with AniList. Back from the browser, 1.3a shows while AniList
@@ -43,7 +48,7 @@ internal fun WelcomeScreen(onSignIn: () -> Unit) {
                     .verticalScroll(rememberScrollState())
                     .padding(start = 24.dp, end = 24.dp, top = 32.dp),
             ) {
-                Icon(painterResource(R.drawable.icon_logo), contentDescription = null, Modifier.size(40.dp), tint = PhoneColors.pink)
+                Image(painterResource(R.drawable.saikou_neo_mark), contentDescription = null, Modifier.testTag(PHONE_LOGO_TAG).size(40.dp))
                 Spacer(Modifier.height(24.dp))
                 Text(stringResource(R.string.welcome_title), style = MaterialTheme.typography.displaySmall)
                 Spacer(Modifier.height(12.dp))

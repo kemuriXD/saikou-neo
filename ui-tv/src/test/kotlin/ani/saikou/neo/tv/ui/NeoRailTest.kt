@@ -128,16 +128,15 @@ class NeoRailTest {
         assertEquals(above.value, below.value, 0.5f)
     }
 
-    // The logo's artwork is solid, so it's drawn smaller than the picture to weigh the same. Its box is just the
-    // artwork, which is wider than it is tall.
+    // The round mark fills the design's 36 dp logo box, the same size as the picture at the other end.
     @Test
-    fun theLogoIsSmallerThanThePicture() {
+    fun theLogoIsRoundAndAsBigAsThePicture() {
         show()
 
         compose
             .onNodeWithTag(RAIL_LOGO_TAG, useUnmergedTree = true)
-            .assertHeightIsEqualTo(26.dp)
-            .assertWidthIsEqualTo((26f * 246 / 228).dp)
+            .assertHeightIsEqualTo(36.dp)
+            .assertWidthIsEqualTo(36.dp)
         compose.onNodeWithTag(RAIL_AVATAR_TAG, useUnmergedTree = true).assertHeightIsEqualTo(36.dp)
     }
 
