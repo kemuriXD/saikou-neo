@@ -8,6 +8,7 @@ import android.content.pm.PackageManager
 import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -20,7 +21,7 @@ import androidx.core.net.toUri
 import androidx.lifecycle.compose.LifecycleResumeEffect
 
 /**
- * 3.1 Pair: scan the TV code, asking for the camera first. Denied, it shows 3.2. Coming back from the phone's settings
+ * 3.1 Pair or 4.1 Send a source: scan the TV code, asking for the camera first. Denied, it shows 3.2. Coming back from the phone's settings
  * with the camera allowed starts it. Only the phone screens ever ask for the camera (ADR 0038).
  */
 @Composable
@@ -28,6 +29,8 @@ internal fun PairScanRoute(
     onClose: () -> Unit,
     onType: () -> Unit,
     onQrCode: (String) -> Boolean,
+    @StringRes title: Int = R.string.pair_title,
+    @StringRes body: Int = R.string.pair_scan_body,
 ) {
     val context = LocalContext.current
     var allowed by rememberSaveable { mutableStateOf(if (context.hasCamera()) true else null) }
@@ -50,6 +53,8 @@ internal fun PairScanRoute(
         onType = onType,
         onOpenSettings = { context.openAppSettings() },
         viewfinder = { modifier -> QrViewfinder(onQrCode, modifier) },
+        title = title,
+        body = body,
     )
 }
 

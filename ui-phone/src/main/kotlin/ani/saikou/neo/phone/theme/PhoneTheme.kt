@@ -30,6 +30,7 @@ internal object PhoneColors {
     val fillTonal = paper.copy(alpha = 0.2f)
     val outline = paper.copy(alpha = 0.52f)
     val error = Color(0xFFFF8A80)
+    val warning = Color(0xFFFFC15E)
 }
 
 /**

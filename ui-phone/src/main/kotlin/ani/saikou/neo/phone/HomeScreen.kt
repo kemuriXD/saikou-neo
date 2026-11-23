@@ -83,6 +83,7 @@ internal fun HomeScreen(
     onScan: () -> Unit = {},
     onType: () -> Unit = {},
     onRemoveTv: (PairedTv) -> Unit = {},
+    onSendSource: (PairedTv) -> Unit = {},
 ) {
     // 2.3 the options sheet and 2.4 the confirm dialog, by TV ID; 2.5 the snackbar once one is removed.
     var optionsFor by rememberSaveable { mutableStateOf<String?>(null) }
@@ -98,7 +99,14 @@ internal fun HomeScreen(
     }
 
     tvs.find { it.id == optionsFor }?.let { tv ->
-        TvOptions(tv, onDismiss = { optionsFor = null }) {
+        TvOptions(
+            tv,
+            onDismiss = { optionsFor = null },
+            onSend = {
+                optionsFor = null
+                onSendSource(tv)
+            },
+        ) {
             optionsFor = null
             confirmFor = tv.id
         }
@@ -297,7 +305,7 @@ private fun TvRow(
 }
 
 /**
- * 2.3 A TV's options: the TV, when it was paired, and Remove this TV. It doesn't name the account, since the phone may
+ * 2.3 A TV's options: the TV, when it was paired, Send a source and Remove this TV. It doesn't name the account, since the phone may
  * have signed in as someone else since.
  */
 @OptIn(ExperimentalMaterial3Api::class)
@@ -305,6 +313,7 @@ private fun TvRow(
 private fun TvOptions(
     tv: PairedTv,
     onDismiss: () -> Unit,
+    onSend: () -> Unit,
     onRemove: () -> Unit,
 ) {
     ModalBottomSheet(onDismissRequest = onDismiss, containerColor = PhoneColors.surfaceRaised) {
@@ -325,6 +334,14 @@ private fun TvOptions(
                 }
             }
             HorizontalDivider(color = PhoneColors.line)
+            ListItem(
+                supportingContent = { Text(stringResource(R.string.home_send_source_body)) },
+                leadingContent = { Icon(painterResource(R.drawable.icon_send), contentDescription = null, Modifier.size(24.dp)) },
+                colors = ListItemDefaults.colors(containerColor = PhoneColors.surfaceRaised),
+                modifier = Modifier.clickable(onClick = onSend).padding(horizontal = 8.dp),
+            ) {
+                Text(stringResource(R.string.home_send_source), style = MaterialTheme.typography.bodyLarge)
+            }
             ListItem(
                 supportingContent = { Text(stringResource(R.string.home_remove_tv_body)) },
                 leadingContent = { Icon(painterResource(R.drawable.icon_delete), contentDescription = null, Modifier.size(24.dp)) },
