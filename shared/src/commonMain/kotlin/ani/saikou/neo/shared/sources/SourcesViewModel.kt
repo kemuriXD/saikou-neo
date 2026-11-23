@@ -31,6 +31,12 @@ public sealed interface ChoiceStatus {
     /** The same or a newer version is installed. */
     public data object Installed : ChoiceStatus
 
+    /**
+     * The same version is installed, but with no list saved, so it isn't checked for updates. Adding it again saves
+     * this list with it (ADR 0046).
+     */
+    public data object AddAgain : ChoiceStatus
+
     public data class CantUse(
         val problem: SourceProblem,
     ) : ChoiceStatus
@@ -41,7 +47,8 @@ public sealed interface ChoiceStatus {
 
 /** Whether a source with this status can be ticked. */
 public val ChoiceStatus.canPick: Boolean
-    get() = this is ChoiceStatus.New || this is ChoiceStatus.Update || this is ChoiceStatus.Failed
+    get() =
+        this is ChoiceStatus.New || this is ChoiceStatus.Update || this is ChoiceStatus.Failed || this == ChoiceStatus.AddAgain
 
 /** A source in a list, and whether it's ticked. */
 public data class Choice(
@@ -75,7 +82,10 @@ public sealed interface Adding {
         val source: InstalledSource,
     ) : Adding
 
-    /** The link led to a list. Sources you can pick come first, then installed ones, then ones you can't use. */
+    /**
+     * The link led to a list. Sources you can pick come first, then installed ones you can add again, then installed
+     * ones, then ones you can't use.
+     */
     public data class Choosing(
         val choices: List<Choice>,
         val progress: Progress? = null,
@@ -186,9 +196,10 @@ public class SourcesViewModel(
                 .map { Choice(it, status(it, installed[it.id])) }
                 .sortedBy {
                     when {
+                        it.status == ChoiceStatus.AddAgain -> 1
                         it.status.canPick -> 0
-                        it.status == ChoiceStatus.Installed -> 1
-                        else -> 2
+                        it.status == ChoiceStatus.Installed -> 2
+                        else -> 3
                     }
                 }
         if (choices.all { it.status is ChoiceStatus.CantUse }) return Adding.Failed(AddError.NOTHING_IN_LIST)
@@ -203,7 +214,12 @@ public class SourcesViewModel(
         store.problemFor(source.api)?.let { return ChoiceStatus.CantUse(it) }
         return when {
             installed == null -> ChoiceStatus.New
+
             compareVersions(source.version, installed.version) > 0 -> ChoiceStatus.Update(installed.version)
+
+            // Only the same version, so adding it again never goes back to an older one.
+            installed.list == null && compareVersions(source.version, installed.version) == 0 -> ChoiceStatus.AddAgain
+
             else -> ChoiceStatus.Installed
         }
     }

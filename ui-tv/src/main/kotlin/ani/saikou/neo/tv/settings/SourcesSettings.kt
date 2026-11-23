@@ -764,6 +764,7 @@ private fun ChoiceRow(
             ChoiceStatus.New -> stringResource(R.string.sources_version, source.version)
             is ChoiceStatus.Update -> stringResource(R.string.sources_update, status.from, source.version)
             ChoiceStatus.Installed -> stringResource(R.string.sources_installed_version, source.version)
+            ChoiceStatus.AddAgain -> stringResource(R.string.sources_add_again, source.version)
             is ChoiceStatus.CantUse -> stringResource(status.problem.short)
             ChoiceStatus.Failed -> stringResource(R.string.sources_failed)
         }

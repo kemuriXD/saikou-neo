@@ -336,7 +336,7 @@ class SourcesViewModelTest {
     @Test
     fun aListShowsItsSourcesWithNoneTicked() =
         test {
-            val store = FakeStore().apply { installed.value = listOf(example, demo.copy(version = "0.9.0")) }
+            val store = FakeStore().apply { installed.value = listOf(example.copy(list = ALL), demo.copy(version = "0.9.0")) }
             val viewModel = viewModel(store)
 
             viewModel.add("https://example.com/all.json")
@@ -469,7 +469,7 @@ class SourcesViewModelTest {
     @Test
     fun theSameVersionCountsAsInstalled() =
         test {
-            val store = FakeStore().apply { installed.value = listOf(starter) }
+            val store = FakeStore().apply { installed.value = listOf(starter.copy(list = MINE)) }
             val viewModel = viewModel(store)
 
             viewModel.add("https://example.com/two.json")
@@ -477,6 +477,43 @@ class SourcesViewModelTest {
             assertEquals(
                 listOf(ChoiceStatus.New, ChoiceStatus.Installed),
                 viewModel.choosing.choices.map { it.status },
+            )
+        }
+
+    @Test
+    fun theSameVersionWithNoSavedListCanBeAddedAgainToSaveIt() =
+        test {
+            val store = FakeStore().apply { installed.value = listOf(starter) }
+            val viewModel = viewModel(store)
+            viewModel.add("https://example.com/two.json")
+
+            assertEquals(listOf(ChoiceStatus.New, ChoiceStatus.AddAgain), viewModel.choosing.choices.map { it.status })
+            viewModel.toggle(starter.id)
+            viewModel.addTicked()
+
+            assertEquals(listOf(starter.id), store.installs)
+            assertEquals(
+                TWO,
+                store.installed.value
+                    .orEmpty()
+                    .single { it.id == starter.id }
+                    .list,
+            )
+        }
+
+    @Test
+    fun aNewerVersionWithNoSavedListIsNotAddedAgain() =
+        test {
+            val store = FakeStore().apply { installed.value = listOf(starter.copy(version = "1.10.0")) }
+            val viewModel = viewModel(store)
+
+            viewModel.add("https://example.com/two.json")
+
+            assertEquals(
+                ChoiceStatus.Installed,
+                viewModel.choosing.choices
+                    .last()
+                    .status,
             )
         }
 
@@ -514,7 +551,7 @@ class SourcesViewModelTest {
     @Test
     fun aListWithEverythingInstalledSaysSo() =
         test {
-            val store = FakeStore().apply { installed.value = listOf(starter) }
+            val store = FakeStore().apply { installed.value = listOf(starter.copy(list = MINE)) }
             val viewModel = viewModel(store)
 
             viewModel.add("https://example.com/mine.json")

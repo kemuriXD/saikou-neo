@@ -342,6 +342,7 @@
     <string name="sources_choose_body">This link leads to a list. Tick the sources you want.</string>
     <string name="sources_update">Update from %1$s to %2$s</string>
     <string name="sources_installed_version">Installed, version %1$s</string>
+    <string name="sources_add_again">Installed, version %1$s. Tick to get updates</string>
     <string name="sources_needs_newer_app">Needs a newer version of the app</string>
     <string name="sources_needs_newer_source">Built for an older version of the app</string>
     <string name="sources_does_not_work">Doesn\'t work with this version of the app</string>
