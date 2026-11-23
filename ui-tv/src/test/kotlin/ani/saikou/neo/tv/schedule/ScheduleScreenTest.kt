@@ -2,16 +2,22 @@ package ani.saikou.neo.tv.schedule
 
 import android.provider.Settings
 import androidx.activity.ComponentActivity
+import androidx.compose.ui.graphics.PixelMap
+import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertTextEquals
+import androidx.compose.ui.test.captureToImage
+import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
+import androidx.compose.ui.unit.dp
 import ani.saikou.neo.shared.catalogue.AirDate
 import ani.saikou.neo.shared.catalogue.AirType
 import ani.saikou.neo.shared.catalogue.LoadProblem
@@ -20,15 +26,18 @@ import ani.saikou.neo.shared.schedule.ScheduleEvent
 import ani.saikou.neo.shared.schedule.ScheduleFilter
 import ani.saikou.neo.shared.schedule.ScheduleRow
 import ani.saikou.neo.shared.schedule.ScheduleState
+import ani.saikou.neo.tv.theme.NeoColors
 import ani.saikou.neo.tv.theme.NeoTheme
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
 import java.util.Locale
 import java.util.TimeZone
 import kotlin.time.Duration.Companion.days
@@ -39,6 +48,7 @@ import kotlin.time.Instant
 @OptIn(ExperimentalTestApi::class)
 @RunWith(RobolectricTestRunner::class)
 @Config(qualifiers = "w960dp-h540dp-land-television-xhdpi")
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
 class ScheduleScreenTest {
     @get:Rule
     val compose = createAndroidComposeRule<ComponentActivity>()
@@ -170,6 +180,66 @@ class ScheduleScreenTest {
         press(Key.DirectionDown)
 
         compose.onNodeWithTag(rowTag(row("r4-0", "Show 0", monday + 4.days))).assertIsFocused()
+    }
+
+    // A long day: four rows before Kaiju No. 8 and four after Blue Lock, so the list can open on Dandadan at the top.
+    private val earlier = List(4) { row("early-$it", "Early Show $it", monday + 2.days + (6 + it).hours) }
+    private val later = List(4) { row("late-$it", "Late Show $it", monday + 2.days + 23.hours + (35 + it).minutes) }
+    private val longDay = earlier + listOf(kaiju, dandadan, solo, blueLock) + later
+
+    // Today opens partway down, so earlier rows sit above it. The one scrolled partly into the gap under the tabs fades
+    // out there, rather than showing cut off against them.
+    @Test
+    fun aRowScrolledUpUnderTheDayTabsFadesOut() {
+        show(week(today = longDay))
+        press(Key.DirectionUp)
+
+        val tabs = compose.onNodeWithTag(dayTag(0)).getUnclippedBoundsInRoot()
+        val cut = compose.onNodeWithTag(rowTag(earlier.last()), useUnmergedTree = true).getUnclippedBoundsInRoot()
+        assertTrue("the row reaches into the gap", cut.top < tabs.bottom && cut.bottom > tabs.bottom + 4.dp)
+        val screen = screen()
+        with(compose.density) {
+            val x = ((cut.left + cut.right) / 2).roundToPx()
+            assertEquals(NeoColors().ink.toArgb(), screen[x, (tabs.bottom + 2.dp).roundToPx()].toArgb())
+        }
+    }
+
+    // The list opens on Dandadan with rows above it. Going up scrolls each one in whole, clear of the day tabs.
+    @Test
+    fun aRowScrolledInFromAboveStopsClearOfTheDayTabs() {
+        show(week(today = longDay))
+
+        press(Key.DirectionUp)
+        compose.onNodeWithTag(rowTag(kaiju)).assertIsFocused()
+        assertClearOfTheTabs(rowTag(kaiju))
+        press(Key.DirectionUp)
+        assertClearOfTheTabs(rowTag(earlier.last()))
+    }
+
+    @Test
+    fun theFirstRowStartsTheSameGapUnderTheTabs() {
+        show(week(selected = 4))
+
+        val tabs = compose.onNodeWithTag(dayTag(0)).getUnclippedBoundsInRoot()
+        val top = compose.onNodeWithTag(rowTag(row("r4-0", "Show 0", monday + 4.days))).getUnclippedBoundsInRoot().top
+        assertEquals(27f, (top - tabs.bottom).value, 1f)
+    }
+
+    // The rows' 27 dp gap under the day tabs, where the fade is, stays clear of a focused row.
+    private fun assertClearOfTheTabs(row: String) {
+        val tabs = compose.onNodeWithTag(dayTag(0)).getUnclippedBoundsInRoot()
+        val top = compose.onNodeWithTag(row).getUnclippedBoundsInRoot().top
+        assertTrue("${top - tabs.bottom} under the tabs", (top - tabs.bottom).value >= 26f)
+    }
+
+    // Robolectric doesn't always redraw the window on its own, and then the capture is stale.
+    private fun screen(): PixelMap {
+        compose.runOnUiThread {
+            compose.activity.window.decorView
+                .invalidate()
+        }
+        compose.mainClock.advanceTimeByFrame()
+        return compose.onRoot().captureToImage().toPixelMap()
     }
 
     private fun press(

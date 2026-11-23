@@ -34,13 +34,18 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
@@ -52,6 +57,7 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.selectableGroup
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.tv.material3.Border
@@ -75,6 +81,7 @@ import ani.saikou.neo.shared.schedule.nowIndex
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.settings.ScreenTitle
 import ani.saikou.neo.tv.theme.NeoTheme
+import ani.saikou.neo.tv.theme.WindowScrolling
 import ani.saikou.neo.tv.ui.NeoButton
 import ani.saikou.neo.tv.ui.NeoButtonRow
 import ani.saikou.neo.tv.ui.NeoTab
@@ -408,24 +415,42 @@ private fun Day(
     // Today starts at the time it is; another day starts at the top. Each day keeps its own place.
     val start = if (state.selectedDay == state.today) day.nowIndex(now) else null
     val list = key(state.selectedDay) { rememberLazyListState(initialFirstVisibleItemIndex = start ?: 0) }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        state = list,
-        contentPadding =
-            PaddingValues(start = dimensions.gridMargin, end = dimensions.gridMargin, top = RowsTop, bottom = dimensions.safeY),
-        verticalArrangement = Arrangement.spacedBy(RowGap),
-    ) {
-        itemsIndexed(day.rows, key = { _, row -> rowTag(row) }) { index, row ->
-            val modifier = Modifier.testTag(rowTag(row)).remembersFocus(rowTag(row))
-            Slot(
-                row,
-                now,
-                onOpen = { actions.onOpen(row) },
-                modifier = if (index == start) modifier.focusRequester(nowRow) else modifier,
-            )
+    // A focused row stops below the gap under the day tabs, and rows scrolled up into that gap fade out.
+    WindowScrolling(leading = RowsTop, trailing = dimensions.safeY) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().fadeAtTheTop(RowsTop) { list.canScrollBackward },
+            state = list,
+            contentPadding =
+                PaddingValues(start = dimensions.gridMargin, end = dimensions.gridMargin, top = RowsTop, bottom = dimensions.safeY),
+            verticalArrangement = Arrangement.spacedBy(RowGap),
+        ) {
+            itemsIndexed(day.rows, key = { _, row -> rowTag(row) }) { index, row ->
+                val modifier = Modifier.testTag(rowTag(row)).remembersFocus(rowTag(row))
+                Slot(
+                    row,
+                    now,
+                    onOpen = { actions.onOpen(row) },
+                    modifier = if (index == start) modifier.focusRequester(nowRow) else modifier,
+                )
+            }
         }
     }
 }
+
+/** Fades what's drawn out across the top [height] to nothing at the edge, while [scrolled] says something is under it. */
+private fun Modifier.fadeAtTheTop(
+    height: Dp,
+    scrolled: () -> Boolean,
+) = graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        if (scrolled()) {
+            drawRect(
+                Brush.verticalGradient(0f to Color.Transparent, height.toPx() / size.height to Color.Black),
+                blendMode = BlendMode.DstIn,
+            )
+        }
+    }
 
 /** One episode: its time, then a row with its art, title, status and when it's out. */
 @Composable
