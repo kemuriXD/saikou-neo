@@ -272,7 +272,13 @@ class SourcesChannelTest {
 
         assertFalse(SourcesMessages.isCodesMatch(deep.encodeToByteArray()))
         assertNull(PairingMessages.readAccount(deep.replace("codes-match", "account").encodeToByteArray()))
-        // Brackets inside strings don't count.
+        // The parser also takes single-quoted strings and comments, so a quote hidden in either can't hide the nesting.
+        val nested = "${"[".repeat(30_000)}${"]".repeat(30_000)}"
+        val singleQuoted = """{"v":1,"type":"codes-match",'q':'"','x':$nested}"""
+        val commented = """{"v":1,"type":"account", /* " */ "x":$nested}"""
+        assertFalse(SourcesMessages.isCodesMatch(singleQuoted.encodeToByteArray()))
+        assertNull(PairingMessages.readAccount(commented.encodeToByteArray()))
+        // A few brackets in a string are fine.
         assertTrue(SourcesMessages.isCodesMatch("""{"v":1,"type":"codes-match","x":"${"[".repeat(100)}"}""".encodeToByteArray()))
     }
 
