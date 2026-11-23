@@ -2,8 +2,8 @@
 
 <div align="center">
   <picture>
-    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/saikou-neo-dark.png">
-    <img src=".github/assets/saikou-neo-light.png" alt="Saikou Neo" width="520">
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/saikou-neo-header-dark.png">
+    <img src=".github/assets/saikou-neo-header-light.png" alt="Saikou Neo" width="520">
   </picture>
   <h1>Saikou Neo</h1>
   <p><strong>Anime, made for your TV.</strong></p>
