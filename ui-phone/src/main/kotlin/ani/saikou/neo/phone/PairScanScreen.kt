@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -142,7 +143,12 @@ private fun ScanCorner(
     degrees: Float,
     modifier: Modifier,
 ) {
-    Image(painterResource(R.drawable.scan_corner), contentDescription = null, modifier.size(48.dp).rotate(degrees))
+    Image(
+        painterResource(R.drawable.scan_corner),
+        contentDescription = null,
+        modifier.size(48.dp).rotate(degrees),
+        colorFilter = ColorFilter.tint(PhoneColors.pink),
+    )
 }
 
 @Composable
