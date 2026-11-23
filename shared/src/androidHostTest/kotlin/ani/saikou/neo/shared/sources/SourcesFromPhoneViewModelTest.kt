@@ -44,8 +44,9 @@ class SourcesFromPhoneViewModelTest {
 
     private fun test(body: suspend TestScope.() -> Unit) = runTest(main) { body() }
 
-    private class FakePhone : SourcesPhone {
-        override val checkCode = "482913"
+    private class FakePhone(
+        override val checkCode: String = "482913",
+    ) : SourcesPhone {
         val sentTv = mutableListOf<TvSources>()
         val match = CompletableDeferred<Unit>()
         val picked = CompletableDeferred<PickedSources>()
@@ -116,7 +117,7 @@ class SourcesFromPhoneViewModelTest {
         val viewModel = viewModel(session, store)
         if (confirm) {
             phone.match.complete(Unit)
-            viewModel.confirmCodes()
+            viewModel.confirmCodes(phone.checkCode)
         }
         return Triple(viewModel, phone, store)
     }
@@ -131,9 +132,29 @@ class SourcesFromPhoneViewModelTest {
             assertEquals(FromPhoneState.CheckCode("482913"), viewModel.state.value)
             assertEquals(emptyList(), phone.sentTv)
 
-            viewModel.confirmCodes()
+            viewModel.confirmCodes("482913")
             assertEquals(FromPhoneState.Picking("482913"), viewModel.state.value)
             assertEquals(1, phone.sentTv.size)
+        }
+
+    // It matches was pressed for the code on screen, so a phone that took the board at that instant isn't confirmed.
+    @Test
+    fun itMatchesForAnotherCheckCodeIsIgnored() =
+        test {
+            val session = FakeSession()
+            val (viewModel, first) = connected(session, confirm = false)
+            val second = FakePhone("735102")
+            session.next().complete(second)
+            first.match.completeExceptionally(PairingException("Gone"))
+            second.match.complete(Unit)
+            assertEquals(FromPhoneState.CheckCode("735102"), viewModel.state.value)
+
+            viewModel.confirmCodes("482913")
+
+            assertEquals(FromPhoneState.CheckCode("735102"), viewModel.state.value)
+            assertEquals(emptyList(), second.sentTv)
+            viewModel.confirmCodes("735102")
+            assertEquals(FromPhoneState.Picking("735102"), viewModel.state.value)
         }
 
     @Test
@@ -141,7 +162,7 @@ class SourcesFromPhoneViewModelTest {
         test {
             val (viewModel, phone) = connected(confirm = false)
 
-            viewModel.confirmCodes()
+            viewModel.confirmCodes("482913")
             assertEquals(FromPhoneState.CheckCode("482913", confirmed = true), viewModel.state.value)
             assertEquals(emptyList(), phone.sentTv)
 
@@ -230,11 +251,65 @@ class SourcesFromPhoneViewModelTest {
 
             phone.picked.complete(picked)
 
-            assertEquals(FromPhoneState.Confirm(picked), viewModel.state.value)
+            assertEquals(FromPhoneState.Confirm(picked, listOf(ChoiceStatus.New)), viewModel.state.value)
             assertTrue(phone.received)
             assertTrue(phone.closed)
             assertTrue(session.closed)
             assertEquals(emptyList(), store.installs)
+        }
+
+    // As Add a source would show them: a downgrade or the same version shows as installed, and a version for another app
+    // as one it can't use. Neither counts towards Install.
+    @Test
+    fun theConfirmScreenSaysWhatEachSourceIsOnTheTv() =
+        test {
+            val store =
+                FakeStore().apply {
+                    installed.value =
+                        listOf(
+                            InstalledSource("com.example.starter", "Starter", "1.0.0", list = LIST),
+                            InstalledSource("com.example.demo", "Demo", "2.0.0", list = LIST),
+                        )
+                }
+            val (viewModel, phone) = connected(store = store)
+            val picked =
+                PickedSources.FromList(
+                    LIST,
+                    listOf(
+                        entry("com.example.starter", "starter.apk"),
+                        entry("com.example.demo", "demo.apk", "1.0.0"),
+                        entry("com.example.later", "later.apk", api = 2),
+                        entry("com.example.gone", "gone.apk"),
+                    ),
+                )
+
+            phone.picked.complete(picked)
+
+            val confirm = viewModel.state.value as FromPhoneState.Confirm
+            assertEquals(
+                listOf(
+                    ChoiceStatus.Update("1.0.0"),
+                    ChoiceStatus.Installed,
+                    ChoiceStatus.CantUse(SourceProblem.BUILT_FOR_NEWER_APP),
+                    ChoiceStatus.New,
+                ),
+                confirm.statuses,
+            )
+            assertEquals(2, confirm.toInstall)
+        }
+
+    // A single APK can't be checked before it downloads, as on the TV's own Add a source. It's checked as it installs.
+    @Test
+    fun oneApkIsCheckedAsItInstalls() =
+        test {
+            val (viewModel, phone) = connected()
+            val picked = PickedSources.OneApk("https://example.com/source.apk")
+
+            phone.picked.complete(picked)
+
+            val confirm = viewModel.state.value as FromPhoneState.Confirm
+            assertEquals(FromPhoneState.Confirm(picked, listOf(null)), confirm)
+            assertEquals(1, confirm.toInstall)
         }
 
     @Test

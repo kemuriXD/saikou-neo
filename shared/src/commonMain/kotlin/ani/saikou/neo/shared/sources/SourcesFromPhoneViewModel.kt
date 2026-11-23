@@ -78,10 +78,18 @@ public sealed interface FromPhoneState {
         val checkCode: String,
     ) : FromPhoneState
 
-    /** What the phone sent. The board has closed, and nothing installs until Install. */
+    /**
+     * What the phone sent. The board has closed, and nothing installs until Install. [statuses] has what each source is
+     * on this TV as the picks arrived, in order, as Add a source would show it. A link to one APK has null, since it's
+     * only checked as it installs.
+     */
     public data class Confirm(
         val picked: PickedSources,
-    ) : FromPhoneState
+        val statuses: List<ChoiceStatus?>,
+    ) : FromPhoneState {
+        /** How many Install would install: not those already installed or built for another version of the app. */
+        val toInstall: Int get() = statuses.count { it == null || it.canPick }
+    }
 
     /** Installing one at a time. [outcomes] has one per source, in order, null until it's been tried. */
     public data class Installing(
@@ -109,8 +117,9 @@ public sealed interface FromPhoneState {
  * Both screens show the check code, and only once it matches on the phone and on the TV ([confirmCodes]) does the phone
  * hear what [store] has and the API versions in [api]. It then sends its picks, which arrive already checked as a typed
  * list is. A phone that leaves sends the board back to the same code, saying why; codes that don't match on the TV
- * ([codesDontMatch]) stop the board. Picks wait on the confirm screen: nothing installs until [install], which runs the
- * TV's own checks again and installs one at a time, saving the list link with each source (ADR 0046).
+ * ([codesDontMatch]) stop the board. Picks wait on the confirm screen, each with what it is on this TV: nothing
+ * installs until [install], which runs the TV's own checks again and installs one at a time, saving the list link with
+ * each source (ADR 0046).
  */
 public class SourcesFromPhoneViewModel(
     private val open: suspend (code: String) -> TvSourcesSession,
@@ -140,9 +149,13 @@ public class SourcesFromPhoneViewModel(
         job = viewModelScope.launch { listen() }
     }
 
-    /** It matches on the TV. */
-    public fun confirmCodes() {
+    /**
+     * It matches on the TV, for the check code [shown] on screen. Ignored when the board's check code is another one,
+     * such as a phone that took the board as It matches was pressed.
+     */
+    public fun confirmCodes(shown: String) {
         val checking = mutableState.value as? FromPhoneState.CheckCode ?: return
+        if (checking.checkCode != shown) return
         mutableState.value = checking.copy(confirmed = true)
         tvMatch?.complete(Unit)
     }
@@ -189,21 +202,32 @@ public class SourcesFromPhoneViewModel(
 
     private fun installing(): Boolean = (mutableState.value as? FromPhoneState.Installing)?.done == false
 
-    /** Checks [entry] as the TV checks a list entry before installing it. */
-    private suspend fun installEntry(
-        entry: ListedSource,
-        list: String,
-    ): InstallOutcome {
+    /** What [entry] is on this TV now, as Add a source would show it. */
+    private fun statusOf(entry: ListedSource): ChoiceStatus {
         val installed =
             store.installed.value
                 .orEmpty()
                 .firstOrNull { it.id == entry.id }
-        return when (val status = choiceStatus(entry, installed?.version, installed?.list != null, store::problemFor)) {
+        return choiceStatus(entry, installed?.version, installed?.list != null, store::problemFor)
+    }
+
+    /** What each of [picked] is on this TV now. A link to one APK can't be checked before it downloads. */
+    private fun statusesOf(picked: PickedSources): List<ChoiceStatus?> =
+        when (picked) {
+            is PickedSources.FromList -> picked.sources.map(::statusOf)
+            is PickedSources.OneApk -> listOf(null)
+        }
+
+    /** Checks [entry] again as the TV checks a list entry before installing it, since what's installed may have changed. */
+    private suspend fun installEntry(
+        entry: ListedSource,
+        list: String,
+    ): InstallOutcome =
+        when (val status = statusOf(entry)) {
             is ChoiceStatus.CantUse -> InstallOutcome.CantUse(status.problem)
             ChoiceStatus.Installed -> InstallOutcome.AlreadyInstalled
             else -> installApk(entry.apk, entry.id, list)
         }
-    }
 
     /** The APK must be the source with [id] when there is one, so a list can't install something else. */
     private suspend fun installApk(
@@ -289,7 +313,7 @@ public class SourcesFromPhoneViewModel(
                 }
                 link.close()
                 if (phone === link) phone = null
-                mutableState.value = FromPhoneState.Confirm(picked)
+                mutableState.value = FromPhoneState.Confirm(picked, statusesOf(picked))
                 return
             }
         } finally {
