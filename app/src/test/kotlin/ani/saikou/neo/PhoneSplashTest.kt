@@ -72,15 +72,35 @@ class PhoneSplashTest {
     }
 
     @Test
+    fun theLockupDrawsTheSharedRoundMark() {
+        // The round mark comes first, with the same paths and colours the TV rail and the phone draw.
+        val mark = paths(File("../brand/res/drawable/saikou_neo_mark.xml"))
+        val lockup = paths(File("../brand/res/drawable/splash_lockup.xml"))
+
+        assertEquals(mark, lockup.take(mark.size))
+    }
+
+    @Test
+    fun neoTakesTheIconPinkSoAlphaBuildsTintIt() {
+        // "Saikou" stays paper, "Neo" is the icon pink that alpha builds turn green along with the mark.
+        val text = paths(File("../brand/res/drawable/splash_lockup.xml")).takeLast(2).map { it.first }
+
+        assertEquals(listOf("@color/paper", "@color/saikou_neo_icon_pink"), text)
+    }
+
+    @Test
     fun theSystemSplashIconDrawsTheSameLockupAndLoadingLineAsTheTv() {
-        // A vector can't include another drawable, so the icon carries copies of the shared paths.
-        val icon = pathData(File("src/main/res/drawable-v31/splash_icon.xml"))
-        val shared =
-            pathData(File("../brand/res/drawable/splash_lockup.xml")) +
-                pathData(File("../brand/res/drawable/splash_loading.xml"))
+        // A vector can't include another drawable, so the icon carries copies of the shared paths and colours.
+        val icon = paths(File("src/main/res/drawable-v31/splash_icon.xml"))
+        val shared = paths(File("../brand/res/drawable/splash_lockup.xml")) + paths(File("../brand/res/drawable/splash_loading.xml"))
 
         assertEquals(shared, icon)
     }
 
-    private fun pathData(file: File) = Regex("""android:pathData="([^"]+)"""").findAll(file.readText()).map { it.groupValues[1] }.toList()
+    // Each path's fill colour and data, in drawing order.
+    private fun paths(file: File) =
+        Regex("""<path\s+android:fillColor="([^"]+)"[^>]*?android:pathData="([^"]+)"""")
+            .findAll(file.readText())
+            .map { it.groupValues[1] to it.groupValues[2] }
+            .toList()
 }

@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -112,10 +111,8 @@ private val LabelGap = 14.dp
 private val PictureSize = 36.dp
 private val PicturePadding = 4.dp
 
-// The logo's artwork is 246 wide by 228 tall. It's solid, so it's drawn at its own 26 dp rather than the picture's
-// 36 dp, which keeps it inside the design's 36 dp logo box without looking heavier than the picture and icons.
-private const val LOGO_ASPECT = 246f / 228f
-private val SymbolHeight = 26.dp
+// The round mark fills the design's 36 dp logo box, the same size as the picture at the other end.
+private val LogoSize = 36.dp
 private val MarkWidth = 4.dp
 private val MarkHeight = 12.dp
 private val DotSize = 6.dp
@@ -207,9 +204,9 @@ fun NeoRail(
             ) {
                 Box(Modifier.size(ItemHeight), contentAlignment = Alignment.Center) {
                     Image(
-                        painterResource(R.drawable.saikou_neo_symbol),
+                        painterResource(R.drawable.saikou_neo_mark),
                         contentDescription = null,
-                        modifier = Modifier.testTag(RAIL_LOGO_TAG).height(SymbolHeight).aspectRatio(LOGO_ASPECT),
+                        modifier = Modifier.testTag(RAIL_LOGO_TAG).size(LogoSize),
                     )
                 }
                 if (open) {

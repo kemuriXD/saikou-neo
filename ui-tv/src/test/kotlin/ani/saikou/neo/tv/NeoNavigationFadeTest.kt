@@ -60,7 +60,7 @@ class NeoNavigationFadeTest {
         return compose.onRoot().captureToImage().toPixelMap()
     }
 
-    /** The logo's brightest pixel on the [screen], which is solid, so it only changes when the rail itself fades. */
+    /** The logo's brightest pixel on the [screen], its play button, which only changes when the rail itself fades. */
     private fun PixelMap.brightestInLogo(): Pair<Int, Int> {
         val logo = with(compose.density) { compose.onNodeWithTag(RAIL_LOGO_TAG).getBoundsInRoot().toRect() }
         val xs = logo.left.toInt() until logo.right.toInt()
