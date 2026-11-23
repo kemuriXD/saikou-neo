@@ -16,7 +16,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.key.KeyEventType
@@ -76,6 +75,7 @@ import ani.saikou.neo.shared.settings.PlayerSubtitlesViewModel
 import ani.saikou.neo.shared.settings.SettingsViewModel
 import ani.saikou.neo.shared.settings.SubtitleSettings
 import ani.saikou.neo.shared.settings.SubtitleSettingsViewModel
+import ani.saikou.neo.shared.sources.FromPhoneState
 import ani.saikou.neo.shared.sources.ShortCodes
 import ani.saikou.neo.shared.sources.SourceChecker
 import ani.saikou.neo.shared.sources.SourceChecksViewModel
@@ -620,10 +620,11 @@ class MainActivity : ComponentActivity() {
         val subtitlesScreen = viewModel { SubtitleSettingsViewModel(app.settingsStore.subtitles, app.settingsStore::updateSubtitles) }
         val subtitles by subtitlesScreen.state.collectAsStateWithLifecycle()
         // Add from my phone (ADR 0042): each time it opens is a new board, kept only while it's open. Closing it, or
-        // the app going to the background, ends the connection.
-        var fromPhoneRun by rememberSaveable { mutableStateOf<Long?>(null) }
+        // the app going to the background, ends the connection. Which board is open lives in a ViewModel, not saved
+        // state, so a board never opens by itself when the app comes back after the system ended it.
+        val fromPhoneHost = viewModel { FromPhoneHost() }
         val fromPhoneBoard =
-            fromPhoneRun?.let { run ->
+            fromPhoneHost.run?.let { run ->
                 viewModel(key = "from-phone-$run") {
                     SourcesFromPhoneViewModel(
                         open = { code -> openTvSourcesPairing(applicationContext, code) },
@@ -636,9 +637,12 @@ class MainActivity : ComponentActivity() {
         val fromPhoneState = fromPhoneBoard?.state?.collectAsStateWithLifecycle()?.value
         val closeFromPhone = {
             fromPhoneBoard?.cancel()
-            fromPhoneRun = null
+            fromPhoneHost.run = null
         }
-        LifecycleEventEffect(Lifecycle.Event.ON_STOP) { closeFromPhone() }
+        // Sources already installing carry on, and the panel still shows how they went when the app comes back.
+        LifecycleEventEffect(Lifecycle.Event.ON_STOP) {
+            if ((fromPhoneState as? FromPhoneState.Installing)?.done != false) closeFromPhone()
+        }
         state?.let {
             SettingsScreen(
                 it,
@@ -655,7 +659,7 @@ class MainActivity : ComponentActivity() {
                         checksScreen::check,
                         { checksScreen.checkAll(sources.installed.orEmpty()) },
                         checksScreen::stop,
-                        onFromPhone = { fromPhoneRun = System.currentTimeMillis() },
+                        onFromPhone = { fromPhoneHost.run = System.currentTimeMillis() },
                     ),
                 start = start,
                 checks = checks,
@@ -677,6 +681,7 @@ class MainActivity : ComponentActivity() {
                         fromPhoneState,
                         onNewCode = { fromPhoneBoard?.newCode() },
                         onMatch = { fromPhoneBoard?.confirmCodes() },
+                        onNoMatch = { fromPhoneBoard?.codesDontMatch() },
                         onInstall = { fromPhoneBoard?.install() },
                         onClose = closeFromPhone,
                     ),
@@ -742,4 +747,9 @@ class MainActivity : ComponentActivity() {
     // Today on this TV, to tell the episodes out from those still to air.
     private fun today() =
         Calendar.getInstance().let { AirDate(it.get(Calendar.YEAR), it.get(Calendar.MONTH) + 1, it.get(Calendar.DAY_OF_MONTH)) }
+}
+
+/** Which Add from my phone board is open, if any. Kept through a rotation, but not when the system ends the app. */
+private class FromPhoneHost : androidx.lifecycle.ViewModel() {
+    var run by mutableStateOf<Long?>(null)
 }

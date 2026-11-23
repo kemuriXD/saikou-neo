@@ -50,6 +50,7 @@ class FromPhoneTest {
     private var matched = 0
     private var installed = 0
     private var closed = 0
+    private var noMatch = 0
 
     private fun show(
         installedSources: List<InstalledSource> = listOf(demo),
@@ -67,6 +68,7 @@ class FromPhoneTest {
                             state.value,
                             onMatch = { matched++ },
                             onInstall = { installed++ },
+                            onNoMatch = { noMatch++ },
                             onClose = {
                                 closed++
                                 state.value = null
@@ -156,12 +158,79 @@ class FromPhoneTest {
         set(FromPhoneState.Confirm(picked))
 
         text("From your phone").assertIsDisplayed()
-        text("Your phone sent 2 sources. Nothing installs until you press Install.").assertIsDisplayed()
+        text("Your phone sent 2 sources from example.com. Nothing installs until you press Install.").assertIsDisplayed()
         text("New, version 2.1.0").assertIsDisplayed()
         text("Update from 0.9.0 to 1.0.0").assertIsDisplayed()
         press(Key.DirectionCenter)
 
         assertEquals(1, installed)
+    }
+
+    @Test
+    fun okHeldOnCancelWhenPicksArriveDoesNotInstall() {
+        show()
+        set(FromPhoneState.Picking("482913"))
+        compose.onRoot().performKeyInput { keyDown(Key.DirectionCenter) }
+        compose.waitForIdle()
+
+        set(FromPhoneState.Confirm(picked))
+        compose.onRoot().performKeyInput { keyUp(Key.DirectionCenter) }
+        compose.waitForIdle()
+
+        assertEquals(0, installed)
+        assertEquals(0, closed)
+    }
+
+    @Test
+    fun okHeldWhileTheCodeArrivesDoesNotConfirmIt() {
+        show()
+        set(FromPhoneState.Connecting)
+        compose.onRoot().performKeyInput { keyDown(Key.DirectionCenter) }
+        compose.waitForIdle()
+
+        set(FromPhoneState.CheckCode("482913"))
+        compose.onRoot().performKeyInput { keyUp(Key.DirectionCenter) }
+        compose.waitForIdle()
+
+        assertEquals(0, matched)
+    }
+
+    @Test
+    fun cancelOnTheCodeTellsThePhoneItDoesNotMatch() {
+        show()
+        set(FromPhoneState.CheckCode("482913"))
+
+        press(Key.DirectionRight)
+        press(Key.DirectionCenter)
+
+        assertEquals(1, noMatch)
+        assertEquals(1, closed)
+    }
+
+    @Test
+    fun manySourcesStillShowInstallAndEachCanBeReached() {
+        val many =
+            PickedSources.FromList(
+                LIST,
+                (1..50).map { ListedSource("ani.saikou.neo.s$it", "Source $it", "1.0.0", 1, "https://example.com/s$it.apk") },
+            )
+        show()
+        set(FromPhoneState.Confirm(many))
+
+        text("Install 50 sources").assertIsDisplayed()
+        text("Cancel").assertIsDisplayed()
+        // Up into the list, then down through it: every source scrolls into view.
+        press(Key.DirectionUp)
+        press(Key.DirectionDown, times = 49)
+        text("Source 50").assertIsDisplayed()
+    }
+
+    @Test
+    fun theSiteTheSourcesComeFromIsShown() {
+        show()
+        set(FromPhoneState.Confirm(PickedSources.OneApk("https://files.example.org/x?y/Official.apk")))
+
+        text("x from files.example.org").assertIsDisplayed()
     }
 
     @Test

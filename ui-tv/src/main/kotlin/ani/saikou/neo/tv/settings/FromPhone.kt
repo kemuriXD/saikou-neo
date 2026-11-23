@@ -3,6 +3,7 @@ package ani.saikou.neo.tv.settings
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -15,18 +16,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEvent
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -63,6 +76,7 @@ import ani.saikou.neo.tv.ui.NeoButtonRow
 import ani.saikou.neo.tv.ui.NeoDialogButton
 import ani.saikou.neo.tv.ui.NeoDialogButtons
 import ani.saikou.neo.tv.ui.NeoIcons
+import java.net.URI
 import ani.saikou.neo.tv.signin.Body as BoardBody
 import ani.saikou.neo.tv.signin.Small as BoardSmall
 
@@ -71,16 +85,38 @@ internal const val FROM_PHONE_PANEL_TAG = "from-phone-panel"
 
 /**
  * Add from my phone (ADR 0042, ADR 0058): its [state], or null while it's closed, and what its buttons do.
- * [onNewCode] gets a new code, [onMatch] is It matches on the TV, [onInstall] installs what arrived, and [onClose]
- * leaves, dropping anything that hasn't been installed. Sources opens it with [SourceActions.onFromPhone].
+ * [onNewCode] gets a new code, [onMatch] is It matches on the TV and [onNoMatch] tells the phone the codes didn't
+ * match. [onInstall] installs what arrived, and [onClose] leaves, dropping anything that hasn't been installed. Sources
+ * opens it with [SourceActions.onFromPhone].
  */
 class FromPhone(
     val state: FromPhoneState? = null,
     val onNewCode: () -> Unit = {},
     val onMatch: () -> Unit = {},
+    val onNoMatch: () -> Unit = {},
     val onInstall: () -> Unit = {},
     val onClose: () -> Unit = {},
 )
+
+/**
+ * Lets OK through only when its press began on this screen. The TV's buttons act on OK's release, so without this, OK
+ * held on Cancel as the phone moves things on would be let go on Install or It matches, which take focus.
+ */
+private class OwnPresses {
+    private var down = false
+
+    fun filter(event: KeyEvent): Boolean {
+        if (event.key != Key.DirectionCenter && event.key != Key.Enter && event.key != Key.NumPadEnter) return false
+        if (event.type == KeyEventType.KeyDown) {
+            down = true
+            return false
+        }
+        // A release whose press began elsewhere is kept from the button.
+        val ours = down
+        down = false
+        return !ours
+    }
+}
 
 /** Whether [this] shows on the board, rather than in the panel over Sources. */
 internal val FromPhoneState.onBoard: Boolean
@@ -94,10 +130,12 @@ internal val FromPhoneState.onBoard: Boolean
 internal fun FromPhoneBoard(fromPhone: FromPhone) {
     val state = fromPhone.state ?: return
     BackHandler(onBack = fromPhone.onClose)
+    val presses = remember(state::class, (state as? FromPhoneState.CheckCode)?.confirmed) { OwnPresses() }
     Box(
         Modifier
             .testTag(FROM_PHONE_TAG)
             .fillMaxSize()
+            .onPreviewKeyEvent(presses::filter)
             .focusProperties { onExit = { cancelFocusChange() } }
             .focusGroup(),
     ) {
@@ -143,7 +181,14 @@ private fun ColumnScope.BoardMessage(
                         NeoButton(cancel, onClick = fromPhone.onClose, modifier = focused)
                     } else {
                         NeoButton(stringResource(R.string.from_phone_it_matches), onClick = fromPhone.onMatch, modifier = focused)
-                        NeoButton(cancel, onClick = fromPhone.onClose)
+                        // Cancel here means the codes don't match, so the phone hears that someone else may be listening.
+                        NeoButton(
+                            cancel,
+                            onClick = {
+                                fromPhone.onNoMatch()
+                                fromPhone.onClose()
+                            },
+                        )
                     }
                 }
 
@@ -281,28 +326,34 @@ internal fun BoxScope.FromPhonePanel(
             }
         val outcomes = (shown as? FromPhoneState.Installing)?.outcomes
         val going = outcomes != null && outcomes.any { it == null }
+        val presses = remember(outcomes == null, going) { OwnPresses() }
         SidePanel(
             stringResource(R.string.from_phone_panel_title),
             SourcePanelWidth,
             active,
             // Back cancels before Install and closes once all are tried. While they install, it waits.
             onClose = { if (!going) fromPhone.onClose() },
-            modifier = motion,
+            modifier = motion.onPreviewKeyEvent(presses::filter),
             tag = FROM_PHONE_PANEL_TAG,
         ) {
             val colors = NeoTheme.colors
             Text(stringResource(R.string.from_phone_panel_title), style = PaneTitle, color = colors.paper)
             Text(panelBody(picked, outcomes), style = Body, color = colors.textMuted)
             val byId = installed.associateBy { it.id }
-            rows(picked).forEachIndexed { index, (id, name, version) ->
-                val meta =
-                    when {
-                        outcomes == null -> arrivingMeta(version, id?.let { byId[it] }?.version)
-                        else -> outcomeMeta(outcomes[index], outcomes.indexOfFirst { it == null } == index)
-                    }
-                PhoneRow(name, meta.first, warn = meta.second)
+            // The list scrolls under the buttons, and Up goes through each source, so all of them can be read.
+            Column(
+                Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                rows(picked).forEachIndexed { index, (id, name, version) ->
+                    val meta =
+                        when {
+                            outcomes == null -> arrivingMeta(version, id?.let { byId[it] }?.version)
+                            else -> outcomeMeta(outcomes[index], outcomes.indexOfFirst { it == null } == index)
+                        }
+                    PhoneRow(name, meta.first, warn = meta.second)
+                }
             }
-            Spacer(Modifier.weight(1f))
             // One button always has focus: Install, then a resting Installing, then Done.
             val first = remember { FocusRequester() }
             key(outcomes == null, going) {
@@ -333,12 +384,31 @@ internal fun BoxScope.FromPhonePanel(
     }
 }
 
-/** Each source's id, name and version, or for a link to one APK, the file's name alone. */
+/** Each source's id, name and version, or for a link to one APK, the file's name and site. */
+@Composable
 private fun rows(picked: PickedSources): List<Triple<String?, String, String?>> =
     when (picked) {
-        is PickedSources.FromList -> picked.sources.map { Triple(it.id, it.name, it.version) }
-        is PickedSources.OneApk -> listOf(Triple(null, picked.apk.substringAfterLast('/').substringBefore('?'), null))
+        is PickedSources.FromList -> {
+            picked.sources.map { Triple(it.id, it.name, it.version) }
+        }
+
+        is PickedSources.OneApk -> {
+            val file = pathEnd(picked.apk)
+            val site = host(picked.apk)
+            listOf(Triple(null, if (file.isEmpty()) site else stringResource(R.string.from_phone_apk_from, file, site), null))
+        }
     }
+
+/** The site [link] is on, so the TV says where the code comes from. */
+private fun host(link: String): String = runCatching { URI(link).host }.getOrNull() ?: link
+
+/** The last part of [link]'s path, decoded, leaving out any query. */
+private fun pathEnd(link: String): String =
+    runCatching { URI(link).path }
+        .getOrNull()
+        .orEmpty()
+        .trimEnd('/')
+        .substringAfterLast('/')
 
 @Composable
 private fun panelBody(
@@ -348,7 +418,8 @@ private fun panelBody(
     val total = picked.size
     return when {
         outcomes == null -> {
-            pluralStringResource(R.plurals.from_phone_sent, total, total)
+            val from = (picked as? PickedSources.FromList)?.list ?: (picked as PickedSources.OneApk).apk
+            pluralStringResource(R.plurals.from_phone_sent, total, total, host(from))
         }
 
         outcomes.any { it == null } -> {
@@ -389,7 +460,7 @@ private fun outcomeMeta(
         InstallOutcome.NotTheSource -> stringResource(R.string.from_phone_not_the_source) to true
     }
 
-/** A source in the panel: its letter, name and how it stands. Not focusable; the buttons below are. */
+/** A source in the panel: its letter, name and how it stands. Focus can rest on it, so a long list scrolls. */
 @Composable
 private fun PhoneRow(
     name: String,
@@ -397,11 +468,14 @@ private fun PhoneRow(
     warn: Boolean,
 ) {
     val colors = NeoTheme.colors
+    var focused by remember { mutableStateOf(false) }
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = 56.dp)
-            .background(colors.surfaceRaised, RoundedCornerShape(12.dp))
+            .onFocusChanged { focused = it.isFocused }
+            .focusable()
+            .background(if (focused) colors.line else colors.surfaceRaised, RoundedCornerShape(12.dp))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically,
