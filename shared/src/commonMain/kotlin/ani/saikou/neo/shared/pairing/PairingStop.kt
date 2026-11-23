@@ -2,7 +2,7 @@ package ani.saikou.neo.shared.pairing
 
 /** Why one side stopped pairing at the check code. It goes to the other side before the connection closes (#414). */
 public enum class PairingStop {
-    /** It doesn't match on the phone. */
+    /** It doesn't match on the phone, or, when adding sources, on the TV. */
     NoMatch,
 
     /** Close or Cancel on the phone, or Cancel, Not now or Back on the TV. */

@@ -25,13 +25,33 @@ public fun openTvPairing(
     code: String,
     accountTimeoutMillis: Int = ACCOUNT_TIMEOUT_MILLIS,
 ): TvPairingSession {
+    val open = listen(context, code)
+    return ListenerSession(open.listener, open.advert, open.invite, accountTimeoutMillis)
+}
+
+/** A listener with a new key and session ID, advertised under a code. */
+internal class OpenListener(
+    val listener: PairingListener,
+    val advert: AutoCloseable,
+    val invite: PairingInvite,
+) {
+    fun close() {
+        advert.close()
+        listener.close()
+    }
+}
+
+/** Opens a listener on the TV's local network address, advertised under [code], as [openTvPairing] describes. */
+internal fun listen(
+    context: Context,
+    code: String,
+): OpenListener {
     val address = localAddress() ?: throw NoNetworkException()
     val keyPair = PairingKeyPair.generate()
     val sessionId = newPairingSessionId()
     val listener = PairingListener(keyPair, sessionId, ServerSocket(0, BACKLOG, address))
     val invite = PairingInvite(address.hostAddress!!, listener.port, keyPair.publicKey, sessionId)
-    val advert = advertisePairing(context, code, invite)
-    return ListenerSession(listener, advert, invite, accountTimeoutMillis)
+    return OpenListener(listener, advertisePairing(context, code, invite), invite)
 }
 
 private class ListenerSession(
@@ -61,30 +81,7 @@ internal class ChannelPhoneLink(
     override val checkCode: String get() = channel.checkCode
 
     override suspend fun receiveAccount(): AniListToken =
-        coroutineScope {
-            // Whichever comes first, the phone's message or the deadline, decides. An account that lands as the TV
-            // says it stopped waiting is dropped, so the TV never signs in after telling the phone it didn't.
-            val outcome = AtomicInteger(WAITING)
-            // The read itself has no deadline, so the TV can still say why before closing.
-            val deadline =
-                launch(Dispatchers.IO) {
-                    delay(accountTimeoutMillis.toLong())
-                    if (outcome.compareAndSet(WAITING, TIMED_OUT)) channel.sendStop(PairingStop.TimedOut)
-                }
-            try {
-                val bytes = withContext(Dispatchers.IO) { channel.receive(0) }
-                if (!outcome.compareAndSet(WAITING, HEARD)) throw PairingStoppedException(PairingStop.TimedOut)
-                PairingMessages.readAccount(bytes)
-                    ?: throw PairingMessages.readStopped(bytes)?.let { PairingStoppedException(it) }
-                        ?: PairingException("The phone didn't send an account")
-            } catch (e: PairingException) {
-                // Left at the check code. A device that keeps doing this gets cut off (#410).
-                listener.turnAway(channel)
-                throw if (outcome.get() == TIMED_OUT) PairingStoppedException(PairingStop.TimedOut) else e
-            } finally {
-                deadline.cancel()
-            }
-        }
+        listener.receiveFrom(channel, accountTimeoutMillis, "The phone didn't send an account", PairingMessages::readAccount)
 
     override suspend fun replySignedIn(reply: PairedTvReply) = withContext(Dispatchers.IO) { channel.send(PairingMessages.signedIn(reply)) }
 
@@ -101,6 +98,40 @@ internal class ChannelPhoneLink(
 
     override fun close() = channel.close()
 }
+
+/**
+ * Waits up to [timeoutMillis] for the phone's next message on [channel], read with [read]. Whichever comes first, the
+ * message or the deadline, decides. A message that lands as the TV says it stopped waiting is dropped, so the TV never
+ * acts on it after telling the phone it didn't. Throws [PairingStoppedException] when the phone stops or the TV stops
+ * waiting, and [PairingException] with [missing] for anything else. Either way the phone is turned away.
+ */
+internal suspend fun <T : Any> PairingListener.receiveFrom(
+    channel: PairingChannel,
+    timeoutMillis: Int,
+    missing: String,
+    read: (ByteArray) -> T?,
+): T =
+    coroutineScope {
+        val outcome = AtomicInteger(WAITING)
+        // The read itself has no deadline, so the TV can still say why before closing.
+        val deadline =
+            launch(Dispatchers.IO) {
+                delay(timeoutMillis.toLong())
+                if (outcome.compareAndSet(WAITING, TIMED_OUT)) channel.sendStop(PairingStop.TimedOut)
+            }
+        try {
+            val bytes = withContext(Dispatchers.IO) { channel.receive(0) }
+            if (!outcome.compareAndSet(WAITING, HEARD)) throw PairingStoppedException(PairingStop.TimedOut)
+            read(bytes)
+                ?: throw PairingMessages.readStopped(bytes)?.let { PairingStoppedException(it) } ?: PairingException(missing)
+        } catch (e: PairingException) {
+            // Left without finishing. A device that keeps doing this gets cut off (#410).
+            turnAway(channel)
+            throw if (outcome.get() == TIMED_OUT) PairingStoppedException(PairingStop.TimedOut) else e
+        } finally {
+            deadline.cancel()
+        }
+    }
 
 /**
  * A private or link-local IPv4 address the phone can reach, the kind a [PairingInvite] accepts. VPN and other tunnel

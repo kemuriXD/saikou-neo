@@ -17,6 +17,8 @@ import org.json.JSONObject
  *   connection. The reason is `no-match` (It doesn't match on the phone), `cancelled` (closed or cancelled on either
  *   side), `refused` (AniList didn't accept the account, TV to phone) or `timed-out` (the TV stopped waiting, TV to
  *   phone). A connection that closes without one was lost. Anything else from the TV means it didn't sign in.
+ *
+ * Add from my phone uses the same connection with its own messages, listed in [SourcesMessages].
  */
 public object PairingMessages {
     private const val VERSION = 1
@@ -89,9 +91,9 @@ public object PairingMessages {
             .filter { it.isNotEmpty() }
             .joinToString(" ")
 
-    private fun message(type: String) = JSONObject().put("v", VERSION).put("type", type)
+    internal fun message(type: String): JSONObject = JSONObject().put("v", VERSION).put("type", type)
 
-    private fun read(
+    internal fun read(
         bytes: ByteArray,
         type: String,
     ): JSONObject? =
