@@ -395,6 +395,20 @@
     <string name="from_phone_already">Already installed</string>
     <string name="from_phone_not_downloaded">Couldn\'t download it</string>
     <string name="from_phone_not_the_source">Its file isn\'t the source the list names</string>
+    <string name="sources_update_button">Update</string>
+    <string name="sources_update_all">Update all (%1$d)</string>
+    <string name="sources_updating">Updating %1$d of %2$d</string>
+    <string name="sources_update_out">Version %1$s · %2$s is out</string>
+    <string name="sources_update_newer_app">Version %1$s · %2$s needs a newer app</string>
+    <string name="sources_update_no_list">No updates: add it again from its list</string>
+    <string name="sources_update_installing">Updating to %1$s</string>
+    <string name="sources_update_waiting">Waiting to update to %1$s</string>
+    <string name="sources_update_failed">Didn\'t update. Still on %1$s</string>
+    <string name="sources_updated">Updated to %1$s</string>
+    <plurals name="sources_updates_count">
+        <item quantity="one">%1$d update</item>
+        <item quantity="other">%1$d updates</item>
+    </plurals>
     <string name="sources_add_again">Installed. Tick to get updates</string>
     <string name="sources_needs_newer_app">Needs a newer version of the app</string>
     <string name="sources_needs_newer_source">Built for an older version of the app</string>

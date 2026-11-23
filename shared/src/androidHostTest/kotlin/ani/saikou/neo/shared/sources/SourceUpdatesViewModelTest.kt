@@ -62,10 +62,13 @@ class SourceUpdatesViewModelTest {
         )
     private lateinit var engine: PagesEngine
 
+    private val times = FakeCheckTimes()
+    private var now = 1_000L
+
     private fun viewModel(vararg installed: InstalledSource): SourceUpdatesViewModel {
         store.installed.value = installed.toList()
         engine = PagesEngine(pages)
-        return SourceUpdatesViewModel(store, SourceDownloads(engine, main), main) { 1_000L }
+        return SourceUpdatesViewModel(store, SourceDownloads(engine, main), times, main) { now }
     }
 
     private val SourceUpdatesViewModel.statuses get() = state.value.sources.associate { it.source.id to it.status }
@@ -272,4 +275,222 @@ class SourceUpdatesViewModelTest {
                     .failed,
             )
         }
+
+    @Test
+    fun whileUpdatingAllTheFirstIsInstallingAndTheRestWait() =
+        test {
+            val viewModel = viewModel(alpha, beta, gamma)
+            viewModel.check()
+            val first = CompletableDeferred<Unit>()
+            store.gates += first
+
+            viewModel.updateAll()
+
+            val rows =
+                viewModel.state.value.sources
+                    .associateBy { it.source.id }
+            assertEquals(listOf(true, false, false), listOf(alpha, beta, gamma).map { rows.getValue(it.id).installing })
+            assertEquals(listOf(false, true, true), listOf(alpha, beta, gamma).map { rows.getValue(it.id).waiting })
+            first.complete(Unit)
+            assertEquals(
+                listOf(false, false, false),
+                viewModel.state.value.sources
+                    .map { it.installing || it.waiting },
+            )
+        }
+
+    @Test
+    fun anUpdatedSourceSaysWhichVersionItGot() =
+        test {
+            val viewModel = viewModel(alpha, beta)
+            viewModel.check()
+
+            viewModel.update(alpha.id)
+
+            val rows =
+                viewModel.state.value.sources
+                    .associateBy { it.source.id }
+            assertEquals("1.1.0", rows.getValue(alpha.id).updatedTo)
+            assertEquals(UpdateStatus.UpToDate, rows.getValue(alpha.id).status)
+            assertNull(rows.getValue(beta.id).updatedTo)
+        }
+
+    @Test
+    fun aDueCheckRunsWhenThereHasBeenNoneAndSavesTheTime() =
+        test {
+            val viewModel = viewModel(alpha)
+
+            viewModel.checkIfDue()
+
+            assertEquals(listOf(LIST), engine.urls)
+            assertEquals(1_000L, times.saved)
+        }
+
+    @Test
+    fun aDueCheckWaitsTwelveHoursFromTheLastOne() =
+        test {
+            times.saved = 1_000L
+            now = 1_000L + 12 * 60 * 60 - 1
+            val viewModel = viewModel(alpha)
+
+            viewModel.checkIfDue()
+            assertEquals(emptyList(), engine.urls)
+
+            now += 1
+            viewModel.checkIfDue()
+            assertEquals(listOf(LIST), engine.urls)
+            assertEquals(now, times.saved)
+        }
+
+    @Test
+    fun aSourceRemovedWhileQueuedIsNotInstalledAgain() =
+        test {
+            val viewModel = viewModel(alpha, beta, gamma)
+            viewModel.check()
+            val first = CompletableDeferred<Unit>()
+            store.gates += first
+            viewModel.updateAll()
+
+            // Beta is removed while alpha installs.
+            store.installed.value =
+                store.installed.value
+                    .orEmpty()
+                    .filter { it.id != beta.id }
+            first.complete(Unit)
+
+            assertEquals(listOf(alpha.id, gamma.id), store.installs)
+            assertEquals(listOf(alpha.copy(version = "1.1.0"), gamma.copy(version = "1.1.0")), store.installed.value?.sortedBy { it.id })
+            assertNull(viewModel.state.value.progress)
+        }
+
+    @Test
+    fun aSourceUpdatedElsewhereWhileQueuedIsNotInstalledOver() =
+        test {
+            val viewModel = viewModel(alpha, beta)
+            viewModel.check()
+            val first = CompletableDeferred<Unit>()
+            store.gates += first
+            viewModel.updateAll()
+
+            // A newer beta than its list names is installed some other way while alpha installs.
+            val newer = beta.copy(version = "1.2.0")
+            store.installed.value = store.installed.value
+                .orEmpty()
+                .filter { it.id != beta.id } + newer
+            first.complete(Unit)
+
+            assertEquals(listOf(alpha.id), store.installs)
+            val row =
+                viewModel.state.value.sources
+                    .single { it.source.id == beta.id }
+            assertEquals(newer, row.source)
+            assertEquals(UpdateStatus.UpToDate, row.status)
+            assertFalse(row.failed)
+        }
+
+    @Test
+    fun anUpdateThatInstallsNoNewerVersionFails() =
+        test {
+            // The list names 1.1.0, but the APK it links to is still 1.0.0 inside.
+            val stale = FakeStore(mapOf("ALPHA" to alpha))
+            stale.installed.value = listOf(alpha)
+            val viewModel = SourceUpdatesViewModel(stale, SourceDownloads(PagesEngine(pages), main), work = main) { 1_000L }
+            viewModel.check()
+
+            viewModel.update(alpha.id)
+
+            assertEquals(listOf(alpha.id), stale.installs)
+            val row =
+                viewModel.state.value.sources
+                    .single()
+            assertEquals(UpdateStatus.Available("1.1.0"), row.status)
+            assertEquals(true, row.failed)
+        }
+
+    @Test
+    fun aCheckThatCouldReadNoListSavesNoTime() =
+        test {
+            // A check that fails tries again next time (ADR 0046).
+            pages = pages - LIST
+            val viewModel = viewModel(alpha)
+
+            viewModel.check()
+
+            assertEquals(listOf(LIST), engine.urls)
+            assertNull(times.saved)
+            assertFalse(viewModel.state.value.checking)
+        }
+
+    @Test
+    fun aCheckWithNoListsToReadSavesTheTime() =
+        test {
+            val viewModel = viewModel(alpha.copy(list = null))
+
+            viewModel.check()
+
+            assertEquals(1_000L, times.saved)
+        }
+
+    @Test
+    fun aCheckWithinAMinuteOfTheLastIsSkipped() =
+        test {
+            val viewModel = viewModel(alpha)
+            viewModel.check()
+
+            now += 59
+            viewModel.check()
+            assertEquals(listOf(LIST), engine.urls)
+
+            now += 1
+            viewModel.check()
+            assertEquals(listOf(LIST, LIST), engine.urls)
+        }
+
+    @Test
+    fun aCheckThatReadNothingStillHoldsOffTheNextForAMinute() =
+        test {
+            pages = pages - LIST
+            val viewModel = viewModel(alpha)
+            viewModel.check()
+
+            now += 30
+            viewModel.check()
+
+            assertEquals(listOf(LIST), engine.urls)
+        }
+
+    @Test
+    fun aClockThatWentBackMakesACheckDue() =
+        test {
+            val viewModel = viewModel(alpha)
+            viewModel.check()
+
+            now -= 10
+            viewModel.check()
+
+            assertEquals(listOf(LIST, LIST), engine.urls)
+        }
+
+    @Test
+    fun aClockThatWentBackSinceTheSavedCheckMakesItDue() =
+        test {
+            times.saved = 50_000L
+            val viewModel = viewModel(alpha)
+
+            viewModel.checkIfDue()
+
+            assertEquals(listOf(LIST), engine.urls)
+            assertEquals(1_000L, times.saved)
+        }
+}
+
+/** Keeps when sources were last checked in memory. */
+private class FakeCheckTimes : UpdateCheckTimes {
+    var saved: Long? = null
+
+    override suspend fun lastChecked(): Long? = saved
+
+    override suspend fun checked(at: Long) {
+        saved = at
+    }
 }

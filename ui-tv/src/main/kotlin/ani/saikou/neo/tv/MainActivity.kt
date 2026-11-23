@@ -80,6 +80,7 @@ import ani.saikou.neo.shared.sources.ShortCodes
 import ani.saikou.neo.shared.sources.SourceChecker
 import ani.saikou.neo.shared.sources.SourceChecksViewModel
 import ani.saikou.neo.shared.sources.SourceDownloads
+import ani.saikou.neo.shared.sources.SourceUpdatesViewModel
 import ani.saikou.neo.shared.sources.SourcesFromPhoneViewModel
 import ani.saikou.neo.shared.sources.SourcesViewModel
 import ani.saikou.neo.tv.details.DetailsScreen
@@ -163,6 +164,10 @@ class MainActivity : ComponentActivity() {
             // The AniList account on this TV, for Profile and Settings > Account. Read again once Sign in saves one.
             val account = viewModel { TvAccountViewModel(KeystoreAccountStore(applicationContext)) }
             val profile by account.profile.collectAsStateWithLifecycle()
+            // Sources are checked for updates each time the app comes to the front, at most every 12 hours (ADR 0046), so a
+            // TV left on for days still checks. Settings counts them.
+            val sourceUpdates = viewModel { SourceUpdatesViewModel(app.sources, SourceDownloads(), app.settingsStore) }
+            LifecycleEventEffect(Lifecycle.Event.ON_START) { sourceUpdates.checkIfDue() }
             // The AniList notice (ADR 0056): Up next shows it in the player, and it shows over every other screen.
             val notice by app.notices.shown.collectAsStateWithLifecycle()
             val noticeActions = remember { NoticeActions(app.notices::undo, app.notices::undoFocused) }
@@ -442,12 +447,14 @@ class MainActivity : ComponentActivity() {
                             if (section ==
                                 Section.SETTINGS
                             ) {
-                                SettingsSection(SettingsCategory.BROWSING, openSignIn, profile, account::signOut)
+                                SettingsSection(SettingsCategory.BROWSING, openSignIn, profile, account::signOut, sourceUpdates)
                             } else {
                                 SectionPlaceholder(section)
                             }
                         },
-                        sources = { openSignIn -> SettingsSection(SettingsCategory.SOURCES, openSignIn, profile, account::signOut) },
+                        sources = { openSignIn ->
+                            SettingsSection(SettingsCategory.SOURCES, openSignIn, profile, account::signOut, sourceUpdates)
+                        },
                         signedIn = { profile != null },
                         profile = profile,
                         signedOutProfile = { openSignIn, back -> ProfileSignedOutScreen(onSignIn = openSignIn, onHome = back) },
@@ -602,13 +609,17 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    /** Settings with the installed sources, opened on [start]. Account opens Sign in with [openSignIn] and signs out with [onSignOut]. */
+    /**
+     * Settings with the installed sources and their [updates], opened on [start]. Account opens Sign in with [openSignIn]
+     * and signs out with [onSignOut].
+     */
     @Composable
     private fun SettingsSection(
         start: SettingsCategory,
         openSignIn: () -> Unit,
         profile: AniListProfile?,
         onSignOut: () -> Unit,
+        updates: SourceUpdatesViewModel,
     ) {
         val settingsScreen = viewModel { SettingsViewModel(app.settingsStore) }
         val state by settingsScreen.state.collectAsStateWithLifecycle()
@@ -617,6 +628,7 @@ class MainActivity : ComponentActivity() {
         val checksScreen =
             viewModel { SourceChecksViewModel(SourceChecker(app.sources::extension, app.sourceHost.services, sourceThreads)) }
         val checks by checksScreen.checks.collectAsStateWithLifecycle()
+        val updatesState by updates.state.collectAsStateWithLifecycle()
         val subtitlesScreen = viewModel { SubtitleSettingsViewModel(app.settingsStore.subtitles, app.settingsStore::updateSubtitles) }
         val subtitles by subtitlesScreen.state.collectAsStateWithLifecycle()
         // Add from my phone (ADR 0042): each time it opens is a new board, kept only while it's open. Closing it, or
@@ -660,9 +672,13 @@ class MainActivity : ComponentActivity() {
                         { checksScreen.checkAll(sources.installed.orEmpty()) },
                         checksScreen::stop,
                         onFromPhone = { fromPhoneHost.run = System.currentTimeMillis() },
+                        onCheckUpdates = updates::check,
+                        onUpdate = updates::update,
+                        onUpdateAll = updates::updateAll,
                     ),
                 start = start,
                 checks = checks,
+                updates = updatesState,
                 subtitles = subtitles ?: SubtitleSettings(),
                 subtitleActions =
                     SubtitleActions(

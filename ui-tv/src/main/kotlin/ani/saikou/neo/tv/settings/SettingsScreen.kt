@@ -52,6 +52,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.paneTitle
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -88,6 +90,7 @@ import ani.saikou.neo.shared.settings.summary
 import ani.saikou.neo.shared.settings.ticked
 import ani.saikou.neo.shared.sources.SourceCheck
 import ani.saikou.neo.shared.sources.SourcesState
+import ani.saikou.neo.shared.sources.UpdatesState
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.player.lookName
 import ani.saikou.neo.tv.signin.ProfileAvatar
@@ -197,7 +200,8 @@ private const val PANEL_SLIDE_PART = 4
  * choices in a panel, and selecting one there calls [onChoose] with it. A tick list opens its items in a panel, where
  * selecting one calls [onTick] to tick or untick it. Sources lists the installed [sources], and adds and
  * removes them through [sourceActions], which also check them, with each source's check in [checks]. Subtitles opens
- * a page of its own for [subtitles], changed through [subtitleActions]. It opens on [start].
+ * a page of its own for [subtitles], changed through [subtitleActions]. It opens on [start]. Sources shows how many
+ * [updates] there are beside it.
  */
 @Composable
 fun SettingsScreen(
@@ -208,6 +212,7 @@ fun SettingsScreen(
     sourceActions: SourceActions = SourceActions(),
     start: SettingsCategory = SettingsCategory.BROWSING,
     checks: Map<String, SourceCheck> = emptyMap(),
+    updates: UpdatesState = UpdatesState(),
     subtitles: SubtitleSettings = SubtitleSettings(),
     subtitleActions: SubtitleActions = SubtitleActions(),
     account: AccountSettings = AccountSettings(),
@@ -222,7 +227,7 @@ fun SettingsScreen(
             subtitlesOpen = false
         }
     } else {
-        SettingsPage(settings, focus, onChoose, onTick, sources, sourceActions, shown, checks, subtitles, account, fromPhone) {
+        SettingsPage(settings, focus, onChoose, onTick, sources, sourceActions, shown, checks, updates, subtitles, account, fromPhone) {
             subtitlesOpen = true
         }
     }
@@ -238,6 +243,7 @@ private fun SettingsPage(
     sourceActions: SourceActions,
     shownState: MutableState<SettingsCategory>,
     checks: Map<String, SourceCheck>,
+    updates: UpdatesState,
     subtitles: SubtitleSettings,
     account: AccountSettings,
     fromPhone: FromPhone,
@@ -286,6 +292,7 @@ private fun SettingsPage(
             SettingsCategory.entries.forEach { category ->
                 Category(
                     category,
+                    count = if (category == SettingsCategory.SOURCES) updates.updates else 0,
                     selected = category == shown,
                     onFocused = { shown = category },
                     modifier =
@@ -333,7 +340,7 @@ private fun SettingsPage(
             label = "category",
         ) { category ->
             if (category == SettingsCategory.SOURCES) {
-                SourcesPane(sources, sourcesUi, categories.getValue(category), checks, sourceActions)
+                SourcesPane(sources, sourcesUi, categories.getValue(category), checks, sourceActions, updates)
                 return@AnimatedContent
             }
             // Private mode has no panel: selecting it turns it on or off.
@@ -543,10 +550,11 @@ private val Name
 private val Help
     @Composable get() = NeoTheme.typography.caption.copy(fontSize = 12.sp, lineHeight = 16.sp)
 
-/** A category: a soft fill when it's the one shown, paper when focused. */
+/** A category: a soft fill when it's the one shown, paper when focused. A [count] above 0 shows in a pink badge. */
 @Composable
 private fun Category(
     category: SettingsCategory,
+    count: Int,
     selected: Boolean,
     onFocused: () -> Unit,
     modifier: Modifier,
@@ -575,11 +583,27 @@ private fun Category(
             ),
         scale = SelectableSurfaceDefaults.scale(focusedScale = 1f),
     ) {
-        Box(Modifier.fillMaxSize().padding(horizontal = CategoryPadding), contentAlignment = Alignment.CenterStart) {
+        Row(Modifier.fillMaxSize().padding(horizontal = CategoryPadding), verticalAlignment = Alignment.CenterVertically) {
             Text(
                 stringResource(category.title),
                 style = NeoTheme.typography.body.copy(fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium),
+                modifier = Modifier.weight(1f),
             )
+            if (count > 0) {
+                val said = pluralStringResource(R.plurals.sources_updates_count, count, count)
+                Box(
+                    Modifier
+                        .background(colors.pink, CircleShape)
+                        .padding(horizontal = 8.dp, vertical = 2.dp)
+                        .clearAndSetSemantics { contentDescription = said },
+                ) {
+                    Text(
+                        count.toString(),
+                        style = NeoTheme.typography.caption.copy(fontSize = 13.sp, fontWeight = FontWeight.Bold),
+                        color = colors.onFocus,
+                    )
+                }
+            }
         }
     }
 }

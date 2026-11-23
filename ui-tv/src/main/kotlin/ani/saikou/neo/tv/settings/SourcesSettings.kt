@@ -8,6 +8,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -88,7 +89,10 @@ import ani.saikou.neo.shared.sources.ChoiceStatus
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.SourceCheck
 import ani.saikou.neo.shared.sources.SourceProblem
+import ani.saikou.neo.shared.sources.SourceUpdate
 import ani.saikou.neo.shared.sources.SourcesState
+import ani.saikou.neo.shared.sources.UpdateStatus
+import ani.saikou.neo.shared.sources.UpdatesState
 import ani.saikou.neo.shared.sources.canPick
 import ani.saikou.neo.tv.R
 import ani.saikou.neo.tv.theme.NeoTheme
@@ -110,10 +114,16 @@ internal fun choiceTag(id: String) = "choice-$id"
 
 internal const val FROM_PHONE_ENTRY_TAG = "add-from-phone"
 
+internal fun updateTag(id: String) = "update-$id"
+
+internal const val UPDATE_ALL_TAG = "update-all"
+
+internal const val UPDATE_PROGRESS_TAG = "update-progress"
+
 /**
  * What Settings > Sources does when you add a source from [onAdd]'s text, close a panel, remove a source by id, tick
- * a source in a list by id, add the ticked ones, check a source, check them all, or stop the checks. [onFromPhone]
- * opens Add from my phone (ADR 0042).
+ * a source in a list by id, add the ticked ones, check a source, check them all, or stop the checks. It also checks
+ * sources for updates, and updates one by id or all of them (ADR 0046). [onFromPhone] opens Add from my phone (ADR 0042).
  */
 class SourceActions(
     val onAdd: (text: String) -> Unit = {},
@@ -125,6 +135,9 @@ class SourceActions(
     val onCheckAll: () -> Unit = {},
     val onStopChecks: () -> Unit = {},
     val onFromPhone: () -> Unit = {},
+    val onCheckUpdates: () -> Unit = {},
+    val onUpdate: (id: String) -> Unit = {},
+    val onUpdateAll: () -> Unit = {},
 )
 
 /** The panels Sources opens: adding a source, or asking before one is removed. */
@@ -156,6 +169,14 @@ internal class SourcesUi {
     fun row(id: String) = rows.getOrPut(id) { FocusRequester() }
 
     fun check(id: String) = checks.getOrPut(id) { FocusRequester() }
+
+    val updates = mutableStateMapOf<String, FocusRequester>()
+
+    fun update(id: String) = updates.getOrPut(id) { FocusRequester() }
+
+    /** The heading's progress while updates install, where focus waits as the rows rest. */
+    val progress = FocusRequester()
+    var progressFocused by mutableStateOf(false)
 }
 
 // From the design: Add a source is 60 dp tall, each source 68 dp with a 40 dp logo or letter. The add panel is 376 dp.
@@ -202,7 +223,9 @@ internal val RowTitle
 /**
  * The installed sources, under a line on what sources are and Add a source. With none, a short explanation and Add a
  * source on their own. Left goes back to [category]. Each source can be checked, or all at once; while [checks] run,
- * the rows rest and focus stays on Stop checks. Leaving Sources stops them.
+ * the rows rest and focus stays on Stop checks. Leaving Sources stops them. Opening Sources checks for [updates], and
+ * a source with one gets Update, with Update all on the heading. While updates install the rows rest too, and focus
+ * waits on the heading's progress.
  */
 @Composable
 internal fun SourcesPane(
@@ -211,8 +234,26 @@ internal fun SourcesPane(
     category: FocusRequester,
     checks: Map<String, SourceCheck>,
     actions: SourceActions,
+    updates: UpdatesState = UpdatesState(),
 ) {
     DisposableEffect(Unit) { onDispose(actions.onStopChecks) }
+    LaunchedEffect(Unit) { actions.onCheckUpdates() }
+    val progress = updates.progress
+    val updating = progress != null
+    // Read before the progress leaves the heading, which takes its focus with it.
+    val onProgress = ui.progressFocused
+    var wasUpdating by remember { mutableStateOf(updating) }
+    // Update and Update all go once updates start and the rows rest, so focus waits on the progress. Once updates finish
+    // it goes to Check all, where the progress was. Showing Sources while updates install doesn't take focus.
+    LaunchedEffect(updating) {
+        if (updating == wasUpdating) return@LaunchedEffect
+        wasUpdating = updating
+        if (updating) {
+            ui.progress.requestFocus()
+        } else if (onProgress) {
+            ui.checkAll.requestFocus()
+        }
+    }
     val going = checks.values.any { it.going }
     LaunchedEffect(ui.focusCheck) {
         val id = ui.focusCheck ?: return@LaunchedEffect
@@ -256,27 +297,71 @@ internal fun SourcesPane(
         if (empty) {
             EmptyNote(R.string.sources_trust)
         } else {
-            Row(Modifier.fillMaxWidth().padding(end = RowPadding), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.fillMaxWidth().padding(end = RowPadding),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Text(
                     stringResource(R.string.sources_installed).uppercase(),
                     style = Overline,
                     color = colors.textFaint,
                     modifier = Modifier.weight(1f),
                 )
-                CheckAllPill(
-                    going,
-                    onCheckAll = actions.onCheckAll,
-                    onStop = actions.onStopChecks,
-                    modifier = toCategory.testTag(CHECK_ALL_TAG).focusRequester(ui.checkAll),
-                )
+                if (updating) {
+                    // A pill that does nothing when pressed, so focus waiting here shows like it does anywhere else.
+                    val text = stringResource(R.string.sources_updating, progress.done + 1, progress.total)
+                    RowPill(
+                        text,
+                        NeoIcons.Busy,
+                        text,
+                        onClick = {},
+                        toCategory
+                            .testTag(UPDATE_PROGRESS_TAG)
+                            .focusRequester(ui.progress)
+                            .onFocusChanged { ui.progressFocused = it.isFocused },
+                    )
+                } else {
+                    if (updates.updates > 0) {
+                        val text = stringResource(R.string.sources_update_all, updates.updates)
+                        // Down goes to the first Update, not the Check under it.
+                        val first =
+                            updates.sources
+                                .firstOrNull { it.status is UpdateStatus.Available }
+                                ?.source
+                                ?.id
+                        val down = Modifier.focusProperties { first?.let { down = ui.update(it) } }
+                        // It rests while sources are checked.
+                        val idle = Modifier.focusProperties { canFocus = !going }
+                        RowPill(
+                            text,
+                            NeoIcons.Download,
+                            text,
+                            actions.onUpdateAll,
+                            toCategory.then(down).then(idle).testTag(UPDATE_ALL_TAG),
+                        )
+                    }
+                    CheckAllPill(
+                        going,
+                        onCheckAll = actions.onCheckAll,
+                        onStop = actions.onStopChecks,
+                        modifier = toCategory.testTag(CHECK_ALL_TAG).focusRequester(ui.checkAll),
+                    )
+                }
             }
         }
-        val resting = Modifier.focusProperties { canFocus = !going }
+        // The rows rest while sources are checked or updates install.
+        val resting = Modifier.focusProperties { canFocus = !going && !updating }
+        val found = updates.sources.associateBy { it.source.id }
         installed.forEach { source ->
             key(source.id) {
                 SourceRow(
                     source,
                     checks[source.id],
+                    found[source.id],
+                    canUpdate = !updating,
+                    onUpdate = { actions.onUpdate(source.id) },
+                    updateModifier = toCategory.then(resting).focusRequester(ui.update(source.id)),
                     onCheck = {
                         ui.checking = source
                         actions.onCheck(source)
@@ -510,23 +595,27 @@ private fun FromPhoneEntry(
 }
 
 /**
- * A source: its letter, name, and version, why it can't be used or how its check went, with Check and Remove pills at
- * the end. The row is a card; focus goes to a pill, which turns paper, and the row lifts to the raised surface around
- * it. [modifier] is the Check pill's. TalkBack reads the source with each pill.
+ * A source: its letter, name, and version, why it can't be used, how its check went or what its [update] is, with
+ * Update, when it has one and [canUpdate], Check and Remove pills at the end. The row is a card; focus goes to a pill,
+ * which turns paper, and the row lifts to the raised surface around it. [modifier] is the Check pill's. TalkBack reads
+ * the source with each pill.
  */
 @Composable
 private fun SourceRow(
     source: InstalledSource,
     sourceCheck: SourceCheck?,
+    update: SourceUpdate?,
+    canUpdate: Boolean,
+    onUpdate: () -> Unit,
     onCheck: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier,
+    updateModifier: Modifier,
     removeModifier: Modifier,
 ) {
     val colors = NeoTheme.colors
-    val status = sourceCheck?.let { checkStatus(it) }
-    val detail =
-        source.problem?.let { stringResource(it.reason) } ?: status?.first ?: stringResource(R.string.sources_version, source.version)
+    val status = rowStatus(source, sourceCheck, update)
+    val detail = status.first
     var focused by remember { mutableStateOf(false) }
     val lift by animateColorAsState(if (focused) colors.surfaceRaised else colors.surface, label = "row")
     Row(
@@ -544,16 +633,82 @@ private fun SourceRow(
         Column(Modifier.weight(1f).clearAndSetSemantics {}, verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(source.name, style = RowTitle, color = colors.paper, maxLines = 1)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                status?.takeIf { source.problem == null }?.second?.let { (icon, tint) ->
+                status.second?.let { (icon, tint) ->
                     Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(14.dp))
                 }
                 Text(detail, style = Small, color = colors.textMuted)
             }
         }
+        val out = (update?.status as? UpdateStatus.Available)?.version
+        if (out != null && canUpdate) {
+            val updateText = stringResource(R.string.sources_update_button)
+            RowPill(
+                updateText,
+                NeoIcons.Download,
+                "${source.name}, $detail. $updateText",
+                onUpdate,
+                updateModifier.testTag(updateTag(source.id)),
+            )
+        }
         val checkText = stringResource(R.string.checks_check)
         val removeText = stringResource(R.string.sources_remove)
         RowPill(checkText, NeoIcons.Pulse, "${source.name}, $detail. $checkText", onCheck, modifier.testTag(checkTag(source.id)))
         RowPill(removeText, NeoIcons.Remove, "${source.name}, $detail. $removeText", onRemove, removeModifier.testTag(removeTag(source.id)))
+    }
+}
+
+/**
+ * A source row's second line, with an icon in its colour or none: why it can't be used, then an update installing,
+ * waiting or failed, then its check, then what the last update check found, and otherwise its version.
+ */
+@Composable
+private fun rowStatus(
+    source: InstalledSource,
+    check: SourceCheck?,
+    update: SourceUpdate?,
+): Pair<String, Pair<ImageVector, Color>?> {
+    val colors = NeoTheme.colors
+    source.problem?.let { return stringResource(it.reason) to null }
+    val found = update?.status
+    val out = (found as? UpdateStatus.Available)?.version
+    val updatedTo = update?.updatedTo
+    return when {
+        update?.installing == true && out != null -> {
+            stringResource(R.string.sources_update_installing, out) to (NeoIcons.Busy to colors.pink)
+        }
+
+        update?.waiting == true && out != null -> {
+            stringResource(R.string.sources_update_waiting, out) to (NeoIcons.Waiting to colors.textMuted)
+        }
+
+        update?.failed == true -> {
+            stringResource(R.string.sources_update_failed, source.version) to (NeoIcons.Warning to colors.warning)
+        }
+
+        check != null -> {
+            checkStatus(check)
+        }
+
+        // A version out after an update matters more than the update.
+        out != null -> {
+            stringResource(R.string.sources_update_out, source.version, out) to (NeoIcons.UpdateOut to colors.pink)
+        }
+
+        updatedTo != null -> {
+            stringResource(R.string.sources_updated, updatedTo) to (NeoIcons.Passed to colors.paper)
+        }
+
+        found is UpdateStatus.NeedsNewerApp -> {
+            stringResource(R.string.sources_update_newer_app, source.version, found.version) to (NeoIcons.Info to colors.textMuted)
+        }
+
+        found == UpdateStatus.NotChecked -> {
+            stringResource(R.string.sources_update_no_list) to (NeoIcons.Info to colors.textMuted)
+        }
+
+        else -> {
+            stringResource(R.string.sources_version, source.version) to null
+        }
     }
 }
 
