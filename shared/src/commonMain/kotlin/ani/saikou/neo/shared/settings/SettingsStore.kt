@@ -5,10 +5,12 @@ import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import ani.saikou.neo.shared.account.ShowAnswers
 import ani.saikou.neo.shared.catalogue.ShowFormat
+import ani.saikou.neo.shared.sources.UpdateCheckTimes
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -27,6 +29,7 @@ private val ScheduleShort = booleanPreferencesKey("schedule_short_episodes")
 private val UpdateAniListKey = stringPreferencesKey("update_anilist")
 private val PrivateMode = booleanPreferencesKey("private_mode")
 private val StillWatchingKey = stringPreferencesKey("still_watching")
+private val SourcesCheckedKey = longPreferencesKey("sources_checked_at")
 
 // Each "user:show=yes" or "user:show=no", one per show and user.
 private val ShowAnswersKey = stringSetPreferencesKey("anilist_show_answers")
@@ -37,7 +40,8 @@ private val ShowAnswersKey = stringSetPreferencesKey("anilist_show_answers")
  */
 public class SettingsStore private constructor(
     private val dataStore: DataStore<Preferences>,
-) : ShowAnswers {
+) : ShowAnswers,
+    UpdateCheckTimes {
     /** The settings now, and again each time one changes. A setting never changed reads as its default. */
     public val settings: Flow<Settings> =
         dataStore.data.map { it.toSettings() }
@@ -80,6 +84,12 @@ public class SettingsStore private constructor(
             val others = saved[ShowAnswersKey].orEmpty().filterNot { it.startsWith(key) }
             saved[ShowAnswersKey] = others.toSet() + (key + if (update) YES else NO)
         }
+    }
+
+    override suspend fun lastChecked(): Long? = dataStore.data.first()[SourcesCheckedKey]
+
+    override suspend fun checked(at: Long) {
+        dataStore.edit { it[SourcesCheckedKey] = at }
     }
 
     /** The subtitle settings now, and again each time one changes. They're kept apart from [settings]. */
