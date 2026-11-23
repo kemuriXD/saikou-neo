@@ -18,6 +18,7 @@ import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.KeyEvent
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.test.ComposeUiTestConfig
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
@@ -45,7 +46,7 @@ class HeldListsTest {
     private val keys = HeldKeys(systemScale = { 1f }, afterNextFrame = { it() })
 
     @get:Rule
-    val compose = createAndroidComposeRule<ComponentActivity>(effectContext = keys)
+    val compose = createAndroidComposeRule<ComponentActivity>(ComposeUiTestConfig(effectContext = keys))
 
     /** Thirty rows, each taller than a fifth of the screen, with the first focused. */
     private fun show(keyline: Boolean = false) {

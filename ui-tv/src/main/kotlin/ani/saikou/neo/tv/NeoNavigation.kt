@@ -187,9 +187,17 @@ fun NeoNavigation(
 
                 // A screen fading out keeps its focus until the next one takes it, which can wait for that screen to load.
                 // Only the top screen takes the remote's keys, so a quick press can't move focus on the one left behind.
+                // Nor can it take focus back: a screen that places focus when it has none would take it from the next one.
                 @Composable
-                fun Screen.TakesKeysOnTop(content: @Composable () -> Unit) =
-                    Box(Modifier.onPreviewKeyEvent { it.key != Key.Back && this != backStack.lastOrNull() }) { content() }
+                fun Screen.TakesKeysOnTop(content: @Composable () -> Unit) {
+                    val screen = this
+                    Box(
+                        Modifier
+                            .onPreviewKeyEvent { it.key != Key.Back && screen != backStack.lastOrNull() }
+                            .focusProperties { onEnter = { if (screen != backStack.lastOrNull()) cancelFocusChange() } }
+                            .focusGroup(),
+                    ) { content() }
+                }
                 entry<Screen.Home> {
                     // Home remembers what had focus, for the rail to send it back to. The restorer sets how focus
                     // enters the group after it. The rail is part of Home, so it fades in and out with it. When a section that
