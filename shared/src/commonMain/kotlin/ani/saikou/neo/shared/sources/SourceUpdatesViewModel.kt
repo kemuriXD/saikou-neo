@@ -77,29 +77,46 @@ public class SourceUpdatesViewModel(
         combine(store.installed, lists, run, ::stateOf)
             .stateIn(viewModelScope, SharingStarted.Eagerly, stateOf(store.installed.value, lists.value, run.value))
 
-    /** Checks, as [check] does, unless the last check was less than 12 hours ago (ADR 0046). */
+    /**
+     * Checks, as [check] does, unless the last check that read something was less than 12 hours ago (ADR 0046). A clock
+     * that went back since then makes it due.
+     */
     public fun checkIfDue() {
         if (checks?.isActive == true) return
         viewModelScope.launch {
-            val last = times?.lastChecked()
-            if (last == null || now() - last >= CHECK_EVERY_SECONDS) check()
+            if (due(times?.lastChecked(), CHECK_EVERY_SECONDS)) check()
         }
     }
 
-    /** Reads the list of every source that has one, each once. Does nothing while a check is running. */
+    /**
+     * Reads the list of every source that has one, each once. Does nothing while a check is running, or when the last
+     * one finished less than a minute ago, so passing over Sources again doesn't fetch the lists each time. The time is
+     * saved only when a list was read, or there were none to read, so a check that failed tries again next time.
+     */
     public fun check() {
-        if (checks?.isActive == true) return
+        if (checks?.isActive == true || !due(run.value.lastChecked, CHECK_AGAIN_SECONDS)) return
         run.update { it.copy(checking = true) }
         checks =
             viewModelScope.launch {
                 val installed = store.installed.filterNotNull().first()
-                val read = reader.lists(installed.mapNotNullTo(mutableSetOf()) { it.list })
+                val links = installed.mapNotNullTo(mutableSetOf()) { it.list }
+                val read = reader.lists(links)
                 // A list that couldn't be read this time keeps what it said before.
                 lists.update { it + read }
                 val at = now()
                 run.update { it.copy(checking = false, lastChecked = at) }
-                times?.checked(at)
+                if (read.isNotEmpty() || links.isEmpty()) times?.checked(at)
             }
+    }
+
+    /** Whether [every] seconds have passed since [last], or there was none, or the clock went back since. */
+    private fun due(
+        last: Long?,
+        every: Long,
+    ): Boolean {
+        if (last == null) return true
+        val now = now()
+        return now < last || now - last >= every
     }
 
     /** Installs the update for the source with [id], if it has one. */
@@ -198,3 +215,6 @@ public class SourceUpdatesViewModel(
 }
 
 private const val CHECK_EVERY_SECONDS = 12 * 60 * 60L
+
+// Sources reads the lists each time it opens, but no more than once a minute.
+private const val CHECK_AGAIN_SECONDS = 60L

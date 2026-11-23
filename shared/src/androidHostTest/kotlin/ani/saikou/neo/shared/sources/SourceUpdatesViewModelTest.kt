@@ -406,6 +406,82 @@ class SourceUpdatesViewModelTest {
             assertEquals(UpdateStatus.Available("1.1.0"), row.status)
             assertEquals(true, row.failed)
         }
+
+    @Test
+    fun aCheckThatCouldReadNoListSavesNoTime() =
+        test {
+            // A check that fails tries again next time (ADR 0046).
+            pages = pages - LIST
+            val viewModel = viewModel(alpha)
+
+            viewModel.check()
+
+            assertEquals(listOf(LIST), engine.urls)
+            assertNull(times.saved)
+            assertFalse(viewModel.state.value.checking)
+        }
+
+    @Test
+    fun aCheckWithNoListsToReadSavesTheTime() =
+        test {
+            val viewModel = viewModel(alpha.copy(list = null))
+
+            viewModel.check()
+
+            assertEquals(1_000L, times.saved)
+        }
+
+    @Test
+    fun aCheckWithinAMinuteOfTheLastIsSkipped() =
+        test {
+            val viewModel = viewModel(alpha)
+            viewModel.check()
+
+            now += 59
+            viewModel.check()
+            assertEquals(listOf(LIST), engine.urls)
+
+            now += 1
+            viewModel.check()
+            assertEquals(listOf(LIST, LIST), engine.urls)
+        }
+
+    @Test
+    fun aCheckThatReadNothingStillHoldsOffTheNextForAMinute() =
+        test {
+            pages = pages - LIST
+            val viewModel = viewModel(alpha)
+            viewModel.check()
+
+            now += 30
+            viewModel.check()
+
+            assertEquals(listOf(LIST), engine.urls)
+        }
+
+    @Test
+    fun aClockThatWentBackMakesACheckDue() =
+        test {
+            val viewModel = viewModel(alpha)
+            viewModel.check()
+
+            now -= 10
+            viewModel.check()
+
+            assertEquals(listOf(LIST, LIST), engine.urls)
+        }
+
+    @Test
+    fun aClockThatWentBackSinceTheSavedCheckMakesItDue() =
+        test {
+            times.saved = 50_000L
+            val viewModel = viewModel(alpha)
+
+            viewModel.checkIfDue()
+
+            assertEquals(listOf(LIST), engine.urls)
+            assertEquals(1_000L, times.saved)
+        }
 }
 
 /** Keeps when sources were last checked in memory. */
