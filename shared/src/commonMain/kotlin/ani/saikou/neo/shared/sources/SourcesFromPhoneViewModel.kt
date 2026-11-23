@@ -6,7 +6,7 @@ import ani.saikou.neo.shared.pairing.NoNetworkException
 import ani.saikou.neo.shared.pairing.PairingStop
 import ani.saikou.neo.shared.pairing.PairingStoppedException
 import ani.saikou.neo.shared.pairing.TV_CODE_SECONDS
-import ani.saikou.neo.shared.pairing.TvPairingNote
+import ani.saikou.neo.shared.pairing.UnusableMessageException
 import ani.saikou.neo.shared.pairing.newTvCode
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -48,6 +48,27 @@ public sealed interface InstallOutcome {
     public data object NotTheSource : InstallOutcome
 }
 
+/** Why the last phone left the board, shown under the code it can try again with. */
+public enum class FromPhoneNote {
+    /** It doesn't match, on the phone. */
+    CodesDontMatch,
+
+    /** Send a source was closed or cancelled on the phone. */
+    ClosedOnPhone,
+
+    /** The phone didn't choose It matches, or send its picks, in time. */
+    PhoneTookTooLong,
+
+    /** It matches wasn't chosen on this TV in time after the phone chose it. */
+    TvTookTooLong,
+
+    /** The phone sent something this TV couldn't use, such as picks that fail its checks. */
+    CouldntUse,
+
+    /** The connection dropped without a word. */
+    LostConnection,
+}
+
 /** Where Add from my phone on the TV is (ADR 0042). */
 public sealed interface FromPhoneState {
     /** Opening the board. */
@@ -58,7 +79,7 @@ public sealed interface FromPhoneState {
         val qrText: String,
         val code: String,
         val secondsLeft: Int,
-        val note: TvPairingNote? = null,
+        val note: FromPhoneNote? = null,
     ) : FromPhoneState
 
     /** A phone is making the encrypted link. */
@@ -272,11 +293,13 @@ public class SourcesFromPhoneViewModel(
                 waiting = waiting.copy(note = null)
                 val matched = CompletableDeferred<Unit>().also { tvMatch = it }
                 mutableState.value = FromPhoneState.CheckCode(link.checkCode)
+                var tvTookTooLong = false
                 val picked =
                     try {
                         link.receiveMatch()
                         // The phone said they match. The TV's own It matches gets as long as the phone had.
                         withTimeoutOrNull(MATCH_MILLIS) { matched.await() } ?: run {
+                            tvTookTooLong = true
                             link.stop(PairingStop.TimedOut)
                             throw PairingStoppedException(PairingStop.TimedOut)
                         }
@@ -297,7 +320,7 @@ public class SourcesFromPhoneViewModel(
                             mutableState.value = FromPhoneState.Expired(code)
                             return
                         }
-                        waiting = waiting.copy(note = noteFor(e))
+                        waiting = waiting.copy(note = if (tvTookTooLong) FromPhoneNote.TvTookTooLong else noteFor(e))
                         mutableState.value = waiting
                         continue
                     }
@@ -353,12 +376,15 @@ public class SourcesFromPhoneViewModel(
         return link
     }
 
-    private fun noteFor(e: Exception): TvPairingNote =
-        when ((e as? PairingStoppedException)?.reason) {
-            PairingStop.NoMatch -> TvPairingNote.StoppedOnPhone
-            PairingStop.Cancelled -> TvPairingNote.CancelledOnPhone
-            PairingStop.TimedOut -> TvPairingNote.TookTooLong
-            else -> TvPairingNote.LostConnection
+    /** Why a phone left, from what [e] says. A phone never refuses, so that counts as a dropped connection. */
+    private fun noteFor(e: Exception): FromPhoneNote =
+        when {
+            e is UnusableMessageException -> FromPhoneNote.CouldntUse
+            e !is PairingStoppedException -> FromPhoneNote.LostConnection
+            e.reason == PairingStop.NoMatch -> FromPhoneNote.CodesDontMatch
+            e.reason == PairingStop.Cancelled -> FromPhoneNote.ClosedOnPhone
+            e.reason == PairingStop.TimedOut -> FromPhoneNote.PhoneTookTooLong
+            else -> FromPhoneNote.LostConnection
         }
 
     private fun stop() {
