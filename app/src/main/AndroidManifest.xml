@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!--
         One app for TVs and phones (ADR 0038). Nothing here is required, so TV stores list it and phones can install it:
@@ -32,10 +33,15 @@
         android:networkSecurityConfig="@xml/network_security_config"
         android:supportsRtl="true"
         android:theme="@style/Theme.SaikouNeo">
-        <!-- Picks the TV or the phone screens, opens them and closes. -->
+        <!--
+            Picks the TV or the phone screens, opens them and closes. Both open it, so its splash turns with the
+            launcher behind it: upright on a phone, landscape on a TV.
+        -->
         <activity
             android:name=".EntryActivity"
-            android:exported="true">
+            android:exported="true"
+            android:screenOrientation="behind"
+            tools:ignore="DiscouragedApi">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <!-- Android TV and Google TV launchers. -->
@@ -47,10 +53,16 @@
         <activity
             android:name="ani.saikou.neo.tv.MainActivity"
             android:exported="false" />
+        <!--
+            The phone screens have no landscape layouts yet, so they're held upright on purpose. Android 16 and later
+            ignore this on screens 600 dp and wider, so tablets still turn.
+        -->
         <activity
             android:name="ani.saikou.neo.phone.MainActivity"
             android:exported="false"
-            android:launchMode="singleTop" />
+            android:launchMode="singleTop"
+            android:screenOrientation="portrait"
+            tools:ignore="DiscouragedApi,LockedOrientationActivity" />
         <!--
             The browser comes back here after AniList sign-in. Each app ID is its own address, registered with that
             channel's AniList client, so a preview and a stable install never answer for each other.
