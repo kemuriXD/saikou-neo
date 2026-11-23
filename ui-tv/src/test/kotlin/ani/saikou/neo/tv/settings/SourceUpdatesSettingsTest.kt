@@ -9,6 +9,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
@@ -17,8 +18,10 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performKeyInput
 import androidx.compose.ui.test.pressKey
 import ani.saikou.neo.shared.settings.Settings
+import ani.saikou.neo.shared.sources.CheckStatus
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.Progress
+import ani.saikou.neo.shared.sources.SourceCheck
 import ani.saikou.neo.shared.sources.SourceUpdate
 import ani.saikou.neo.shared.sources.SourcesState
 import ani.saikou.neo.shared.sources.UpdateStatus
@@ -45,6 +48,7 @@ class SourceUpdatesSettingsTest {
     val compose = createAndroidComposeRule<ComponentActivity>()
 
     private val updates = mutableStateOf(UpdatesState())
+    private val checks = mutableStateOf<Map<String, SourceCheck>>(emptyMap())
     private var checked = 0
     private val updated = mutableListOf<String>()
     private var updatedAll = 0
@@ -76,6 +80,7 @@ class SourceUpdatesSettingsTest {
                             onUpdate = { updated += it },
                             onUpdateAll = { updatedAll++ },
                         ),
+                    checks = checks.value,
                     updates = updates.value,
                 )
             }
@@ -200,5 +205,95 @@ class SourceUpdatesSettingsTest {
         text("Updated to 1.5.0").assertIsDisplayed()
         text("Didn't update. Still on 0.9.0").assertIsDisplayed()
         compose.onNodeWithTag(updateTag(demo.id)).assertIsDisplayed()
+    }
+
+    // Example installing and demo waiting, as after Update all.
+    private val installing =
+        UpdatesState(
+            listOf(
+                SourceUpdate(example, UpdateStatus.Available("1.5.0"), installing = true),
+                SourceUpdate(demo, UpdateStatus.Available("1.0.0"), waiting = true),
+                SourceUpdate(sample, UpdateStatus.NeedsNewerApp("2.2.0")),
+                SourceUpdate(starter, UpdateStatus.NotChecked),
+            ),
+            progress = Progress(0, 2),
+        )
+
+    private val finished =
+        UpdatesState(
+            listOf(
+                SourceUpdate(example, UpdateStatus.UpToDate, updatedTo = "1.5.0"),
+                SourceUpdate(demo, UpdateStatus.UpToDate, updatedTo = "1.0.0"),
+                SourceUpdate(sample, UpdateStatus.NeedsNewerApp("2.2.0")),
+                SourceUpdate(starter, UpdateStatus.NotChecked),
+            ),
+        )
+
+    private fun set(state: UpdatesState) {
+        updates.value = state
+        compose.waitForIdle()
+    }
+
+    @Test
+    fun whileUpdatesInstallFocusWaitsOnTheProgressAndTheRowsRest() {
+        show(twoOut)
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+
+        set(installing)
+
+        compose.onNodeWithTag(UPDATE_PROGRESS_TAG).assertIsFocused()
+        // Check and Remove rest on every row, so Down has nowhere to go.
+        press(Key.DirectionDown, times = 3)
+        compose.onNodeWithTag(UPDATE_PROGRESS_TAG).assertIsFocused()
+        compose.onNodeWithTag(checkTag(example.id)).assertIsNotFocused()
+        // Once they finish, focus goes to Check all, where the heading's pills are.
+        set(finished)
+        compose.onNodeWithTag(CHECK_ALL_TAG).assertIsFocused()
+        // And the rows can be reached again: Down goes to the first row's Remove, under Check all.
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(removeTag(example.id)).assertIsFocused()
+    }
+
+    @Test
+    fun updatingOneSourceAlsoMovesFocusToTheProgress() {
+        show(twoOut)
+        press(Key.DirectionDown, times = 2)
+        compose.onNodeWithTag(updateTag(example.id)).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        set(installing.copy(progress = Progress(0, 1)))
+
+        compose.onNodeWithTag(UPDATE_PROGRESS_TAG).assertIsFocused()
+        // Up goes to Add a source, and Down comes back.
+        press(Key.DirectionUp)
+        compose.onNodeWithTag(UPDATE_PROGRESS_TAG).assertIsNotFocused()
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(UPDATE_PROGRESS_TAG).assertIsFocused()
+    }
+
+    @Test
+    fun passingOverSourcesWhileUpdatesInstallLeavesFocusOnTheCategories() {
+        show(installing, intoSources = false)
+
+        // Down to Sources, which shows its pane.
+        press(Key.DirectionDown, times = 5)
+
+        text("Updating 1 of 2").assertIsDisplayed()
+        compose.onNodeWithTag(UPDATE_PROGRESS_TAG).assertIsNotFocused()
+    }
+
+    @Test
+    fun whileChecksRunUpdateAllAndUpdateRest() {
+        checks.value = mapOf(example.id to SourceCheck(CheckStatus.RUNNING))
+        show(twoOut)
+
+        // Past Add a source, Update all rests, so Down goes to Stop checks.
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(CHECK_ALL_TAG).assertIsFocused()
+        // The rows' Update rests with their Check and Remove.
+        press(Key.DirectionDown)
+        compose.onNodeWithTag(CHECK_ALL_TAG).assertIsFocused()
+        compose.onNodeWithTag(updateTag(example.id)).assertIsNotFocused()
     }
 }

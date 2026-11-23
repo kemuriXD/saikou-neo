@@ -8,6 +8,7 @@ import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -115,6 +116,8 @@ internal fun updateTag(id: String) = "update-$id"
 
 internal const val UPDATE_ALL_TAG = "update-all"
 
+internal const val UPDATE_PROGRESS_TAG = "update-progress"
+
 /**
  * What Settings > Sources does when you add a source from [onAdd]'s text, close a panel, remove a source by id, tick
  * a source in a list by id, add the ticked ones, check a source, check them all, or stop the checks. It also checks
@@ -166,6 +169,10 @@ internal class SourcesUi {
     val updates = mutableStateMapOf<String, FocusRequester>()
 
     fun update(id: String) = updates.getOrPut(id) { FocusRequester() }
+
+    /** The heading's progress while updates install, where focus waits as the rows rest. */
+    val progress = FocusRequester()
+    var progressFocused by mutableStateOf(false)
 }
 
 // From the design: Add a source is 60 dp tall, each source 68 dp with a 40 dp logo or letter. The add panel is 376 dp.
@@ -213,7 +220,8 @@ internal val RowTitle
  * The installed sources, under a line on what sources are and Add a source. With none, a short explanation and Add a
  * source on their own. Left goes back to [category]. Each source can be checked, or all at once; while [checks] run,
  * the rows rest and focus stays on Stop checks. Leaving Sources stops them. Opening Sources checks for [updates], and
- * a source with one gets Update, with Update all on the heading.
+ * a source with one gets Update, with Update all on the heading. While updates install the rows rest too, and focus
+ * waits on the heading's progress.
  */
 @Composable
 internal fun SourcesPane(
@@ -227,9 +235,20 @@ internal fun SourcesPane(
     DisposableEffect(Unit) { onDispose(actions.onStopChecks) }
     LaunchedEffect(Unit) { actions.onCheckUpdates() }
     val progress = updates.progress
-    // Update and Update all go once updates start, so focus moves to the Check of the source being updated.
-    LaunchedEffect(progress != null) {
-        if (progress != null) updates.sources.firstOrNull { it.installing }?.let { ui.check(it.source.id).requestFocus() }
+    val updating = progress != null
+    // Read before the progress leaves the heading, which takes its focus with it.
+    val onProgress = ui.progressFocused
+    var wasUpdating by remember { mutableStateOf(updating) }
+    // Update and Update all go once updates start and the rows rest, so focus waits on the progress. Once updates finish
+    // it goes to Check all, where the progress was. Showing Sources while updates install doesn't take focus.
+    LaunchedEffect(updating) {
+        if (updating == wasUpdating) return@LaunchedEffect
+        wasUpdating = updating
+        if (updating) {
+            ui.progress.requestFocus()
+        } else if (onProgress) {
+            ui.checkAll.requestFocus()
+        }
     }
     val going = checks.values.any { it.going }
     LaunchedEffect(ui.focusCheck) {
@@ -276,11 +295,17 @@ internal fun SourcesPane(
                     color = colors.textFaint,
                     modifier = Modifier.weight(1f),
                 )
-                if (progress != null) {
+                if (updating) {
                     Text(
                         stringResource(R.string.sources_updating, progress.done + 1, progress.total),
                         style = Body.copy(fontWeight = FontWeight.SemiBold),
                         color = colors.textMuted,
+                        modifier =
+                            toCategory
+                                .testTag(UPDATE_PROGRESS_TAG)
+                                .focusRequester(ui.progress)
+                                .onFocusChanged { ui.progressFocused = it.isFocused }
+                                .focusable(),
                     )
                 } else {
                     if (updates.updates > 0) {
@@ -292,7 +317,15 @@ internal fun SourcesPane(
                                 ?.source
                                 ?.id
                         val down = Modifier.focusProperties { first?.let { down = ui.update(it) } }
-                        RowPill(text, NeoIcons.Download, text, actions.onUpdateAll, toCategory.then(down).testTag(UPDATE_ALL_TAG))
+                        // It rests while sources are checked.
+                        val idle = Modifier.focusProperties { canFocus = !going }
+                        RowPill(
+                            text,
+                            NeoIcons.Download,
+                            text,
+                            actions.onUpdateAll,
+                            toCategory.then(down).then(idle).testTag(UPDATE_ALL_TAG),
+                        )
                     }
                     CheckAllPill(
                         going,
@@ -303,7 +336,8 @@ internal fun SourcesPane(
                 }
             }
         }
-        val resting = Modifier.focusProperties { canFocus = !going }
+        // The rows rest while sources are checked or updates install.
+        val resting = Modifier.focusProperties { canFocus = !going && !updating }
         val found = updates.sources.associateBy { it.source.id }
         installed.forEach { source ->
             key(source.id) {
@@ -311,7 +345,7 @@ internal fun SourcesPane(
                     source,
                     checks[source.id],
                     found[source.id],
-                    canUpdate = progress == null,
+                    canUpdate = !updating,
                     onUpdate = { actions.onUpdate(source.id) },
                     updateModifier = toCategory.then(resting).focusRequester(ui.update(source.id)),
                     onCheck = {

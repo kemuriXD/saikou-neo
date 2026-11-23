@@ -159,9 +159,10 @@ class MainActivity : ComponentActivity() {
             // The AniList account on this TV, for Profile and Settings > Account. Read again once Sign in saves one.
             val account = viewModel { TvAccountViewModel(KeystoreAccountStore(applicationContext)) }
             val profile by account.profile.collectAsStateWithLifecycle()
-            // Sources are checked for updates when the app starts, at most every 12 hours (ADR 0046), and Settings counts them.
+            // Sources are checked for updates each time the app comes to the front, at most every 12 hours (ADR 0046), so a
+            // TV left on for days still checks. Settings counts them.
             val sourceUpdates = viewModel { SourceUpdatesViewModel(app.sources, SourceDownloads(), app.settingsStore) }
-            LaunchedEffect(Unit) { sourceUpdates.checkIfDue() }
+            LifecycleEventEffect(Lifecycle.Event.ON_START) { sourceUpdates.checkIfDue() }
             // The AniList notice (ADR 0056): Up next shows it in the player, and it shows over every other screen.
             val notice by app.notices.shown.collectAsStateWithLifecycle()
             val noticeActions = remember { NoticeActions(app.notices::undo, app.notices::undoFocused) }
