@@ -296,16 +296,17 @@ internal fun SourcesPane(
                     modifier = Modifier.weight(1f),
                 )
                 if (updating) {
-                    Text(
-                        stringResource(R.string.sources_updating, progress.done + 1, progress.total),
-                        style = Body.copy(fontWeight = FontWeight.SemiBold),
-                        color = colors.textMuted,
-                        modifier =
-                            toCategory
-                                .testTag(UPDATE_PROGRESS_TAG)
-                                .focusRequester(ui.progress)
-                                .onFocusChanged { ui.progressFocused = it.isFocused }
-                                .focusable(),
+                    // A pill that does nothing when pressed, so focus waiting here shows like it does anywhere else.
+                    val text = stringResource(R.string.sources_updating, progress.done + 1, progress.total)
+                    RowPill(
+                        text,
+                        NeoIcons.Busy,
+                        text,
+                        onClick = {},
+                        toCategory
+                            .testTag(UPDATE_PROGRESS_TAG)
+                            .focusRequester(ui.progress)
+                            .onFocusChanged { ui.progressFocused = it.isFocused },
                     )
                 } else {
                     if (updates.updates > 0) {
