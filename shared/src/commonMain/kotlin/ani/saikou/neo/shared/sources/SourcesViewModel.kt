@@ -31,6 +31,12 @@ public sealed interface ChoiceStatus {
     /** The same or a newer version is installed. */
     public data object Installed : ChoiceStatus
 
+    /**
+     * The same version is installed, but with no list saved, so it isn't checked for updates. Adding it again saves
+     * this list with it (ADR 0046).
+     */
+    public data object AddAgain : ChoiceStatus
+
     public data class CantUse(
         val problem: SourceProblem,
     ) : ChoiceStatus
@@ -41,7 +47,8 @@ public sealed interface ChoiceStatus {
 
 /** Whether a source with this status can be ticked. */
 public val ChoiceStatus.canPick: Boolean
-    get() = this is ChoiceStatus.New || this is ChoiceStatus.Update || this is ChoiceStatus.Failed
+    get() =
+        this is ChoiceStatus.New || this is ChoiceStatus.Update || this is ChoiceStatus.Failed || this == ChoiceStatus.AddAgain
 
 /** A source in a list, and whether it's ticked. */
 public data class Choice(
@@ -75,7 +82,10 @@ public sealed interface Adding {
         val source: InstalledSource,
     ) : Adding
 
-    /** The link led to a list. Sources you can pick come first, then installed ones, then ones you can't use. */
+    /**
+     * The link led to a list. Sources you can pick come first, then installed ones you can add again, then installed
+     * ones, then ones you can't use.
+     */
     public data class Choosing(
         val choices: List<Choice>,
         val progress: Progress? = null,
@@ -114,6 +124,9 @@ public class SourcesViewModel(
 
     // Whether the list being chosen from came from a link at home, which lets its logos come from home too.
     private var listFromHome = false
+
+    // The link of the list being chosen from, kept with each source added from it so it can be checked for updates.
+    private var listLink: String? = null
 
     public val state: StateFlow<SourcesState> =
         combine(store.installed, adding, icons, ::SourcesState)
@@ -164,6 +177,8 @@ public class SourcesViewModel(
         val file = downloads.fetch(url) ?: return Adding.Failed(AddError.NOT_A_SOURCE)
         if (isSourceList(file)) {
             listFromHome = isHomeLink(url)
+            // A short code is kept as the link it led to, so checks don't depend on the code service (ADR 0046).
+            listLink = url
             return choose(withContext(work) { readSourceList(file) })
         }
         val source = store.install(file) ?: return Adding.Failed(AddError.NOT_A_SOURCE)
@@ -181,9 +196,10 @@ public class SourcesViewModel(
                 .map { Choice(it, status(it, installed[it.id])) }
                 .sortedBy {
                     when {
+                        it.status == ChoiceStatus.AddAgain -> 1
                         it.status.canPick -> 0
-                        it.status == ChoiceStatus.Installed -> 1
-                        else -> 2
+                        it.status == ChoiceStatus.Installed -> 2
+                        else -> 3
                     }
                 }
         if (choices.all { it.status is ChoiceStatus.CantUse }) return Adding.Failed(AddError.NOTHING_IN_LIST)
@@ -198,7 +214,12 @@ public class SourcesViewModel(
         store.problemFor(source.api)?.let { return ChoiceStatus.CantUse(it) }
         return when {
             installed == null -> ChoiceStatus.New
+
             compareVersions(source.version, installed.version) > 0 -> ChoiceStatus.Update(installed.version)
+
+            // Only the same version, so adding it again never goes back to an older one.
+            installed.list == null && compareVersions(source.version, installed.version) == 0 -> ChoiceStatus.AddAgain
+
             else -> ChoiceStatus.Installed
         }
     }
@@ -219,6 +240,7 @@ public class SourcesViewModel(
         val ticked = choosing.choices.filter { it.ticked }
         if (choosing.progress != null || ticked.isEmpty()) return
         check?.cancel()
+        val list = listLink
         check =
             viewModelScope.launch {
                 var choices = choosing.choices
@@ -226,7 +248,7 @@ public class SourcesViewModel(
                 ticked.forEachIndexed { done, choice ->
                     adding.value = Adding.Choosing(choices, Progress(done, ticked.size))
                     // The APK must be the source its entry names, so a list can't install something else.
-                    val source = downloads.fetch(choice.source.apk)?.let { store.install(it, choice.source.id) }
+                    val source = downloads.fetch(choice.source.apk)?.let { store.install(it, choice.source.id, list) }
                     val status =
                         when {
                             source == null -> ChoiceStatus.Failed
@@ -261,23 +283,3 @@ private fun List<Choice>.withStatus(
     id: String,
     status: ChoiceStatus,
 ) = map { if (it.source.id == id) Choice(it.source, status, ticked = status == ChoiceStatus.Failed) else it }
-
-/**
- * Compares versions such as `1.10.0` and `1.2.0` part by part, as numbers, ignoring a leading `v`. A part that isn't a
- * number counts as 0. A pre-release, such as `2.0.0-beta.1`, comes before its release.
- */
-private fun compareVersions(
-    a: String,
-    b: String,
-): Int {
-    val first = a.removePrefix("v").split('-', '+', limit = 2)
-    val second = b.removePrefix("v").split('-', '+', limit = 2)
-    val numbers = first[0].split('.')
-    val others = second[0].split('.')
-    for (i in 0 until maxOf(numbers.size, others.size)) {
-        val difference = (numbers.getOrNull(i)?.toIntOrNull() ?: 0).compareTo(others.getOrNull(i)?.toIntOrNull() ?: 0)
-        if (difference != 0) return difference
-    }
-    // Only one is a pre-release: that one is older.
-    return (first.size == 1).compareTo(second.size == 1)
-}

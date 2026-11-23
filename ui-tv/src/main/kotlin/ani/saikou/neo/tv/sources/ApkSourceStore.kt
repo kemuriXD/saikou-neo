@@ -46,6 +46,7 @@ class ApkSourceStore(
     private val host: HostServices,
 ) : SourceStore {
     private val folder = File(context.filesDir, "sources")
+    private val links = SourceLinks(folder)
     private val lock = Mutex()
     private val sources = MutableStateFlow<List<InstalledSource>?>(null)
 
@@ -61,6 +62,7 @@ class ApkSourceStore(
                         .listFiles { file -> file.name.endsWith(APK) }
                         .orEmpty()
                         .mapNotNull { apk -> manifest(apk)?.let(::withIcon) }
+                        .map { it.copy(list = links.read(it.id)) }
                         .sorted()
             }
         }
@@ -73,11 +75,13 @@ class ApkSourceStore(
     override suspend fun install(
         apk: ByteArray,
         id: String?,
-    ): InstalledSource? = withContext(Dispatchers.IO) { lock.withLock { installLocked(apk, id) } }
+        list: String?,
+    ): InstalledSource? = withContext(Dispatchers.IO) { lock.withLock { installLocked(apk, id, list) } }
 
     private fun installLocked(
         apk: ByteArray,
         id: String?,
+        list: String?,
     ): InstalledSource? {
         val incoming = File.createTempFile("source", APK, context.cacheDir)
         return try {
@@ -91,10 +95,10 @@ class ApkSourceStore(
             if (load(incoming, manifest.className) == null) return manifest.source.copy(problem = SourceProblem.BROKEN)
             folder.mkdirs()
             val kept = File(folder, manifest.source.id + APK)
-            kept.delete()
-            incoming.copyTo(kept)
-            kept.setReadOnly()
-            val source = manifest.source.copy(icon = keepIcon(manifest))
+            swapIn(incoming, kept)
+            // Saved once the APK is in place, so a copy that fails doesn't leave a new link on the old version.
+            val saved = links.keep(manifest.source.id, list)
+            val source = manifest.source.copy(icon = keepIcon(manifest), list = saved)
             loaded.remove(source.id)
             sources.value = (sources.value.orEmpty().filter { it.id != source.id } + source).sorted()
             source
@@ -113,6 +117,7 @@ class ApkSourceStore(
                 if (listed.any { it.id == id }) {
                     File(folder, id + APK).delete()
                     iconFile(id).delete()
+                    links.forget(id)
                     loaded.remove(id)
                     sources.value = listed.filter { it.id != id }
                 }

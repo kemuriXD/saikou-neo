@@ -4,7 +4,9 @@ import kotlinx.coroutines.flow.StateFlow
 
 /**
  * A source as Settings > Sources lists it. A source with a [problem] doesn't load. [icon] is the path of its logo, a
- * PNG the app saved from its APK, or null when it has none (ADR 0028).
+ * PNG the app saved from its APK, or null when it has none (ADR 0028). [list] is the link of the list it was installed
+ * from, which is checked for updates, or null when it came from a single APK or was installed before links were kept
+ * (ADR 0046).
  */
 public data class InstalledSource(
     val id: String,
@@ -12,6 +14,7 @@ public data class InstalledSource(
     val version: String,
     val problem: SourceProblem? = null,
     val icon: String? = null,
+    val list: String? = null,
 )
 
 /** Why a source can't be used. */
@@ -36,11 +39,13 @@ public interface SourceStore {
 
     /**
      * Installs the source in [apk] and returns it. A source with a problem is returned with it and not installed. Null
-     * when [apk] isn't a source at all, or isn't the source with [id] when one is given.
+     * when [apk] isn't a source at all, or isn't the source with [id] when one is given. [list] is the link of the list
+     * it came from, kept with it in place of any link it had. Null keeps none.
      */
     public suspend fun install(
         apk: ByteArray,
         id: String? = null,
+        list: String? = null,
     ): InstalledSource?
 
     /** Uninstalls the source with [id], so it isn't used again. */
