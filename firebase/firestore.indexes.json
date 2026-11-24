@@ -3,18 +3,6 @@
   "fieldOverrides": [
     {
       "collectionGroup": "reports",
-      "fieldPath": "expireAt",
-      "ttl": true,
-      "indexes": []
-    },
-    {
-      "collectionGroup": "installs",
-      "fieldPath": "expireAt",
-      "ttl": true,
-      "indexes": []
-    },
-    {
-      "collectionGroup": "reports",
       "fieldPath": "log",
       "indexes": []
     },

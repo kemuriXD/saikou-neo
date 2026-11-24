@@ -54,7 +54,8 @@ service cloud.firestore {
         && r.log is bytes && r.log.size() <= 262144
         && (!('screenshot' in r) || (r.screenshot is bytes && r.screenshot.size() <= 614400))
         && r.createdAt == request.time
-        // Kept 90 days. The app sets it from its own clock, so a day either way is allowed.
+        // Kept 90 days: the daily delete-expired-reports job deletes it after this. The app sets it from a sign-in
+        // token's time, so a day either way is allowed.
         && r.expireAt is timestamp
         && r.expireAt >= request.time + duration.value(88, 'd')
         && r.expireAt <= request.time + duration.value(90, 'd');
@@ -75,7 +76,8 @@ service cloud.firestore {
           && c.keys().hasAll(['count', 'since', 'last', 'code', 'expireAt'])
           && c.count is int && c.last == request.time
           && c.code is string && c.code.matches('SN-[2-9A-HJKMNP-TV-Z]{4}')
-          // The count is deleted two days after the last report, by which time a new day has started anyway.
+          // The count is deleted two days after the last report, by which time a new day has started anyway. The daily
+          // delete-expired-reports job does that.
           && c.expireAt is timestamp
           && c.expireAt >= request.time + duration.value(1, 'd')
           && c.expireAt <= request.time + duration.value(3, 'd');

@@ -1,0 +1,32 @@
+name: Delete expired reports
+
+# Bug reports are kept 90 days and install counts two days (ADR 0060). Firestore's TTL policies need billing, so this
+# deletes them once a day instead.
+on:
+  schedule:
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: delete-expired-reports
+  cancel-in-progress: false
+
+jobs:
+  delete:
+    name: Delete expired reports
+    # Forks have no Firebase project to clean.
+    if: github.repository == 'kemuriXD/saikou-neo'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Delete expired reports
+        env:
+          FIREBASE_CLEANUP_KEY: ${{ secrets.FIREBASE_CLEANUP_KEY }}
+        run: node firebase/delete-expired.mjs
