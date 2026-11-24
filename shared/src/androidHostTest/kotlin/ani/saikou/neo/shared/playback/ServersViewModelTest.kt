@@ -3,6 +3,9 @@ package ani.saikou.neo.shared.playback
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.log.AppLog
+import ani.saikou.neo.shared.log.LogLevel
+import ani.saikou.neo.shared.log.RecordingSink
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.SourceProblem
@@ -24,6 +27,7 @@ import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
 private val example = InstalledSource("com.example.example", "Example source", "1.0.0")
@@ -106,6 +110,35 @@ class ServersViewModelTest {
             val servers = viewModel(FakeFinder(emptyMap(), failing = mapOf(example.id to failure)))
 
             assertEquals(SourceAnswer.Failed(FailReason.RateLimited(30), waitSeconds = 30), servers.answer())
+        }
+
+    @Test
+    fun aSourceErrorIsLoggedWithItsMessage() =
+        test {
+            val sink = RecordingSink()
+            AppLog.addSink(sink)
+            try {
+                viewModel({ _, _, _ -> throw IllegalStateException("parser broke") }).answer()
+
+                assertTrue(sink.lines.any { it.level == LogLevel.Warn && "parser broke" in it.message }, sink.lines.toString())
+            } finally {
+                AppLog.removeSink(sink)
+            }
+        }
+
+    @Test
+    fun failingSourceIsLogged() =
+        test {
+            val sink = RecordingSink()
+            AppLog.addSink(sink)
+            try {
+                val failure = SourceFailure(FailReason.NotFound)
+                viewModel(FakeFinder(emptyMap(), failing = mapOf(example.id to failure))).answer()
+
+                assertTrue(sink.lines.any { it.level == LogLevel.Warn && it.tag == "Player" && example.name in it.message })
+            } finally {
+                AppLog.removeSink(sink)
+            }
         }
 
     @Test

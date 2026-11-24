@@ -4,6 +4,7 @@ import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.home.YourList
+import ani.saikou.neo.shared.log.AppLog
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.UpdateAniList
 import kotlinx.coroutines.CoroutineScope
@@ -452,7 +453,8 @@ public class AniListSync(
                     lock.withLock { work() }
                 } catch (e: CancellationException) {
                     throw e
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    AppLog.w(TAG, "A list change failed", e)
                     false
                 }
             }.await()
@@ -486,9 +488,10 @@ public class AniListSync(
                 lock.withLock { work() }
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 // Such as a queue file that can't be read or written. What's waiting is tried next time, rather than
                 // crashing the app.
+                AppLog.w(TAG, "Sending waiting changes failed", e)
             }
         }
     }
@@ -511,7 +514,12 @@ public class AniListSync(
                 queue.remove(pending.animeId)
                 continue
             }
-            val failure = sendOne(signedIn.token, pending, told?.takeIf { it.pending == pending }) ?: continue
+            val failure = sendOne(signedIn.token, pending, told?.takeIf { it.pending == pending })
+            if (failure == null) {
+                if (pending != told?.pending) AppLog.i(TAG, "Sent a waiting list change")
+                continue
+            }
+            AppLog.w(TAG, "List change not sent: $failure, ${if (failure.worthRetrying) "kept for later" else "dropped"}")
             if (!failure.worthRetrying) {
                 queue.remove(pending.animeId)
                 continue
@@ -577,6 +585,8 @@ private data class Told(
     val replaced: PendingProgress?,
     val title: AnimeTitle?,
 )
+
+private const val TAG = "AniList"
 
 // Changes are never waited on, so a screen that's slow to collect can't hold up sync. Screens that miss one read the
 // entry when they open.

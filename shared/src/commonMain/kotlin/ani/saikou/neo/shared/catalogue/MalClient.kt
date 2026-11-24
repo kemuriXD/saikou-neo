@@ -29,7 +29,7 @@ public class MalClient internal constructor(
     private val keptLock = Mutex()
 
     /** The show's MAL score out of 100, or null when nobody has scored it or Tenrai can't answer. */
-    public suspend fun score(malId: Int): Int? = engine.getJson("$TENRAI_URL/anime/$malId", io) { score() }
+    public suspend fun score(malId: Int): Int? = engine.getJson("$TENRAI_URL/anime/$malId", io, TAG) { score() }
 
     /**
      * The show's filler and recap episodes by number. An episode MAL marks as both is a recap. Tenrai lists 100 episodes
@@ -42,7 +42,7 @@ public class MalClient internal constructor(
         val kinds = mutableMapOf<Int, EpisodeKind>()
         for (page in 1..MAX_PAGES) {
             if (page > 1) delay(PAGE_GAP)
-            val found = engine.getJson("$TENRAI_URL/anime/$malId/episodes?page=$page", io) { episodePage() }
+            val found = engine.getJson("$TENRAI_URL/anime/$malId/episodes?page=$page", io, TAG) { episodePage() }
             if (found == null) return if (page == 1) null else kinds
             kinds += found.kinds
             if (!found.hasNext) break
@@ -56,6 +56,7 @@ public class MalClient internal constructor(
 
     private companion object {
         const val TENRAI_URL = "https://api.tenrai.org/v1"
+        const val TAG = "MAL"
         const val TIMEOUT_MILLIS = 15_000L
 
         // Detective Conan, the longest, has 13 pages. This stops a list that never ends.

@@ -7,6 +7,10 @@ import ani.saikou.neo.shared.account.SignInAttempt
 import ani.saikou.neo.shared.account.SignedInAccount
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
+import ani.saikou.neo.shared.log.AppLog
+import ani.saikou.neo.shared.log.LogLevel
+import ani.saikou.neo.shared.log.LogLine
+import ani.saikou.neo.shared.log.LogSink
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -480,6 +484,28 @@ class TvSignInViewModelTest {
             model.newCode()
             runCurrent()
             assertTrue(model.state.value is TvSignInState.Waiting)
+        }
+
+    @Test
+    fun tvPairingFailureIsLogged() =
+        runTest(main) {
+            val logged = mutableListOf<LogLine>()
+            val sink = LogSink { logged += it }
+            AppLog.addSink(sink)
+            try {
+                TvSignInViewModel(
+                    open = { throw PairingException("Port in use") },
+                    viewer = { AniListResult.Success(hikari) },
+                    store = accounts,
+                    tv = thisTv,
+                    io = main,
+                )
+                runCurrent()
+
+                assertTrue(logged.any { it.level == LogLevel.Warn && it.tag == "Pairing" })
+            } finally {
+                AppLog.removeSink(sink)
+            }
         }
 
     @Test

@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.playback
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AnimeDetails
+import ani.saikou.neo.shared.log.AppLog
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.awaitAllowingSiteChecks
@@ -139,6 +140,7 @@ public class ServersViewModel(
         waits.remove(source.id)?.cancel()
         mutableState.update { it.answered(source, SourceAnswer.Looking).copy(ready = true) }
         viewModelScope.launch {
+            var error: Exception? = null
             val answer =
                 try {
                     // Asked apart from the wait, so a source that won't stop can't hold up the time limit.
@@ -157,9 +159,11 @@ public class ServersViewModel(
                 } catch (e: SourceFailure) {
                     val wait = (e.reason as? FailReason.RateLimited)?.retryAfterSeconds?.takeIf { it > 0 }
                     SourceAnswer.Failed(e.reason, wait)
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    error = e
                     SourceAnswer.Failed(FailReason.SourceDown)
                 }
+            if (answer is SourceAnswer.Failed) AppLog.w(PLAYER_LOG_TAG, "${source.name} gave no servers: ${answer.reason}", error)
             mutableState.update { it.answered(source, answer) }
             if (answer is SourceAnswer.Failed && answer.waitSeconds != null) countDown(source)
         }

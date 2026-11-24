@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.sources
 import ani.saikou.neo.extension.api.HostMethod
 import ani.saikou.neo.extension.api.HostRequest
 import ani.saikou.neo.extension.api.HostResponse
+import ani.saikou.neo.shared.log.NetworkLogInterceptor
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -75,6 +76,8 @@ internal fun sharedHttpClient(
         .Builder()
         .cookieJar(cookieJar)
         .callTimeout(callLimit.inWholeMilliseconds, TimeUnit.MILLISECONDS)
+        // First, so it sees what the call finally came to, after the Cloudflare retry.
+        .addInterceptor(NetworkLogInterceptor())
         .addInterceptor { chain ->
             chain.proceed(
                 chain

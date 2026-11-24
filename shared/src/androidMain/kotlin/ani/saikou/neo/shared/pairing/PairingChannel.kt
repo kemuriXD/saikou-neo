@@ -1,5 +1,7 @@
 package ani.saikou.neo.shared.pairing
 
+import ani.saikou.neo.shared.log.AppLog
+import ani.saikou.neo.shared.log.RepeatFilter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +23,8 @@ import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+
+private const val TAG = "Pairing"
 
 /**
  * An encrypted connection between a phone and a TV, after the handshake.
@@ -106,6 +110,10 @@ public class PairingListener(
     private val perAddress = HashMap<InetAddress, ArrayDeque<Socket>>()
     private val turnedAway = HashMap<InetAddress, Int>()
 
+    // An error that repeats, such as running out of file handles or a device sending junk, logs once.
+    private val acceptErrors = RepeatFilter()
+    private val handshakeErrors = RepeatFilter()
+
     init {
         server.soTimeout = ACCEPT_POLL_MILLIS
     }
@@ -134,6 +142,7 @@ public class PairingListener(
                     while (true) {
                         ensureActive()
                         val socket = nextSocket() ?: continue
+                        acceptErrors.reset()
                         if (isCutOff(socket.inetAddress)) {
                             socket.close()
                             continue
@@ -156,6 +165,7 @@ public class PairingListener(
                             if (channel == null && gotNonce.get() && pastHello.decrementAndGet() == 0) onAttempt(false)
                             when {
                                 channel != null -> {
+                                    handshakeErrors.reset()
                                     if (!winner.complete(channel)) channel.close()
                                 }
 
@@ -180,6 +190,7 @@ public class PairingListener(
             null
         } catch (e: IOException) {
             if (server.isClosed) throw PairingException("Pairing was closed", e)
+            if (acceptErrors.firstTime(e)) AppLog.w(TAG, "Couldn't accept a connection", e)
             // A passing error, such as running out of file handles. Back off and keep listening.
             delay(ACCEPT_POLL_MILLIS.toLong())
             null
@@ -227,7 +238,8 @@ public class PairingListener(
         } catch (e: CancellationException) {
             socket.close()
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            if (handshakeErrors.firstTime(e)) AppLog.w(TAG, "A phone's handshake failed", e)
             socket.close()
             null
         }
@@ -286,6 +298,7 @@ public suspend fun connectToTv(
             PairingChannel(socket, cipher)
         }
     } catch (e: Throwable) {
+        if (e !is CancellationException) AppLog.w(TAG, "Couldn't connect to the TV", e)
         socket.close()
         throw e
     }

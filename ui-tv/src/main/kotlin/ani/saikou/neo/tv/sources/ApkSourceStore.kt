@@ -9,6 +9,7 @@ import ani.saikou.neo.extension.api.Compatibility
 import ani.saikou.neo.extension.api.ExtensionApi
 import ani.saikou.neo.extension.api.HostServices
 import ani.saikou.neo.extension.api.SourceExtension
+import ani.saikou.neo.shared.log.AppLog
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.SourceProblem
 import ani.saikou.neo.shared.sources.SourceStore
@@ -25,6 +26,8 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.IOException
+
+private const val TAG = "Sources"
 
 /** Why a source built for [builtFor] can't be used in this app, or null when it can. */
 internal fun problemFor(builtFor: Int): SourceProblem? =
@@ -61,8 +64,9 @@ class ApkSourceStore(
                     folder
                         .listFiles { file -> file.name.endsWith(APK) }
                         .orEmpty()
-                        .mapNotNull { apk -> manifest(apk)?.let(::withIcon) }
-                        .map { it.copy(list = links.read(it.id)) }
+                        .mapNotNull { apk ->
+                            manifest(apk)?.also { AppLog.i(TAG, "Found source ${it.source.id} ${it.source.version}") }?.let(::withIcon)
+                        }.map { it.copy(list = links.read(it.id)) }
                         .sorted()
             }
         }
@@ -88,11 +92,24 @@ class ApkSourceStore(
             incoming.writeBytes(apk)
             // Android 14 and later only load code from files that can't be written.
             incoming.setReadOnly()
-            val manifest = manifest(incoming) ?: return null
-            if (id != null && manifest.source.id != id) return null
-            if (manifest.source.problem != null) return manifest.source
+            val manifest = manifest(incoming)
+            if (manifest == null) {
+                AppLog.w(TAG, "Install rejected: the file isn't a source")
+                return null
+            }
+            if (id != null && manifest.source.id != id) {
+                AppLog.w(TAG, "Install rejected: ${manifest.source.id} isn't the source being updated")
+                return null
+            }
+            if (manifest.source.problem != null) {
+                AppLog.w(TAG, "Install rejected: ${manifest.source.id} is ${manifest.source.problem}")
+                return manifest.source
+            }
             // Loaded once here so a source whose code doesn't fit is never kept.
-            if (load(incoming, manifest.className) == null) return manifest.source.copy(problem = SourceProblem.BROKEN)
+            if (load(incoming, manifest.className) == null) {
+                AppLog.w(TAG, "Install rejected: ${manifest.source.id} is broken")
+                return manifest.source.copy(problem = SourceProblem.BROKEN)
+            }
             folder.mkdirs()
             val kept = File(folder, manifest.source.id + APK)
             swapIn(incoming, kept)
@@ -102,7 +119,8 @@ class ApkSourceStore(
             loaded.remove(source.id)
             sources.value = (sources.value.orEmpty().filter { it.id != source.id } + source).sorted()
             source
-        } catch (_: IOException) {
+        } catch (e: IOException) {
+            AppLog.w(TAG, "Couldn't install the source", e)
             null
         } finally {
             incoming.delete()
@@ -177,14 +195,22 @@ class ApkSourceStore(
         val icon =
             try {
                 manifest.app.loadIcon(context.packageManager)
-            } catch (_: RuntimeException) {
-                return null
-            } catch (_: OutOfMemoryError) {
-                return null
-            } catch (_: StackOverflowError) {
-                return null
+            } catch (e: RuntimeException) {
+                return noIcon(manifest, e)
+            } catch (e: OutOfMemoryError) {
+                return noIcon(manifest, e)
+            } catch (e: StackOverflowError) {
+                return noIcon(manifest, e)
             }
         return file.path.takeIf { saveIcon(icon, file) }
+    }
+
+    private fun noIcon(
+        manifest: Manifest,
+        error: Throwable,
+    ): String? {
+        AppLog.w(TAG, "Couldn't draw the icon of ${manifest.source.id}", error)
+        return null
     }
 
     /** What [apk]'s manifest says about the source, or null when it isn't a source. */
@@ -216,12 +242,13 @@ class ApkSourceStore(
         apk: File,
         className: String,
     ): Class<*>? =
-        loading {
+        loading(className) {
             DexClassLoader(apk.path, context.codeCacheDir.path, null, javaClass.classLoader).loadClass(className)
         }
 
     /** A new [type], which runs the source's static initialiser and constructor. */
-    private fun instance(type: Class<*>): SourceExtension? = loading { type.getDeclaredConstructor().newInstance() as? SourceExtension }
+    private fun instance(type: Class<*>): SourceExtension? =
+        loading(type.name) { type.getDeclaredConstructor().newInstance() as? SourceExtension }
 
     /**
      * Gives [extension] the host handle, treating a source whose attach throws as one that doesn't load. attach is a
@@ -234,19 +261,26 @@ class ApkSourceStore(
             true
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Throwable) {
+        } catch (e: Throwable) {
+            AppLog.e(TAG, "A source failed to attach", e)
             false
         }
 
-    private fun <T> loading(block: () -> T): T? =
+    private fun <T> loading(
+        what: String,
+        block: () -> T,
+    ): T? =
         try {
             block()
-        } catch (_: ReflectiveOperationException) {
+        } catch (e: ReflectiveOperationException) {
+            AppLog.e(TAG, "Couldn't load $what", e)
             null
-        } catch (_: LinkageError) {
+        } catch (e: LinkageError) {
             // Includes NoSuchMethodError, AbstractMethodError and a failing static initialiser.
+            AppLog.e(TAG, "Couldn't load $what", e)
             null
-        } catch (_: SecurityException) {
+        } catch (e: SecurityException) {
+            AppLog.e(TAG, "Couldn't load $what", e)
             null
         }
 

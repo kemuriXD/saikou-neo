@@ -4,6 +4,9 @@ import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.home.WatchProgress
+import ani.saikou.neo.shared.log.AppLog
+import ani.saikou.neo.shared.log.LogLevel
+import ani.saikou.neo.shared.log.RecordingSink
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -20,6 +23,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.minutes
 import kotlin.time.Duration.Companion.seconds
 
@@ -152,6 +156,20 @@ class PlayerResumeTest {
             val player = resuming(ResumeServers(fails = true))
 
             assertEquals(NextPlay.Choose(5), player.state.value.going)
+        }
+
+    @Test
+    fun aFailedSourceIsLogged() =
+        test {
+            val sink = RecordingSink()
+            AppLog.addSink(sink)
+            try {
+                resuming(ResumeServers(fails = true))
+
+                assertTrue(sink.lines.any { it.level == LogLevel.Warn && "SourceFailure" in it.message }, sink.lines.toString())
+            } finally {
+                AppLog.removeSink(sink)
+            }
         }
 
     @Test

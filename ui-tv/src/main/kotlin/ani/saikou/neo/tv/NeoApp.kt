@@ -13,6 +13,7 @@ import ani.saikou.neo.shared.catalogue.ShowMatcher
 import ani.saikou.neo.shared.home.AniListYourList
 import ani.saikou.neo.shared.home.SyncedSides
 import ani.saikou.neo.shared.home.WatchHistoryStore
+import ani.saikou.neo.shared.log.installAppLog
 import ani.saikou.neo.shared.playback.WatchingRun
 import ani.saikou.neo.shared.schedule.AnimeScheduleSource
 import ani.saikou.neo.shared.search.RecentSearchesStore
@@ -40,6 +41,11 @@ import java.util.Calendar
  */
 class NeoApp : Application() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    override fun onCreate() {
+        super.onCreate()
+        installAppLog(this, packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown")
+    }
 
     val settingsStore by lazy { SettingsStore.at(File(filesDir, "settings.preferences_pb").absolutePath, scope) }
 

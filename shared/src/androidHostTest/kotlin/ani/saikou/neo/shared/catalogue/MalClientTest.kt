@@ -1,5 +1,8 @@
 package ani.saikou.neo.shared.catalogue
 
+import ani.saikou.neo.shared.log.AppLog
+import ani.saikou.neo.shared.log.LogLevel
+import ani.saikou.neo.shared.log.RecordingSink
 import com.apollographql.apollo.api.http.HttpRequest
 import com.apollographql.apollo.api.http.HttpResponse
 import com.apollographql.apollo.network.http.HttpEngine
@@ -7,6 +10,7 @@ import kotlinx.coroutines.test.runTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 class MalClientTest {
     @Test
@@ -41,6 +45,23 @@ class MalClientTest {
     fun withoutAConnectionThereIsNoScore() =
         runTest {
             assertNull(MalClient(OfflineEngine).score(61987))
+        }
+
+    @Test
+    fun aFailedCallIsLogged() =
+        runTest {
+            val sink = RecordingSink()
+            AppLog.addSink(sink)
+            try {
+                MalClient(SiteEngine("mal", status = 429) { "rate-limited" }).score(61987)
+                MalClient(OfflineEngine).score(61987)
+
+                val mal = sink.lines.filter { it.level == LogLevel.Warn && it.tag == "MAL" }
+                assertEquals(2, mal.size)
+                assertTrue("429" in mal.first().message)
+            } finally {
+                AppLog.removeSink(sink)
+            }
         }
 
     @Test
