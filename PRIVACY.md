@@ -1,13 +1,14 @@
 # Privacy policy
 
-Last updated: 25 October 2026
+Last updated: 24 November 2026
 
-Saikou Neo doesn't run any servers and doesn't collect data about you.
+Saikou Neo doesn't run servers of its own. The only data it collects about you
+is in crash and bug reports, described below.
 
 ## What stays on your device
 
 - Your AniList or MyAnimeList sign-in token. It's only sent to the service it
-  belongs to.
+  belongs to, and never appears in a report.
 - Your settings, watch progress and installed extensions.
 
 Uninstalling the app, or clearing its data, removes all of this.
@@ -27,12 +28,59 @@ Uninstalling the app, or clearing its data, removes all of this.
 - Extensions you install make their own network requests to
   the sources they use. Saikou Neo doesn't see or control what those sources
   collect.
+- Crash and bug reports, described next.
+
+## Crash and bug reports
+
+When the app crashes, or hits an error it recovers from, it sends a crash
+report. When you send a bug report from the TV or the phone, the app sends that
+too. This applies to every release channel (alpha, beta and stable).
+
+A report contains:
+
+- Your AniList or MyAnimeList user ID and name, if you're signed in.
+- The app version and release channel.
+- Device details: model, Android version, memory, free storage, network type
+  and whether it's a TV or a phone.
+- What you were doing: the current screen, the anime and episode, and the
+  extension in use with its version.
+- Recent app logs. Tokens, sign-in headers, cookies, web address parameters
+  and IP addresses are removed before the report is sent.
+
+A bug report also contains a screenshot of the app, the category you picked,
+and any description or screenshots you add on the phone.
+
+Reports go to Google Firebase: crash reports to Firebase Crashlytics and bug
+reports to Cloud Firestore. The app signs in to Firebase anonymously to send a
+bug report, so there's no account with us. Crashlytics also collects its own
+install ID and device data. Google handles all of this under the
+[Firebase privacy terms](https://firebase.google.com/support/privacy).
+
+Reports are deleted after 90 days.
+
+If a bug report becomes a GitHub issue, the issue holds only your description
+and a report code. Logs and device details are never posted there.
+
+Builds made without the project's Firebase settings, such as your own builds
+from the source code, contain no Firebase code and send no reports.
+
+### Turning reports off
+
+- Crash reports are on by default. You can turn them off in Settings.
+- A bug report is only sent when you press Send, after the app shows you what's
+  in it.
+
+### Deleting your reports
+
+Email [hello@kemuri.vip](mailto:hello@kemuri.vip) with your AniList or
+MyAnimeList name, or the report code, and the reports will be deleted. Please
+don't ask in a GitHub issue, because issues are public.
 
 ## What we don't do
 
-- No analytics, crash reporting or advertising.
-- No accounts with us. Saikou Neo has no server to store them.
-- Nothing is sold or shared, because nothing is collected.
+- No analytics or advertising.
+- No accounts with us.
+- Nothing is sold, and reports are only used to fix the app.
 
 ## Children
 
@@ -46,4 +94,6 @@ shows when it last changed.
 ## Contact
 
 Questions go to the project's
-[GitHub issues](https://github.com/kemuriXD/saikou-neo/issues).
+[GitHub issues](https://github.com/kemuriXD/saikou-neo/issues). For anything
+private, such as deleting a report, email
+[hello@kemuri.vip](mailto:hello@kemuri.vip).
