@@ -11,6 +11,8 @@ public object LogRedactor {
     private const val TOKEN = "[token]"
     private const val IP = "[ip]"
 
+    // Log lines can be long. Bounded and possessive quantifiers keep every pattern
+    // linear and stop the JVM regex engine from recursing once per character.
     // Scheme length is capped so long runs of scheme characters stay linear.
     private val url =
         Regex(
@@ -19,7 +21,7 @@ public object LogRedactor {
         )
     private val relativeUrl =
         Regex(
-            """(?<![^\s"'(=,\[])//([A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+|\[[^\]\s]*\])((?::[0-9]{1,5})?)(/[^\s"'<>]*)""",
+            """(?<![^\s"'(=,\[])//([A-Za-z0-9\-]++(?:\.[A-Za-z0-9\-]++)++|\[[^\]\s]*\])((?::[0-9]{1,5})?)(/[^\s"'<>]*)""",
         )
     private val query = Regex("""\?[\w%.\-]\S*""")
     private val header =
@@ -34,7 +36,10 @@ public object LogRedactor {
                 "(access_token|refresh_token|id_token|client_secret|api_key|apikey|password|signature|" +
                 "session|secret|token|code|auth|key|sig)" +
                 """(\\?"?[ \t]*[:=][ \t]*)""" +
-                """(\\"(?:(?!\\")[^\r\n])*(?:\\")?|"(?:[^"\\\r\n]|\\.)*"?|'[^'\r\n]*'?|[^\s"'&,;}\\]+)""",
+                """(\\"[^\\\r\n]*+(?:\\(?!")[^\\\r\n]*+)*+(?:\\")?""" +
+                """|"[^"\\\r\n]*+(?:\\.[^"\\\r\n]*+)*+"?""" +
+                """|'[^'\r\n]*+'?""" +
+                """|[^\s"'&,;}]++)""",
             RegexOption.IGNORE_CASE,
         )
     private val jwt = Regex("""\beyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*""")

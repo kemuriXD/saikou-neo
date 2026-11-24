@@ -141,6 +141,28 @@ class LogRedactorTest {
     }
 
     @Test
+    fun longQuotedValuesDoNotOverflow() {
+        val long = "a".repeat(50_000)
+        assertEquals("token=\"[redacted]\"", redact("token=\"$long\""))
+        assertEquals("token=\"[redacted]", redact("token=\"$long"))
+        assertEquals("token=\"[redacted]", redact("token=\"" + "\\a".repeat(25_000)))
+        assertEquals("""\"token\":\"[redacted]\"""", redact("""\"token\":\"$long\""""))
+        val jwtLike = "eyJ" + "x1".repeat(10_000) + ".abc.def"
+        assertEquals("\"access_token\":\"[redacted]\"", redact("\"access_token\":\"$jwtLike\""))
+    }
+
+    @Test
+    fun longRelativeUrlCandidateDoesNotOverflow() {
+        val input = " //" + "a.".repeat(25_000)
+        assertEquals(input, redact(input))
+    }
+
+    @Test
+    fun unquotedValueKeepsBackslashes() {
+        assertEquals("password=[redacted] rest", redact("password=p\\ss rest"))
+    }
+
+    @Test
     fun ipv6Removed() {
         listOf(
             "fe80::1%wlan0",
@@ -193,6 +215,7 @@ class LogRedactorTest {
 
         val FIX_INPUTS =
             listOf(
+                "password=p\\ss rest",
                 "from fe80::1.",
                 "peer 2001:db8::8a2e:370:7334.",
                 """body={\"token\":\"s3cr3t\"}""",
