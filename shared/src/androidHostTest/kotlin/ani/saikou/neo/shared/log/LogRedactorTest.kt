@@ -4,6 +4,8 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
+import kotlin.time.measureTime
 
 class LogRedactorTest {
     private fun redact(text: String) = LogRedactor.redact(text)
@@ -65,6 +67,80 @@ class LogRedactorTest {
     }
 
     @Test
+    fun ipv6BeforeFullStop() {
+        assertEquals("from [ip].", redact("from fe80::1."))
+        assertEquals("peer [ip].", redact("peer 2001:db8::8a2e:370:7334."))
+    }
+
+    @Test
+    fun escapedJsonPairs() {
+        val out = redact("""body={\"token\":\"s3cr3t\"}""")
+        assertFalse("s3cr3t" in out, out)
+        assertEquals("""body={\"token\":\"[redacted]\"}""", out)
+    }
+
+    @Test
+    fun unclosedQuotedValue() {
+        val out = redact("password=\"hunter2")
+        assertFalse("hunter2" in out, out)
+        assertEquals("password=\"[redacted]", out)
+    }
+
+    @Test
+    fun longRunsRedactQuickly() {
+        val input = "a-".repeat(100_000)
+        val elapsed = measureTime { redact(input) }
+        assertTrue(elapsed < 1.seconds, "took $elapsed")
+    }
+
+    @Test
+    fun userinfoWithSlashDropped() {
+        val out = redact("http://user:p/w@host/x")
+        assertFalse("user" in out, out)
+        assertFalse("p/w" in out, out)
+        assertEquals("http://host/…", out)
+    }
+
+    @Test
+    fun escapedAndProtocolRelativeUrls() {
+        assertEquals("""url=https:\/\/host.test\/…""", redact("""url=https:\/\/host.test\/path\/abc"""))
+        assertEquals("""{"u":"https:\/\/host.test\/…"}""", redact("""{"u":"https:\/\/host.test\/p\/abc"}"""))
+        assertEquals("src //cdn.example.com/…", redact("src //cdn.example.com/path/abc"))
+        assertEquals("// TODO fix this", redact("// TODO fix this"))
+        assertEquals("a //comment here", redact("a //comment here"))
+    }
+
+    @Test
+    fun otherAuthHeaders() {
+        assertEquals("Proxy-Authorization: [redacted]", redact("Proxy-Authorization: Basic abc"))
+        assertEquals("X-Api-Key: [redacted]", redact("X-Api-Key: abc123"))
+        assertEquals("x-auth-token=[redacted]", redact("x-auth-token=abc123"))
+    }
+
+    @Test
+    fun basicScheme() {
+        assertEquals("used Basic [redacted] here", redact("used Basic dXNlcjpwYXNz here"))
+    }
+
+    @Test
+    fun jsonPairWithSpace() {
+        assertEquals("{\"key\": \"[redacted]\"}", redact("{\"key\": \"abc\"}"))
+    }
+
+    @Test
+    fun urlWithIpv6Host() {
+        assertEquals("http://[ip]:8080/…", redact("http://[fe80::1]:8080/a"))
+    }
+
+    @Test
+    fun multiLineKeepsOtherLines() {
+        assertEquals(
+            "Authorization: [redacted]\nepisode 12 loaded",
+            redact("Authorization: x\nepisode 12 loaded"),
+        )
+    }
+
+    @Test
     fun ipv6Removed() {
         listOf(
             "fe80::1%wlan0",
@@ -104,7 +180,7 @@ class LogRedactorTest {
                 "::1",
                 "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
                 "::ffff:10.0.0.1",
-            ) + ORDINARY
+            ) + FIX_INPUTS + ORDINARY
         inputs.forEach {
             val once = redact(it)
             assertEquals(once, redact(once), it)
@@ -114,6 +190,26 @@ class LogRedactorTest {
     private companion object {
         const val JWT =
             "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjMifQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c"
+
+        val FIX_INPUTS =
+            listOf(
+                "from fe80::1.",
+                "peer 2001:db8::8a2e:370:7334.",
+                """body={\"token\":\"s3cr3t\"}""",
+                "password=\"hunter2",
+                "http://user:p/w@host/x",
+                """url=https:\/\/host.test\/path\/abc""",
+                """{"u":"https:\/\/host.test\/p\/abc"}""",
+                "src //cdn.example.com/path/abc",
+                "// TODO fix this",
+                "Proxy-Authorization: Basic abc",
+                "X-Api-Key: abc123",
+                "x-auth-token=abc123",
+                "used Basic dXNlcjpwYXNz here",
+                "{\"key\": \"abc\"}",
+                "http://[fe80::1]:8080/a",
+                "Authorization: x\nepisode 12 loaded",
+            )
 
         val ORDINARY =
             listOf(

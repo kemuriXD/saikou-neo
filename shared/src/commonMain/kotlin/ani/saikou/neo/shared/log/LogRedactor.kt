@@ -11,15 +11,20 @@ public object LogRedactor {
     private const val TOKEN = "[token]"
     private const val IP = "[ip]"
 
+    // Scheme length is capped so long runs of scheme characters stay linear.
     private val url =
         Regex(
-            """\b([a-z][a-z0-9+.\-]*)://([^\s/?#"'<>]*)([^\s"'<>]*)""",
+            """\b([a-z][a-z0-9+.\-]{0,30})(://|:\\/\\/)([^\s"'<>@?#]*@)?([^\s/\\?#"'<>]*)([^\s"'<>]*)""",
             RegexOption.IGNORE_CASE,
+        )
+    private val relativeUrl =
+        Regex(
+            """(?<![^\s"'(=,\[])//([A-Za-z0-9\-]+(?:\.[A-Za-z0-9\-]+)+|\[[^\]\s]*\])((?::[0-9]{1,5})?)(/[^\s"'<>]*)""",
         )
     private val query = Regex("""\?[\w%.\-]\S*""")
     private val header =
         Regex(
-            """\b(Proxy-Authorization|Authorization|Set-Cookie|Cookie|X-Api-Key|X-Auth-Token)("?[ \t]*[:=][ \t]*)[^\r\n]*""",
+            """\b(Proxy-Authorization|Authorization|Set-Cookie|Cookie|X-Api-Key|X-Auth-Token)(\\?"?[ \t]*[:=][ \t]*)[^\r\n]*""",
             RegexOption.IGNORE_CASE,
         )
     private val scheme = Regex("""\b(Bearer|Basic)([ \t]+)[^\s"',;]+""", RegexOption.IGNORE_CASE)
@@ -28,7 +33,8 @@ public object LogRedactor {
             "(?<![A-Za-z0-9])" +
                 "(access_token|refresh_token|id_token|client_secret|api_key|apikey|password|signature|" +
                 "session|secret|token|code|auth|key|sig)" +
-                """("?[ \t]*[:=][ \t]*)(?:"(?:[^"\\]|\\.)*"|'[^']*'|[^\s"'&,;}]+)""",
+                """(\\?"?[ \t]*[:=][ \t]*)""" +
+                """(\\"(?:(?!\\")[^\r\n])*(?:\\")?|"(?:[^"\\\r\n]|\\.)*"?|'[^'\r\n]*'?|[^\s"'&,;}\\]+)""",
             RegexOption.IGNORE_CASE,
         )
     private val jwt = Regex("""\beyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*""")
@@ -43,38 +49,46 @@ public object LogRedactor {
     private val ipv4 = Regex("""(?<![0-9.])(?:$OCTET\.){3}$OCTET(?![0-9]|\.[0-9])""")
     private val ipv4Exact = Regex("""(?:$OCTET\.){3}$OCTET""")
     private val hexGroup = Regex("[0-9A-Fa-f]{1,4}")
+    private val quotes = listOf("\\\"", "\"", "'")
 
     /** Returns [text] with secrets, URL paths and IP addresses replaced. */
     public fun redact(text: String): String {
-        var out = url.replace(text) { m -> redactUrl(m.groupValues[1], m.groupValues[2], m.groupValues[3]) }
+        var out =
+            url.replace(text) { m ->
+                val escaped = m.groupValues[2] != "://"
+                m.groupValues[1] + m.groupValues[2] + redactHost(m.groupValues[4], m.groupValues[5], escaped)
+            }
+        out = relativeUrl.replace(out) { m -> "//" + redactHost(m.groupValues[1] + m.groupValues[2], m.groupValues[3], false) }
         out = query.replace(out, "")
         out = header.replace(out) { m -> m.groupValues[1] + m.groupValues[2] + REDACTED }
         out = scheme.replace(out) { m -> m.groupValues[1] + m.groupValues[2] + REDACTED }
-        out =
-            pair.replace(out) { m ->
-                val value = m.value.substring(m.groupValues[1].length + m.groupValues[2].length)
-                val quote =
-                    value
-                        .first()
-                        .takeIf { it == '"' || it == '\'' }
-                        ?.toString()
-                        .orEmpty()
-                m.groupValues[1] + m.groupValues[2] + quote + REDACTED + quote
-            }
+        out = pair.replace(out) { m -> m.groupValues[1] + m.groupValues[2] + quoted(m.groupValues[3]) }
         out = jwt.replace(out, TOKEN)
         out =
             opaque.replace(out) { m ->
                 if (letter.containsMatchIn(m.value) && digit.containsMatchIn(m.value)) TOKEN else m.value
             }
-        out = ipv6.replace(out) { m -> if (isIpv6(m.value)) IP else m.value }
+        out =
+            ipv6.replace(out) { m ->
+                val address = m.value.trimEnd('.')
+                if (isIpv6(address)) IP + m.value.substring(address.length) else m.value
+            }
         out = ipv4.replace(out, IP)
         return out
     }
 
-    private fun redactUrl(
-        scheme: String,
+    /** Replaces [value] with the redacted marker, keeping its quotes whether or not they close. */
+    private fun quoted(value: String): String {
+        val open = quotes.firstOrNull { value.startsWith(it) } ?: return REDACTED
+        val closed = value.length >= open.length * 2 && value.endsWith(open)
+        return open + REDACTED + if (closed) open else ""
+    }
+
+    /** Returns [authority]'s host and port with IPs hidden, plus a marker when [rest] is not empty. */
+    private fun redactHost(
         authority: String,
         rest: String,
+        escaped: Boolean,
     ): String {
         val hostPort = authority.substringAfterLast('@')
         val host: String
@@ -94,8 +108,13 @@ public object LogRedactor {
             }
         }
         val safeHost = if (ipv4Exact.matches(host)) IP else host
-        val tail = if (rest.isEmpty()) "" else "/…"
-        return "$scheme://$safeHost$port$tail"
+        val tail =
+            when {
+                rest.isEmpty() -> ""
+                escaped -> "\\/…"
+                else -> "/…"
+            }
+        return "$safeHost$port$tail"
     }
 
     private fun isIpv6(candidate: String): Boolean {
