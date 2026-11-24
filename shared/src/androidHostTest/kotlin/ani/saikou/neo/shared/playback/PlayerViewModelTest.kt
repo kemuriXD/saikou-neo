@@ -8,6 +8,9 @@ import ani.saikou.neo.shared.account.WatchingUpdates
 import ani.saikou.neo.shared.catalogue.AnimeCard
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.crash.CrashContext
+import ani.saikou.neo.shared.crash.CrashLogScrubber
+import ani.saikou.neo.shared.crash.RecordingReporter
 import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.log.AppLog
@@ -115,6 +118,11 @@ private class FakeHistory : WatchHistory {
     }
 }
 
+/** A source's own error. Its one constructor keeps coroutines' tests from copying it, as release builds never do. */
+private class Broken(
+    show: Int,
+) : Exception("Broken at https://cdn.example.org/a?token=secret for show $show")
+
 private const val NOW = 1_793_921_400L
 private val LENGTH = 24.minutes.inWholeMilliseconds
 
@@ -126,8 +134,13 @@ class PlayerViewModelTest {
         Dispatchers.setMain(main)
     }
 
+    private val reports = RecordingReporter().also { CrashContext.install(it, CrashLogScrubber()) }
+
     @AfterTest
-    fun resetMain() = Dispatchers.resetMain()
+    fun resetMain() {
+        Dispatchers.resetMain()
+        CrashContext.reset()
+    }
 
     private fun test(body: suspend TestScope.() -> Unit) = runTest(main) { body() }
 
@@ -518,6 +531,67 @@ class PlayerViewModelTest {
             store.clear()
 
             assertTrue(finder.cancelled)
+        }
+
+    @Test
+    fun reportsSayWhatIsPlaying() =
+        test {
+            player(FakeStreams(), picked = 2)
+
+            assertEquals(
+                mapOf("anime_id" to "1535", "episode" to "7", "extension" to "com.example.example", "extension_version" to "1.0.0"),
+                reports.keys,
+            )
+        }
+
+    @Test
+    fun movingOnToAnotherSourcesServerChangesTheExtension() =
+        test {
+            val finder = FakeStreams()
+            finder.fail(two, SourceFailure(FailReason.SourceDown))
+            player(finder, picked = 1)
+
+            assertEquals("com.example.example", reports.keys["extension"])
+        }
+
+    @Test
+    fun leavingThePlayerBlanksWhatItWasPlaying() =
+        test {
+            val store = ViewModelStore()
+            ViewModelProvider.create(store, viewModelFactory { initializer { player(FakeStreams()) } })[PlayerViewModel::class]
+
+            store.clear()
+
+            assertEquals(setOf(""), reports.keys.values.toSet())
+        }
+
+    @Test
+    fun aStopIsRecordedWithTheCleanedTextOfWhatFailed() =
+        test {
+            val finder = FakeStreams()
+            val error = Broken(21)
+            finder.fail(three, error)
+            player(finder, picked = 2)
+
+            val (message, sent) = reports.recovered.single()
+            assertEquals("Player: Playback stopped: SourceDown: Broken: Broken at [url] for show [id]", message)
+            assertEquals(error, sent)
+        }
+
+    @Test
+    fun aStopTheVideoReportsIsRecordedToo() =
+        test {
+            playing().failed(PlayerError.Failed(FailReason.SourceDown, 503), positionMs = 724_000)
+
+            assertEquals(listOf("Player: Playback stopped: SourceDown, HTTP 503"), reports.recovered.map { it.first })
+        }
+
+    @Test
+    fun movingToTheNextServerIsNotRecorded() =
+        test {
+            player(FakeStreams()).failed(PlayerError.Failed(FailReason.SourceDown, 404), positionMs = 0)
+
+            assertTrue(reports.recovered.isEmpty())
         }
 
     @Test

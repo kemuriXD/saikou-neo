@@ -7,6 +7,7 @@ import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.listSaver
@@ -25,6 +26,7 @@ import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
 import ani.saikou.neo.shared.account.AniListProfile
+import ani.saikou.neo.shared.crash.CrashContext
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.playback.PlayRequest
 import ani.saikou.neo.shared.search.SearchGenre
@@ -84,6 +86,21 @@ sealed interface Screen {
         val visit: Int
     }
 }
+
+/** The screen's name in crash reports. It never carries an ID. */
+internal fun Screen.reportName(): String =
+    when (this) {
+        Screen.Home -> "home"
+        is Screen.SeeMore -> "see_more"
+        is Screen.Section -> section.name.lowercase()
+        Screen.Sources -> "settings_sources"
+        is Screen.Genre -> "genre"
+        is Screen.Details -> "details"
+        is Screen.Recommendations -> "recommendations"
+        Screen.SignIn -> "sign_in"
+        Screen.SignedOutProfile -> "signed_out_profile"
+        is Screen.Player -> "player"
+    }
 
 /** A number no screen on [stack] has, for the next one opened. */
 private fun nextVisit(stack: List<Screen>) = (stack.filterIsInstance<Screen.Visited>().maxOfOrNull { it.visit } ?: 0) + 1
@@ -163,6 +180,9 @@ fun NeoNavigation(
     player: @Composable (request: PlayRequest, back: () -> Unit, playNext: (PlayRequest) -> Unit) -> Unit = { _, _, _ -> },
 ) {
     val backStack = rememberSaveable(saver = BackStackSaver) { mutableStateListOf<Screen>(Screen.Home) }
+    // Crash reports say which screen was on show.
+    val onShow = backStack.lastOrNull()?.reportName()
+    LaunchedEffect(onShow) { onShow?.let(CrashContext::screen) }
     // Takes focus back from the rail to what last had it on Home.
     val homeFocus = remember { FocusRequester() }
     // One crossfade each way. The default Back preview shrinks the screen as for a phone's back swipe, which a remote doesn't have.

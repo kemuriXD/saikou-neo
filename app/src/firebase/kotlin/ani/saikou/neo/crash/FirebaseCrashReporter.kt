@@ -1,6 +1,7 @@
 package ani.saikou.neo.crash
 
 import ani.saikou.neo.shared.crash.CrashReporter
+import ani.saikou.neo.shared.crash.appFrames
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 
 /** Sends reports to Crashlytics. */
@@ -32,6 +33,13 @@ internal class FirebaseCrashReporter : CrashReporter {
 
     override fun log(line: String) {
         crashlytics.log(line)
+    }
+
+    override fun recordNonFatal(
+        message: String,
+        error: Throwable?,
+    ) {
+        crashlytics.recordException(RecoveredError(message, appFrames(error?.stackTrace)))
     }
 
     private companion object {

@@ -160,7 +160,8 @@ public object AppLog {
         return if (redacted.length > LINE_LIMIT) redacted.take(LINE_LIMIT) + "…" else redacted
     }
 
-    private fun describe(error: Throwable): String {
+    /** The error's type and message, then its causes', as a log line shows them. Not yet redacted. */
+    internal fun describe(error: Throwable): String {
         val text = StringBuilder(summary(error))
         var cause = error.cause
         var count = 0

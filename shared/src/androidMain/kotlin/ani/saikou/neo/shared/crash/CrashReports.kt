@@ -16,8 +16,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
- * What goes with a crash report: the device's details, the signed-in AniList user and a trail of scrubbed log lines.
- * Sending follows the Crash reports setting.
+ * What goes with a crash report: the device's details, the signed-in AniList user and a trail of scrubbed log lines,
+ * plus what [CrashContext] is told. Sending follows the Crash reports setting.
  */
 public class CrashReports(
     private val reporter: CrashReporter,
@@ -39,10 +39,16 @@ public class CrashReports(
         network: Flow<String> = emptyFlow(),
     ) {
         AppLog.addSink(sink)
+        // Off until the setting is read, as it could be off.
+        CrashContext.enabled = false
+        CrashContext.install(reporter, scrubber)
         // Only changes, the first value included. The reporter keeps the choice for the next run, where it fully
         // applies, and deletes the reports kept while it was off.
         scope.launch(failed) {
-            settings.map { it.crashReports }.distinctUntilChanged().collect { safely { reporter.setEnabled(it) } }
+            settings.map { it.crashReports }.distinctUntilChanged().collect {
+                CrashContext.enabled = it
+                safely { reporter.setEnabled(it) }
+            }
         }
         scope.launch(failed) {
             facts().forEach { (key, value) -> safely { reporter.setKey(key, value) } }

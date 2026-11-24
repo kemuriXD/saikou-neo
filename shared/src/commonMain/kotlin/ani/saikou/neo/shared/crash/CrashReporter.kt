@@ -18,6 +18,15 @@ public interface CrashReporter {
 
     /** Adds a line to the trail kept with the next report. */
     public fun log(line: String)
+
+    /**
+     * Records an error the app recovered from. [message] is already cleaned and is the only text sent. [error], when
+     * there is one, gives only the app's stack frames, so reports group by where it happened. Its own message is never sent.
+     */
+    public fun recordNonFatal(
+        message: String,
+        error: Throwable?,
+    )
 }
 
 /** A [CrashReporter] that does nothing. */
@@ -35,4 +44,9 @@ public object NoCrashReporter : CrashReporter {
     ): Unit = Unit
 
     override fun log(line: String): Unit = Unit
+
+    override fun recordNonFatal(
+        message: String,
+        error: Throwable?,
+    ): Unit = Unit
 }

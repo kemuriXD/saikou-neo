@@ -31,6 +31,10 @@ import androidx.tv.material3.Button
 import androidx.tv.material3.Text
 import ani.saikou.neo.shared.account.AniListProfile
 import ani.saikou.neo.shared.catalogue.AnimeDetails
+import ani.saikou.neo.shared.crash.CrashContext
+import ani.saikou.neo.shared.crash.CrashLogScrubber
+import ani.saikou.neo.shared.crash.CrashReporter
+import ani.saikou.neo.shared.crash.NoCrashReporter
 import ani.saikou.neo.shared.home.HomeRow
 import ani.saikou.neo.shared.home.More
 import ani.saikou.neo.shared.home.SeeMoreState
@@ -63,6 +67,8 @@ import ani.saikou.neo.tv.ui.RAIL_TAG
 import ani.saikou.neo.tv.ui.RailWidth
 import ani.saikou.neo.tv.ui.Section
 import ani.saikou.neo.tv.ui.railTag
+import org.junit.After
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -553,6 +559,32 @@ class NeoNavigationTest {
         compose.onNodeWithText("Details for 0").assertExists()
         compose.onNodeWithText("Playing E7").assertDoesNotExist()
     }
+
+    @Test
+    fun crashReportsFollowTheScreenOnShow() {
+        val screens = mutableListOf<String>()
+        val reporter =
+            object : CrashReporter by NoCrashReporter {
+                override fun setKey(
+                    key: String,
+                    value: String,
+                ) {
+                    if (key == "screen") screens += value
+                }
+            }
+        CrashContext.install(reporter, CrashLogScrubber())
+        show()
+        press(Key.DirectionCenter)
+        press(Key.DirectionDown)
+        press(Key.DirectionCenter)
+        compose.onNodeWithText("Playing E7").assertExists()
+        back()
+
+        assertEquals(listOf("home", "details", "player", "details"), screens)
+    }
+
+    @After
+    fun resetCrashContext() = CrashContext.reset()
 
     // The stream and its links don't outlive the app, so it comes back on Details.
     @Test

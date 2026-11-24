@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.account
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.crash.CrashContext
 import ani.saikou.neo.shared.home.YourList
 import ani.saikou.neo.shared.log.AppLog
 import ani.saikou.neo.shared.settings.Settings
@@ -455,6 +456,7 @@ public class AniListSync(
                     throw e
                 } catch (e: Exception) {
                     AppLog.w(TAG, "A list change failed", e)
+                    CrashContext.recovered(TAG, "A list change failed", e)
                     false
                 }
             }.await()
@@ -492,6 +494,7 @@ public class AniListSync(
                 // Such as a queue file that can't be read or written. What's waiting is tried next time, rather than
                 // crashing the app.
                 AppLog.w(TAG, "Sending waiting changes failed", e)
+                CrashContext.recovered(TAG, "Sending waiting changes failed", e)
             }
         }
     }
@@ -521,6 +524,8 @@ public class AniListSync(
             }
             AppLog.w(TAG, "List change not sent: $failure, ${if (failure.worthRetrying) "kept for later" else "dropped"}")
             if (!failure.worthRetrying) {
+                // One kept for later is AniList being out of reach, which isn't for the app to fix.
+                CrashContext.recovered(TAG, "List change not sent: ${failure.kind}, dropped")
                 queue.remove(pending.animeId)
                 continue
             }
@@ -591,6 +596,10 @@ private const val TAG = "AniList"
 // Changes are never waited on, so a screen that's slow to collect can't hold up sync. Screens that miss one read the
 // entry when they open.
 private const val CHANGES_KEPT = 8
+
+// What went wrong without AniList's own words, which can quote the show, for crash reports.
+private val AniListError.kind: String
+    get() = if (this is AniListError.Http) "HTTP $statusCode" else this::class.simpleName ?: "Error"
 
 // A refused token is kept too: signing in again as the same user sends it.
 private val AniListError.worthRetrying: Boolean

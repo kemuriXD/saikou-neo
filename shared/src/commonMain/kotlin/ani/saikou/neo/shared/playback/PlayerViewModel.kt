@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.account.WatchingUpdates
 import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.art
+import ani.saikou.neo.shared.crash.CrashContext
 import ani.saikou.neo.shared.details.EpisodeList
 import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
@@ -236,6 +237,9 @@ public class PlayerViewModel<S>(
     private var askFor: Int? = null
     private val askRead = updates?.let { updates -> viewModelScope.launch { askFor = updates.asksFirst(request.show.card.id) } }
 
+    // What made the stream call fail, for the report if playback then stops.
+    private var lastError: Throwable? = null
+
     // The episode's length, once the player knows it.
     private var lengthMs = 0L
 
@@ -252,6 +256,7 @@ public class PlayerViewModel<S>(
     public val state: StateFlow<PlayerState<S>> = mutableState.asStateFlow()
 
     init {
+        CrashContext.playing(this, request.show.card.id, request.episode, request.servers[index].source)
         when {
             request.findServer -> findServer()
             resumeAt == null || request.resume -> open(index, startAtMs = resumeAt ?: 0)
@@ -280,6 +285,10 @@ public class PlayerViewModel<S>(
             listed = listOf(PlayServer(wanted.source, same, found.size))
             open(0, startAtMs = resumeAt ?: 0)
         }
+    }
+
+    override fun onCleared() {
+        CrashContext.stoppedPlaying(this)
     }
 
     /** Carries on from where this TV stopped. */
@@ -558,7 +567,9 @@ public class PlayerViewModel<S>(
     ) {
         index = at
         refreshed = false
+        lastError = null
         val server = listed[at]
+        CrashContext.playing(this, request.show.card.id, request.episode, server.source)
         val willTryNext = !triedNext && listed.getOrNull(at + 1) != null
         mutableState.update {
             it.copy(
@@ -595,6 +606,7 @@ public class PlayerViewModel<S>(
                         return@launch stop(e.reason)
                     } catch (e: Exception) {
                         AppLog.w(PLAYER_LOG_TAG, "The stream could not be loaded", e)
+                        lastError = e
                         return@launch stop(FailReason.SourceDown)
                     }
                 val wanted = wantsAudio
@@ -629,6 +641,7 @@ public class PlayerViewModel<S>(
             return
         }
         AppLog.w(PLAYER_LOG_TAG, "Playback stopped: $detail")
+        CrashContext.recovered(PLAYER_LOG_TAG, "Playback stopped: $detail", lastError)
         if (current.phase is PlayerPhase.Playing && atMs != null) save(atMs)
         mutableState.update { it.copy(phase = PlayerPhase.Stopped(reason, httpCode, atMs, next)) }
     }

@@ -28,6 +28,11 @@ class CrashLogSinkTest {
             if (fail) error("broken")
             lines += line
         }
+
+        override fun recordNonFatal(
+            message: String,
+            error: Throwable?,
+        ) = Unit
     }
 
     private fun line(
@@ -55,5 +60,6 @@ class CrashLogSinkTest {
         NoCrashReporter.setUser("1", "a")
         NoCrashReporter.setKey("k", "v")
         NoCrashReporter.log("x")
+        NoCrashReporter.recordNonFatal("x", null)
     }
 }
