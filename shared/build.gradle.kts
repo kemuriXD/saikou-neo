@@ -6,6 +6,13 @@ plugins {
 kotlin {
     android {
         namespace = "ani.saikou.neo.shared"
+        // Apps keep exception class names, so the app log can say what failed.
+        optimization {
+            consumerKeepRules.apply {
+                publish = true
+                file("consumer-rules.pro")
+            }
+        }
     }
 
     sourceSets {

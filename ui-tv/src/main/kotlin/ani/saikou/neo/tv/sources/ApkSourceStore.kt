@@ -65,7 +65,7 @@ class ApkSourceStore(
                         .listFiles { file -> file.name.endsWith(APK) }
                         .orEmpty()
                         .mapNotNull { apk ->
-                            manifest(apk)?.also { AppLog.i(TAG, "Loaded source ${it.source.id} ${it.source.version}") }?.let(::withIcon)
+                            manifest(apk)?.also { AppLog.i(TAG, "Found source ${it.source.id} ${it.source.version}") }?.let(::withIcon)
                         }.map { it.copy(list = links.read(it.id)) }
                         .sorted()
             }

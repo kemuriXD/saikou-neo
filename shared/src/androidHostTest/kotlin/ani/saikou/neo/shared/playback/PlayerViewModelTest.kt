@@ -329,6 +329,24 @@ class PlayerViewModelTest {
         }
 
     @Test
+    fun movingToTheNextServerIsNotLoggedAsAStop() =
+        test {
+            val sink = RecordingSink()
+            AppLog.addSink(sink)
+            try {
+                val player = player(FakeStreams())
+
+                player.failed(PlayerError.Failed(FailReason.SourceDown, 404), positionMs = 0)
+
+                val warnings = sink.lines.filter { it.level == LogLevel.Warn }.map { it.message }
+                assertTrue(warnings.any { it.startsWith("Server failed: SourceDown, HTTP 404") }, warnings.toString())
+                assertTrue(warnings.none { it.startsWith("Playback stopped") }, warnings.toString())
+            } finally {
+                AppLog.removeSink(sink)
+            }
+        }
+
+    @Test
     fun aFailureAfterStartingStopsWithThePosition() =
         test {
             val finder = FakeStreams()

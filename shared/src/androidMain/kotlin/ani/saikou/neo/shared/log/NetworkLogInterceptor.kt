@@ -18,6 +18,7 @@ internal class NetworkLogInterceptor : Interceptor {
             try {
                 chain.proceed(request)
             } catch (e: IOException) {
+                // InterruptedIOException covers CloudflareInterceptor.allowSiteCheck's own timeout on a cancelled call.
                 if (!chain.call().isCanceled() || e is InterruptedIOException ||
                     timedOut(chain, started)
                 ) {

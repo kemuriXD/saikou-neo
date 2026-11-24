@@ -270,7 +270,8 @@ public class PlayerViewModel<S>(
                         finder.servers(wanted.source, request.show, request.episode)
                     } catch (e: CancellationException) {
                         throw e
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        AppLog.w(PLAYER_LOG_TAG, "${wanted.source.name} gave no servers", e)
                         null
                     }
                 }
@@ -617,15 +618,17 @@ public class PlayerViewModel<S>(
         httpCode: Int? = null,
         atMs: Long? = state.value.startAtMs.takeIf { it > 0 },
     ) {
-        AppLog.w(PLAYER_LOG_TAG, "Playback stopped: $reason${httpCode?.let { ", HTTP $it" }.orEmpty()}")
+        val detail = "$reason${httpCode?.let { ", HTTP $it" }.orEmpty()}"
         val current = state.value
         val next = listed.getOrNull(index + 1)
         val starting = (current.phase as? PlayerPhase.Starting<*>)?.quiet == false
         if (starting && current.willTryNext) {
+            AppLog.w(PLAYER_LOG_TAG, "Server failed: $detail. Trying the next one")
             triedNext = true
             open(index + 1, current.startAtMs)
             return
         }
+        AppLog.w(PLAYER_LOG_TAG, "Playback stopped: $detail")
         if (current.phase is PlayerPhase.Playing && atMs != null) save(atMs)
         mutableState.update { it.copy(phase = PlayerPhase.Stopped(reason, httpCode, atMs, next)) }
     }

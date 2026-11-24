@@ -113,6 +113,20 @@ class ServersViewModelTest {
         }
 
     @Test
+    fun aSourceErrorIsLoggedWithItsMessage() =
+        test {
+            val sink = RecordingSink()
+            AppLog.addSink(sink)
+            try {
+                viewModel({ _, _, _ -> throw IllegalStateException("parser broke") }).answer()
+
+                assertTrue(sink.lines.any { it.level == LogLevel.Warn && "parser broke" in it.message }, sink.lines.toString())
+            } finally {
+                AppLog.removeSink(sink)
+            }
+        }
+
+    @Test
     fun failingSourceIsLogged() =
         test {
             val sink = RecordingSink()
