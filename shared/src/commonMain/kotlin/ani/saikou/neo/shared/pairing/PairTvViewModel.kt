@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.pairing
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.account.AniListToken
+import ani.saikou.neo.shared.log.AppLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -17,6 +18,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlin.time.Clock
+
+private const val TAG = "Pairing"
 
 /** A pairing step failed: a bad key, a message that didn't decrypt, a broken connection, or a TV that wasn't found. */
 public open class PairingException(
@@ -158,7 +161,8 @@ public class PairTvViewModel(
                         connect(request)
                     } catch (e: CancellationException) {
                         throw e
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        AppLog.w(TAG, "Couldn't connect to the TV", e)
                         mutableState.value = PairTvState.Unreachable
                         return@launch
                     }
@@ -180,7 +184,8 @@ public class PairTvViewModel(
                 tv.answer()
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
+                AppLog.w(TAG, "Lost the TV while waiting for its answer", e)
                 null
             }
         sending?.cancel()
@@ -207,10 +212,12 @@ public class PairTvViewModel(
             withContext(io) { store.saveTvs(saved) }
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLog.w(TAG, "Couldn't save the paired TV", e)
             return PairTvState.Unreachable
         }
         mutableTvs.value = saved
+        AppLog.i(TAG, "Paired")
         return PairTvState.SignedIn(reply.name)
     }
 
@@ -228,7 +235,8 @@ public class PairTvViewModel(
                     delay(replyTimeoutMillis)
                 } catch (e: CancellationException) {
                     throw e
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    AppLog.w(TAG, "Couldn't send the account to the TV", e)
                     // Not sent: closing ends the wait below with Couldn't reach the TV.
                 }
                 // No answer in time, or nothing to send.

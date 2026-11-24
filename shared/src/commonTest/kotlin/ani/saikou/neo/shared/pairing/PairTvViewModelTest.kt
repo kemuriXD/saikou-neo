@@ -1,6 +1,10 @@
 package ani.saikou.neo.shared.pairing
 
 import ani.saikou.neo.shared.account.AniListToken
+import ani.saikou.neo.shared.log.AppLog
+import ani.saikou.neo.shared.log.LogLevel
+import ani.saikou.neo.shared.log.LogLine
+import ani.saikou.neo.shared.log.LogSink
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -34,6 +38,25 @@ class PairTvViewModelTest {
 
     @AfterTest
     fun resetMain() = Dispatchers.resetMain()
+
+    @Test
+    fun pairingFailureIsLogged() =
+        runTest(main) {
+            val logged = mutableListOf<LogLine>()
+            val sink = LogSink { logged += it }
+            AppLog.addSink(sink)
+            try {
+                val model = viewModel { throw PairingException("No route to host") }
+
+                model.start(scanned)
+                advanceUntilIdle()
+
+                assertEquals(PairTvState.Unreachable, model.state.value)
+                assertTrue(logged.any { it.level == LogLevel.Warn && it.tag == "Pairing" })
+            } finally {
+                AppLog.removeSink(sink)
+            }
+        }
 
     /** A TV that answers [reply] once the account comes, or stays quiet until [says] when [reply] is null. */
     private class FakeTv(

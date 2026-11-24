@@ -1,5 +1,6 @@
 package ani.saikou.neo.shared.pairing
 
+import ani.saikou.neo.shared.log.AppLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -21,6 +22,8 @@ import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicInteger
+
+private const val TAG = "Pairing"
 
 /**
  * An encrypted connection between a phone and a TV, after the handshake.
@@ -180,6 +183,7 @@ public class PairingListener(
             null
         } catch (e: IOException) {
             if (server.isClosed) throw PairingException("Pairing was closed", e)
+            AppLog.w(TAG, "Couldn't accept a connection", e)
             // A passing error, such as running out of file handles. Back off and keep listening.
             delay(ACCEPT_POLL_MILLIS.toLong())
             null
@@ -227,7 +231,8 @@ public class PairingListener(
         } catch (e: CancellationException) {
             socket.close()
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLog.w(TAG, "A phone's handshake failed", e)
             socket.close()
             null
         }
@@ -286,6 +291,7 @@ public suspend fun connectToTv(
             PairingChannel(socket, cipher)
         }
     } catch (e: Throwable) {
+        if (e !is CancellationException) AppLog.w(TAG, "Couldn't connect to the TV", e)
         socket.close()
         throw e
     }

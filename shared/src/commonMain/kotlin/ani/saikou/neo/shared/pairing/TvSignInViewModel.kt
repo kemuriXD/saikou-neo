@@ -8,6 +8,7 @@ import ani.saikou.neo.shared.account.AniListToken
 import ani.saikou.neo.shared.account.SignedInAccount
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
+import ani.saikou.neo.shared.log.AppLog
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -26,6 +27,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlin.random.Random
+
+private const val TAG = "Pairing"
 
 /** How long a TV code and its QR code last. */
 public const val TV_CODE_SECONDS: Int = 600
@@ -201,6 +204,7 @@ public class TvSignInViewModel(
                 throw e
             } catch (e: Exception) {
                 currentCoroutineContext().ensureActive()
+                AppLog.w(TAG, "Couldn't open the pairing listener", e)
                 mutableState.value = if (e is NoNetworkException) TvSignInState.NoNetwork else TvSignInState.Stopped
                 return
             }
@@ -276,9 +280,10 @@ public class TvSignInViewModel(
                 }
             } catch (e: CancellationException) {
                 throw e
-            } catch (_: Exception) {
+            } catch (e: Exception) {
                 // Closing the listener for a new code also fails this wait. That's not Pairing stopped.
                 currentCoroutineContext().ensureActive()
+                AppLog.w(TAG, "Couldn't accept a phone", e)
                 mutableState.value = TvSignInState.Stopped
                 return null
             }
@@ -304,6 +309,7 @@ public class TvSignInViewModel(
             throw e
         } catch (e: Exception) {
             currentCoroutineContext().ensureActive()
+            AppLog.w(TAG, "Couldn't receive the account from the phone", e)
             link.close()
             if (phone === link) phone = null
             Heard.Left(
@@ -327,6 +333,7 @@ public class TvSignInViewModel(
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
+            AppLog.w(TAG, "The account check failed", e)
             AniListResult.Failure(AniListError.Unexpected(e.message ?: "The account check failed"))
         }
 
@@ -344,7 +351,8 @@ public class TvSignInViewModel(
             if (refused) link.stop(PairingStop.Refused) else link.turnAway()
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLog.w(TAG, "Couldn't turn the phone away", e)
             link.close()
         }
         if (phone === link) phone = null
@@ -370,14 +378,17 @@ public class TvSignInViewModel(
             withContext(io) { store.saveAccount(SignedInAccount(profile, token)) }
             try {
                 link.replySignedIn(tv)
-            } catch (_: PairingException) {
+            } catch (e: PairingException) {
+                AppLog.w(TAG, "Couldn't tell the phone it signed in", e)
                 // Signed in once saved. The phone not hearing back only means it shows Couldn't reach the TV.
             }
+            AppLog.i(TAG, "Paired")
             TvSignInState.SignedIn(profile)
         } catch (e: CancellationException) {
             throw e
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             currentCoroutineContext().ensureActive()
+            AppLog.w(TAG, "Couldn't save the account", e)
             TvSignInState.Stopped
         } finally {
             link.close()
