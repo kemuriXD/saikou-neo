@@ -49,6 +49,14 @@ class CrashReportsTest {
         override fun log(line: String) {
             lines += line
         }
+
+        @Synchronized
+        override fun recordNonFatal(
+            message: String,
+            error: Throwable?,
+        ) {
+            calls += "non-fatal $message"
+        }
     }
 
     private val reporter = Recording()
@@ -60,7 +68,10 @@ class CrashReportsTest {
     ) = SignedInAccount(AniListProfile(id, name, null), AniListToken("token", 0))
 
     @AfterTest
-    fun cleanUp() = AppLog.reset()
+    fun cleanUp() {
+        AppLog.reset()
+        CrashContext.reset()
+    }
 
     @Test
     fun everyFactBecomesAKey() =
@@ -199,6 +210,24 @@ class CrashReportsTest {
         }
 
     @Test
+    fun recoveredErrorsGoToTheReporterOnlyWhileReportsAreOn() =
+        runTest(UnconfinedTestDispatcher()) {
+            val settings = MutableSharedFlow<Settings>()
+            val reports = CrashReports(reporter, backgroundScope)
+            reports.start({ facts }, settings, emptyFlow())
+            reports.addSourceTerms(setOf("gotaku"))
+
+            CrashContext.recovered("Player", "gotaku stopped")
+            settings.emit(Settings(crashReports = false))
+            CrashContext.recovered("Player", "Lost while off")
+            settings.emit(Settings(crashReports = true))
+            CrashContext.screen("player")
+
+            assertEquals(listOf("non-fatal Player: [source] stopped", "enabled false", "enabled true"), reporter.calls)
+            assertEquals("player", reporter.keys["screen"])
+        }
+
+    @Test
     fun aReporterThatThrowsDoesNotStopTheRest() =
         runTest(UnconfinedTestDispatcher()) {
             val switches = mutableListOf<Boolean>()
@@ -224,6 +253,11 @@ class CrashReportsTest {
                     ): Unit = error("broken")
 
                     override fun log(line: String): Unit = error("broken")
+
+                    override fun recordNonFatal(
+                        message: String,
+                        error: Throwable?,
+                    ): Unit = error("broken")
                 }
             val settings = MutableSharedFlow<Settings>()
             val account = MutableStateFlow<SignedInAccount?>(null)

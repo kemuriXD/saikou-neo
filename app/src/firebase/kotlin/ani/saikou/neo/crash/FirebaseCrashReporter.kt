@@ -34,6 +34,13 @@ internal class FirebaseCrashReporter : CrashReporter {
         crashlytics.log(line)
     }
 
+    override fun recordNonFatal(
+        message: String,
+        error: Throwable?,
+    ) {
+        crashlytics.recordException(RecoveredError(message, error?.stackTrace))
+    }
+
     private companion object {
         const val USER_NAME = "user_name"
     }

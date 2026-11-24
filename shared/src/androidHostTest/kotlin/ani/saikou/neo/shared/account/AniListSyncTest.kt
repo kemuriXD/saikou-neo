@@ -3,6 +3,9 @@ package ani.saikou.neo.shared.account
 import ani.saikou.neo.shared.catalogue.AniListError
 import ani.saikou.neo.shared.catalogue.AniListResult
 import ani.saikou.neo.shared.catalogue.AnimeTitle
+import ani.saikou.neo.shared.crash.CrashContext
+import ani.saikou.neo.shared.crash.CrashLogScrubber
+import ani.saikou.neo.shared.crash.RecordingReporter
 import ani.saikou.neo.shared.home.SyncedSides
 import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
@@ -21,6 +24,7 @@ import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import java.io.IOException
+import kotlin.test.AfterTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
@@ -33,6 +37,10 @@ import kotlin.time.Duration.Companion.minutes
 class AniListSyncTest {
     private val today = ListDate(2026, 11, 20)
     private val me = SignedInAccount(AniListProfile(1, "Kemuri", null), AniListToken("the-token", 2_000_000_000))
+    private val reports = RecordingReporter().also { CrashContext.install(it, CrashLogScrubber()) }
+
+    @AfterTest
+    fun resetReports() = CrashContext.reset()
 
     private class FakeClient(
         var entry: ShowEntry = ShowEntry(12, ListEntry(ListStatus.WATCHING, 3, hasStartDate = true)),
@@ -1247,5 +1255,45 @@ class AniListSyncTest {
 
             assertEquals(1, client.calls)
             assertEquals(NoticeChange.SavedForLater(PendingProgress(101, 4, 1), replaced = null), told.await().change)
+        }
+
+    @Test
+    fun anUpdateAniListRejectsIsRecorded() =
+        runTest {
+            sync(FakeClient(failWith = AniListError.Http(400)), MemoryQueue()).watched(101, 4)
+            runCurrent()
+
+            assertEquals(listOf("AniList: List change not sent: Http(statusCode=400), dropped"), reports.recovered.map { it.first })
+        }
+
+    @Test
+    fun anUpdateKeptForLaterIsNotRecorded() =
+        runTest {
+            // Being offline isn't something to fix.
+            sync(FakeClient(failWith = AniListError.Network("offline")), MemoryQueue()).watched(101, 4)
+            runCurrent()
+
+            assertTrue(reports.recovered.isEmpty())
+        }
+
+    @Test
+    fun aChangeThatThrowsIsRecorded() =
+        runTest {
+            sync(FakeClient(), BrokenQueue()).remove(101, forUser = 1)
+
+            val (message, error) = reports.recovered.single()
+            assertTrue(message.startsWith("AniList: A list change failed: IOException: unreadable"), message)
+            assertTrue(error is IOException)
+        }
+
+    @Test
+    fun sendingWhatsWaitingThatThrowsIsRecorded() =
+        runTest {
+            sync(FakeClient(), BrokenQueue()).flush()
+            runCurrent()
+
+            val (message, error) = reports.recovered.single()
+            assertTrue(message.startsWith("AniList: Sending waiting changes failed: IOException: unreadable"), message)
+            assertTrue(error is IOException)
         }
 }

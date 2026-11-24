@@ -25,6 +25,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import ani.saikou.neo.shared.account.AccountState
 import ani.saikou.neo.shared.account.PhoneAccountViewModel
+import ani.saikou.neo.shared.crash.CrashContext
 import ani.saikou.neo.shared.pairing.PairCodeViewModel
 import ani.saikou.neo.shared.pairing.PairTvState
 import ani.saikou.neo.shared.pairing.PairTvViewModel
@@ -39,6 +40,19 @@ import ani.saikou.neo.shared.sources.SendSourcesViewModel
  * SendType find the TV for Send a source, and Send is 4.2 to 4.10, which follow [SendSourcesViewModel].
  */
 internal enum class PhoneScreen { Home, Account, Scan, Type, Pair, SendScan, SendType, Send }
+
+/** The screen's name in crash reports: the account [state]'s screen, or the [top] one once signed in. */
+internal fun reportName(
+    state: AccountState,
+    top: PhoneScreen,
+): String =
+    when (state) {
+        AccountState.Loading -> "loading"
+        AccountState.Verifying -> "checking"
+        is AccountState.SignedOut -> if (state.problem == null) "welcome" else "sign_in_problem"
+        is AccountState.SignedIn if state.justSignedIn -> "signed_in"
+        is AccountState.SignedIn -> top.name.replace(Regex("(?<=[a-z])(?=[A-Z])"), "_").lowercase()
+    }
 
 /**
  * Welcome until the phone is signed in, then 1.3 Signed in once and Home, with Account behind the avatar and pairing
@@ -58,6 +72,9 @@ internal fun PhoneApp(
     var screens by rememberSaveable(stateSaver = screensSaver) { mutableStateOf(listOf(PhoneScreen.Home)) }
     val open = { screen: PhoneScreen -> screens = screens + screen }
     val back = { screens = screens.dropLast(1) }
+    // Crash reports say which screen was on show.
+    val onShow = reportName(state, screens.last())
+    LaunchedEffect(onShow) { CrashContext.screen(onShow) }
 
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.surface) {
         // A fade between Welcome, checking, the result and Home, in place of a hard cut.
