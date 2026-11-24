@@ -124,6 +124,28 @@ class StreamRequestsTest {
     }
 
     @Test
+    fun theHttpPathRunsOnAThreadThatNamesNoHost() {
+        serve()
+        val names = CopyOnWriteArrayList<String>()
+        // A crash report lists every thread's name, and OkHttp names its own after the host.
+        val tagged =
+            OkHttpClient
+                .Builder()
+                .addInterceptor { chain ->
+                    names += Thread.currentThread().name
+                    chain.proceed(chain.request())
+                }.build()
+        val base = "http://127.0.0.1:${server.address.port}"
+
+        stream().dataSourceFactory(tagged).createDataSource().also {
+            it.open(DataSpec.Builder().setUri(Uri.parse("$base/x.m3u8")).build())
+            it.close()
+        }
+
+        assertEquals(listOf("Stream"), names.toList())
+    }
+
+    @Test
     fun theLoaderGetsTheUrlHeadersAndRange() {
         val asked = mutableListOf<MediaRequest>()
         val source =

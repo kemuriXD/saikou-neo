@@ -22,6 +22,7 @@ public enum class Setting(
     UPDATE_ANILIST(UpdateAniList.entries),
     PRIVATE_MODE(OffOn),
     STILL_WATCHING(StillWatching.entries),
+    CRASH_REPORTS(OffOn),
 }
 
 /** The value [setting] has now, one of its [Setting.choices]. */
@@ -36,6 +37,7 @@ public operator fun Settings.get(setting: Setting): Any =
         Setting.UPDATE_ANILIST -> updateAniList
         Setting.PRIVATE_MODE -> privateMode
         Setting.STILL_WATCHING -> stillWatching
+        Setting.CRASH_REPORTS -> crashReports
     }
 
 internal fun Settings.with(
@@ -52,6 +54,7 @@ internal fun Settings.with(
         Setting.UPDATE_ANILIST -> copy(updateAniList = value as UpdateAniList)
         Setting.PRIVATE_MODE -> copy(privateMode = value as Boolean)
         Setting.STILL_WATCHING -> copy(stillWatching = value as StillWatching)
+        Setting.CRASH_REPORTS -> copy(crashReports = value as Boolean)
     }
 
 /** The Settings screen's state: the saved settings, or null until they're read. */

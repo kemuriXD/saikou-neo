@@ -20,6 +20,8 @@ public data class Settings(
     val privateMode: Boolean = false,
     /** How many episodes play on with no button pressed before Up next asks if you're still watching (ADR 0055). */
     val stillWatching: StillWatching = StillWatching.AFTER_2,
+    /** Crash reports and a short log trail go to the developers. */
+    val crashReports: Boolean = true,
 )
 
 /** Up next asks after this many [episodes] in a row with no button pressed, or never. */

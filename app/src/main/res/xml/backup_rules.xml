@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Android 11 and older. The AniList account is sealed with a key that never leaves this phone, so it stays here, and so does Your TVs,
-     since the account is what signs those TVs in. A TV's pairing ID stays too, so two TVs never share one. -->
+     since the account is what signs those TVs in. A TV's pairing ID stays too, so two TVs never share one. Crash reports waiting
+     to be sent stay too, so they never leave by another way. -->
 <full-backup-content>
     <exclude
         domain="sharedpref"
@@ -11,4 +12,10 @@
     <exclude
         domain="sharedpref"
         path="tv_identity.xml" />
+    <exclude
+        domain="file"
+        path=".crashlytics.v3" />
+    <exclude
+        domain="file"
+        path=".com.google.firebase.crashlytics.files.v1" />
 </full-backup-content>

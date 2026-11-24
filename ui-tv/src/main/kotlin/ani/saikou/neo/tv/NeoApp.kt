@@ -7,9 +7,15 @@ import ani.saikou.neo.shared.account.KeystoreAccountStore
 import ani.saikou.neo.shared.account.ListDate
 import ani.saikou.neo.shared.account.ListNotices
 import ani.saikou.neo.shared.account.SyncQueueStore
+import ani.saikou.neo.shared.account.accountChanges
 import ani.saikou.neo.shared.catalogue.AnimeScheduleClient
 import ani.saikou.neo.shared.catalogue.PrefsShowMatchStore
 import ani.saikou.neo.shared.catalogue.ShowMatcher
+import ani.saikou.neo.shared.crash.CrashReporter
+import ani.saikou.neo.shared.crash.CrashReports
+import ani.saikou.neo.shared.crash.NoCrashReporter
+import ani.saikou.neo.shared.crash.deviceFacts
+import ani.saikou.neo.shared.crash.networkTypes
 import ani.saikou.neo.shared.home.AniListYourList
 import ani.saikou.neo.shared.home.SyncedSides
 import ani.saikou.neo.shared.home.WatchHistoryStore
@@ -19,6 +25,7 @@ import ani.saikou.neo.shared.schedule.AnimeScheduleSource
 import ani.saikou.neo.shared.search.RecentSearchesStore
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SettingsStore
+import ani.saikou.neo.shared.settings.SettingsStoreOwner
 import ani.saikou.neo.shared.sources.SourceHost
 import ani.saikou.neo.shared.sources.SourceWarmUp
 import ani.saikou.neo.tv.sources.ApkSourceStore
@@ -29,8 +36,11 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Calendar
@@ -39,15 +49,44 @@ import java.util.Calendar
  * Holds what lives as long as the app: the settings, recent searches, sources and last servers, each of which only one
  * store may have open, as can the watch history. Schedule's week is kept here too, so it outlasts the screen.
  */
-class NeoApp : Application() {
+open class NeoApp :
+    Application(),
+    SettingsStoreOwner {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
+    /** Where crash reports go, set once the app is created. */
+    lateinit var crashReporter: CrashReporter
+        private set
+
+    /** The app module gives builds with Firebase a real reporter. */
+    protected open fun crashReporter(): CrashReporter = NoCrashReporter
+
+    /** The build's channel, which the app module knows. */
+    protected open val channel: String = "unknown"
+
+    /** Whether the TV screens open on this device, which the app module decides. Called off the main thread. */
+    protected open fun opensTvScreens(): Boolean = true
+
+    // What goes with a crash report. Not lazy: it starts with the app, on the phone too.
+    private lateinit var crashReports: CrashReports
 
     override fun onCreate() {
         super.onCreate()
+        crashReporter = crashReporter()
+        // Before the log starts, so its first line is in the trail too.
+        crashReports =
+            CrashReports(crashReporter, scope).apply {
+                start(
+                    facts = { deviceFacts(this@NeoApp, channel, opensTvScreens()) },
+                    settings = settingsStore.settings,
+                    account = accountChanges.map { KeystoreAccountStore(this@NeoApp).readAccount() },
+                    network = networkTypes(this@NeoApp),
+                )
+            }
         installAppLog(this, packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown")
     }
 
-    val settingsStore by lazy { SettingsStore.at(File(filesDir, "settings.preferences_pb").absolutePath, scope) }
+    override val settingsStore by lazy { SettingsStore.at(File(filesDir, "settings.preferences_pb").absolutePath, scope) }
 
     /** The settings now, or null until they've been read. */
     val settings: StateFlow<Settings?> by lazy { settingsStore.settings.stateIn(scope, SharingStarted.Eagerly, null) }
@@ -57,8 +96,19 @@ class NeoApp : Application() {
     /** The shared HTTP client, Cloudflare clearance and WebView extraction every source and the player use. */
     val sourceHost by lazy { SourceHost(this) }
 
-    /** The sources added on this TV, read from its files at start. */
-    val sources by lazy { ApkSourceStore(this, scope, sourceHost.services) }
+    /**
+     * The sources added on this TV, read from its files at start. Their names and IDs are kept out of crash reports;
+     * the store's lines are held back until the first list is read.
+     */
+    val sources by lazy {
+        ApkSourceStore(this, scope, sourceHost.services).also { store ->
+            scope.launch {
+                store.installed.filterNotNull().collect { list ->
+                    crashReports.addSourceTerms(list.flatMapTo(mutableSetOf()) { listOf(it.id, it.name) })
+                }
+            }
+        }
+    }
 
     /** Gets the sources' sites, and any browser check they have, ready before an episode is played. */
     val sourceWarmUp by lazy { SourceWarmUp(sources.installed, sources::extension, sourceHost.services, scope) }

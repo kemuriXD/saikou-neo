@@ -26,6 +26,8 @@ import ani.saikou.neo.shared.pairing.connectForPairing
 import ani.saikou.neo.shared.pairing.connectPhoneForSources
 import ani.saikou.neo.shared.pairing.connectPhoneToTv
 import ani.saikou.neo.shared.pairing.lookupTvByCode
+import ani.saikou.neo.shared.settings.SettingsStoreOwner
+import ani.saikou.neo.shared.settings.SettingsViewModel
 import ani.saikou.neo.shared.sources.SendSourcesViewModel
 import ani.saikou.neo.shared.sources.ShortCodes
 import ani.saikou.neo.shared.sources.SourceDownloads
@@ -84,6 +86,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    // The store belongs to the app, which the TV shares, so the phone asks the app for it.
+    private val settings: SettingsViewModel by viewModels {
+        viewModelFactory { initializer { SettingsViewModel((applicationContext as SettingsStoreOwner).settingsStore) } }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         // The phone is always on ink, so the system bars keep light icons even when the phone is in light mode.
         enableEdgeToEdge(
@@ -96,7 +103,7 @@ class MainActivity : ComponentActivity() {
         }
         takeCallback(intent)
         val version = versionName()
-        setContent { PhoneTheme { PhoneApp(accounts, pairing, sources, version, ::openInBrowser) } }
+        setContent { PhoneTheme { PhoneApp(accounts, pairing, sources, settings, version, ::openInBrowser) } }
     }
 
     override fun onNewIntent(intent: Intent) {

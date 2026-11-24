@@ -18,6 +18,9 @@ import androidx.compose.ui.test.assertLeftPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertTopPositionInRootIsEqualTo
 import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -181,6 +184,8 @@ class SettingsScreenTest {
             }
         }
         compose.onNodeWithText("WATCHING ON THIS TV").assertExists()
+        // Crash reports follow the app, so they sit under their own heading, not the watching one.
+        compose.onNodeWithText("THIS APP").assertExists()
         press(Key.DirectionRight)
         press(Key.DirectionDown, times = 2)
         setting(Setting.UPDATE_ANILIST).assertIsFocused()
@@ -214,8 +219,69 @@ class SettingsScreenTest {
         }
 
         compose.onNodeWithText("Nothing goes to AniList until you turn it off", useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("On", useUnmergedTree = true).assertExists()
-        compose.onNodeWithText("Off", useUnmergedTree = true).assertExists()
+        compose
+            .onNode(
+                hasText("On") and hasAnyAncestor(hasTestTag(settingTag(Setting.PRIVATE_MODE))),
+                useUnmergedTree = true,
+            ).assertExists()
+        compose
+            .onNode(
+                hasText("Off") and hasAnyAncestor(hasTestTag(settingTag(Setting.UPDATE_ANILIST))),
+                useUnmergedTree = true,
+            ).assertExists()
+    }
+
+    @Test
+    fun crashReportsAreOnByDefaultAndTurnOffWithASelect() {
+        compose.setContent {
+            NeoTheme {
+                SettingsScreen(
+                    Settings(),
+                    onChoose = { setting, value -> chosen += setting to value },
+                    start = SettingsCategory.ACCOUNT,
+                    account = AccountSettings(AniListProfile(7, "Hikari", null)),
+                )
+            }
+        }
+
+        compose.onNodeWithText("Send crash reports", useUnmergedTree = true).assertExists()
+        compose
+            .onNodeWithText(
+                "When the app crashes, send a report so it can be fixed. It includes your AniList name and ID, device details and recent app logs.",
+                useUnmergedTree = true,
+            ).assertExists()
+        compose
+            .onNode(
+                hasText("On") and hasAnyAncestor(hasTestTag(settingTag(Setting.CRASH_REPORTS))),
+                useUnmergedTree = true,
+            ).assertExists()
+        press(Key.DirectionRight)
+        press(Key.DirectionDown, times = 4)
+        setting(Setting.CRASH_REPORTS).assertIsFocused()
+        press(Key.DirectionCenter)
+
+        assertEquals(listOf(Setting.CRASH_REPORTS to false), chosen)
+    }
+
+    @Test
+    fun crashReportsShowWhenSignedOutToo() {
+        compose.setContent {
+            NeoTheme { SettingsScreen(Settings(crashReports = false), onChoose = { _, _ -> }, start = SettingsCategory.ACCOUNT) }
+        }
+
+        compose.onNodeWithText("Send crash reports", useUnmergedTree = true).assertExists()
+        compose
+            .onNode(
+                hasText("Off") and hasAnyAncestor(hasTestTag(settingTag(Setting.CRASH_REPORTS))),
+                useUnmergedTree = true,
+            ).assertExists()
+        setting(Setting.UPDATE_ANILIST).assertDoesNotExist()
+        compose.onNodeWithText("THIS APP").assertExists()
+
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).assertIsFocused()
+        press(Key.DirectionDown)
+        setting(Setting.CRASH_REPORTS).assertIsFocused()
     }
 
     @Test

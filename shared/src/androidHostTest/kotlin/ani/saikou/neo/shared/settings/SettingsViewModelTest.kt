@@ -179,6 +179,12 @@ class SettingsViewModelTest {
         assertEquals(SubOrDub.DUB, settings[Setting.SUB_OR_DUB])
     }
 
+    @Test
+    fun crashReportsReadAndWriteTheirValue() {
+        assertEquals(true, Settings()[Setting.CRASH_REPORTS])
+        assertEquals(false, Settings().with(Setting.CRASH_REPORTS, false).crashReports)
+    }
+
     // Each setting's value is one of its choices, so the panel always has the current one marked.
     @Test
     fun eachValueIsOneOfItsChoices() {

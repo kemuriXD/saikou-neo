@@ -13,7 +13,10 @@ import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsOff
+import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertWidthIsEqualTo
+import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onLast
@@ -21,6 +24,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.phone.theme.PhoneTheme
 import ani.saikou.neo.shared.account.AccountState
@@ -57,6 +61,31 @@ class PhoneScreensTest {
         compose.onNodeWithText("Sign in with AniList").performClick()
 
         assertEquals(1, signIns)
+    }
+
+    @Test
+    fun welcomeTurnsCrashReportsOffBeforeSigningIn() {
+        val saved = mutableListOf<Boolean>()
+        var on by mutableStateOf(true)
+        compose.setContent {
+            PhoneTheme {
+                WelcomeScreen(
+                    onSignIn = {},
+                    crashReports = on,
+                    onCrashReports = {
+                        saved += it
+                        on = it
+                    },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Send crash reports").performScrollTo().assertIsDisplayed()
+        compose.onNode(isToggleable()).assertIsOn()
+        compose.onNode(isToggleable()).performClick()
+
+        assertEquals(listOf(false), saved)
+        compose.onNode(isToggleable()).assertIsOff()
     }
 
     @Test
@@ -165,6 +194,38 @@ class PhoneScreensTest {
 
         assertEquals("https://anilist.co/user/5412345", opened)
         assertTrue(back)
+    }
+
+    @Test
+    fun accountCrashReportsSwitchIsOnAndFlipsOff() {
+        val saved = mutableListOf<Boolean>()
+        var on by mutableStateOf(true)
+        compose.setContent {
+            PhoneTheme {
+                AccountScreen(
+                    kemuri,
+                    version = "0.0.5-alpha",
+                    onBack = {},
+                    onOpen = {},
+                    crashReports = on,
+                    onCrashReports = {
+                        saved += it
+                        on = it
+                    },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Send crash reports").assertIsDisplayed()
+        compose
+            .onNodeWithText(
+                "When the app crashes, send a report so it can be fixed. It includes your AniList name and ID, device details and recent app logs.",
+            ).assertIsDisplayed()
+        compose.onNode(isToggleable()).assertIsOn()
+        compose.onNode(isToggleable()).performClick()
+
+        assertEquals(listOf(false), saved)
+        compose.onNode(isToggleable()).assertIsOff()
     }
 
     @Test

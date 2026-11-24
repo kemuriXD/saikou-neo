@@ -29,6 +29,8 @@ import ani.saikou.neo.shared.pairing.PairCodeViewModel
 import ani.saikou.neo.shared.pairing.PairTvState
 import ani.saikou.neo.shared.pairing.PairTvViewModel
 import ani.saikou.neo.shared.pairing.PairingRequest
+import ani.saikou.neo.shared.settings.Setting
+import ani.saikou.neo.shared.settings.SettingsViewModel
 import ani.saikou.neo.shared.sources.SendSourcesState
 import ani.saikou.neo.shared.sources.SendSourcesViewModel
 
@@ -47,6 +49,7 @@ internal fun PhoneApp(
     accounts: PhoneAccountViewModel,
     pairing: PairTvViewModel,
     sources: SendSourcesViewModel,
+    settings: SettingsViewModel,
     version: String,
     openInBrowser: (url: String) -> Unit,
 ) {
@@ -85,13 +88,20 @@ internal fun PhoneApp(
                         screens = listOf(PhoneScreen.Home)
                         accounts.signOut()
                     }
-                    SignedIn(current, pairing, sources, screens.last(), version, openInBrowser, open, back, signOut) { screens = it }
+                    SignedIn(current, pairing, sources, settings, screens.last(), version, openInBrowser, open, back, signOut) {
+                        screens = it
+                    }
                 }
 
                 is AccountState.SignedOut -> {
                     val problem = current.problem
                     if (problem == null) {
-                        WelcomeScreen(onSignIn = accounts::signIn)
+                        val saved by settings.state.collectAsStateWithLifecycle()
+                        WelcomeScreen(
+                            onSignIn = accounts::signIn,
+                            crashReports = saved?.crashReports ?: true,
+                            onCrashReports = { settings.choose(Setting.CRASH_REPORTS, it) },
+                        )
                     } else {
                         // Back from 1.4 goes to plain Welcome.
                         BackHandler(onBack = accounts::dismissProblem)
@@ -131,6 +141,7 @@ private fun SignedIn(
     account: AccountState.SignedIn,
     pairing: PairTvViewModel,
     sources: SendSourcesViewModel,
+    settings: SettingsViewModel,
     screen: PhoneScreen,
     version: String,
     openInBrowser: (url: String) -> Unit,
@@ -181,7 +192,16 @@ private fun SignedIn(
         }
 
         PhoneScreen.Account -> {
-            AccountScreen(account.profile, version, onBack = back, onOpen = openInBrowser, onSignOut = signOut)
+            val saved by settings.state.collectAsStateWithLifecycle()
+            AccountScreen(
+                account.profile,
+                version,
+                onBack = back,
+                onOpen = openInBrowser,
+                onSignOut = signOut,
+                crashReports = saved?.crashReports ?: true,
+                onCrashReports = { settings.choose(Setting.CRASH_REPORTS, it) },
+            )
         }
 
         PhoneScreen.Scan -> {

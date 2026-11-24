@@ -5,6 +5,8 @@ import androidx.baselineprofile.gradle.consumer.BaselineProfileConsumerExtension
 plugins {
     id("neo.android.app")
     id("neo.baselineprofile")
+    // Crashlytics, only when app/google-services.json exists.
+    id("neo.firebase")
 }
 
 android {
@@ -30,6 +32,8 @@ dependencies {
     // The two UIs. They never depend on each other; LaunchActivity picks one at launch.
     implementation(project(":ui-tv"))
     implementation(project(":ui-phone"))
+    // The crash reporter interface.
+    implementation(project(":shared"))
 
     // LaunchActivityTest opens the phone screens, which are a ComponentActivity.
     testImplementation(libs.activity.compose)

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -23,6 +24,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -36,10 +38,14 @@ internal const val PHONE_LOGO_TAG = "phone_logo"
 
 /**
  * 1.2 Welcome: what the phone is for, and Sign in with AniList. Back from the browser, 1.3a shows while AniList
- * checks, and 1.4 if the sign-in didn't work.
+ * checks, and 1.4 if the sign-in didn't work. Crash reports can be turned off here too, before signing in.
  */
 @Composable
-internal fun WelcomeScreen(onSignIn: () -> Unit) {
+internal fun WelcomeScreen(
+    onSignIn: () -> Unit,
+    crashReports: Boolean = true,
+    onCrashReports: (Boolean) -> Unit = {},
+) {
     PhoneColumn(Modifier.safeDrawingPadding()) {
         Column(Modifier.fillMaxSize()) {
             Column(
@@ -63,6 +69,8 @@ internal fun WelcomeScreen(onSignIn: () -> Unit) {
                     Promise(R.drawable.icon_qr_scan, R.string.welcome_pair, R.string.welcome_pair_body)
                     Promise(R.drawable.icon_tv, R.string.welcome_finish, R.string.welcome_finish_body)
                 }
+                Spacer(Modifier.height(24.dp))
+                CrashReportsRow(crashReports, onCrashReports, Modifier.clip(RoundedCornerShape(16.dp)))
             }
             Column(
                 Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, top = 16.dp, bottom = 24.dp),

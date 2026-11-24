@@ -196,6 +196,8 @@
     <string name="settings_upcoming_episodes_help">Episode lists include episodes that haven\'t aired yet.</string>
     <string name="settings_slow_tv">Slow TV mode</string>
     <string name="settings_slow_tv_help">A lighter look with fewer effects, for TVs that stutter.</string>
+    <string name="settings_crash_reports">Send crash reports</string>
+    <string name="settings_crash_reports_help">When the app crashes, send a report so it can be fixed. It includes your AniList name and ID, device details and recent app logs.</string>
     <string name="settings_sub_or_dub">Sub or Dub</string>
     <string name="settings_sub_or_dub_help">Which servers to show</string>
     <string name="settings_sub">Sub</string>
@@ -221,6 +223,7 @@
     <string name="settings_account_sign_out_body">Your list stops syncing here. Your phone and any other TVs stay signed in.</string>
     <string name="settings_account_stay">Stay signed in</string>
     <string name="settings_account_watching">Watching on this TV</string>
+    <string name="settings_account_this_app">This app</string>
     <string name="settings_update_anilist">Update AniList</string>
     <string name="settings_update_anilist_help">When you finish an episode here</string>
     <string name="settings_update_anilist_panel_help">What happens on AniList when you finish an episode on this TV. Your place is always saved here.</string>

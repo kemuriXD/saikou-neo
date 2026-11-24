@@ -32,9 +32,10 @@ Uninstalling the app, or clearing its data, removes all of this.
 
 ## Crash and bug reports
 
-When the app crashes, or hits an error it recovers from, it sends a crash
-report. When you send a bug report from the TV or the phone, the app sends that
-too. This applies to every release channel (alpha, beta and stable).
+When the app crashes or stops responding, or hits an error it recovers from, it
+sends a crash report. When you send a bug report from the TV or the phone, the
+app sends that too. This applies to every release channel (alpha, beta and
+stable).
 
 A report contains:
 
@@ -46,6 +47,12 @@ A report contains:
   extension in use with its version.
 - Recent app logs. Tokens, sign-in headers, cookies, web address parameters
   and IP addresses are removed before the report is sent.
+- For a crash, the error and where in the app it happened. This can name the
+  extension in use.
+- For a crash in native code, a snapshot of the app's memory at that moment.
+  Unlike the logs, it can't be cleaned first.
+- For a crash, the names of the app's running tasks. These can include the
+  address of a site the app was connected to, such as one an extension uses.
 
 A bug report also contains a screenshot of the app, the category you picked,
 and any description or screenshots you add on the phone.

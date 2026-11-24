@@ -10,6 +10,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 class KeystoreAccountStoreTest {
@@ -65,6 +66,19 @@ class KeystoreAccountStoreTest {
         store.clearAccount()
 
         assertNull(store.readAccount())
+    }
+
+    @Test
+    fun signingInAndOutAreAnnounced() {
+        val store = KeystoreAccountStore(context, FlipCipher)
+        val before = accountChanges.value
+
+        store.saveAccount(SignedInAccount(kemuri, AniListToken("the-token", 5_000)))
+        val afterSignIn = accountChanges.value
+        store.clearAccount()
+
+        assertTrue(afterSignIn > before)
+        assertTrue(accountChanges.value > afterSignIn)
     }
 
     @Test
