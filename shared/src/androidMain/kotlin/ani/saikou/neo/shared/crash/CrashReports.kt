@@ -5,6 +5,9 @@ import ani.saikou.neo.shared.log.AppLog
 import ani.saikou.neo.shared.log.LogLine
 import ani.saikou.neo.shared.log.LogSink
 import ani.saikou.neo.shared.settings.Settings
+import ani.saikou.neo.shared.sources.sourceIdFormat
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -34,12 +37,28 @@ public class CrashReports(
     ) {
         AppLog.addSink(sink)
         // Every emission, so turning it off stops sending now. Crashlytics keeps the choice for the next run too.
-        scope.launch { settings.collect { reporter.setEnabled(it.crashReports) } }
-        scope.launch {
-            facts().forEach { (key, value) -> reporter.setKey(key, value) }
-            network.collect { reporter.setKey(NETWORK, it) }
+        scope.launch(failed) { settings.collect { safely { reporter.setEnabled(it.crashReports) } } }
+        scope.launch(failed) {
+            facts().forEach { (key, value) -> safely { reporter.setKey(key, value) } }
+            network.collect { safely { reporter.setKey(NETWORK, it) } }
         }
-        scope.launch { account.collect { reporter.setUser(it?.profile?.id?.toString(), it?.profile?.name) } }
+        scope.launch(failed) {
+            account.collect { safely { reporter.setUser(it?.profile?.id?.toString(), it?.profile?.name) } }
+        }
+    }
+
+    // A flow or the facts failing stops that one part, never the app.
+    private val failed = CoroutineExceptionHandler { _, error -> AppLog.w(TAG, "Crash report details failed", error) }
+
+    // A broken reporter must not stop the next call.
+    private inline fun safely(call: () -> Unit) {
+        try {
+            call()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Throwable) {
+            // Nothing to do: the reporter is the place errors would go.
+        }
     }
 
     /**
@@ -52,6 +71,7 @@ public class CrashReports(
 
     private companion object {
         const val NETWORK = "network"
+        const val TAG = "App"
     }
 }
 
@@ -79,7 +99,7 @@ private class HoldingSink(
                     return
                 }
                 // Inside the lock, so a line can't overtake the held ones.
-                out.write(line)
+                out.write(withoutIds(line))
             }
         } else {
             out.write(line)
@@ -91,13 +111,28 @@ private class HoldingSink(
             scrubber.sourceTerms += terms
             val waiting = held ?: return
             held = null
-            waiting.forEach(out::write)
+            waiting.forEach { out.write(withoutIds(it)) }
             if (dropped > 0) runCatching { reporter.log("I $SOURCES: $dropped earlier lines dropped") }
         }
     }
 
+    /**
+     * The store names a source by its ID in a few places, sometimes one that is being installed and so isn't a term
+     * yet. Those places, and anything shaped like a source ID, are taken out whatever the terms are.
+     */
+    private fun withoutIds(line: LogLine): LogLine =
+        line.copy(
+            message =
+                line.message
+                    .replace(namedId) { "${it.groupValues[1]}[source]" }
+                    .replace(sourceIdFormat, "[source]"),
+        )
+
     private companion object {
         const val SOURCES = "Sources"
         const val LIMIT = 50
+
+        // The word after these phrases is a source ID or class name. "Install rejected: the file" isn't one.
+        val namedId = Regex("""(Found source |Install rejected: (?!the file\b)|icon of |load )\S+""")
     }
 }

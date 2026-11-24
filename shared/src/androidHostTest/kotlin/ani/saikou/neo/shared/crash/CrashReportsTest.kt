@@ -166,4 +166,61 @@ class CrashReportsTest {
             assertEquals(listOf("W Player: [source] and [source] gave no servers"), reporter.lines)
             assertTrue(reports.scrubber.sourceTerms.containsAll(setOf("gotaku", "kaido")))
         }
+
+    @Test
+    fun aSourceIdNamedLaterIsNeverSent() =
+        runTest(UnconfinedTestDispatcher()) {
+            val reports = CrashReports(reporter, backgroundScope)
+            reports.start({ facts }, emptyFlow(), emptyFlow())
+            reports.addSourceTerms(setOf("gotaku"))
+
+            AppLog.w("Sources", "Install rejected: newsrc is broken")
+            AppLog.w("Sources", "Install rejected: newsrc isn't the source being updated")
+            AppLog.w("Sources", "Couldn't draw the icon of newsrc")
+            AppLog.e("Sources", "Couldn't load ani.newsrc.Main")
+            AppLog.i("Sources", "Found source other.newsrc 2")
+            AppLog.w("Sources", "Install rejected: the file isn't a source")
+
+            assertFalse(reporter.lines.any { "newsrc" in it }, reporter.lines.toString())
+            assertTrue("W Sources: Install rejected: the file isn't a source" in reporter.lines, reporter.lines.toString())
+        }
+
+    @Test
+    fun aReporterThatThrowsDoesNotStopTheRest() =
+        runTest(UnconfinedTestDispatcher()) {
+            val switches = mutableListOf<Boolean>()
+            var users = 0
+            val throwing =
+                object : CrashReporter {
+                    override fun setEnabled(enabled: Boolean) {
+                        switches += enabled
+                        error("broken")
+                    }
+
+                    override fun setUser(
+                        id: String?,
+                        name: String?,
+                    ) {
+                        users++
+                        error("broken")
+                    }
+
+                    override fun setKey(
+                        key: String,
+                        value: String,
+                    ): Unit = error("broken")
+
+                    override fun log(line: String): Unit = error("broken")
+                }
+            val settings = MutableSharedFlow<Settings>()
+            val account = MutableStateFlow<SignedInAccount?>(null)
+            CrashReports(throwing, backgroundScope).start({ facts }, settings, account, MutableSharedFlow())
+
+            settings.emit(Settings(crashReports = false))
+            settings.emit(Settings(crashReports = true))
+            account.value = account(1, "a")
+
+            assertEquals(listOf(false, true), switches)
+            assertEquals(2, users)
+        }
 }
