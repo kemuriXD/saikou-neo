@@ -1,6 +1,7 @@
 package ani.saikou.neo.tv
 
 import android.app.Application
+import android.os.Build
 import ani.saikou.neo.shared.account.AniListAccountClient
 import ani.saikou.neo.shared.account.AniListSync
 import ani.saikou.neo.shared.account.KeystoreAccountStore
@@ -21,6 +22,10 @@ import ani.saikou.neo.shared.home.SyncedSides
 import ani.saikou.neo.shared.home.WatchHistoryStore
 import ani.saikou.neo.shared.log.installAppLog
 import ani.saikou.neo.shared.playback.WatchingRun
+import ani.saikou.neo.shared.report.BugReportSender
+import ani.saikou.neo.shared.report.BugReports
+import ani.saikou.neo.shared.report.NoBugReportSender
+import ani.saikou.neo.shared.report.ReportAccount
 import ani.saikou.neo.shared.schedule.AnimeScheduleSource
 import ani.saikou.neo.shared.search.RecentSearchesStore
 import ani.saikou.neo.shared.settings.Settings
@@ -61,6 +66,9 @@ open class NeoApp :
     /** The app module gives builds with Firebase a real reporter. */
     protected open fun crashReporter(): CrashReporter = NoCrashReporter
 
+    /** The app module gives builds with Firebase somewhere to send bug reports. */
+    protected open fun bugReportSender(): BugReportSender = NoBugReportSender
+
     /** The build's channel, which the app module knows. */
     protected open val channel: String = "unknown"
 
@@ -84,6 +92,24 @@ open class NeoApp :
                 )
             }
         installAppLog(this, packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown")
+    }
+
+    /** Sends the bug reports the user asks to send, with the same details and cleaned log a crash report has. */
+    val bugReports by lazy {
+        BugReports(
+            sender = bugReportSender(),
+            scrubber = crashReports.scrubber,
+            device = {
+                deviceFacts(this, channel, opensTvScreens()) +
+                    mapOf(
+                        "version" to (packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown"),
+                        "model" to Build.MODEL,
+                        "manufacturer" to Build.MANUFACTURER,
+                        "android" to "${Build.VERSION.RELEASE} (${Build.VERSION.SDK_INT})",
+                    )
+            },
+            account = { KeystoreAccountStore(this).readAccount()?.profile?.let { ReportAccount(it.id.toString(), it.name) } },
+        )
     }
 
     override val settingsStore by lazy { SettingsStore.at(File(filesDir, "settings.preferences_pb").absolutePath, scope) }

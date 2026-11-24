@@ -1,6 +1,6 @@
 // Firebase goes into the app only when app/google-services.json exists. The file is never committed: CI writes it from
 // a secret, and builds without it (forks, fresh clones) carry no Firebase code at all. Either way the app compiles one
-// newCrashReporter: src/firebase/kotlin or src/noFirebase/kotlin.
+// newCrashReporter and newBugReportSender: src/firebase/kotlin or src/noFirebase/kotlin.
 import com.android.build.api.dsl.ApplicationExtension
 
 val libs = the<VersionCatalogsExtension>().named("libs")
@@ -21,6 +21,9 @@ if (hasFirebase) {
         "implementation"(libs.findLibrary("firebase-crashlytics").get())
         // Reports native crashes as well.
         "implementation"(libs.findLibrary("firebase-crashlytics-ndk").get())
-        // Other Firebase libraries (Firestore, Auth) go here, so they're also left out without the file.
+        // Bug reports: anonymous sign-in, then Firestore. Any other Firebase library goes here too, so it's left out
+        // without the file.
+        "implementation"(libs.findLibrary("firebase-auth").get())
+        "implementation"(libs.findLibrary("firebase-firestore").get())
     }
 }

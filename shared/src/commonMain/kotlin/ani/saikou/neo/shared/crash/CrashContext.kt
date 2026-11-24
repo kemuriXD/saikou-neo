@@ -25,6 +25,9 @@ public object CrashContext {
     // The player whose keys are set, so an old one closing after the next has opened leaves them.
     private val player = AtomicReference<Any?>(null)
 
+    // The keys as set, which a bug report reads.
+    private val keys = AtomicReference<Map<String, String>>(emptyMap())
+
     /** Whether crash reports are on. Off, recovered errors aren't recorded, as they'd only wait on the device. */
     @Volatile
     public var enabled: Boolean = true
@@ -36,9 +39,13 @@ public object CrashContext {
         installed.store(Installed(reporter, scrubber))
     }
 
+    /** The keys set so far, without the blanked ones, for a bug report. */
+    public fun snapshot(): Map<String, String> = keys.load()
+
     /** For tests. */
     public fun reset() {
         installed.store(null)
+        keys.store(emptyMap())
         player.store(null)
         enabled = true
     }
@@ -92,6 +99,10 @@ public object CrashContext {
         key: String,
         value: String,
     ) {
+        while (true) {
+            val old = keys.load()
+            if (keys.compareAndSet(old, if (value.isEmpty()) old - key else old + (key to value))) break
+        }
         try {
             installed.load()?.reporter?.setKey(key, value)
         } catch (_: Throwable) {

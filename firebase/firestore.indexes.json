@@ -1,0 +1,20 @@
+{
+  "indexes": [],
+  "fieldOverrides": [
+    {
+      "collectionGroup": "reports",
+      "fieldPath": "log",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "reports",
+      "fieldPath": "screenshot",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "reports",
+      "fieldPath": "description",
+      "indexes": []
+    }
+  ]
+}
