@@ -116,6 +116,36 @@ class PairingChannelTest {
     }
 
     @Test
+    fun droppingTheOldestAttemptFromAnAddressLogsNothing() {
+        val sink = RecordingSink()
+        AppLog.addSink(sink)
+        val patient = PairingListener(tvKeys, session, ServerSocket(0, 50, loopback), handshakeTimeoutMillis = 5_000)
+        try {
+            pairing {
+                val tv = async { patient.accept() }
+                withContext(Dispatchers.IO) {
+                    val sockets = List(3) { Socket(loopback, patient.port) }
+                    try {
+                        // The third attempt from one address makes the listener close the first.
+                        sockets[0].soTimeout = 3_000
+                        assertEquals(-1, sockets[0].getInputStream().read())
+                        // Long enough for a log line, well short of the others' first-frame timeout.
+                        delay(300)
+                        // Checked before closing the others, whose hang-ups are real failures.
+                        assertEquals(emptyList(), synchronized(sink) { sink.lines.filter { it.tag == "Pairing" } })
+                    } finally {
+                        sockets.forEach { it.close() }
+                    }
+                }
+                tv.cancel()
+            }
+        } finally {
+            AppLog.removeSink(sink)
+            patient.close()
+        }
+    }
+
+    @Test
     fun anIdleAttemptIsDroppedAndPairingCarriesOn() =
         pairing {
             val tv = async { listener.accept() }

@@ -219,6 +219,8 @@ public class PairingListener(
         oldest?.close()
     }
 
+    private fun isTracked(socket: Socket): Boolean = synchronized(perAddress) { perAddress[socket.inetAddress]?.contains(socket) == true }
+
     private fun untrack(socket: Socket) {
         synchronized(perAddress) {
             val sockets = perAddress[socket.inetAddress] ?: return
@@ -239,7 +241,8 @@ public class PairingListener(
             socket.close()
             throw e
         } catch (e: Exception) {
-            if (handshakeErrors.firstTime(e)) AppLog.w(TAG, "A phone's handshake failed", e)
+            // An attempt that track() dropped for a newer one from its address didn't fail on its own.
+            if (isTracked(socket) && handshakeErrors.firstTime(e)) AppLog.w(TAG, "A phone's handshake failed", e)
             socket.close()
             null
         }
