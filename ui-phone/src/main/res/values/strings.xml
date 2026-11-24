@@ -188,7 +188,7 @@
     <string name="account_profile">AniList profile</string>
     <string name="account_profile_body">Opens anilist.co</string>
     <string name="account_crash_reports">Send crash reports</string>
-    <string name="account_crash_reports_body">When the app crashes, send a report so it can be fixed. It includes your AniList name and device details.</string>
+    <string name="account_crash_reports_body">When the app crashes, send a report so it can be fixed. It includes your AniList name and ID, device details and recent app logs.</string>
     <string name="account_version">Version</string>
     <string name="account_sign_out">Sign out</string>
 

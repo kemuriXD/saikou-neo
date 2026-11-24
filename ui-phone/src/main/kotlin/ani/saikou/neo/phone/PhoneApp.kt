@@ -89,15 +89,19 @@ internal fun PhoneApp(
                         accounts.signOut()
                     }
                     SignedIn(current, pairing, sources, settings, screens.last(), version, openInBrowser, open, back, signOut) {
-                        screens =
-                            it
+                        screens = it
                     }
                 }
 
                 is AccountState.SignedOut -> {
                     val problem = current.problem
                     if (problem == null) {
-                        WelcomeScreen(onSignIn = accounts::signIn)
+                        val saved by settings.state.collectAsStateWithLifecycle()
+                        WelcomeScreen(
+                            onSignIn = accounts::signIn,
+                            crashReports = saved?.crashReports ?: true,
+                            onCrashReports = { settings.choose(Setting.CRASH_REPORTS, it) },
+                        )
                     } else {
                         // Back from 1.4 goes to plain Welcome.
                         BackHandler(onBack = accounts::dismissProblem)

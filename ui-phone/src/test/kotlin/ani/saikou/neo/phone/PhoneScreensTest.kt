@@ -24,6 +24,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.dp
 import ani.saikou.neo.phone.theme.PhoneTheme
 import ani.saikou.neo.shared.account.AccountState
@@ -60,6 +61,31 @@ class PhoneScreensTest {
         compose.onNodeWithText("Sign in with AniList").performClick()
 
         assertEquals(1, signIns)
+    }
+
+    @Test
+    fun welcomeTurnsCrashReportsOffBeforeSigningIn() {
+        val saved = mutableListOf<Boolean>()
+        var on by mutableStateOf(true)
+        compose.setContent {
+            PhoneTheme {
+                WelcomeScreen(
+                    onSignIn = {},
+                    crashReports = on,
+                    onCrashReports = {
+                        saved += it
+                        on = it
+                    },
+                )
+            }
+        }
+
+        compose.onNodeWithText("Send crash reports").performScrollTo().assertIsDisplayed()
+        compose.onNode(isToggleable()).assertIsOn()
+        compose.onNode(isToggleable()).performClick()
+
+        assertEquals(listOf(false), saved)
+        compose.onNode(isToggleable()).assertIsOff()
     }
 
     @Test
@@ -192,8 +218,9 @@ class PhoneScreensTest {
 
         compose.onNodeWithText("Send crash reports").assertIsDisplayed()
         compose
-            .onNodeWithText("When the app crashes, send a report so it can be fixed. It includes your AniList name and device details.")
-            .assertIsDisplayed()
+            .onNodeWithText(
+                "When the app crashes, send a report so it can be fixed. It includes your AniList name and ID, device details and recent app logs.",
+            ).assertIsDisplayed()
         compose.onNode(isToggleable()).assertIsOn()
         compose.onNode(isToggleable()).performClick()
 

@@ -144,15 +144,25 @@ private fun About(
                     },
                 )
             }
-            AboutRow(
-                label = stringResource(R.string.account_crash_reports),
-                body = stringResource(R.string.account_crash_reports_body),
-                modifier = Modifier.toggleable(value = crashReports, role = Role.Switch, onValueChange = onCrashReports),
-                trailing = { Switch(checked = crashReports, onCheckedChange = null) },
-            )
+            CrashReportsRow(crashReports, onCrashReports)
             AboutRow(label = stringResource(R.string.account_version), body = version)
         }
     }
+}
+
+/** Send crash reports, with its switch. Account and Welcome both have it, so it can be turned off before signing in. */
+@Composable
+internal fun CrashReportsRow(
+    on: Boolean,
+    onChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    AboutRow(
+        label = stringResource(R.string.account_crash_reports),
+        body = stringResource(R.string.account_crash_reports_body),
+        modifier = modifier.toggleable(value = on, role = Role.Switch, onValueChange = onChange),
+        trailing = { Switch(checked = on, onCheckedChange = null) },
+    )
 }
 
 /** A two-line list row on surface, 4 dp corners inside the list's 16 dp ones. */
