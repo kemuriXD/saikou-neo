@@ -19,6 +19,7 @@ import ani.saikou.neo.shared.schedule.AnimeScheduleSource
 import ani.saikou.neo.shared.search.RecentSearchesStore
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.SettingsStore
+import ani.saikou.neo.shared.settings.SettingsStoreOwner
 import ani.saikou.neo.shared.sources.SourceHost
 import ani.saikou.neo.shared.sources.SourceWarmUp
 import ani.saikou.neo.tv.sources.ApkSourceStore
@@ -39,7 +40,9 @@ import java.util.Calendar
  * Holds what lives as long as the app: the settings, recent searches, sources and last servers, each of which only one
  * store may have open, as can the watch history. Schedule's week is kept here too, so it outlasts the screen.
  */
-class NeoApp : Application() {
+class NeoApp :
+    Application(),
+    SettingsStoreOwner {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onCreate() {
@@ -47,7 +50,7 @@ class NeoApp : Application() {
         installAppLog(this, packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown")
     }
 
-    val settingsStore by lazy { SettingsStore.at(File(filesDir, "settings.preferences_pb").absolutePath, scope) }
+    override val settingsStore by lazy { SettingsStore.at(File(filesDir, "settings.preferences_pb").absolutePath, scope) }
 
     /** The settings now, or null until they've been read. */
     val settings: StateFlow<Settings?> by lazy { settingsStore.settings.stateIn(scope, SharingStarted.Eagerly, null) }

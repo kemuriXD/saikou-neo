@@ -148,7 +148,11 @@ enum class SettingsCategory(
     SOURCES(R.string.settings_sources, R.string.settings_sources_intro, emptyList()),
 
     // Shows the AniList account, or Sign in with your phone. Signed in, these settings follow it (ADR 0053).
-    ACCOUNT(R.string.settings_account, R.string.settings_account_intro, listOf(Setting.UPDATE_ANILIST, Setting.PRIVATE_MODE)),
+    ACCOUNT(
+        R.string.settings_account,
+        R.string.settings_account_intro,
+        listOf(Setting.UPDATE_ANILIST, Setting.PRIVATE_MODE, Setting.CRASH_REPORTS),
+    ),
 }
 
 // From the design, less the rail: the title sits on the safe area and both panes start 80 dp down. Categories are
@@ -344,8 +348,8 @@ private fun SettingsPage(
                 return@AnimatedContent
             }
             // Private mode has no panel: selecting it turns it on or off.
-            val settingRows: @Composable () -> Unit = {
-                category.settings.forEach { setting ->
+            val settingRows: @Composable (List<Setting>) -> Unit = { shown ->
+                shown.forEach { setting ->
                     SettingRow(
                         setting,
                         value = settings[setting],
@@ -368,8 +372,10 @@ private fun SettingsPage(
                             color = colors.textFaint,
                             modifier = Modifier.padding(top = 4.dp),
                         )
-                        settingRows()
+                        settingRows(category.settings - Setting.CRASH_REPORTS)
                     }
+                    // Crash reports follow the app, not the AniList account, so they show signed out too.
+                    settingRows(listOf(Setting.CRASH_REPORTS))
                 }
                 return@AnimatedContent
             }
@@ -404,7 +410,7 @@ private fun SettingsPage(
                                 .focusProperties { left = categories.getValue(category) },
                     )
                 }
-                settingRows()
+                settingRows(category.settings)
             }
         }
         SlidingPanel(open) { setting, active, motion ->
@@ -820,6 +826,15 @@ private fun Setting.text() =
 
         Setting.SLOW_TV -> {
             switchText(R.string.settings_slow_tv, R.string.settings_slow_tv_help, R.string.settings_on, R.string.settings_off)
+        }
+
+        Setting.CRASH_REPORTS -> {
+            // Selecting it turns it on or off, with no panel, like private mode.
+            SettingText(
+                R.string.settings_crash_reports,
+                R.string.settings_crash_reports_help,
+                panel = false,
+            ) { if (it == true) R.string.settings_on else R.string.settings_off }
         }
 
         Setting.SUB_OR_DUB -> {

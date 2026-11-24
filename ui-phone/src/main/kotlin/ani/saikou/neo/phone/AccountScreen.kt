@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
@@ -23,6 +24,7 @@ import androidx.compose.material3.LargeTopAppBar
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
@@ -36,6 +38,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -54,6 +57,8 @@ internal fun AccountScreen(
     onBack: () -> Unit,
     onOpen: (url: String) -> Unit,
     onSignOut: () -> Unit = {},
+    crashReports: Boolean = true,
+    onCrashReports: (Boolean) -> Unit = {},
 ) {
     var asking by rememberSaveable { mutableStateOf(false) }
     if (asking) SignOutDialog(onDismiss = { asking = false }, onSignOut = onSignOut)
@@ -80,7 +85,7 @@ internal fun AccountScreen(
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
                 Profile(profile)
-                About(profile, version, onOpen)
+                About(profile, version, onOpen, crashReports, onCrashReports)
                 OutlinedButton(onClick = { asking = true }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
                     Icon(painterResource(R.drawable.icon_logout), contentDescription = null, Modifier.size(20.dp))
                     Spacer(Modifier.size(8.dp))
@@ -118,6 +123,8 @@ private fun About(
     profile: AniListProfile,
     version: String,
     onOpen: (url: String) -> Unit,
+    crashReports: Boolean,
+    onCrashReports: (Boolean) -> Unit,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
@@ -137,6 +144,12 @@ private fun About(
                     },
                 )
             }
+            AboutRow(
+                label = stringResource(R.string.account_crash_reports),
+                body = stringResource(R.string.account_crash_reports_body),
+                modifier = Modifier.toggleable(value = crashReports, role = Role.Switch, onValueChange = onCrashReports),
+                trailing = { Switch(checked = crashReports, onCheckedChange = null) },
+            )
             AboutRow(label = stringResource(R.string.account_version), body = version)
         }
     }
