@@ -12,6 +12,7 @@ import ani.saikou.neo.extension.api.MediaLoader
 import ani.saikou.neo.extension.api.MediaRequest
 import ani.saikou.neo.extension.api.MediaResponse
 import ani.saikou.neo.extension.api.Stream
+import ani.saikou.neo.shared.sources.PlainThreadCalls
 import okhttp3.Call
 import java.io.IOException
 import java.io.InterruptedIOException
@@ -19,11 +20,11 @@ import java.io.InterruptedIOException
 /**
  * Where the player gets every playlist, segment, key and subtitle of this stream: over HTTP through the app's shared
  * client [callFactory], so the cookie jar, pinned User-Agent and Cloudflare clearance carry into playback, or from the
- * source's own [Stream.mediaLoader] when it has one.
+ * source's own [Stream.mediaLoader] when it has one. HTTP runs on threads whose names don't carry the stream's host.
  */
 @OptIn(UnstableApi::class)
 fun Stream.dataSourceFactory(callFactory: Call.Factory): DataSource.Factory {
-    val loader = mediaLoader ?: return OkHttpDataSource.Factory(callFactory).setDefaultRequestProperties(headers)
+    val loader = mediaLoader ?: return OkHttpDataSource.Factory(PlainThreadCalls(callFactory)).setDefaultRequestProperties(headers)
     return DataSource.Factory { LoaderDataSource(loader, headers) }
 }
 
