@@ -68,12 +68,15 @@ class EntryActivityTest {
     @Test
     fun aPhoneNeverMakesTheTvsStores() {
         // Extensions, the player's servers and the catalogue's stores all hang off NeoApp, and are only made when
-        // something asks for them. Opening the phone screens must not.
+        // something asks for them. Opening the phone screens must not. The settings are the one store both share.
         launch()
         Robolectric.buildActivity(PhoneActivity::class.java).setup()
 
         val app = RuntimeEnvironment.getApplication() as NeoApp
-        val stores = NeoApp::class.java.declaredFields.filter { Lazy::class.java.isAssignableFrom(it.type) }
+        val stores =
+            NeoApp::class.java.declaredFields.filter {
+                Lazy::class.java.isAssignableFrom(it.type) && it.name != "settingsStore\$delegate"
+            }
         assertTrue(stores.size >= 8)
         stores.forEach { field ->
             field.isAccessible = true
