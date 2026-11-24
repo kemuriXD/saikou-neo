@@ -206,6 +206,11 @@ class LogRedactorTest {
     }
 
     @Test
+    fun encodedAmpersandStaysInTheValue() {
+        assertEquals("token=[redacted]", redact("token=abc%26def"))
+    }
+
+    @Test
     fun newKeyRulesRunQuickly() {
         listOf("aToken".repeat(50_000), "%3D".repeat(100_000), "x_".repeat(100_000)).forEach { input ->
             val elapsed = measureTime { redact(input) }
@@ -285,6 +290,7 @@ class LogRedactorTest {
             listOf(
                 "token%3Dabc123%26sig%3Dzz9",
                 "https%3A%2F%2Fcdn.x.to%2Fseg.ts%3Ftoken%3Dabc123",
+                "token=abc%26def",
             )
 
         val MORE_KEYS =

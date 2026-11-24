@@ -31,8 +31,9 @@ public object LogRedactor {
         )
     private val scheme = Regex("""\b(Bearer|Basic)([ \t]+)[^\s"',;]+""", RegexOption.IGNORE_CASE)
 
-    // URL-encoded `:`, `/`, `=`, `&` and `?`, decoded first so encoded URLs and pairs are caught too.
-    private val encoded = Regex("%(3[AaDdFf]|2[6Ff])")
+    // URL-encoded `:`, `/`, `=` and `?`, decoded first so encoded URLs and pairs are caught too. `&` stays encoded
+    // so it can't end a value early.
+    private val encoded = Regex("%(3[AaDdFf]|2[Ff])")
 
     // A key on its own (also after `_`, `-` or `.`), or a camelCase key ending in a secret word, such as accessToken.
     private val pair =
