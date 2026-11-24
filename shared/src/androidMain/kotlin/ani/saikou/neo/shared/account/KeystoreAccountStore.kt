@@ -4,6 +4,10 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import org.json.JSONException
 import org.json.JSONObject
 import java.security.GeneralSecurityException
@@ -12,6 +16,14 @@ import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
+
+private val changes = MutableStateFlow(0)
+
+/**
+ * Goes up each time the saved account is saved or cleared, by any [KeystoreAccountStore] in this process, so anything
+ * that shows who is signed in can read the account again.
+ */
+public val accountChanges: StateFlow<Int> = changes.asStateFlow()
 
 /** Seals and opens the saved account. */
 internal interface AccountCipher {
@@ -68,10 +80,12 @@ public class KeystoreAccountStore internal constructor(
                 .put("expires", account.token.expiresAtEpochSeconds)
         val sealed = Base64.encodeToString(cipher.encrypt(json.toString().encodeToByteArray()), Base64.NO_WRAP)
         preferences.edit().putString(ACCOUNT, sealed).commit()
+        changes.update { it + 1 }
     }
 
     override fun clearAccount() {
         preferences.edit().remove(ACCOUNT).commit()
+        changes.update { it + 1 }
     }
 
     override fun readAttempt(): SignInAttempt? {
