@@ -1,5 +1,7 @@
 package ani.saikou.neo.shared.pairing
 
+import ani.saikou.neo.shared.log.AppLog
+import ani.saikou.neo.shared.log.RecordingSink
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -90,6 +92,28 @@ class PairingChannelTest {
 
             assertEquals(tv.await().checkCode, phone.checkCode)
         }
+
+    @Test
+    fun repeatedGarbageLogsOnce() {
+        val sink = RecordingSink()
+        AppLog.addSink(sink)
+        try {
+            pairing {
+                val tv = async { listener.accept() }
+                withContext(Dispatchers.IO) {
+                    repeat(5) { rawSocket().use { it.getOutputStream().write(ByteArray(70) { 7 }) } }
+                }
+                while (synchronized(sink) { sink.lines.isEmpty() }) delay(10)
+                // Give the other attempts time to fail too.
+                delay(300)
+                val phone = phone()
+                assertEquals(tv.await().checkCode, phone.checkCode)
+            }
+            assertEquals(1, synchronized(sink) { sink.lines.count { it.tag == "Pairing" } })
+        } finally {
+            AppLog.removeSink(sink)
+        }
+    }
 
     @Test
     fun anIdleAttemptIsDroppedAndPairingCarriesOn() =

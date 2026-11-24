@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.log
 import android.content.Context
 import android.os.Build
 import java.io.File
+import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 /**
@@ -10,39 +11,30 @@ import java.util.concurrent.Executors
  * thread. When `current.log` grows past [capBytes] the older half is dropped. IO errors are ignored: the log must
  * never crash the app.
  */
-public class FileLogStore(
-    dir: File,
-    private val capBytes: Long = 256 * 1024,
+public class FileLogStore internal constructor(
+    private val dir: File,
+    private val capBytes: Long,
+    private val executor: ExecutorService,
 ) : LogStore {
+    public constructor(dir: File, capBytes: Long = 256 * 1024) : this(dir, capBytes, logThread())
+
+    internal constructor(dir: File, executor: ExecutorService) : this(dir, 256 * 1024, executor)
+
     private val current = File(dir, "current.log")
     private val previous = File(dir, "previous.log")
-    private val executor =
-        Executors.newSingleThreadExecutor { task ->
-            Thread(task, "app-log").apply { isDaemon = true }
-        }
     private var size = 0L
 
     init {
-        try {
-            dir.mkdirs()
-            previous.delete()
-            if (current.exists()) current.renameTo(previous)
-            current.writeText("")
-        } catch (_: Exception) {
-            // Logging goes on without a file.
-        }
+        // The first task on the log thread, so it runs before any line and off the caller's thread.
+        append { rotate() }
     }
 
     override fun append(line: String) {
-        try {
-            executor.execute { write(line) }
-        } catch (_: Exception) {
-            // The executor is gone.
-        }
+        append { write(line) }
     }
 
     override fun read(session: LogSession): String {
-        if (session == LogSession.Current) flush()
+        flush()
         return try {
             val file = if (session == LogSession.Current) current else previous
             if (file.exists()) file.readText() else ""
@@ -56,6 +48,33 @@ public class FileLogStore(
             executor.submit {}.get()
         } catch (_: Exception) {
             // Nothing pending that we can wait for.
+        }
+    }
+
+    private fun append(task: Runnable) {
+        try {
+            executor.execute(task)
+        } catch (_: Exception) {
+            // The executor is gone.
+        }
+    }
+
+    /** Moves the last run's lines to `previous.log`. If that fails, they stay at the top of `current.log`. */
+    private fun rotate() {
+        try {
+            dir.mkdirs()
+            previous.delete()
+            if (current.exists() && !current.renameTo(previous)) {
+                try {
+                    current.copyTo(previous, overwrite = true)
+                } catch (_: Exception) {
+                    size = current.length()
+                    return
+                }
+            }
+            current.writeText("")
+        } catch (_: Exception) {
+            // Logging goes on without a file.
         }
     }
 
@@ -80,6 +99,11 @@ public class FileLogStore(
         size = kept.size.toLong()
     }
 }
+
+private fun logThread(): ExecutorService =
+    Executors.newSingleThreadExecutor { task ->
+        Thread(task, "app-log").apply { isDaemon = true }
+    }
 
 /** Starts the log in the app's private files, which aren't backed up, and notes which version is running. */
 public fun installAppLog(

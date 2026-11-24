@@ -107,6 +107,39 @@ class AppLogTest {
     }
 
     @Test
+    fun throwingMessageGetterDoesNotThrow() {
+        install()
+        val bad =
+            object : RuntimeException() {
+                override val message: String get() = throw IllegalStateException("boom")
+            }
+        AppLog.e("Net", "failed", IOException("outer", bad))
+        val line = store.lines.single()
+        assertTrue(line.contains("failed: IOException: outer <- caused by "), line)
+    }
+
+    @Test
+    fun hugeErrorMessageIsCut() {
+        install()
+        AppLog.e("Net", "failed", IOException("a b ".repeat(5_000_000)))
+        assertTrue(
+            sink.lines
+                .single()
+                .message.length <= 1001,
+        )
+    }
+
+    @Test
+    fun oddTagIsReplaced() {
+        install()
+        AppLog.i("token=abc123", "hello")
+        AppLog.i("Player", "hello")
+        AppLog.i("", "hello")
+        assertEquals(listOf("App", "Player", "App"), sink.lines.map { it.tag })
+        assertFalse(store.lines.any { "abc123" in it })
+    }
+
+    @Test
     fun readBeforeInstallIsEmpty() {
         AppLog.reset()
         assertEquals("", runBlocking { AppLog.read(LogSession.Current) })

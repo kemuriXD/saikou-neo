@@ -54,6 +54,9 @@ public object AppLog {
     private const val LINE_LIMIT = 1_000
     private const val CAUSE_LIMIT = 4
     private const val DROPPED = "[line dropped: could not redact]"
+    private const val DEFAULT_TAG = "App"
+
+    private val tagShape = Regex("[A-Za-z]{1,16}")
 
     private val store = AtomicReference<LogStore?>(null)
     private val clock = AtomicReference<Clock>(Clock.System)
@@ -131,7 +134,8 @@ public object AppLog {
         message: String,
         error: Throwable?,
     ) {
-        val line = LogLine(clock.load().now(), level, tag, clean(message, error))
+        val safeTag = if (tagShape.matches(tag)) tag else DEFAULT_TAG
+        val line = LogLine(clock.load().now(), level, safeTag, clean(message, error))
         store.load()?.let { runCatching { it.append(line.format()) } }
         for (sink in sinks.load()) {
             try {
@@ -146,10 +150,10 @@ public object AppLog {
         message: String,
         error: Throwable?,
     ): String {
-        val raw = (if (error == null) message else "$message: ${describe(error)}").take(RAW_LIMIT)
         val redacted =
             try {
-                redact(raw)
+                val raw = if (error == null) message.take(RAW_LIMIT) else "${message.take(RAW_LIMIT)}: ${describe(error)}"
+                redact(raw.take(RAW_LIMIT))
             } catch (_: Throwable) {
                 return DROPPED
             }
@@ -170,6 +174,8 @@ public object AppLog {
 
     private fun summary(error: Throwable): String {
         val name = error::class.simpleName ?: "Throwable"
-        return error.message?.let { "$name: $it" } ?: name
+        // A message getter can throw or return something huge.
+        val message = runCatching { error.message?.take(RAW_LIMIT) }.getOrNull()
+        return message?.let { "$name: $it" } ?: name
     }
 }
