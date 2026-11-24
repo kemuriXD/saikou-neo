@@ -53,4 +53,34 @@ class CrashLogScrubberTest {
 
         assertEquals(false, scrubbed.contains("abcdef123456"), scrubbed)
     }
+
+    @Test
+    fun bareHostsAreReplaced() {
+        assertEquals(
+            "Unable to resolve host \"[host]\": gone",
+            scrubber.scrub("Unable to resolve host \"api.example.org\": gone"),
+        )
+        assertEquals("Hostname [host] not verified", scrubber.scrub("Hostname api.example.org not verified"))
+        assertEquals("Failed to connect to [host]/[ip]:443", scrubber.scrub("Failed to connect to api.example.org/1.2.3.4:443"))
+    }
+
+    @Test
+    fun escapedUrlsAreReplaced() {
+        assertEquals("Got [url]", scrubber.scrub("""Got https:\/\/host.example.org\/x"""))
+    }
+
+    @Test
+    fun protocolRelativeUrlsAreReplaced() {
+        assertEquals("Image [url]", scrubber.scrub("Image //cdn.host.example.org/a.png"))
+    }
+
+    @Test
+    fun markersAndPlainWordsStayIntact() {
+        scrubber.sourceTerms = setOf("gotaku")
+
+        assertEquals(
+            "Found source [source] 3 at [url] show [id] episode [n]",
+            scrubber.scrub("Found source gotaku 3 at https://a.b.org/x show 1 episode 2"),
+        )
+    }
 }
