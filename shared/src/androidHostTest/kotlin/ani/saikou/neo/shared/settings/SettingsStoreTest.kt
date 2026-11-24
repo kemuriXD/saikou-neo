@@ -66,6 +66,20 @@ class SettingsStoreTest {
         }
 
     @Test
+    fun crashReportsAreOnForANewInstallAndKeepTheirChoice() =
+        runBlocking {
+            assertEquals(true, Settings().crashReports)
+            val (first, scope) = store()
+            assertEquals(true, first.settings.first().crashReports)
+            first.update { it.copy(crashReports = false) }
+            scope.coroutineContext.job.cancelAndJoin()
+
+            val (second, _) = store()
+
+            assertEquals(false, second.settings.first().crashReports)
+        }
+
+    @Test
     fun aNewInstallHasTheScheduleDefaults() =
         runBlocking {
             val (store, _) = store()

@@ -29,6 +29,7 @@ private val ScheduleShort = booleanPreferencesKey("schedule_short_episodes")
 private val UpdateAniListKey = stringPreferencesKey("update_anilist")
 private val PrivateMode = booleanPreferencesKey("private_mode")
 private val StillWatchingKey = stringPreferencesKey("still_watching")
+private val CrashReportsKey = booleanPreferencesKey("crash_reports")
 private val SourcesCheckedKey = longPreferencesKey("sources_checked_at")
 
 // Each "user:show=yes" or "user:show=no", one per show and user.
@@ -62,6 +63,7 @@ public class SettingsStore private constructor(
             saved[UpdateAniListKey] = changed.updateAniList.name
             saved[PrivateMode] = changed.privateMode
             saved[StillWatchingKey] = changed.stillWatching.name
+            saved[CrashReportsKey] = changed.crashReports
         }
     }
 
@@ -121,6 +123,7 @@ private fun Preferences.toSettings(): Settings {
         updateAniList = UpdateAniList.entries.firstOrNull { it.name == this[UpdateAniListKey] } ?: defaults.updateAniList,
         privateMode = this[PrivateMode] ?: defaults.privateMode,
         stillWatching = StillWatching.entries.firstOrNull { it.name == this[StillWatchingKey] } ?: defaults.stillWatching,
+        crashReports = this[CrashReportsKey] ?: defaults.crashReports,
     )
 }
 
