@@ -51,6 +51,8 @@ A report contains:
   extension in use.
 - For a crash in native code, a snapshot of the app's memory at that moment.
   Unlike the logs, it can't be cleaned first.
+- For a crash, the names of the app's running tasks. These can include the
+  address of a site the app was connected to, such as one an extension uses.
 
 A bug report also contains a screenshot of the app, the category you picked,
 and any description or screenshots you add on the phone.
