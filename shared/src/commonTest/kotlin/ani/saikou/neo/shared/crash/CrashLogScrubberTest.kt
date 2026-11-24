@@ -7,9 +7,9 @@ class CrashLogScrubberTest {
     private val scrubber = CrashLogScrubber()
 
     @Test
-    fun showIdsAndEpisodeNumbersAreReplaced() {
+    fun showIdsAndEpisodeNumbersAreReplacedAndTheServerToo() {
         assertEquals(
-            "Playing show [id] episode [n] on Vidstreaming",
+            "Playing show [id] episode [n] on [server]",
             scrubber.scrub("Playing show 21 episode 3 on Vidstreaming"),
         )
     }
@@ -82,5 +82,41 @@ class CrashLogScrubberTest {
             "Found source [source] 3 at [url] show [id] episode [n]",
             scrubber.scrub("Found source gotaku 3 at https://a.b.org/x show 1 episode 2"),
         )
+    }
+
+    @Test
+    fun otherIdAndEpisodeFormsAreReplaced() {
+        assertEquals("episode: [n]", scrubber.scrub("episode: 3"))
+        assertEquals("episode=[n]", scrubber.scrub("episode=3"))
+        assertEquals("ep [n] failed", scrubber.scrub("ep 3 failed"))
+        assertEquals("Opening S[n]E[n]", scrubber.scrub("Opening S01E03"))
+        assertEquals("showId=[id]", scrubber.scrub("showId=21"))
+        assertEquals("mediaId: [id]", scrubber.scrub("mediaId: 21"))
+        assertEquals("anilist [id] saved", scrubber.scrub("anilist 21 saved"))
+        assertEquals("Episode #[n]", scrubber.scrub("Episode #12.5"))
+    }
+
+    @Test
+    fun wordsThatOnlyEndInANumberStay() {
+        assertEquals("Media3 player 2 failed", scrubber.scrub("Media3 player 2 failed"))
+    }
+
+    @Test
+    fun pathsWithNoSchemeAreReplaced() {
+        assertEquals("HTTP 403 for [path]", scrubber.scrub("HTTP 403 for /watch/one-piece-100"))
+        assertEquals("[path] is gone", scrubber.scrub("/watch/one-piece-100 is gone"))
+        assertEquals("Done 3 / 5", scrubber.scrub("Done 3 / 5"))
+    }
+
+    @Test
+    fun hostsWithUnderscoresAreReplaced() {
+        assertEquals("Resolving [host] failed", scrubber.scrub("Resolving my_cdn.example.to failed"))
+    }
+
+    @Test
+    fun doubleEncodedQueriesDoNotSurvive() {
+        val scrubbed = scrubber.scrub("Fetching [host]/…%253Ftoken%253Dsecret123 failed")
+
+        assertEquals(false, scrubbed.contains("secret123"), scrubbed)
     }
 }

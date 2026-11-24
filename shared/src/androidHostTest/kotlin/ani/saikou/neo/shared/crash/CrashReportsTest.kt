@@ -130,7 +130,7 @@ class CrashReportsTest {
             AppLog.i("Player", "Playing show 21 episode 3 on gotaku")
 
             assertEquals(
-                listOf("I Sources: Found source [source] 3", "I Player: Playing show [id] episode [n] on [source]"),
+                listOf("I Sources: Found source [source] 3", "I Player: Playing show [id] episode [n] on [server]"),
                 reporter.lines,
             )
         }
