@@ -174,6 +174,46 @@ class LogRedactorTest {
     }
 
     @Test
+    fun camelCaseAndPrefixedKeys() {
+        val secrets = listOf("opaqueTok3n", "s3cr3tval", "rt123", "id1", "abc123def", "sess42", "xv1", "mv2")
+        for (input in SECRET_KEYS) {
+            val out = redact(input)
+            secrets.forEach { assertFalse(it in out, out) }
+        }
+        assertEquals(
+            "{\"accessToken\":\"[redacted]\",\"clientSecret\":\"[redacted]\"}",
+            redact("{\"accessToken\":\"opaqueTok3n\",\"clientSecret\":\"s3cr3tval\"}"),
+        )
+    }
+
+    @Test
+    fun moreSecretKeys() {
+        assertEquals("connect.sid=[redacted]", redact("connect.sid=s%3Aabc123.def456"))
+        assertEquals("cf_clearance=[redacted]", redact("cf_clearance=AbC.dEf-short"))
+        val md5 = redact("&md5=Kx7Lq4n1Z2yC3vB8pQ9rWa&expires=1700000000")
+        assertFalse("Kx7Lq4n1Z2yC3vB8pQ9rWa" in md5, md5)
+        for (key in listOf("sid", "sessionid", "session_id", "jwt", "hash", "md5", "hmac", "pass", "passwd", "pwd")) {
+            assertEquals("$key=[redacted]", redact("$key=v4lue"), key)
+        }
+    }
+
+    @Test
+    fun urlEncodedSecrets() {
+        for (input in ENCODED) {
+            val out = redact(input)
+            listOf("abc123", "zz9", "seg.ts").forEach { assertFalse(it in out, out) }
+        }
+    }
+
+    @Test
+    fun newKeyRulesRunQuickly() {
+        listOf("aToken".repeat(50_000), "%3D".repeat(100_000), "x_".repeat(100_000)).forEach { input ->
+            val elapsed = measureTime { redact(input) }
+            assertTrue(elapsed < 1.seconds, "took $elapsed")
+        }
+    }
+
+    @Test
     fun leavesOrdinaryTextAlone() {
         ORDINARY.forEach { assertEquals(it, redact(it)) }
     }
@@ -202,7 +242,7 @@ class LogRedactorTest {
                 "::1",
                 "2001:0db8:85a3:0000:0000:8a2e:0370:7334",
                 "::ffff:10.0.0.1",
-            ) + FIX_INPUTS + ORDINARY
+            ) + FIX_INPUTS + SECRET_KEYS + ENCODED + MORE_KEYS + ORDINARY
         inputs.forEach {
             val once = redact(it)
             assertEquals(once, redact(once), it)
@@ -234,6 +274,26 @@ class LogRedactorTest {
                 "Authorization: x\nepisode 12 loaded",
             )
 
+        val SECRET_KEYS =
+            listOf(
+                "{\"accessToken\":\"opaqueTok3n\",\"clientSecret\":\"s3cr3tval\",\"refreshToken\":\"rt123\",\"idToken\":\"id1\"}",
+                "{\"authToken\": \"abc123def\", \"sessionId\": \"sess42\"}",
+                "x_token=xv1 my-secret=mv2",
+            )
+
+        val ENCODED =
+            listOf(
+                "token%3Dabc123%26sig%3Dzz9",
+                "https%3A%2F%2Fcdn.x.to%2Fseg.ts%3Ftoken%3Dabc123",
+            )
+
+        val MORE_KEYS =
+            listOf(
+                "connect.sid=s%3Aabc123.def456",
+                "cf_clearance=AbC.dEf-short",
+                "&md5=Kx7Lq4n1Z2yC3vB8pQ9rWa&expires=1700000000",
+            )
+
         val ORDINARY =
             listOf(
                 "at 10:15:30 episode 12 of 24",
@@ -241,6 +301,9 @@ class LogRedactorTest {
                 "HTTP 503 from server 2",
                 "version 0.1.0 (Android 9)",
                 "PlayerViewModel stopped: SourceDown",
+                "Keyboard focus moved to monkey row",
+                "hashCode of ani.saikou.neo.KeyStore differs",
+                "primaryKey missing",
             )
     }
 }

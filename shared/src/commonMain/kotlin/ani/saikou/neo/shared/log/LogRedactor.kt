@@ -30,11 +30,18 @@ public object LogRedactor {
             RegexOption.IGNORE_CASE,
         )
     private val scheme = Regex("""\b(Bearer|Basic)([ \t]+)[^\s"',;]+""", RegexOption.IGNORE_CASE)
+
+    // URL-encoded `:`, `/`, `=`, `&` and `?`, decoded first so encoded URLs and pairs are caught too.
+    private val encoded = Regex("%(3[AaDdFf]|2[6Ff])")
+
+    // A key on its own (also after `_`, `-` or `.`), or a camelCase key ending in a secret word, such as accessToken.
     private val pair =
         Regex(
-            "(?<![A-Za-z0-9])" +
-                "(access_token|refresh_token|id_token|client_secret|api_key|apikey|password|signature|" +
-                "session|secret|token|code|auth|key|sig)" +
+            "((?<![A-Za-z0-9])" +
+                "(?:access_token|refresh_token|id_token|client_secret|api_key|apikey|password|passwd|pass|pwd|" +
+                "signature|session_id|sessionid|session|secret|token|code|auth|key|sig|sid|jwt|hash|md5|hmac|" +
+                "cf_clearance)" +
+                "|(?<=[a-z])(?-i:Token|Secret|SessionId|Session|Password|Key|Signature|Sig|Auth))" +
                 """(\\?"?[ \t]*[:=][ \t]*)""" +
                 """(\\"[^\\\r\n]*+(?:\\(?!")[^\\\r\n]*+)*+(?:\\")?""" +
                 """|"[^"\\\r\n]*+(?:\\.[^"\\\r\n]*+)*+"?""" +
@@ -58,8 +65,15 @@ public object LogRedactor {
 
     /** Returns [text] with secrets, URL paths and IP addresses replaced. */
     public fun redact(text: String): String {
+        val decoded =
+            encoded.replace(text) { m ->
+                m.groupValues[1]
+                    .toInt(16)
+                    .toChar()
+                    .toString()
+            }
         var out =
-            url.replace(text) { m ->
+            url.replace(decoded) { m ->
                 val escaped = m.groupValues[2] != "://"
                 m.groupValues[1] + m.groupValues[2] + redactHost(m.groupValues[4], m.groupValues[5], escaped)
             }
