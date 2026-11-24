@@ -93,12 +93,13 @@ public fun buildBugReport(
 private fun Map<String, String>.only(keys: Set<String>): Map<String, String> =
     filterKeys { it in keys }.mapValues { it.value.take(BugReportLimits.VALUE_CHARS) }
 
-// Only the message is cleaned, so the time stays readable. The source store's lines lose source IDs too.
+// Only the message is cleaned, so the time stays readable. The source store's lines lose source IDs too, as do lines
+// that aren't a log line's start, such as the rest of a message that ran over lines, since they could be its.
 private fun clean(
     line: String,
     scrubber: CrashLogScrubber,
 ): String {
-    val match = lineShape.matchEntire(line) ?: return scrubber.scrub(line)
+    val match = lineShape.matchEntire(line) ?: return scrubber.scrub(withoutSourceIds(line))
     val (head, tag, message) = match.destructured
     val text = if (tag == SOURCES) withoutSourceIds(message) else message
     return "$head$tag: ${scrubber.scrub(text)}"

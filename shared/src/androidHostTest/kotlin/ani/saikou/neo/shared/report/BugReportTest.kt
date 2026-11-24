@@ -53,6 +53,8 @@ class BugReportTest {
             """
             2026-11-24T10:00:00Z W Player: Gotaku failed for show 21 episode 3 at https://example.com/watch?token=abc
             2026-11-24T10:00:01Z I Sources: Found source com.example.gotaku
+            2026-11-24T10:00:02Z W Sources: Install failed
+            caused by com_example_x.gotaku_v2
             """.trimIndent()
 
         val text = build(log = log).log.unzipped()
@@ -61,6 +63,7 @@ class BugReportTest {
         assertFalse("example" in text, text)
         assertFalse("21" in text, text)
         assertFalse("abc" in text, text)
+        assertFalse("gotaku" in text, text)
         assertTrue(text.startsWith("2026-11-24T10:00:00Z W Player: "), text)
     }
 

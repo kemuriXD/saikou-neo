@@ -1,8 +1,9 @@
 rules_version = '2';
 
 // Bug reports (ADR 0059). The app signs in anonymously and may only create a report: nothing can read, change or
-// delete one from the app. installs/{uid} counts each install's reports, written in the same transaction as the
-// report, so one install sends at most 10 a day and one a minute. The limits match BugReportLimits in :shared.
+// delete one from the app. installs/{uid} counts each install's reports and names the report it was moved on for, so
+// every report needs its own write of the count. One install sends at most 10 a day and one a minute. The limits match
+// BugReportLimits and nextReportCount in :shared.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedInAs(uid) {
@@ -63,14 +64,21 @@ service cloud.firestore {
       allow create: if request.auth != null
         && code.matches('SN-[2-9A-HJKMNP-TV-Z]{4}')
         && validReport(request.resource.data)
-        // The install's count moved on in the same write.
-        && getAfter(/databases/$(database)/documents/installs/$(request.auth.uid)).data.last == request.time;
+        // The install's count moved on for this report in the same write.
+        && getAfter(/databases/$(database)/documents/installs/$(request.auth.uid)).data.last == request.time
+        && getAfter(/databases/$(database)/documents/installs/$(request.auth.uid)).data.code == code;
     }
 
     match /installs/{uid} {
       function validCount(c) {
-        return c.keys().hasOnly(['count', 'since', 'last']) && c.keys().hasAll(['count', 'since', 'last'])
-          && c.count is int && c.last == request.time;
+        return c.keys().hasOnly(['count', 'since', 'last', 'code', 'expireAt'])
+          && c.keys().hasAll(['count', 'since', 'last', 'code', 'expireAt'])
+          && c.count is int && c.last == request.time
+          && c.code is string && c.code.matches('SN-[2-9A-HJKMNP-TV-Z]{4}')
+          // The count is deleted two days after the last report, by which time a new day has started anyway.
+          && c.expireAt is timestamp
+          && c.expireAt >= request.time + duration.value(1, 'd')
+          && c.expireAt <= request.time + duration.value(3, 'd');
       }
 
       // The app reads its own count to know whether a new day has started.

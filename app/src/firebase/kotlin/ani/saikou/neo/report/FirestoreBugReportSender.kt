@@ -1,5 +1,6 @@
 package ani.saikou.neo.report
 
+import android.os.SystemClock
 import ani.saikou.neo.shared.log.AppLog
 import ani.saikou.neo.shared.report.BugReport
 import ani.saikou.neo.shared.report.BugReportSender
@@ -37,32 +38,51 @@ internal class FirestoreBugReportSender : BugReportSender {
         }
     }
 
-    override suspend fun send(report: BugReport): SendResult =
-        withTimeoutOrNull(TIMEOUT_MS) {
-            val auth = FirebaseAuth.getInstance()
-            val uid = (auth.currentUser ?: auth.signInAnonymously().await().user)?.uid ?: return@withTimeoutOrNull SendResult.Failed
-            // A code already taken makes the rules refuse the write, so another is tried.
-            repeat(TRIES) {
-                val code = newReportCode()
-                try {
-                    return@withTimeoutOrNull if (store(uid, code, report)) SendResult.Sent(code) else SendResult.Failed
-                } catch (e: FirebaseFirestoreException) {
-                    if (e.code != FirebaseFirestoreException.Code.PERMISSION_DENIED) throw e
-                    AppLog.w(TAG, "Report refused, trying another code")
-                }
+    override suspend fun send(report: BugReport): SendResult {
+        // Only signing in is timed out. Once a transaction is under way it may still be stored after any timeout, so the
+        // user isn't told it failed when it went through.
+        val user = withTimeoutOrNull(SIGN_IN_TIMEOUT_MS) { signIn() } ?: return SendResult.Failed
+        // A code already taken makes the rules refuse the write, so another is tried.
+        repeat(TRIES) {
+            val code = newReportCode()
+            try {
+                return if (store(user, code, report)) SendResult.Sent(code) else SendResult.Failed
+            } catch (e: FirebaseFirestoreException) {
+                if (e.code != FirebaseFirestoreException.Code.PERMISSION_DENIED) throw e
+                AppLog.w(TAG, "Report refused, trying another code")
             }
-            SendResult.Failed
-        } ?: SendResult.Failed
+        }
+        return SendResult.Failed
+    }
+
+    /**
+     * Signs in anonymously and reads the server's time from a fresh ID token, as a TV's own clock is often wrong and the
+     * rules check times against the server's.
+     */
+    private suspend fun signIn(): SignedIn? {
+        val auth = FirebaseAuth.getInstance()
+        val user = auth.currentUser ?: auth.signInAnonymously().await().user ?: return null
+        val issued = user.getIdToken(true).await().issuedAtTimestamp
+        return SignedIn(user.uid, issued * 1000, SystemClock.elapsedRealtime())
+    }
+
+    private class SignedIn(
+        val uid: String,
+        val serverMillis: Long,
+        val atElapsed: Long,
+    ) {
+        fun serverNow(): Long = serverMillis + (SystemClock.elapsedRealtime() - atElapsed)
+    }
 
     /** False when the install has to wait before sending another. */
     private suspend fun store(
-        uid: String,
+        user: SignedIn,
         code: String,
         report: BugReport,
     ): Boolean =
         db
             .runTransaction { tx ->
-                val installRef = db.collection(INSTALLS).document(uid)
+                val installRef = db.collection(INSTALLS).document(user.uid)
                 val install = tx.get(installRef)
                 val last =
                     if (install.exists()) {
@@ -74,11 +94,21 @@ internal class FirestoreBugReportSender : BugReportSender {
                     } else {
                         null
                     }
-                val now = System.currentTimeMillis()
+                val now = user.serverNow()
                 val next = nextReportCount(last, now) ?: return@runTransaction false
                 val since: Any = install.getTimestamp(SINCE)?.takeIf { next.count > 1 } ?: FieldValue.serverTimestamp()
-                tx.set(installRef, mapOf(COUNT to next.count, SINCE to since, LAST to FieldValue.serverTimestamp()))
-                tx.set(db.collection(REPORTS).document(code), fields(uid, report, now))
+                tx.set(
+                    installRef,
+                    mapOf(
+                        COUNT to next.count,
+                        SINCE to since,
+                        LAST to FieldValue.serverTimestamp(),
+                        // The rules only let a report through with its own move of the count.
+                        "code" to code,
+                        "expireAt" to Timestamp(Date(now + KEEP_COUNT_MS)),
+                    ),
+                )
+                tx.set(db.collection(REPORTS).document(code), fields(user.uid, report, now))
                 true
             }.await()
 
@@ -109,10 +139,14 @@ internal class FirestoreBugReportSender : BugReportSender {
         const val SINCE = "since"
         const val LAST = "last"
         const val TRIES = 3
-        const val TIMEOUT_MS = 30_000L
+        const val SIGN_IN_TIMEOUT_MS = 30_000L
+        const val DAY_MS = 24L * 60 * 60 * 1000
 
-        // 89 days, so a clock a day out still falls in the 88 to 90 the rules allow.
-        const val KEEP_MS = 89L * 24 * 60 * 60 * 1000
+        // 89 days, in the 88 to 90 the rules allow, which leaves room for the token's time being a little out.
+        const val KEEP_MS = 89 * DAY_MS
+
+        // The count goes two days after the last report.
+        const val KEEP_COUNT_MS = 2 * DAY_MS
     }
 }
 

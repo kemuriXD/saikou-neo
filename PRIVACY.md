@@ -61,7 +61,7 @@ Reports go to Google Firebase: crash reports to Firebase Crashlytics and bug
 reports to Cloud Firestore. The app signs in to Firebase anonymously to send a
 bug report, so there's no account with us. To stop floods of reports, Firestore
 also keeps how many reports that anonymous ID has sent in the last day and
-when. Crashlytics also collects its own
+when, for two days after its last report. Crashlytics also collects its own
 install ID and device data. Google handles all of this under the
 [Firebase privacy terms](https://firebase.google.com/support/privacy).
 

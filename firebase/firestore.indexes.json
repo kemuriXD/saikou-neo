@@ -8,6 +8,12 @@
       "indexes": []
     },
     {
+      "collectionGroup": "installs",
+      "fieldPath": "expireAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
       "collectionGroup": "reports",
       "fieldPath": "log",
       "indexes": []
