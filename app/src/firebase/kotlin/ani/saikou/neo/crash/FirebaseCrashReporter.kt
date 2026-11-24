@@ -8,7 +8,10 @@ internal class FirebaseCrashReporter : CrashReporter {
     private val crashlytics get() = FirebaseCrashlytics.getInstance()
 
     override fun setEnabled(enabled: Boolean) {
+        // Crashlytics applies the new value from the next run and keeps reports on the device while it's off, so
+        // turning it off also deletes those. Called at every start, it clears a run that crashed while off.
         crashlytics.setCrashlyticsCollectionEnabled(enabled)
+        if (!enabled) crashlytics.deleteUnsentReports()
     }
 
     override fun setUser(

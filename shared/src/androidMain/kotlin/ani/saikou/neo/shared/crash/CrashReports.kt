@@ -10,7 +10,9 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.emptyFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /**
@@ -27,7 +29,8 @@ public class CrashReports(
 
     /**
      * Starts passing log lines on at once, so call it before anything is logged. [facts] are read and [settings],
-     * [account] and [network] followed in [scope], so nothing here blocks.
+     * [account] and [network] followed in [scope], so nothing here blocks. A crash before the settings load follows
+     * the choice the reporter saved on the last run.
      */
     public fun start(
         facts: suspend () -> Map<String, String>,
@@ -36,8 +39,11 @@ public class CrashReports(
         network: Flow<String> = emptyFlow(),
     ) {
         AppLog.addSink(sink)
-        // Every emission, so turning it off stops sending now. Crashlytics keeps the choice for the next run too.
-        scope.launch(failed) { settings.collect { safely { reporter.setEnabled(it.crashReports) } } }
+        // Only changes, the first value included. The reporter keeps the choice for the next run, where it fully
+        // applies, and deletes the reports kept while it was off.
+        scope.launch(failed) {
+            settings.map { it.crashReports }.distinctUntilChanged().collect { safely { reporter.setEnabled(it) } }
+        }
         scope.launch(failed) {
             facts().forEach { (key, value) -> safely { reporter.setKey(key, value) } }
             network.collect { safely { reporter.setKey(NETWORK, it) } }

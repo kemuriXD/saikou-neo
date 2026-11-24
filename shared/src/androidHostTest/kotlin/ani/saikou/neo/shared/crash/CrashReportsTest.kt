@@ -95,6 +95,19 @@ class CrashReportsTest {
         }
 
     @Test
+    fun otherSettingChangesLeaveSendingAlone() =
+        runTest(UnconfinedTestDispatcher()) {
+            val settings = MutableSharedFlow<Settings>()
+            CrashReports(reporter, backgroundScope).start({ facts }, settings, emptyFlow())
+
+            settings.emit(Settings(crashReports = false))
+            settings.emit(Settings(crashReports = false, slowTv = true))
+            settings.emit(Settings(crashReports = true))
+
+            assertEquals(listOf("enabled false", "enabled true"), reporter.calls)
+        }
+
+    @Test
     fun theUserFollowsSignInAndSignOut() =
         runTest(UnconfinedTestDispatcher()) {
             val account = MutableStateFlow<SignedInAccount?>(null)

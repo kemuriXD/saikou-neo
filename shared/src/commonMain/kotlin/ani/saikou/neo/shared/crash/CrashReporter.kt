@@ -2,7 +2,7 @@ package ani.saikou.neo.shared.crash
 
 /** Where crash reports go. The app has no reporter unless a build adds one. */
 public interface CrashReporter {
-    /** Turns sending reports on or off. */
+    /** Turns sending reports on or off. Off also deletes reports waiting on the device. */
     public fun setEnabled(enabled: Boolean)
 
     /** Tags reports with the signed-in user. Null clears it. */
