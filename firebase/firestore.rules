@@ -1,0 +1,96 @@
+rules_version = '2';
+
+// Bug reports (ADR 0059). The app signs in anonymously and may only create a report: nothing can read, change or
+// delete one from the app. installs/{uid} counts each install's reports, written in the same transaction as the
+// report, so one install sends at most 10 a day and one a minute. The limits match BugReportLimits in :shared.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedInAs(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    function text(m, key, max) {
+      return m[key] is string && m[key].size() <= max;
+    }
+
+    function optionalText(m, key, max) {
+      return !(key in m) || text(m, key, max);
+    }
+
+    function validDevice(m) {
+      return m is map
+        && m.keys().hasOnly(['version', 'channel', 'ui', 'model', 'manufacturer', 'android', 'network',
+          'memory_total_mb', 'memory_low', 'storage_free_mb'])
+        && optionalText(m, 'version', 100) && optionalText(m, 'channel', 100) && optionalText(m, 'ui', 100)
+        && optionalText(m, 'model', 100) && optionalText(m, 'manufacturer', 100) && optionalText(m, 'android', 100)
+        && optionalText(m, 'network', 100) && optionalText(m, 'memory_total_mb', 100)
+        && optionalText(m, 'memory_low', 100) && optionalText(m, 'storage_free_mb', 100);
+    }
+
+    function validContext(m) {
+      return m is map
+        && m.keys().hasOnly(['screen', 'anime_id', 'episode', 'extension', 'extension_version'])
+        && optionalText(m, 'screen', 100) && optionalText(m, 'anime_id', 100) && optionalText(m, 'episode', 100)
+        && optionalText(m, 'extension', 100) && optionalText(m, 'extension_version', 100);
+    }
+
+    function validAccount(r) {
+      return !('account' in r)
+        || (r.account is map && r.account.keys().hasOnly(['id', 'name']) && r.account.keys().hasAll(['id', 'name'])
+          && text(r.account, 'id', 100) && text(r.account, 'name', 100));
+    }
+
+    function validReport(r) {
+      return r.keys().hasAll(['uid', 'category', 'description', 'device', 'context', 'log', 'createdAt', 'expireAt'])
+        && r.keys().hasOnly(['uid', 'category', 'description', 'device', 'context', 'account', 'log', 'screenshot',
+          'createdAt', 'expireAt'])
+        && r.uid == request.auth.uid
+        && r.category is string && r.category.matches('[a-z_]{1,32}')
+        && text(r, 'description', 2000)
+        && validDevice(r.device)
+        && validContext(r.context)
+        && validAccount(r)
+        && r.log is bytes && r.log.size() <= 262144
+        && (!('screenshot' in r) || (r.screenshot is bytes && r.screenshot.size() <= 614400))
+        && r.createdAt == request.time
+        // Kept 90 days. The app sets it from its own clock, so a day either way is allowed.
+        && r.expireAt is timestamp
+        && r.expireAt >= request.time + duration.value(88, 'd')
+        && r.expireAt <= request.time + duration.value(90, 'd');
+    }
+
+    match /reports/{code} {
+      allow create: if request.auth != null
+        && code.matches('SN-[2-9A-HJKMNP-TV-Z]{4}')
+        && validReport(request.resource.data)
+        // The install's count moved on in the same write.
+        && getAfter(/databases/$(database)/documents/installs/$(request.auth.uid)).data.last == request.time;
+    }
+
+    match /installs/{uid} {
+      function validCount(c) {
+        return c.keys().hasOnly(['count', 'since', 'last']) && c.keys().hasAll(['count', 'since', 'last'])
+          && c.count is int && c.last == request.time;
+      }
+
+      // The app reads its own count to know whether a new day has started.
+      allow get: if signedInAs(uid);
+
+      allow create: if signedInAs(uid)
+        && validCount(request.resource.data)
+        && request.resource.data.count == 1
+        && request.resource.data.since == request.time;
+
+      allow update: if signedInAs(uid)
+        && validCount(request.resource.data)
+        && request.time > resource.data.last + duration.value(1, 'm')
+        && (
+          // A day after the first report of the last count, it starts again.
+          (request.time > resource.data.since + duration.value(1, 'd')
+            && request.resource.data.count == 1 && request.resource.data.since == request.time)
+          || (request.resource.data.since == resource.data.since
+            && request.resource.data.count == resource.data.count + 1 && request.resource.data.count <= 10)
+        );
+    }
+  }
+}

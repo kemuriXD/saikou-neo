@@ -73,7 +73,12 @@ public fun buildBugReport(
     scrubber: CrashLogScrubber,
 ): BugReport {
     require(BugReportLimits.CATEGORY.matches(category)) { "Not a report category: $category" }
-    val lines = log.lineSequence().filter { it.isNotBlank() }.map { clean(it, scrubber) }.toList()
+    val lines =
+        log
+            .lineSequence()
+            .filter { it.isNotBlank() }
+            .map { clean(it, scrubber) }
+            .toList()
     return BugReport(
         category = category,
         description = description.take(BugReportLimits.DESCRIPTION_CHARS),
