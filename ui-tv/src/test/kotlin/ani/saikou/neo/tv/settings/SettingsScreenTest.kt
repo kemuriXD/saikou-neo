@@ -184,6 +184,8 @@ class SettingsScreenTest {
             }
         }
         compose.onNodeWithText("WATCHING ON THIS TV").assertExists()
+        // Crash reports follow the app, so they sit under their own heading, not the watching one.
+        compose.onNodeWithText("THIS APP").assertExists()
         press(Key.DirectionRight)
         press(Key.DirectionDown, times = 2)
         setting(Setting.UPDATE_ANILIST).assertIsFocused()
@@ -245,7 +247,7 @@ class SettingsScreenTest {
         compose.onNodeWithText("Send crash reports", useUnmergedTree = true).assertExists()
         compose
             .onNodeWithText(
-                "When the app crashes, send a report so it can be fixed. It includes your AniList name and device details.",
+                "When the app crashes, send a report so it can be fixed. It includes your AniList name and ID, device details and recent app logs.",
                 useUnmergedTree = true,
             ).assertExists()
         compose
@@ -274,6 +276,12 @@ class SettingsScreenTest {
                 useUnmergedTree = true,
             ).assertExists()
         setting(Setting.UPDATE_ANILIST).assertDoesNotExist()
+        compose.onNodeWithText("THIS APP").assertExists()
+
+        press(Key.DirectionRight)
+        compose.onNodeWithTag(SIGN_IN_ENTRY_TAG).assertIsFocused()
+        press(Key.DirectionDown)
+        setting(Setting.CRASH_REPORTS).assertIsFocused()
     }
 
     @Test

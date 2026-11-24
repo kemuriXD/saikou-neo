@@ -365,16 +365,21 @@ private fun SettingsPage(
             if (category == SettingsCategory.ACCOUNT) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     AccountPane(account, accountUi, categories.getValue(category))
-                    if (account.profile != null) {
+                    val overline: @Composable (Int) -> Unit = { text ->
                         Text(
-                            stringResource(R.string.settings_account_watching).uppercase(),
+                            stringResource(text).uppercase(),
                             style = Overline,
                             color = colors.textFaint,
                             modifier = Modifier.padding(top = 4.dp),
                         )
+                    }
+                    if (account.profile != null) {
+                        overline(R.string.settings_account_watching)
                         settingRows(category.settings - Setting.CRASH_REPORTS)
                     }
-                    // Crash reports follow the app, not the AniList account, so they show signed out too.
+                    // Crash reports follow the app, not the AniList account, so they have their own heading and show
+                    // signed out too.
+                    overline(R.string.settings_account_this_app)
                     settingRows(listOf(Setting.CRASH_REPORTS))
                 }
                 return@AnimatedContent
