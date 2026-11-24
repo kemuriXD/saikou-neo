@@ -8,6 +8,7 @@ import ani.saikou.neo.shared.catalogue.art
 import ani.saikou.neo.shared.details.EpisodeList
 import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
+import ani.saikou.neo.shared.log.AppLog
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
@@ -59,6 +60,9 @@ public data class PlayServer(
     val server: FoundServer,
     val sourceServers: Int,
 )
+
+/** The tag the player's lines carry in the app log. */
+internal const val PLAYER_LOG_TAG = "Player"
 
 /**
  * What the player opens with: the episode, and the [servers] the streams page listed, in its order, with the one [picked].
@@ -458,6 +462,7 @@ public class PlayerViewModel<S>(
         mutableState.update { it.copy(phase = PlayerPhase.Playing(answered)) }
         val server = state.value.server
         val audio = answered.audio.getOrNull(state.value.pickedAudio)
+        AppLog.i(PLAYER_LOG_TAG, "Playing show ${request.show.card.id} episode ${request.episode} on ${server.server.name}")
         lastServers?.saveServer(request.show.card.id, LastServer(server.source.id, server.server.name, server.server.edition, audio))
     }
 
@@ -587,7 +592,8 @@ public class PlayerViewModel<S>(
                         return@launch stop(FailReason.SourceDown)
                     } catch (e: SourceFailure) {
                         return@launch stop(e.reason)
-                    } catch (_: Exception) {
+                    } catch (e: Exception) {
+                        AppLog.w(PLAYER_LOG_TAG, "The stream could not be loaded", e)
                         return@launch stop(FailReason.SourceDown)
                     }
                 val wanted = wantsAudio
@@ -611,6 +617,7 @@ public class PlayerViewModel<S>(
         httpCode: Int? = null,
         atMs: Long? = state.value.startAtMs.takeIf { it > 0 },
     ) {
+        AppLog.w(PLAYER_LOG_TAG, "Playback stopped: $reason${httpCode?.let { ", HTTP $it" }.orEmpty()}")
         val current = state.value
         val next = listed.getOrNull(index + 1)
         val starting = (current.phase as? PlayerPhase.Starting<*>)?.quiet == false

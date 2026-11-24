@@ -3,6 +3,7 @@ package ani.saikou.neo.shared.playback
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import ani.saikou.neo.shared.catalogue.AnimeDetails
+import ani.saikou.neo.shared.log.AppLog
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import ani.saikou.neo.shared.sources.awaitAllowingSiteChecks
@@ -160,6 +161,7 @@ public class ServersViewModel(
                 } catch (_: Exception) {
                     SourceAnswer.Failed(FailReason.SourceDown)
                 }
+            if (answer is SourceAnswer.Failed) AppLog.w(PLAYER_LOG_TAG, "${source.name} gave no servers: ${answer.reason}")
             mutableState.update { it.answered(source, answer) }
             if (answer is SourceAnswer.Failed && answer.waitSeconds != null) countDown(source)
         }

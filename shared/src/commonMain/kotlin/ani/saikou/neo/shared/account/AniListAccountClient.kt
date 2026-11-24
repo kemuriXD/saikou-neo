@@ -14,6 +14,7 @@ import ani.saikou.neo.shared.catalogue.anilist.type.FuzzyDateInput
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaListStatus
 import ani.saikou.neo.shared.catalogue.anilist.type.MediaStatus
 import ani.saikou.neo.shared.catalogue.toAniListError
+import ani.saikou.neo.shared.log.AppLog
 import com.apollographql.apollo.ApolloClient
 import com.apollographql.apollo.api.Optional
 import com.apollographql.apollo.exception.ApolloException
@@ -92,13 +93,13 @@ public class AniListAccountClient internal constructor(
                         .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
                         .execute()
                 }
-            } ?: return AniListResult.Failure(AniListError.Network("No answer from AniList"))
-        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+            } ?: return AniListResult.Failure(AniListError.Network("No answer from AniList").also { AppLog.w(TAG, "viewer: $it") })
+        response.exception?.let { return AniListResult.Failure(it.toAccountError("viewer")) }
         val viewer = response.data?.Viewer
         return if (viewer != null) {
             AniListResult.Success(AniListProfile(viewer.id, viewer.name, viewer.siteUrl, viewer.avatar?.large))
         } else {
-            AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+            AniListResult.Failure(unexpected("viewer", response.errors?.firstOrNull()?.message))
         }
     }
 
@@ -115,10 +116,10 @@ public class AniListAccountClient internal constructor(
                 .query(WatchListQuery(userId))
                 .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
                 .execute()
-        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+        response.exception?.let { return AniListResult.Failure(it.toAccountError("watchList")) }
         val collection =
             response.data?.MediaListCollection
-                ?: return AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+                ?: return AniListResult.Failure(unexpected("watchList", response.errors?.firstOrNull()?.message))
         // A show on a custom list is also on its status list, so custom lists only repeat shows.
         val shows =
             collection.lists
@@ -141,10 +142,10 @@ public class AniListAccountClient internal constructor(
                 .query(ContinueListQuery(userId))
                 .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
                 .execute()
-        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+        response.exception?.let { return AniListResult.Failure(it.toAccountError("continueList")) }
         val collection =
             response.data?.MediaListCollection
-                ?: return AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+                ?: return AniListResult.Failure(unexpected("continueList", response.errors?.firstOrNull()?.message))
         // A show on a custom list is also on its status list, so custom lists only repeat shows.
         val shows =
             collection.lists
@@ -169,16 +170,16 @@ public class AniListAccountClient internal constructor(
                 .query(ListEntryQuery(mediaId))
                 .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
                 .execute()
-        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+        response.exception?.let { return AniListResult.Failure(it.toAccountError("showEntry")) }
         val media =
             response.data?.Media
-                ?: return AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+                ?: return AniListResult.Failure(unexpected("showEntry", response.errors?.firstOrNull()?.message))
         val entry =
             media.mediaListEntry?.let { entry ->
                 // An entry in a status the app doesn't know is on the list all the same, so it isn't read as missing.
                 val status =
                     entry.status?.toListStatus()
-                        ?: return AniListResult.Failure(AniListError.Unexpected("Unknown list status ${entry.status}"))
+                        ?: return AniListResult.Failure(unexpected("showEntry", "Unknown list status ${entry.status}"))
                 ListEntry(
                     status,
                     entry.progress ?: 0,
@@ -217,11 +218,11 @@ public class AniListAccountClient internal constructor(
                 .mutation(mutation)
                 .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
                 .execute()
-        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+        response.exception?.let { return AniListResult.Failure(it.toAccountError("saveProgress")) }
         return if (response.data?.SaveMediaListEntry != null) {
             AniListResult.Success(Unit)
         } else {
-            AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+            AniListResult.Failure(unexpected("saveProgress", response.errors?.firstOrNull()?.message))
         }
     }
 
@@ -234,11 +235,11 @@ public class AniListAccountClient internal constructor(
                 .mutation(DeleteEntryMutation(entryId))
                 .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
                 .execute()
-        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+        response.exception?.let { return AniListResult.Failure(it.toAccountError("removeEntry")) }
         return if (response.data?.DeleteMediaListEntry?.deleted == true) {
             AniListResult.Success(Unit)
         } else {
-            AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+            AniListResult.Failure(unexpected("removeEntry", response.errors?.firstOrNull()?.message))
         }
     }
 
@@ -265,11 +266,11 @@ public class AniListAccountClient internal constructor(
                 .mutation(mutation)
                 .addHttpHeader("Authorization", "Bearer ${token.accessToken}")
                 .execute()
-        response.exception?.let { return AniListResult.Failure(it.toAccountError()) }
+        response.exception?.let { return AniListResult.Failure(it.toAccountError("restoreEntry")) }
         return if (response.data?.SaveMediaListEntry != null) {
             AniListResult.Success(Unit)
         } else {
-            AniListResult.Failure(AniListError.Unexpected(response.errors?.firstOrNull()?.message))
+            AniListResult.Failure(unexpected("restoreEntry", response.errors?.firstOrNull()?.message))
         }
     }
 
@@ -289,15 +290,23 @@ private const val INVALID_TOKEN = "Invalid token"
  * The error for a failed call. A token AniList refuses is [AniListError.SignedOut]; any other 400, such as a query
  * AniList no longer accepts, stays an HTTP error. The error body is always closed.
  */
-private fun ApolloException.toAccountError(): AniListError {
+private fun ApolloException.toAccountError(call: String): AniListError {
     val body = (this as? ApolloHttpException)?.body?.use { runCatching { it.readUtf8() }.getOrNull() }
     val error = toAniListError()
-    if (error !is AniListError.Http) return error
     val refused =
-        error.statusCode in REFUSED ||
-            (error.statusCode == 400 && body?.contains(INVALID_TOKEN) == true)
-    return if (refused) AniListError.SignedOut else error
+        error is AniListError.Http &&
+            (error.statusCode in REFUSED || (error.statusCode == 400 && body?.contains(INVALID_TOKEN) == true))
+    val result = if (refused) AniListError.SignedOut else error
+    AppLog.w(TAG, "$call: $result", this)
+    return result
 }
+
+private fun unexpected(
+    call: String,
+    message: String?,
+): AniListError = AniListError.Unexpected(message).also { AppLog.w(TAG, "$call: $it") }
+
+private const val TAG = "AniList"
 
 private fun WatchListQuery.Entry.toShow(): WatchListShow? {
     val media = media ?: return null

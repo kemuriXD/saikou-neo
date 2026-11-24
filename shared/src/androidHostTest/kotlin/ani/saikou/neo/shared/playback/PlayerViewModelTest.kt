@@ -10,6 +10,9 @@ import ani.saikou.neo.shared.catalogue.AnimeDetails
 import ani.saikou.neo.shared.catalogue.AnimeTitle
 import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
+import ani.saikou.neo.shared.log.AppLog
+import ani.saikou.neo.shared.log.LogLevel
+import ani.saikou.neo.shared.log.RecordingSink
 import ani.saikou.neo.shared.settings.SubOrDub
 import ani.saikou.neo.shared.sources.InstalledSource
 import kotlinx.coroutines.CompletableDeferred
@@ -336,6 +339,28 @@ class PlayerViewModelTest {
 
             assertEquals(PlayServer(demo, one, 2), player.state.value.server)
             assertEquals(PlayerPhase.Stopped(FailReason.SourceDown, 503, 724_000, PlayServer(demo, two, 2)), player.phase)
+        }
+
+    @Test
+    fun stopIsLogged() =
+        test {
+            val sink = RecordingSink()
+            AppLog.addSink(sink)
+            try {
+                val player = player(FakeStreams())
+                player.started()
+
+                player.failed(PlayerError.Failed(FailReason.SourceDown, 503), positionMs = 724_000)
+
+                assertTrue(sink.lines.any { it.level == LogLevel.Info && it.tag == "Player" && "Playing show" in it.message })
+                assertTrue(
+                    sink.lines.any {
+                        it.level == LogLevel.Warn && it.tag == "Player" && "SourceDown" in it.message && "503" in it.message
+                    },
+                )
+            } finally {
+                AppLog.removeSink(sink)
+            }
         }
 
     @Test

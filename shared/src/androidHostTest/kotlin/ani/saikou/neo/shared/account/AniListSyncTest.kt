@@ -7,6 +7,9 @@ import ani.saikou.neo.shared.home.SyncedSides
 import ani.saikou.neo.shared.home.WatchHistory
 import ani.saikou.neo.shared.home.WatchProgress
 import ani.saikou.neo.shared.home.YourList
+import ani.saikou.neo.shared.log.AppLog
+import ani.saikou.neo.shared.log.LogLevel
+import ani.saikou.neo.shared.log.RecordingSink
 import ani.saikou.neo.shared.settings.Settings
 import ani.saikou.neo.shared.settings.UpdateAniList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -149,6 +152,23 @@ class AniListSyncTest {
 
             assertEquals(listOf(101 to ProgressUpdate(4, null, null)), client.saved)
             assertEquals(emptyList(), queue.all())
+        }
+
+    @Test
+    fun failedSendIsLogged() =
+        runTest {
+            val sink = RecordingSink()
+            AppLog.addSink(sink)
+            try {
+                val sync = sync(FakeClient(failWith = AniListError.Network("offline")), MemoryQueue())
+
+                sync.watched(101, 4)
+                runCurrent()
+
+                assertTrue(sink.lines.any { it.level == LogLevel.Warn && it.tag == "AniList" && "kept for later" in it.message })
+            } finally {
+                AppLog.removeSink(sink)
+            }
         }
 
     @Test
