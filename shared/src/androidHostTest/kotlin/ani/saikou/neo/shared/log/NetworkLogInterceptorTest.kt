@@ -5,6 +5,8 @@ import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import okhttp3.Request
 import java.io.IOException
+import java.io.InterruptedIOException
+import java.util.concurrent.TimeUnit
 import kotlin.test.AfterTest
 import kotlin.test.BeforeTest
 import kotlin.test.Test
@@ -12,6 +14,7 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.milliseconds
 
 class NetworkLogInterceptorTest {
     private val server = MockWebServer()
@@ -55,6 +58,19 @@ class NetworkLogInterceptorTest {
         val line = sink.lines.single()
         assertEquals("Net", line.tag)
         assertEquals(LogLevel.Warn, line.level)
+        assertTrue("failed" in line.message, line.message)
+    }
+
+    @Test
+    fun callTimeoutIsLogged() {
+        server.enqueue(MockResponse.Builder().headersDelay(5, TimeUnit.SECONDS).build())
+        val slow = sharedHttpClient(callLimit = 300.milliseconds)
+
+        assertFailsWith<InterruptedIOException> { slow.newCall(Request.Builder().url(server.url("/x")).build()).execute().close() }
+
+        val line = sink.lines.single()
+        assertEquals(LogLevel.Warn, line.level)
+        assertEquals("Net", line.tag)
         assertTrue("failed" in line.message, line.message)
     }
 
