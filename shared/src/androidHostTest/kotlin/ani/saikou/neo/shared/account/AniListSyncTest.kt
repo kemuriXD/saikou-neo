@@ -1263,7 +1263,17 @@ class AniListSyncTest {
             sync(FakeClient(failWith = AniListError.Http(400)), MemoryQueue()).watched(101, 4)
             runCurrent()
 
-            assertEquals(listOf("AniList: List change not sent: Http(statusCode=400), dropped"), reports.recovered.map { it.first })
+            assertEquals(listOf("AniList: List change not sent: HTTP 400, dropped"), reports.recovered.map { it.first })
+        }
+
+    @Test
+    fun anUnexpectedAnswerIsRecordedWithoutAniListsText() =
+        runTest {
+            // AniList's own words can quote the show, as in "Media with id 12345 not found".
+            sync(FakeClient(failWith = AniListError.Unexpected("Media with id 12345 not found")), MemoryQueue()).watched(101, 4)
+            runCurrent()
+
+            assertEquals(listOf("AniList: List change not sent: Unexpected, dropped"), reports.recovered.map { it.first })
         }
 
     @Test

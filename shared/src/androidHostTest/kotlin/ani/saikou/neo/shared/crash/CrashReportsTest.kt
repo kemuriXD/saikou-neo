@@ -217,13 +217,19 @@ class CrashReportsTest {
             reports.start({ facts }, settings, emptyFlow())
             reports.addSourceTerms(setOf("gotaku"))
 
+            // The setting could be off, so nothing is recorded until it's read.
+            CrashContext.recovered("Player", "Before the settings")
+            settings.emit(Settings(crashReports = true))
             CrashContext.recovered("Player", "gotaku stopped")
             settings.emit(Settings(crashReports = false))
             CrashContext.recovered("Player", "Lost while off")
             settings.emit(Settings(crashReports = true))
             CrashContext.screen("player")
 
-            assertEquals(listOf("non-fatal Player: [source] stopped", "enabled false", "enabled true"), reporter.calls)
+            assertEquals(
+                listOf("enabled true", "non-fatal Player: [source] stopped", "enabled false", "enabled true"),
+                reporter.calls,
+            )
             assertEquals("player", reporter.keys["screen"])
         }
 

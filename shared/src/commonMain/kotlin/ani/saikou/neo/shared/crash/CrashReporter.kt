@@ -21,7 +21,7 @@ public interface CrashReporter {
 
     /**
      * Records an error the app recovered from. [message] is already cleaned and is the only text sent. [error], when
-     * there is one, gives only its stack frames, so reports group by where it happened. Its own message is never sent.
+     * there is one, gives only the app's stack frames, so reports group by where it happened. Its own message is never sent.
      */
     public fun recordNonFatal(
         message: String,

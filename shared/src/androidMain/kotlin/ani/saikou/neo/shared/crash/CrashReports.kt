@@ -39,6 +39,8 @@ public class CrashReports(
         network: Flow<String> = emptyFlow(),
     ) {
         AppLog.addSink(sink)
+        // Off until the setting is read, as it could be off.
+        CrashContext.enabled = false
         CrashContext.install(reporter, scrubber)
         // Only changes, the first value included. The reporter keeps the choice for the next run, where it fully
         // applies, and deletes the reports kept while it was off.
