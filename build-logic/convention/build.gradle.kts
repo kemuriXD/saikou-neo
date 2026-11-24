@@ -9,4 +9,6 @@ dependencies {
     implementation(libs.apollo.gradle.plugin)
     implementation(libs.baselineprofile.gradle.plugin)
     implementation(libs.maven.publish.gradle.plugin)
+    implementation(libs.google.services.gradle.plugin)
+    implementation(libs.firebase.crashlytics.gradle.plugin)
 }

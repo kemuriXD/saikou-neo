@@ -10,6 +10,8 @@ import ani.saikou.neo.shared.account.SyncQueueStore
 import ani.saikou.neo.shared.catalogue.AnimeScheduleClient
 import ani.saikou.neo.shared.catalogue.PrefsShowMatchStore
 import ani.saikou.neo.shared.catalogue.ShowMatcher
+import ani.saikou.neo.shared.crash.CrashReporter
+import ani.saikou.neo.shared.crash.NoCrashReporter
 import ani.saikou.neo.shared.home.AniListYourList
 import ani.saikou.neo.shared.home.SyncedSides
 import ani.saikou.neo.shared.home.WatchHistoryStore
@@ -40,13 +42,21 @@ import java.util.Calendar
  * Holds what lives as long as the app: the settings, recent searches, sources and last servers, each of which only one
  * store may have open, as can the watch history. Schedule's week is kept here too, so it outlasts the screen.
  */
-class NeoApp :
+open class NeoApp :
     Application(),
     SettingsStoreOwner {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /** Where crash reports go, set once the app is created. */
+    lateinit var crashReporter: CrashReporter
+        private set
+
+    /** The app module gives builds with Firebase a real reporter. */
+    protected open fun crashReporter(): CrashReporter = NoCrashReporter
+
     override fun onCreate() {
         super.onCreate()
+        crashReporter = crashReporter()
         installAppLog(this, packageManager.getPackageInfo(packageName, 0).versionName ?: "unknown")
     }
 
