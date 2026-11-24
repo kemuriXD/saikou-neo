@@ -46,6 +46,17 @@ class CrashContextTest {
     }
 
     @Test
+    fun aSnapshotHoldsTheKeysSetWithoutTheBlankOnes() {
+        CrashContext.screen("player")
+        CrashContext.playing(this, 21, 3, source)
+        assertEquals("3", CrashContext.snapshot()["episode"])
+
+        CrashContext.stoppedPlaying(this)
+
+        assertEquals(mapOf("screen" to "player"), CrashContext.snapshot())
+    }
+
+    @Test
     fun anOldPlayerStoppingLeavesTheNextOnesKeys() {
         // Up next opens the next episode's player before the last one is cleared.
         val old = Any()

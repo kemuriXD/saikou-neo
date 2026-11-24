@@ -128,23 +128,21 @@ private class HoldingSink(
         }
     }
 
-    /**
-     * The store names a source by its ID in a few places, sometimes one that is being installed and so isn't a term
-     * yet. Those places, and anything shaped like a source ID, are taken out whatever the terms are.
-     */
-    private fun withoutIds(line: LogLine): LogLine =
-        line.copy(
-            message =
-                line.message
-                    .replace(namedId) { "${it.groupValues[1]}[source]" }
-                    .replace(sourceIdFormat, "[source]"),
-        )
+    private fun withoutIds(line: LogLine): LogLine = line.copy(message = withoutSourceIds(line.message))
 
     private companion object {
         const val SOURCES = "Sources"
         const val LIMIT = 50
-
-        // The word after these phrases is a source ID or class name. "Install rejected: the file" isn't one.
-        val namedId = Regex("""(Found source |Install rejected: (?!the file\b)|icon of |load )\S+""")
     }
 }
+
+// The word after these phrases is a source ID or class name. "Install rejected: the file" isn't one.
+private val namedId = Regex("""(Found source |Install rejected: (?!the file\b)|icon of |load )\S+""")
+
+/**
+ * The source store names a source by its ID in a few places, sometimes one that is being installed and so isn't a
+ * scrubber term yet. Those places, and anything shaped like a source ID, are taken out of the store's lines whatever
+ * the terms are.
+ */
+internal fun withoutSourceIds(message: String): String =
+    message.replace(namedId) { "${it.groupValues[1]}[source]" }.replace(sourceIdFormat, "[source]")
